@@ -1,0 +1,4 @@
+output: table
+table:
+  style: ColoredYellowWhiteOnBlack
+  max-column-width: 50
