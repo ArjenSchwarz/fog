@@ -36,14 +36,21 @@ var exportsCmd = &cobra.Command{
 	Short: "Get a list of all CloudFormation exports",
 	Long: `Provides an overview of all CloudFormation exports
 
-If you provide a stack name you will only get the exports from that stack, otherwise you will get all of the exports in the region.
+By default the function will return all exports in the region for the account.
+Using the stackname argument you can limit this to a specific stack using the stack's name or ID. If you provide a wildcard filter such as "*dev*" it will match all stacks that match that pattern.
+
+Examples:
+
+$ fog exports
+$ fog exports --stackname my-awesome-stack
+$ fog exports --stackname *awesome*
 `,
 	Run: listExports,
 }
 
 func init() {
 	rootCmd.AddCommand(exportsCmd)
-	stackName = exportsCmd.Flags().StringP("stackname", "n", "", "Name of the stack (optional)")
+	stackName = exportsCmd.Flags().StringP("stackname", "n", "", "Name, ID, or wildcard filter for the stack (optional)")
 }
 
 func listExports(cmd *cobra.Command, args []string) {

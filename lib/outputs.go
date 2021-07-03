@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"log"
+	"regexp"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
@@ -25,7 +27,7 @@ type CfnOutput struct {
 func GetExports(stackname *string, svc *cloudformation.Client) []CfnOutput {
 	exports := []CfnOutput{}
 	input := &cloudformation.DescribeStacksInput{}
-	if *stackname != "" {
+	if *stackname != "" && !strings.Contains(*stackname, "*") {
 		input.StackName = stackname
 	}
 	resp, err := svc.DescribeStacks(context.TODO(), input)
@@ -37,6 +39,12 @@ func GetExports(stackname *string, svc *cloudformation.Client) []CfnOutput {
 		log.Fatalln(err)
 	}
 	for _, stack := range resp.Stacks {
+		if strings.Contains(*stackname, "*") {
+			regex := strings.Replace(*stackname, "*", ".*", -1)
+			if matched, err := regexp.Match(regex, []byte(*stack.StackName)); !matched || err != nil {
+				continue
+			}
+		}
 		for _, output := range stack.Outputs {
 			if aws.ToString(output.ExportName) != "" {
 				parsedOutput := CfnOutput{
