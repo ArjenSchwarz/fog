@@ -24,7 +24,7 @@ type CfnOutput struct {
 // GetExports returns all the exports in the account and region. If stackname
 // is provided, results will be limited to that stack. Each export will also
 // be checked whether it is being imported or not.
-func GetExports(stackname *string, svc *cloudformation.Client) []CfnOutput {
+func GetExports(stackname *string, exportname *string, svc *cloudformation.Client) []CfnOutput {
 	exports := []CfnOutput{}
 	input := &cloudformation.DescribeStacksInput{}
 	if *stackname != "" && !strings.Contains(*stackname, "*") {
@@ -38,15 +38,19 @@ func GetExports(stackname *string, svc *cloudformation.Client) []CfnOutput {
 		}
 		log.Fatalln(err)
 	}
+	stackRegex := "^" + strings.Replace(*stackname, "*", ".*", -1) + "$"
+	exportRegex := "^" + strings.Replace(*exportname, "*", ".*", -1) + "$"
 	for _, stack := range resp.Stacks {
 		if strings.Contains(*stackname, "*") {
-			regex := strings.Replace(*stackname, "*", ".*", -1)
-			if matched, err := regexp.Match(regex, []byte(*stack.StackName)); !matched || err != nil {
+			if matched, err := regexp.MatchString(stackRegex, *stack.StackName); !matched || err != nil {
 				continue
 			}
 		}
 		for _, output := range stack.Outputs {
 			if aws.ToString(output.ExportName) != "" {
+				if matched, err := regexp.MatchString(exportRegex, *output.ExportName); !matched || err != nil {
+					continue
+				}
 				parsedOutput := CfnOutput{
 					StackName:   *stack.StackName,
 					OutputKey:   *output.OutputKey,

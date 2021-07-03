@@ -43,19 +43,23 @@ Examples:
 
 $ fog exports
 $ fog exports --stackname my-awesome-stack
-$ fog exports --stackname *awesome*
+$ fog exports --stackname "*awesome*"
+$ fog exports --export "*myproject*"
 `,
 	Run: listExports,
 }
 
+var exportName *string
+
 func init() {
 	rootCmd.AddCommand(exportsCmd)
 	stackName = exportsCmd.Flags().StringP("stackname", "n", "", "Name, ID, or wildcard filter for the stack (optional)")
+	exportName = exportsCmd.Flags().StringP("export", "e", "", "Filter for the export name")
 }
 
 func listExports(cmd *cobra.Command, args []string) {
 	awsConfig := config.DefaultAwsConfig(*settings)
-	exports := lib.GetExports(stackName, awsConfig.CloudformationClient())
+	exports := lib.GetExports(stackName, exportName, awsConfig.CloudformationClient())
 	keys := []string{"Export", "Description", "Stack", "Value", "Imported"}
 	subtitle := "All exports"
 	if *stackName != "" {
