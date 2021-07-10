@@ -19,6 +19,7 @@ type CfnOutput struct {
 	Description string
 	ExportName  string
 	Imported    bool
+	ImportedBy  []string
 }
 
 // GetExports returns all the exports in the account and region. If stackname
@@ -77,13 +78,14 @@ func GetExports(stackname *string, exportname *string, svc *cloudformation.Clien
 				ExportName:  export.ExportName,
 				Description: export.Description,
 			}
-			_, err := svc.ListImports(
+			imports, err := svc.ListImports(
 				context.TODO(),
 				&cloudformation.ListImportsInput{ExportName: &export.ExportName})
 			if err != nil {
 				resexport.Imported = false
 			} else {
 				resexport.Imported = true
+				resexport.ImportedBy = imports.Imports
 			}
 			c <- resexport
 		}(export)

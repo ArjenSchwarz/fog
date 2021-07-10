@@ -23,6 +23,7 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/ArjenSchwarz/fog/config"
 	"github.com/ArjenSchwarz/fog/lib"
@@ -61,6 +62,9 @@ func listExports(cmd *cobra.Command, args []string) {
 	awsConfig := config.DefaultAwsConfig(*settings)
 	exports := lib.GetExports(stackName, exportName, awsConfig.CloudformationClient())
 	keys := []string{"Export", "Description", "Stack", "Value", "Imported"}
+	if settings.GetBool("verbose") {
+		keys = append(keys, "Imported By")
+	}
 	subtitle := "All exports"
 	if *stackName != "" {
 		subtitle = fmt.Sprintf("Exports for %v", *stackName)
@@ -78,6 +82,9 @@ func listExports(cmd *cobra.Command, args []string) {
 			content["Imported"] = "Yes"
 		} else {
 			content["Imported"] = "No"
+		}
+		if settings.GetBool("verbose") {
+			content["Imported By"] = strings.Join(resource.ImportedBy, settings.GetSeparator())
 		}
 		holder := format.OutputHolder{Contents: content}
 		output.AddHolder(holder)

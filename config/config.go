@@ -27,3 +27,12 @@ func (config *Config) GetString(setting string) string {
 func (config *Config) GetBool(setting string) bool {
 	return viper.GetBool(setting)
 }
+
+func (config *Config) GetSeparator() string {
+	switch config.GetString("output") {
+	case "table":
+		return "\r\n"
+	default:
+		return ", "
+	}
+}
