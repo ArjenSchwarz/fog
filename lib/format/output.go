@@ -73,43 +73,28 @@ func (output OutputArray) toJSON() {
 	}
 }
 
+var TableStyles = map[string]table.Style{
+	"Default":                    table.StyleDefault,
+	"Bold":                       table.StyleBold,
+	"ColoredBright":              table.StyleColoredBright,
+	"ColoredDark":                table.StyleColoredDark,
+	"ColoredBlackOnBlueWhite":    table.StyleColoredBlackOnBlueWhite,
+	"ColoredBlackOnCyanWhite":    table.StyleColoredBlackOnCyanWhite,
+	"ColoredBlackOnGreenWhite":   table.StyleColoredBlackOnGreenWhite,
+	"ColoredBlackOnMagentaWhite": table.StyleColoredBlackOnMagentaWhite,
+	"ColoredBlackOnYellowWhite":  table.StyleColoredBlackOnYellowWhite,
+	"ColoredBlackOnRedWhite":     table.StyleColoredBlackOnRedWhite,
+	"ColoredBlueWhiteOnBlack":    table.StyleColoredBlueWhiteOnBlack,
+	"ColoredCyanWhiteOnBlack":    table.StyleColoredCyanWhiteOnBlack,
+	"ColoredGreenWhiteOnBlack":   table.StyleColoredGreenWhiteOnBlack,
+	"ColoredMagentaWhiteOnBlack": table.StyleColoredMagentaWhiteOnBlack,
+	"ColoredRedWhiteOnBlack":     table.StyleColoredRedWhiteOnBlack,
+	"ColoredYellowWhiteOnBlack":  table.StyleColoredYellowWhiteOnBlack,
+}
+
 func (output OutputArray) toTable() {
 	t := output.buildTable()
-	switch viper.GetString("table.style") {
-	// TODO: Create a command to show examples of all these styles
-	case "Default":
-		t.SetStyle(table.StyleDefault)
-	case "Bold":
-		t.SetStyle(table.StyleBold)
-	case "ColoredBright":
-		t.SetStyle(table.StyleColoredBright)
-	case "ColoredDark":
-		t.SetStyle(table.StyleColoredDark)
-	case "ColoredBlackOnBlueWhite":
-		t.SetStyle(table.StyleColoredBlackOnBlueWhite)
-	case "ColoredBlackOnCyanWhite":
-		t.SetStyle(table.StyleColoredBlackOnCyanWhite)
-	case "ColoredBlackOnGreenWhite":
-		t.SetStyle(table.StyleColoredBlackOnGreenWhite)
-	case "ColoredBlackOnMagentaWhite":
-		t.SetStyle(table.StyleColoredBlackOnMagentaWhite)
-	case "ColoredBlackOnYellowWhite":
-		t.SetStyle(table.StyleColoredBlackOnYellowWhite)
-	case "ColoredBlackOnRedWhite":
-		t.SetStyle(table.StyleColoredBlackOnRedWhite)
-	case "ColoredBlueWhiteOnBlack":
-		t.SetStyle(table.StyleColoredBlueWhiteOnBlack)
-	case "ColoredCyanWhiteOnBlack":
-		t.SetStyle(table.StyleColoredCyanWhiteOnBlack)
-	case "ColoredGreenWhiteOnBlack":
-		t.SetStyle(table.StyleColoredGreenWhiteOnBlack)
-	case "ColoredMagentaWhiteOnBlack":
-		t.SetStyle(table.StyleColoredMagentaWhiteOnBlack)
-	case "ColoredRedWhiteOnBlack":
-		t.SetStyle(table.StyleColoredRedWhiteOnBlack)
-	case "ColoredYellowWhiteOnBlack":
-		t.SetStyle(table.StyleColoredYellowWhiteOnBlack)
-	}
+	t.SetStyle(TableStyles[viper.GetString("table.style")])
 	t.Render()
 }
 

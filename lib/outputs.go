@@ -48,8 +48,10 @@ func GetExports(stackname *string, exportname *string, svc *cloudformation.Clien
 		}
 		for _, output := range stack.Outputs {
 			if aws.ToString(output.ExportName) != "" {
-				if matched, err := regexp.MatchString(exportRegex, *output.ExportName); !matched || err != nil {
-					continue
+				if *exportname != "" {
+					if matched, err := regexp.MatchString(exportRegex, *output.ExportName); !matched || err != nil {
+						continue
+					}
 				}
 				parsedOutput := CfnOutput{
 					StackName:   *stack.StackName,

@@ -1,4 +1,4 @@
 output: table
 table:
-  style: ColoredYellowWhiteOnBlack
+  style: ColoredBlackOnMagentaWhite
   max-column-width: 50
