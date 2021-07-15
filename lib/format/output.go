@@ -29,13 +29,13 @@ type OutputArray struct {
 }
 
 // GetContentsMap returns a stringmap of the output contents
-func (output OutputArray) GetContentsMap() []map[string]string {
+func (output OutputArray) GetContentsMap(settings config.Config) []map[string]string {
 	total := make([]map[string]string, 0, len(output.Contents))
 	for _, holder := range output.Contents {
 		values := make(map[string]string)
 		for _, key := range output.Keys {
 			if val, ok := holder.Contents[key]; ok {
-				values[key] = val
+				values[key] = settings.GetFieldOrEmptyValue(val)
 			}
 		}
 		total = append(total, values)
@@ -47,25 +47,25 @@ func (output OutputArray) GetContentsMap() []map[string]string {
 func (output OutputArray) Write(settings config.Config) {
 	switch settings.GetLCString("output") {
 	case "csv":
-		output.toCSV()
+		output.toCSV(settings)
 	case "table":
-		output.toTable()
+		output.toTable(settings)
 	case "json":
-		output.toJSON()
+		output.toJSON(settings)
 	// case "html":
 	// 	output.toHTML()
 	default: //If an unknown value is provided, use tables
-		output.toTable()
+		output.toTable(settings)
 	}
 }
 
-func (output OutputArray) toCSV() {
-	t := output.buildTable()
+func (output OutputArray) toCSV(settings config.Config) {
+	t := output.buildTable(settings)
 	t.RenderCSV()
 }
 
-func (output OutputArray) toJSON() {
-	jsonString, _ := json.Marshal(output.GetContentsMap())
+func (output OutputArray) toJSON(settings config.Config) {
+	jsonString, _ := json.Marshal(output.GetContentsMap(settings))
 
 	err := PrintByteSlice(jsonString, "")
 	if err != nil {
@@ -92,8 +92,8 @@ var TableStyles = map[string]table.Style{
 	"ColoredYellowWhiteOnBlack":  table.StyleColoredYellowWhiteOnBlack,
 }
 
-func (output OutputArray) toTable() {
-	t := output.buildTable()
+func (output OutputArray) toTable(settings config.Config) {
+	t := output.buildTable(settings)
 	t.SetStyle(TableStyles[viper.GetString("table.style")])
 	t.Render()
 }
@@ -111,14 +111,14 @@ func (output OutputArray) toTable() {
 // 	t.RenderHTML()
 // }
 
-func (output OutputArray) buildTable() table.Writer {
+func (output OutputArray) buildTable(settings config.Config) table.Writer {
 	t := table.NewWriter()
 	if output.Title != "" {
 		t.SetTitle(output.Title)
 	}
 	t.SetOutputMirror(os.Stdout)
 	t.AppendHeader(output.KeysAsInterface())
-	for _, cont := range output.ContentsAsInterfaces() {
+	for _, cont := range output.ContentsAsInterfaces(settings) {
 		t.AppendRow(cont)
 	}
 	columnConfigs := make([]table.ColumnConfig, 0)
@@ -177,14 +177,14 @@ func (output *OutputArray) KeysAsInterface() []interface{} {
 	return b
 }
 
-func (output *OutputArray) ContentsAsInterfaces() [][]interface{} {
+func (output *OutputArray) ContentsAsInterfaces(settings config.Config) [][]interface{} {
 	total := make([][]interface{}, 0)
 
 	for _, holder := range output.Contents {
 		values := make([]interface{}, len(output.Keys))
 		for counter, key := range output.Keys {
 			if val, ok := holder.Contents[key]; ok {
-				values[counter] = val
+				values[counter] = settings.GetFieldOrEmptyValue(val)
 			}
 		}
 		total = append(total, values)

@@ -11,16 +11,19 @@ import (
 
 //AWSConfig is a holder for AWS Config type information
 type AWSConfig struct {
-	Config    aws.Config
-	Region    string
-	AccountID string
-	UserID    string
+	AccountAlias string
+	AccountID    string
+	Config       aws.Config
+	ProfileName  string
+	Region       string
+	UserID       string
 }
 
 // DefaultAwsConfig loads default AWS Config
 func DefaultAwsConfig(config Config) AWSConfig {
 	awsConfig := AWSConfig{}
 	if config.GetLCString("profile") != "" {
+		awsConfig.ProfileName = config.GetLCString("profile")
 		cfg, err := external.LoadDefaultConfig(context.TODO(), external.WithSharedConfigProfile(config.GetLCString("profile")))
 		if err != nil {
 			panic(err)

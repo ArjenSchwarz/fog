@@ -29,10 +29,22 @@ func (config *Config) GetBool(setting string) bool {
 }
 
 func (config *Config) GetSeparator() string {
-	switch config.GetString("output") {
+	switch config.GetLCString("output") {
 	case "table":
 		return "\r\n"
 	default:
 		return ", "
+	}
+}
+
+func (config *Config) GetFieldOrEmptyValue(value string) string {
+	if value != "" {
+		return value
+	}
+	switch config.GetLCString("output") {
+	case "json":
+		return ""
+	default:
+		return "-"
 	}
 }
