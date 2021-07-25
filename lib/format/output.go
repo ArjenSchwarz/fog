@@ -3,6 +3,7 @@ package format
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -93,9 +94,15 @@ var TableStyles = map[string]table.Style{
 }
 
 func (output OutputArray) toTable(settings config.Config) {
+	if settings.SeparateTables {
+		fmt.Println("")
+	}
 	t := output.buildTable(settings)
 	t.SetStyle(TableStyles[viper.GetString("table.style")])
 	t.Render()
+	if settings.SeparateTables {
+		fmt.Println("")
+	}
 }
 
 // TODO: Proper HTML output similar to awstools but using table library

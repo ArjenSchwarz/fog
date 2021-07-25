@@ -3,11 +3,13 @@ package config
 import (
 	"strings"
 
+	"github.com/fatih/color"
 	"github.com/spf13/viper"
 )
 
 // Config holds the global configuration settings
 type Config struct {
+	SeparateTables bool
 }
 
 func (config *Config) GetLCString(setting string) string {
@@ -35,6 +37,43 @@ func (config *Config) GetSeparator() string {
 	default:
 		return ", "
 	}
+}
+
+func (config *Config) PrintFailure(text string) {
+	red := color.New(color.FgRed)
+	redbold := red.Add(color.Bold)
+	redbold.Println("")
+	redbold.Printf("🚨 %v 🚨\r\n", text)
+}
+
+func (config *Config) PrintWarning(text string) {
+	red := color.New(color.FgRed)
+	redbold := red.Add(color.Bold)
+	redbold.Printf("%v\r\n", text)
+}
+
+func (config *Config) PrintInlineWarning(text string) {
+	red := color.New(color.FgRed)
+	redbold := red.Add(color.Bold)
+	redbold.Printf("%v", text)
+}
+
+func (config *Config) PrintSuccess(text string) {
+	green := color.New(color.FgGreen)
+	greenbold := green.Add(color.Bold)
+	greenbold.Println("")
+	greenbold.Printf("✅ %v\r\n", text)
+}
+
+func (config *Config) PrintPositive(text string) {
+	green := color.New(color.FgGreen)
+	greenbold := green.Add(color.Bold)
+	greenbold.Printf("%v\r\n", text)
+}
+
+func (config *Config) PrintBold(text string) {
+	bold := color.New(color.Bold)
+	bold.Printf("%v\r\n", text)
 }
 
 func (config *Config) GetFieldOrEmptyValue(value string) string {

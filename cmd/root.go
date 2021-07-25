@@ -24,6 +24,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/ArjenSchwarz/fog/config"
 	"github.com/spf13/cobra"
@@ -34,7 +35,6 @@ import (
 
 var cfgFile string
 var settings = new(config.Config)
-var stackName *string
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -67,6 +67,16 @@ func init() {
 	// Default table settings
 	viper.SetDefault("table.style", "Default")
 	viper.SetDefault("table.max-column-width", 50)
+
+	// Default file structure settings
+	viper.SetDefault("templates.extensions", []string{".yaml", ".yml", ".templ", ".tmpl", ".template", ".json"})
+	viper.SetDefault("templates.directory", "templates")
+	viper.SetDefault("tags.extensions", []string{".json"})
+	viper.SetDefault("tags.directory", "tags")
+	viper.SetDefault("parameters.extensions", []string{".json"})
+	viper.SetDefault("parameters.directory", "parameters")
+
+	viper.SetDefault("changesetname", "fog-"+time.Now().Local().Format("2006-01-02T15-04-05"))
 }
 
 // initConfig reads in config file and ENV variables if set.

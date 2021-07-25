@@ -2,3 +2,9 @@ output: table
 table:
   style: ColoredBlackOnMagentaWhite
   max-column-width: 50
+templates:
+  directory: examples/templates
+tags:
+  directory: examples/tags
+parameters:
+  directory: examples/parameters

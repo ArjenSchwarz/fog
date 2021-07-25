@@ -8,6 +8,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/cloudformation v1.6.0
 	github.com/aws/aws-sdk-go-v2/service/sts v1.5.0
 	github.com/aws/smithy-go v1.5.0
+	github.com/fatih/color v1.7.0
 	github.com/jedib0t/go-pretty/v6 v6.2.2
 	github.com/mattn/go-runewidth v0.0.13 // indirect
 	github.com/mitchellh/go-homedir v1.1.0
