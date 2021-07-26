@@ -1,4 +1,10 @@
 
+0.6.0 / 2021-07-26
+==================
+
+  * Support for dry run
+  * Use correct type for release workflow
+
 0.5.3 / 2021-07-26
 ==================
 
