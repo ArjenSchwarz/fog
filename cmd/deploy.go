@@ -54,6 +54,7 @@ var deploy_StackName *string
 var deploy_Template *string
 var deploy_Parameters *string
 var deploy_Tags *string
+var deploy_Dryrun *bool
 var deployment lib.DeployInfo
 
 func init() {
@@ -62,6 +63,7 @@ func init() {
 	deploy_Template = deployCmd.Flags().StringP("file", "f", "", "The filename for the template")
 	deploy_Parameters = deployCmd.Flags().StringP("parameters", "p", "", "The filename for the parameters")
 	deploy_Tags = deployCmd.Flags().StringP("tags", "t", "", "The filename for the tags")
+	deploy_Dryrun = deployCmd.Flags().Bool("dryrun", false, "Do a dry run: create the changeset and immediately delete")
 }
 
 func deployTemplate(cmd *cobra.Command, args []string) {
@@ -78,9 +80,17 @@ func deployTemplate(cmd *cobra.Command, args []string) {
 	}
 	bold := color.New(color.Bold).SprintFunc()
 	if deployment.IsNew {
-		fmt.Printf("Deploying new stack '%v' to region %v of account %v\n", bold(*deploy_StackName), awsConfig.Region, awsConfig.AccountID)
+		method := "Deploying"
+		if *deploy_Dryrun {
+			method = fmt.Sprintf("Doing a %v for", bold("dry run"))
+		}
+		fmt.Printf("%v new stack '%v' to region %v of account %v\n", method, bold(*deploy_StackName), awsConfig.Region, awsConfig.AccountID)
 	} else {
-		fmt.Printf("Updating stack '%v' in region %v of account %v\n", bold(*deploy_StackName), awsConfig.Region, awsConfig.AccountID)
+		method := "Updating"
+		if *deploy_Dryrun {
+			method = fmt.Sprintf("Doing a %v for updating", bold("dry run"))
+		}
+		fmt.Printf("%v stack '%v' in region %v of account %v\n", method, bold(*deploy_StackName), awsConfig.Region, awsConfig.AccountID)
 	}
 	template, err := lib.ReadTemplate(deploy_Template)
 	if err != nil {
@@ -104,19 +114,19 @@ func deployTemplate(cmd *cobra.Command, args []string) {
 	deployment.ChangesetName = settings.GetString("changesetname")
 	_, err = deployment.CreateChangeSet(awsConfig.CloudformationClient())
 	if err != nil {
-		settings.PrintFailure("Something went wrong when trying to create the Changeset")
+		settings.PrintFailure(deployChangesetMessageCreationFailed)
 		log.Fatalln(err)
 	}
 	changeset, err := deployment.WaitUntilChangesetDone(awsConfig.CloudformationClient())
 	if err != nil {
-		settings.PrintFailure("Something went wrong when trying to create the Changeset")
+		settings.PrintFailure(deployChangesetMessageCreationFailed)
 		log.Fatalln(err)
 	}
 	if changeset.Status != string(types.ChangeSetStatusCreateComplete) {
-		settings.PrintFailure("The ChangeSet failed to create with the following reason:")
+		settings.PrintFailure(deployChangesetMessageCreationFailed)
 		fmt.Println(changeset.StatusReason)
 		fmt.Println("")
-		fmt.Printf("If you want to look at the ChangeSet in the Console, please go to %v \r\n", changeset.GenerateChangesetUrl(awsConfig))
+		fmt.Printf("%v %v \r\n", deployChangesetMessageConsole, changeset.GenerateChangesetUrl(awsConfig))
 		deployChangesetConfirmation := askForConfirmation("Do you want to delete this change set?")
 		if deployChangesetConfirmation {
 			deleteChangeset(deployment, awsConfig)
@@ -124,6 +134,10 @@ func deployTemplate(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 	showChangeset(*changeset, awsConfig)
+	if *deploy_Dryrun {
+		deleteChangeset(deployment, awsConfig)
+		os.Exit(0)
+	}
 	deployChangesetConfirmation := askForConfirmation("Do you want to deploy this changeset?")
 	if deployChangesetConfirmation {
 		deployChangeset(deployment, awsConfig)
@@ -175,11 +189,11 @@ func deployTemplate(cmd *cobra.Command, args []string) {
 func showChangeset(changeset lib.ChangesetInfo, awsConfig config.AWSConfig) {
 	bold := color.New(color.Bold).SprintFunc()
 	changesetkeys := []string{"Action", "CfnName", "Type", "ID", "Replacement"}
-	changesettitle := fmt.Sprintf("Changes in changeset %v", changeset.Name)
+	changesettitle := fmt.Sprintf("Changes in change set %v", changeset.Name)
 	output := format.OutputArray{Keys: changesetkeys, Title: changesettitle}
 	output.SortKey = "Type"
 	if len(changeset.Changes) == 0 {
-		fmt.Println("No changes to resources have been found, but there are still changes to other parts of the stack")
+		fmt.Println(deployChangesetMessageNoChanges)
 	} else {
 		for _, change := range changeset.Changes {
 			content := make(map[string]string)
@@ -197,15 +211,18 @@ func showChangeset(changeset lib.ChangesetInfo, awsConfig config.AWSConfig) {
 		}
 		output.Write(*settings)
 	}
-
-	fmt.Printf("If you want to look at the changeset in the Console, please go to %v \r\n", changeset.GenerateChangesetUrl(awsConfig))
+	fmt.Printf("%v %v \r\n", deployChangesetMessageConsole, changeset.GenerateChangesetUrl(awsConfig))
 }
 
 func deleteChangeset(deployment lib.DeployInfo, awsConfig config.AWSConfig) {
-	settings.PrintSuccess("OK. I will now delete this changeset for you. You can still look at it with the above link after it's been deleted.")
+	if *deploy_Dryrun {
+		settings.PrintSuccess(deployChangesetMessageDryrunDelete)
+	} else {
+		settings.PrintSuccess(deployChangesetMessageWillDelete)
+	}
 	deleteAttempt := deployment.Changeset.DeleteChangeset(awsConfig.CloudformationClient())
 	if !deleteAttempt {
-		settings.PrintFailure("Something went wrong while trying to delete the changeset")
+		settings.PrintFailure(deployChangesetMessageDeleteFailed)
 	}
 	// Likely a new deployment. Check if the stack is in status REVIEW_IN_PROGRESS and offer to delete
 	if deployment.IsNew {
@@ -220,13 +237,22 @@ func deleteChangeset(deployment lib.DeployInfo, awsConfig config.AWSConfig) {
 }
 
 func deleteStackIfNew(deployment lib.DeployInfo, awsConfig config.AWSConfig) {
-	fmt.Println("It looks like this was a new stack and doesn't have any resources. You can't deploy a stack with the same name until this one has been deleted.")
-	deleteStackConfirmation := askForConfirmation("Do you want me to delete this empty stack for you?")
+	fmt.Println(deployStackMessageNewStackDeleteInfo)
+	var deleteStackConfirmation bool
+	if *deploy_Dryrun {
+		deleteStackConfirmation = true
+	} else {
+		deleteStackConfirmation = askForConfirmation("Do you want me to delete this empty stack for you?")
+	}
 	if deleteStackConfirmation {
 		if !deployment.DeleteStack(awsConfig.CloudformationClient()) {
 			settings.PrintFailure("Something went wrong while trying to delete the stack. Please check manually.")
 		} else {
-			settings.PrintSuccess("OK. I have deleted the stack. You can try to deploy it again.")
+			if *deploy_Dryrun {
+				settings.PrintSuccess(deployStackMessageNewStackDryrunDelete)
+			} else {
+				settings.PrintSuccess(deployStackMessageNewStackDeleteSuccess)
+			}
 		}
 	} else {
 		fmt.Println("No problem. I have left the stack intact, please delete it manually once you're done.")

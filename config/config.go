@@ -39,11 +39,11 @@ func (config *Config) GetSeparator() string {
 	}
 }
 
-func (config *Config) PrintFailure(text string) {
+func (config *Config) PrintFailure(text interface{}) {
 	red := color.New(color.FgRed)
 	redbold := red.Add(color.Bold)
 	redbold.Println("")
-	redbold.Printf("🚨 %v 🚨\r\n", text)
+	redbold.Printf("🚨 %v 🚨\r\n\r\n", text)
 }
 
 func (config *Config) PrintWarning(text string) {
@@ -58,11 +58,11 @@ func (config *Config) PrintInlineWarning(text string) {
 	redbold.Printf("%v", text)
 }
 
-func (config *Config) PrintSuccess(text string) {
+func (config *Config) PrintSuccess(text interface{}) {
 	green := color.New(color.FgGreen)
 	greenbold := green.Add(color.Bold)
 	greenbold.Println("")
-	greenbold.Printf("✅ %v\r\n", text)
+	greenbold.Printf("✅ %v\r\n\r\n", text)
 }
 
 func (config *Config) PrintPositive(text string) {

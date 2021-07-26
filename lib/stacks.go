@@ -3,7 +3,6 @@ package lib
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"strings"
 	"time"
 
@@ -220,7 +219,6 @@ func (deployment *DeployInfo) DeleteStack(svc *cloudformation.Client) bool {
 	input := &cloudformation.DeleteStackInput{
 		StackName: &deployment.StackName,
 	}
-	fmt.Print(deployment.StackArn)
 	_, err := svc.DeleteStack(context.TODO(), input)
 
 	return err == nil
