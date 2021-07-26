@@ -28,4 +28,4 @@ jobs:
         goarch: ${{ matrix.goarch }}
         goversion: "1.16"
         binary_name: "fog"
-        ld_flags: "-X 'github.com/ArjenSchwarz/fog/cmd.Version=${{ env.APP_VERSION}}"
+        ldflags: "-X 'github.com/ArjenSchwarz/fog/cmd.Version=${{ env.APP_VERSION}}"

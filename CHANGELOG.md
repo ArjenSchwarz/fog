@@ -1,4 +1,10 @@
 
+0.5.3 / 2021-07-26
+==================
+
+  * Fix ldflags for version
+  * Only run packaging when creating a release
+
 0.5.0 / 2021-07-25
 ==================
 
