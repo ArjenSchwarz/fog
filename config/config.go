@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/fatih/color"
@@ -69,6 +70,11 @@ func (config *Config) PrintPositive(text string) {
 	green := color.New(color.FgGreen)
 	greenbold := green.Add(color.Bold)
 	greenbold.Printf("%v\r\n", text)
+}
+
+func (config *Config) PrintInfo(text interface{}) {
+	fmt.Println("")
+	fmt.Printf("ℹ️  %v\r\n\r\n", text)
 }
 
 func (config *Config) PrintBold(text string) {

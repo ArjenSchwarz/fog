@@ -1,4 +1,11 @@
 
+0.7.0 / 2021-08-11
+==================
+
+  * Add non-interactive mode to deployments
+  * Restructure of text messages into its own file
+  * Missing quote in release workflow
+
 0.6.0 / 2021-07-26
 ==================
 

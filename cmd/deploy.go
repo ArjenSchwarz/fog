@@ -56,6 +56,7 @@ var deploy_Template *string
 var deploy_Parameters *string
 var deploy_Tags *string
 var deploy_Dryrun *bool
+var deploy_NonInteractive *bool
 var deployment lib.DeployInfo
 
 func init() {
@@ -64,7 +65,8 @@ func init() {
 	deploy_Template = deployCmd.Flags().StringP("file", "f", "", "The filename for the template")
 	deploy_Parameters = deployCmd.Flags().StringP("parameters", "p", "", "The filename for the parameters")
 	deploy_Tags = deployCmd.Flags().StringP("tags", "t", "", "The filename for the tags")
-	deploy_Dryrun = deployCmd.Flags().Bool("dryrun", false, "Do a dry run: create the changeset and immediately delete")
+	deploy_Dryrun = deployCmd.Flags().Bool("dry-run", false, "Do a dry run: create the changeset and immediately delete")
+	deploy_NonInteractive = deployCmd.Flags().Bool("non-interactive", false, "Run in non-interactive mode: automatically approve the changeset and deploy")
 }
 
 func deployTemplate(cmd *cobra.Command, args []string) {
@@ -112,7 +114,12 @@ func deployTemplate(cmd *cobra.Command, args []string) {
 		fmt.Println(changeset.StatusReason)
 		fmt.Println("")
 		fmt.Printf("%v %v \r\n", texts.DeployChangesetMessageConsole, changeset.GenerateChangesetUrl(awsConfig))
-		deleteChangesetConfirmation := askForConfirmation(string(texts.DeployChangesetMessageDeleteConfirm))
+		var deleteChangesetConfirmation bool
+		if *deploy_NonInteractive {
+			deleteChangesetConfirmation = true
+		} else {
+			askForConfirmation(string(texts.DeployChangesetMessageDeleteConfirm))
+		}
 		if deleteChangesetConfirmation {
 			deleteChangeset(deployment, awsConfig)
 		}
@@ -120,10 +127,16 @@ func deployTemplate(cmd *cobra.Command, args []string) {
 	}
 	showChangeset(*changeset, awsConfig)
 	if *deploy_Dryrun {
+		settings.PrintSuccess(texts.DeployChangesetMessageDryrunSuccess)
 		deleteChangeset(deployment, awsConfig)
 		os.Exit(0)
 	}
-	deployChangesetConfirmation := askForConfirmation(string(texts.DeployChangesetMessageDeployConfirm))
+	var deployChangesetConfirmation bool
+	if *deploy_NonInteractive {
+		deployChangesetConfirmation = true
+	} else {
+		deployChangesetConfirmation = askForConfirmation(string(texts.DeployChangesetMessageDeployConfirm))
+	}
 	if deployChangesetConfirmation {
 		deployChangeset(deployment, awsConfig)
 	} else {
@@ -232,7 +245,9 @@ func showChangeset(changeset lib.ChangesetInfo, awsConfig config.AWSConfig) {
 
 func deleteChangeset(deployment lib.DeployInfo, awsConfig config.AWSConfig) {
 	if *deploy_Dryrun {
-		settings.PrintSuccess(texts.DeployChangesetMessageDryrunDelete)
+		settings.PrintInfo(texts.DeployChangesetMessageDryrunDelete)
+	} else if *deploy_NonInteractive {
+		settings.PrintInfo(texts.DeployChangesetMessageAutoDelete)
 	} else {
 		settings.PrintSuccess(texts.DeployChangesetMessageWillDelete)
 	}
@@ -255,7 +270,7 @@ func deleteChangeset(deployment lib.DeployInfo, awsConfig config.AWSConfig) {
 func deleteStackIfNew(deployment lib.DeployInfo, awsConfig config.AWSConfig) {
 	fmt.Println(texts.DeployStackMessageNewStackDeleteInfo)
 	var deleteStackConfirmation bool
-	if *deploy_Dryrun {
+	if *deploy_Dryrun || *deploy_NonInteractive {
 		deleteStackConfirmation = true
 	} else {
 		deleteStackConfirmation = askForConfirmation("Do you want me to delete this empty stack for you?")
@@ -265,7 +280,9 @@ func deleteStackIfNew(deployment lib.DeployInfo, awsConfig config.AWSConfig) {
 			settings.PrintFailure("Something went wrong while trying to delete the stack. Please check manually.")
 		} else {
 			if *deploy_Dryrun {
-				settings.PrintSuccess(texts.DeployStackMessageNewStackDryrunDelete)
+				settings.PrintInfo(texts.DeployStackMessageNewStackDryrunDelete)
+			} else if *deploy_NonInteractive {
+				settings.PrintInfo(texts.DeployStackMessageNewStackAutoDelete)
 			} else {
 				settings.PrintSuccess(texts.DeployStackMessageNewStackDeleteSuccess)
 			}
@@ -276,7 +293,11 @@ func deleteStackIfNew(deployment lib.DeployInfo, awsConfig config.AWSConfig) {
 }
 
 func deployChangeset(deployment lib.DeployInfo, awsConfig config.AWSConfig) {
-	settings.PrintSuccess("OK. Deploying this Changeset.")
+	if *deploy_NonInteractive {
+		settings.PrintInfo(texts.DeployChangesetMessageAutoDeploy)
+	} else {
+		settings.PrintSuccess(texts.DeployChangesetMessageWillDeploy)
+	}
 	err := deployment.Changeset.DeployChangeset(awsConfig.CloudformationClient())
 	if err != nil {
 		settings.PrintFailure("Could not execute changeset! See details below")
