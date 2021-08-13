@@ -81,6 +81,21 @@ func (deployment DeployInfo) IsOngoing(svc *cloudformation.Client) bool {
 	return !stringInSlice(string(stack.StackStatus), availableStatuses)
 }
 
+func (deployment DeployInfo) IsNewStack(svc *cloudformation.Client) bool {
+	stackExists := StackExists(&deployment, svc)
+	if !stackExists {
+		return true
+	}
+	stack, err := deployment.GetFreshStack(svc)
+	if err != nil {
+		return false
+	}
+	availableStatuses := []string{
+		string(types.StackStatusReviewInProgress),
+	}
+	return stringInSlice(string(stack.StackStatus), availableStatuses)
+}
+
 // stringInSlice checks if a string exists in a slice
 func stringInSlice(a string, list []string) bool {
 	for _, b := range list {
@@ -150,6 +165,12 @@ func (deployment *DeployInfo) WaitUntilChangesetDone(svc *cloudformation.Client)
 			return &changeset, err
 		}
 	}
+	changeset = deployment.AddChangeset(resp)
+	return &changeset, err
+}
+
+func (deployment *DeployInfo) AddChangeset(resp cloudformation.DescribeChangeSetOutput) ChangesetInfo {
+	changeset := ChangesetInfo{}
 	for _, change := range resp.Changes {
 		changestruct := ChangesetChanges{
 			Action:      string(change.ResourceChange.Action),
@@ -176,7 +197,7 @@ func (deployment *DeployInfo) WaitUntilChangesetDone(svc *cloudformation.Client)
 	changeset.CreationTime = *resp.CreationTime
 	deployment.StackArn = changeset.StackID
 	deployment.Changeset = &changeset
-	return &changeset, err
+	return changeset
 }
 
 func (deployment *DeployInfo) GetChangeset(svc *cloudformation.Client) (cloudformation.DescribeChangeSetOutput, error) {
@@ -186,7 +207,7 @@ func (deployment *DeployInfo) GetChangeset(svc *cloudformation.Client) (cloudfor
 	}
 	resp, err := svc.DescribeChangeSet(context.TODO(), input)
 	if err != nil {
-		return *resp, err
+		return cloudformation.DescribeChangeSetOutput{}, err
 	}
 	return *resp, nil
 }

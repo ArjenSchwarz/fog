@@ -76,7 +76,7 @@ func init() {
 	viper.SetDefault("parameters.extensions", []string{".json"})
 	viper.SetDefault("parameters.directory", "parameters")
 
-	viper.SetDefault("changesetname", "fog-"+time.Now().Local().Format("2006-01-02T15-04-05"))
+	viper.SetDefault("autochangesetname", "fog-"+time.Now().Local().Format("2006-01-02T15-04-05"))
 }
 
 // initConfig reads in config file and ENV variables if set.
