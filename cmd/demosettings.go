@@ -22,12 +22,13 @@ THE SOFTWARE.
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"sort"
-	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"gopkg.in/yaml.v2"
 )
 
 // demosettingsCmd represents the settings command
@@ -51,37 +52,22 @@ The project directory will take precedence if both are present. In addition, usi
 
 So, what are your current settings and what would they look like in a settings file?
 
-Settings without a value are commented out.
-
 `)
 	sorted := viper.AllKeys()
 	sort.Strings(sorted)
-	lastsection := ""
-	for _, key := range sorted {
-		if strings.Contains(key, ".") {
-			sections := strings.Split(key, ".")
-			for counter, section := range sections {
-				if counter == 0 && lastsection == section {
-					continue
-				}
-				spaces := strings.Repeat(" ", 2*counter)
-				currentValue := ""
-				if counter+1 == len(sections) {
-					currentValue = viper.GetString(key)
-				}
-				comment := ""
-				if viper.GetString(key) == "" {
-					comment = "# "
-				}
-				fmt.Printf("%v%v%v: %v\r\n", comment, spaces, section, currentValue)
-			}
-			lastsection = sections[0]
-		} else {
-			comment := ""
-			if viper.Get(key) == "" {
-				comment = "# "
-			}
-			fmt.Printf("%v%v: %v\r\n", comment, key, viper.Get(key))
-		}
+	// lastsection := ""
+	// fmt.Print(viper.AllSettings())
+	yamlconfig, err := yaml.Marshal(viper.AllSettings())
+	if err != nil {
+		panic(err)
 	}
+	jsonconfig, err := json.MarshalIndent(viper.AllSettings(), "", "  ")
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("As fog.yml:")
+	fmt.Println(string(yamlconfig))
+	fmt.Println("As fog.json:")
+	fmt.Println(string(jsonconfig))
 }
