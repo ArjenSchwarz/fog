@@ -23,6 +23,15 @@ type DeployInfo struct {
 	TemplateName   string
 }
 
+type CfnStack struct {
+	Name        string
+	Description string
+	RawInfo     types.Stack
+	Outputs     []CfnOutput
+	Resources   []CfnResource
+	ImportedBy  []string
+}
+
 func (deploy *DeployInfo) ChangesetType() types.ChangeSetType {
 	if deploy.IsNew {
 		return types.ChangeSetTypeCreate
@@ -40,7 +49,37 @@ func GetStack(stackname *string, svc *cloudformation.Client) (types.Stack, error
 		return types.Stack{}, err
 	}
 	return resp.Stacks[0], err
+}
 
+func GetCfnStacks(stackname *string, svc *cloudformation.Client) (map[string]CfnStack, error) {
+	result := make(map[string]CfnStack)
+	input := &cloudformation.DescribeStacksInput{}
+	if *stackname != "" && !strings.Contains(*stackname, "*") {
+		input.StackName = stackname
+	}
+	resp, err := svc.DescribeStacks(context.TODO(), input)
+	if err != nil {
+		return result, err
+	}
+	for _, stack := range resp.Stacks {
+		stackobject := CfnStack{
+			RawInfo: stack,
+			Name:    *stack.StackName,
+		}
+		if stack.Description != nil {
+			stackobject.Description = *stack.Description
+		}
+		outputs := getOutputsForStack(stack, "", "", false)
+		for _, output := range outputs {
+			output.FillImports(svc)
+			if output.Imported {
+				stackobject.ImportedBy = append(stackobject.ImportedBy, output.ImportedBy...)
+			}
+		}
+		stackobject.Outputs = outputs
+		result[*stack.StackName] = stackobject
+	}
+	return result, nil
 }
 
 func StackExists(deployment *DeployInfo, svc *cloudformation.Client) bool {

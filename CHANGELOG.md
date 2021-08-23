@@ -1,7 +1,10 @@
 
-0.8.0 / 2021-08-16
+0.8.0 / 2021-08-23
 ==================
 
+  * Add support for showing dependencies between stacks
+  * Use dev for the development version
+  * Use built-in functionality for printing settings
   * Add changeset specific functionalities
 
 0.7.0 / 2021-08-11

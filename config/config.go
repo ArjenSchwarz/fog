@@ -11,6 +11,13 @@ import (
 // Config holds the global configuration settings
 type Config struct {
 	SeparateTables bool
+	DotColumns     *DotColumns
+}
+
+// DotColumns is used to set the From and To columns for the dot output format
+type DotColumns struct {
+	From string
+	To   string
 }
 
 func (config *Config) GetLCString(setting string) string {
@@ -35,6 +42,8 @@ func (config *Config) GetSeparator() string {
 	switch config.GetLCString("output") {
 	case "table":
 		return "\r\n"
+	case "dot":
+		return ","
 	default:
 		return ", "
 	}

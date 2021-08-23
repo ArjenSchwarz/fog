@@ -8,9 +8,12 @@ import (
 	"log"
 	"os"
 	"sort"
+	"strings"
 
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/viper"
+
+	"github.com/emicklei/dot"
 
 	"github.com/ArjenSchwarz/fog/config"
 )
@@ -53,6 +56,8 @@ func (output OutputArray) Write(settings config.Config) {
 		output.toTable(settings)
 	case "json":
 		output.toJSON(settings)
+	case "dot":
+		output.toDot("", settings.DotColumns)
 	// case "html":
 	// 	output.toHTML()
 	default: //If an unknown value is provided, use tables
@@ -102,6 +107,47 @@ func (output OutputArray) toTable(settings config.Config) {
 	t.Render()
 	if settings.SeparateTables {
 		fmt.Println("")
+	}
+}
+
+func (output OutputArray) toDot(outputFile string, columns *config.DotColumns) {
+	type dotholder struct {
+		To   string
+		From string
+	}
+	// Create new lines using the dotcolumns, splitting up multi values
+	cleanedlist := []dotholder{}
+	for _, holder := range output.Contents {
+		for _, tovalue := range strings.Split(holder.Contents[columns.To], ",") {
+			dothold := dotholder{
+				From: holder.Contents[columns.From],
+				To:   tovalue,
+			}
+			cleanedlist = append(cleanedlist, dothold)
+		}
+	}
+
+	g := dot.NewGraph(dot.Directed)
+
+	nodelist := make(map[string]dot.Node)
+
+	// Step 1: Put all nodes in the list
+	for _, cleaned := range cleanedlist {
+		if _, ok := nodelist[cleaned.From]; !ok {
+			node := g.Node(cleaned.From)
+			nodelist[cleaned.From] = node
+		}
+	}
+
+	// Step 2: Add all the edges/connections
+	for _, cleaned := range cleanedlist {
+		if cleaned.To != "" {
+			g.Edge(nodelist[cleaned.From], nodelist[cleaned.To])
+		}
+	}
+	err := PrintByteSlice([]byte(g.String()), outputFile)
+	if err != nil {
+		log.Fatal(err.Error())
 	}
 }
 

@@ -9,6 +9,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
+	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
 	"github.com/aws/smithy-go"
 )
 
@@ -39,33 +40,8 @@ func GetExports(stackname *string, exportname *string, svc *cloudformation.Clien
 		}
 		log.Fatalln(err)
 	}
-	stackRegex := "^" + strings.Replace(*stackname, "*", ".*", -1) + "$"
-	exportRegex := "^" + strings.Replace(*exportname, "*", ".*", -1) + "$"
 	for _, stack := range resp.Stacks {
-		if strings.Contains(*stackname, "*") {
-			if matched, err := regexp.MatchString(stackRegex, *stack.StackName); !matched || err != nil {
-				continue
-			}
-		}
-		for _, output := range stack.Outputs {
-			if aws.ToString(output.ExportName) != "" {
-				if *exportname != "" {
-					if matched, err := regexp.MatchString(exportRegex, *output.ExportName); !matched || err != nil {
-						continue
-					}
-				}
-				parsedOutput := CfnOutput{
-					StackName:   *stack.StackName,
-					OutputKey:   *output.OutputKey,
-					OutputValue: *output.OutputValue,
-					ExportName:  *output.ExportName,
-				}
-				if output.Description != nil {
-					parsedOutput.Description = *output.Description
-				}
-				exports = append(exports, parsedOutput)
-			}
-		}
+		exports = append(exports, getOutputsForStack(stack, *stackname, *exportname, true)...)
 	}
 	c := make(chan CfnOutput)
 	results := make([]CfnOutput, len(exports))
@@ -82,6 +58,7 @@ func GetExports(stackname *string, exportname *string, svc *cloudformation.Clien
 				context.TODO(),
 				&cloudformation.ListImportsInput{ExportName: &export.ExportName})
 			if err != nil {
+				//TODO limit this to only not found errors: "Export 'stackname' is not imported by any stack."
 				resexport.Imported = false
 			} else {
 				resexport.Imported = true
@@ -94,4 +71,52 @@ func GetExports(stackname *string, exportname *string, svc *cloudformation.Clien
 		results[i] = <-c
 	}
 	return results
+}
+
+func getOutputsForStack(stack types.Stack, stackfilter string, exportfilter string, exportsOnly bool) []CfnOutput {
+	result := []CfnOutput{}
+	stackRegex := "^" + strings.Replace(stackfilter, "*", ".*", -1) + "$"
+	exportRegex := "^" + strings.Replace(exportfilter, "*", ".*", -1) + "$"
+	if strings.Contains(stackfilter, "*") {
+		if matched, err := regexp.MatchString(stackRegex, *stack.StackName); !matched || err != nil {
+			return result
+		}
+	}
+	for _, output := range stack.Outputs {
+		if exportsOnly && aws.ToString(output.ExportName) == "" {
+			continue
+		}
+		if exportfilter != "" {
+			if matched, err := regexp.MatchString(exportRegex, *output.ExportName); !matched || err != nil {
+				continue
+			}
+		}
+		parsedOutput := CfnOutput{
+			StackName:   *stack.StackName,
+			OutputKey:   *output.OutputKey,
+			OutputValue: *output.OutputValue,
+			ExportName:  aws.ToString(output.ExportName),
+		}
+		if output.Description != nil {
+			parsedOutput.Description = *output.Description
+		}
+		result = append(result, parsedOutput)
+	}
+	return result
+}
+
+func (output *CfnOutput) FillImports(svc *cloudformation.Client) {
+	if output.ExportName == "" {
+		return
+	}
+	imports, err := svc.ListImports(
+		context.TODO(),
+		&cloudformation.ListImportsInput{ExportName: &output.ExportName})
+	if err != nil {
+		//TODO limit this to only not found errors: "Export 'stackname' is not imported by any stack."
+		output.Imported = false
+	} else {
+		output.Imported = true
+		output.ImportedBy = imports.Imports
+	}
 }
