@@ -11,16 +11,16 @@ import (
 )
 
 type DeployInfo struct {
-	Changeset      *ChangesetInfo
-	ChangesetName  string
-	IsNew          bool
-	ParametersFile string
-	RawStack       *types.Stack
-	StackArn       string
-	StackName      string
-	TagsFile       string
-	Template       string
-	TemplateName   string
+	Changeset     *ChangesetInfo
+	ChangesetName string
+	IsNew         bool
+	Parameters    []types.Parameter
+	RawStack      *types.Stack
+	StackArn      string
+	StackName     string
+	Tags          []types.Tag
+	Template      string
+	TemplateName  string
 }
 
 type CfnStack struct {
@@ -153,11 +153,11 @@ func (deployment *DeployInfo) CreateChangeSet(svc *cloudformation.Client) (strin
 		ChangeSetName: &deployment.ChangesetName,
 		Capabilities:  types.CapabilityCapabilityAutoExpand.Values(),
 	}
-	if deployment.ParametersFile != "" {
-		input.Parameters = deployment.GetParameterSlice()
+	if len(deployment.Parameters) != 0 {
+		input.Parameters = deployment.Parameters
 	}
-	if deployment.TagsFile != "" {
-		input.Tags = deployment.GetTagSlice()
+	if len(deployment.Tags) != 0 {
+		input.Tags = deployment.Tags
 	}
 	resp, err := svc.CreateChangeSet(context.TODO(), input)
 	if err != nil {
@@ -166,22 +166,22 @@ func (deployment *DeployInfo) CreateChangeSet(svc *cloudformation.Client) (strin
 	return *resp.Id, nil
 }
 
-func (deployment *DeployInfo) GetParameterSlice() []types.Parameter {
+func ParseParameterString(parameters string) ([]types.Parameter, error) {
 	result := make([]types.Parameter, 0)
-	err := json.Unmarshal([]byte(deployment.ParametersFile), &result)
+	err := json.Unmarshal([]byte(parameters), &result)
 	if err != nil {
-		panic(err)
+		return result, err
 	}
-	return result
+	return result, nil
 }
 
-func (deployment *DeployInfo) GetTagSlice() []types.Tag {
+func ParseTagString(tags string) ([]types.Tag, error) {
 	result := make([]types.Tag, 0)
-	err := json.Unmarshal([]byte(deployment.TagsFile), &result)
+	err := json.Unmarshal([]byte(tags), &result)
 	if err != nil {
-		panic(err)
+		return result, err
 	}
-	return result
+	return result, nil
 }
 
 func (deployment *DeployInfo) WaitUntilChangesetDone(svc *cloudformation.Client) (*ChangesetInfo, error) {

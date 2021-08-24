@@ -35,7 +35,9 @@ const (
 type FileMessage string
 
 const (
-	FileTemplateReadFailure   FileMessage = "Something went wrong trying to read the template file"
-	FileTagsReadFailure       FileMessage = "Something went wrong trying to read the tags file"
-	FileParametersReadFailure FileMessage = "Something went wrong trying to read the parameters file"
+	FileTemplateReadFailure    FileMessage = "Something went wrong trying to read the template file"
+	FileTagsReadFailure        FileMessage = "Something went wrong trying to read the tags file"
+	FileTagsParseFailure       FileMessage = "Something went wrong trying to parse the tags file"
+	FileParametersReadFailure  FileMessage = "Something went wrong trying to read the parameters file"
+	FileParametersParseFailure FileMessage = "Something went wrong trying to parse the parameters file"
 )

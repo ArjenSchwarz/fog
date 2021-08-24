@@ -23,10 +23,10 @@ func ReadTemplate(templateName *string) (string, error) {
 	return "", errors.New("no template found")
 }
 
-func ReadTagsfile(tagsName *string) (string, error) {
+func ReadTagsfile(tagsName string) (string, error) {
 	tagsDirectory := viper.GetString("tags.directory")
 	for _, extension := range viper.GetStringSlice("tags.extensions") {
-		tagsPath := tagsDirectory + "/" + *tagsName + extension
+		tagsPath := tagsDirectory + "/" + tagsName + extension
 		if _, err := os.Stat(tagsPath); !os.IsNotExist(err) {
 			dat, err := ioutil.ReadFile(tagsPath)
 			if err != nil {
@@ -38,10 +38,10 @@ func ReadTagsfile(tagsName *string) (string, error) {
 	return "", errors.New("no tags file found")
 }
 
-func ReadParametersfile(parametersName *string) (string, error) {
+func ReadParametersfile(parametersName string) (string, error) {
 	parametersDirectory := viper.GetString("parameters.directory")
 	for _, extension := range viper.GetStringSlice("parameters.extensions") {
-		parametersPath := parametersDirectory + "/" + *parametersName + extension
+		parametersPath := parametersDirectory + "/" + parametersName + extension
 		if _, err := os.Stat(parametersPath); !os.IsNotExist(err) {
 			dat, err := ioutil.ReadFile(parametersPath)
 			if err != nil {
