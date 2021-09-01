@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
 )
@@ -21,6 +22,7 @@ type DeployInfo struct {
 	Tags          []types.Tag
 	Template      string
 	TemplateName  string
+	TemplateUrl   string
 }
 
 type CfnStack struct {
@@ -120,6 +122,7 @@ func (deployment DeployInfo) IsOngoing(svc *cloudformation.Client) bool {
 	return !stringInSlice(string(stack.StackStatus), availableStatuses)
 }
 
+// IsNewStack verifies if a stack is new. This can mean either that it doesn't exist yet or is in review in progress state
 func (deployment DeployInfo) IsNewStack(svc *cloudformation.Client) bool {
 	stackExists := StackExists(&deployment, svc)
 	if !stackExists {
@@ -148,10 +151,16 @@ func stringInSlice(a string, list []string) bool {
 func (deployment *DeployInfo) CreateChangeSet(svc *cloudformation.Client) (string, error) {
 	input := &cloudformation.CreateChangeSetInput{
 		StackName:     &deployment.StackName,
-		TemplateBody:  &deployment.Template,
 		ChangeSetType: deployment.ChangesetType(),
 		ChangeSetName: &deployment.ChangesetName,
 		Capabilities:  types.CapabilityCapabilityAutoExpand.Values(),
+	}
+	if deployment.TemplateUrl != "" {
+		input.TemplateURL = &deployment.TemplateUrl
+	} else if deployment.Template != "" {
+		input.TemplateBody = &deployment.Template
+	} else {
+		input.UsePreviousTemplate = aws.Bool(true)
 	}
 	if len(deployment.Parameters) != 0 {
 		input.Parameters = deployment.Parameters

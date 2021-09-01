@@ -3,21 +3,22 @@ package texts
 type DeployChangesetMessage string
 
 const (
-	DeployChangesetMessageAutoDelete     DeployChangesetMessage = "Non-interactive mode: Automatically deleting the change set for you. You can still look at it with the above link after it's been deleted."
-	DeployChangesetMessageAutoDeploy     DeployChangesetMessage = "Non-interactive mode: Automatically deploying the change set for you."
-	DeployChangesetMessageConsole        DeployChangesetMessage = "If you want to look at the change set in the Console, please go to"
-	DeployChangesetMessageCreationFailed DeployChangesetMessage = "Something went wrong when trying to create the change set"
-	DeployChangesetMessageRetrieveFailed DeployChangesetMessage = "Something went wrong when trying to retrieve change set"
-	DeployChangesetMessageDeleteConfirm  DeployChangesetMessage = "Do you want to delete this change set?"
-	DeployChangesetMessageDeleteFailed   DeployChangesetMessage = "Something went wrong while trying to delete the change set"
-	DeployChangesetMessageDeployConfirm  DeployChangesetMessage = "Do you want to deploy this change set?"
-	DeployChangesetMessageWillDeploy     DeployChangesetMessage = "OK. Deploying this Changeset."
-	DeployChangesetMessageDryrunDelete   DeployChangesetMessage = "Dry run: Automatically deleting the change set for you. You can still look at it with the above link after it's been deleted."
-	DeployChangesetMessageDryrunSuccess  DeployChangesetMessage = "Dry run: Change set has been successfully created."
-	DeployChangesetMessageSuccess        DeployChangesetMessage = "Change set has been successfully created."
-	DeployChangesetMessageNoChanges      DeployChangesetMessage = "No changes to resources have been found, but there are still changes to other parts of the stack"
-	DeployChangesetMessageChanges        DeployChangesetMessage = "Changes found in change set"
-	DeployChangesetMessageWillDelete     DeployChangesetMessage = "OK. I will now delete this change set for you. You can still look at it with the above link after it's been deleted."
+	DeployChangesetMessageAutoDelete        DeployChangesetMessage = "Non-interactive mode: Automatically deleting the change set for you. You can still look at it with the above link after it's been deleted."
+	DeployChangesetMessageAutoDeploy        DeployChangesetMessage = "Non-interactive mode: Automatically deploying the change set for you."
+	DeployChangesetMessageConsole           DeployChangesetMessage = "If you want to look at the change set in the Console, please go to"
+	DeployChangesetMessageCreationFailed    DeployChangesetMessage = "Something went wrong when trying to create the change set"
+	DeployChangesetMessageRetrieveFailed    DeployChangesetMessage = "Something went wrong when trying to retrieve change set"
+	DeployChangesetMessageDeleteConfirm     DeployChangesetMessage = "Do you want to delete this change set?"
+	DeployChangesetMessageDeleteFailed      DeployChangesetMessage = "Something went wrong while trying to delete the change set"
+	DeployChangesetMessageDeployConfirm     DeployChangesetMessage = "Do you want to deploy this change set?"
+	DeployChangesetMessageWillDeploy        DeployChangesetMessage = "OK. Deploying this Changeset."
+	DeployChangesetMessageDryrunDelete      DeployChangesetMessage = "Dry run: Automatically deleting the change set for you. You can still look at it with the above link after it's been deleted."
+	DeployChangesetMessageDryrunSuccess     DeployChangesetMessage = "Dry run: Change set has been successfully created."
+	DeployChangesetMessageSuccess           DeployChangesetMessage = "Change set has been successfully created."
+	DeployChangesetMessageNoChanges         DeployChangesetMessage = "No changes have been found in the change set for %v"
+	DeployChangesetMessageNoResourceChanges DeployChangesetMessage = "No changes to resources have been found, but there are still changes to other parts of the stack"
+	DeployChangesetMessageChanges           DeployChangesetMessage = "Changes found in change set"
+	DeployChangesetMessageWillDelete        DeployChangesetMessage = "OK. I will now delete this change set for you. You can still look at it with the above link after it's been deleted."
 )
 
 type DeployStackMessage string
@@ -40,4 +41,11 @@ const (
 	FileTagsParseFailure       FileMessage = "Something went wrong trying to parse the tags file"
 	FileParametersReadFailure  FileMessage = "Something went wrong trying to read the parameters file"
 	FileParametersParseFailure FileMessage = "Something went wrong trying to parse the parameters file"
+)
+
+type DeployReceivedErrorMessage string
+
+const (
+	DeployReceivedErrorMessagesNoChanges DeployReceivedErrorMessage = "The submitted information didn't contain changes. Submit different information to create a change set."
+	DeployReceivedErrorMessagesNoUpdates DeployReceivedErrorMessage = "No updates are to be performed."
 )

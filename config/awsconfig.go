@@ -6,6 +6,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	external "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 )
 
@@ -52,6 +53,11 @@ func (config *AWSConfig) StsClient() *sts.Client {
 //CloudformationClient returns an cloudformation Client
 func (config *AWSConfig) CloudformationClient() *cloudformation.Client {
 	return cloudformation.NewFromConfig(config.Config)
+}
+
+//S3Client returns an cloudformation Client
+func (config *AWSConfig) S3Client() *s3.Client {
+	return s3.NewFromConfig(config.Config)
 }
 
 func (config *AWSConfig) setCallerInfo() {
