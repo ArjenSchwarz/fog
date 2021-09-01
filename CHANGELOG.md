@@ -1,4 +1,12 @@
 
+0.9.0 / 2021-09-01
+==================
+
+  * Add very basic README and deployment flow diagram
+  * Fix descriptions of some flags
+  * Add support for uploading the template to S3 before deployment
+  * Add support for multiple tag and parameter files
+
 0.8.0 / 2021-08-23
 ==================
 
