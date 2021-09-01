@@ -53,9 +53,9 @@ func Execute() {
 
 func init() {
 	cobra.OnInitialize(initConfig)
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/fog.yaml)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is fog.yaml in current directory, or $HOME/fog.yaml)")
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Give verbose output")
-	rootCmd.PersistentFlags().String("output", "table", "Format for the output, currently supported are table, csv, json, and html")
+	rootCmd.PersistentFlags().String("output", "table", "Format for the output, currently supported are table, csv, json, and dot (for certain functions)")
 	rootCmd.PersistentFlags().String("profile", "", "Use a specific AWS profile")
 	rootCmd.PersistentFlags().String("region", "", "Use a specific AWS region")
 
