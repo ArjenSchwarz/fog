@@ -1,4 +1,11 @@
 
+0.10.0 / 2021-09-14
+===================
+
+  * Update go version and modules
+  * Add documentation to the README and example code
+  * Add support for global tags and placeholder values
+
 0.9.0 / 2021-09-01
 ==================
 

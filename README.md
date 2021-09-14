@@ -1,16 +1,10 @@
 # fog
 
-Fog is a tool to manage your CloudFormation deployments and ensure you have all your config as code. Please note, fog
-is **not** a DSL. It only works with standard CloudFormation files and doesn't do anything you can't do using the AWS
-CLI (and some hacking around with jq). It just makes it easier by combining functionality and preventing you from
-needing to deal with unnecesary overhead like different commands for creating a new stack or updating an existing one.
-In addition, it has little helper functionalities like offering to remove an empty stack for you.
+Fog is a tool to manage your CloudFormation deployments and ensure you have all your config as code. Please note, fog is **not** a DSL. It only works with standard CloudFormation files and doesn't do anything you can't do using the AWS CLI (and some hacking around with jq). It just makes it easier by combining functionality and preventing you from needing to deal with unnecesary overhead like different commands for creating a new stack or updating an existing one. In addition, it has little helper functionalities like offering to remove an empty stack for you.
 
 ## Deployments
 
-The main functionality for fog is to carry out deployments of CloudFormation templates. The logic is based on bash
-scripts I've written and used with multiple clients over a number of years. You can do a deployment using
-the `fog deploy` command. You can see the help functionality for this and other commands by adding the `--help`
+The main functionality for fog is to carry out deployments of CloudFormation templates. The logic is based on bash scripts I've written and used with multiple clients over a number of years. You can do a deployment using the `fog deploy` command. You can see the help functionality for this and other commands by adding the `--help`
 flag.
 
 ```shell
@@ -51,8 +45,7 @@ Global Flags:
   -v, --verbose          Give verbose output
 ```
 
-Fog assumes that all values passed to it are stored in files. You can't pass parameters or tags as arguments, in an
-attempt to ensure that everything you do is stored in version control.
+Fog assumes that all values passed to it are stored in files. You can't pass parameters or tags as arguments, in an attempt to ensure that everything you do is stored in version control.
 
 ### Usage
 
@@ -71,38 +64,27 @@ tags/globaltags/dev.json
 tags/myvpc.json
 ```
 
-All of these paths and extensions can be overwritten in the config file, as explained further on. But once these files
-are found, fog will attempt to create a change set for them. It will then show an overview of the change set and ask
-whether you wish to deploy it.
+All of these paths and extensions can be overwritten in the config file, as explained further on. But once these files are found, fog will attempt to create a change set for them. It will then show an overview of the change set and ask whether you wish to deploy it.
 
 ![](docs/fog-new-stack.png)
 
-If you want to proceed, it will then show you real-time progress of the deployment, similar to how the Console does this
-and if successfull it will show you a table of the outputs.
+If you want to proceed, it will then show you real-time progress of the deployment, similar to how the Console does this and if successfull it will show you a table of the outputs.
 
 ![](docs/fog-deploy-success.png)
 
-In the case of a failure, it will instead show you an overview of all the steps that failed and the details for why that
-happened.
+In the case of a failure, it will instead show you an overview of all the steps that failed and the details for why that happened.
 
 ![](docs/fog-deploy-fail.png)
 
-If it's a new stack, it will even offer to delete the stack for you as you can't retry the deployment until that is
-done.
+If it's a new stack, it will even offer to delete the stack for you as you can't retry the deployment until that is done.
 
 ### Configuration
 
-As you can see higher up, you can influence what is deployed using CLI arguments. For example, the `--non-interactive`
-flag will assume that you always say "yes" to questions like doing a deployment or deleting an empty stack on failure
-while `--create-changeset` will only create the change set so you can show it for review in your CI/CD tool before it is
-deployed after a manual approval.
+As you can see higher up, you can influence what is deployed using CLI arguments. For example, the `--non-interactive` flag will assume that you always say "yes" to questions like doing a deployment or deleting an empty stack on failure while `--create-changeset` will only create the change set so you can show it for review in your CI/CD tool before it is deployed after a manual approval.
 
-Another way to influence what's run is to use a config file. This config file can be either a `yaml`, `json`, or `toml`
-file. Fog will by default check the current directory and your home directory (in that order), for a file
-named `fog.yaml|json|toml` but you can also provide a specific file using the `--config` file.
+Another way to influence what's run is to use a config file. This config file can be either a `yaml`, `json`, or `toml` file. Fog will by default check the current directory and your home directory (in that order), for a file named `fog.yaml|json|toml` but you can also provide a specific file using the `--config` file.
 
-You can find an annotated example config in [example-fog.yaml](example-fog.yaml), or see its output by
-running `fog demo settings` but some highlights of the config file are:
+You can find an annotated example config in [example-fog.yaml](example-fog.yaml), or see its output by running `fog demo settings` but some highlights of the config file are:
 
 * The ability to set the directories for templates/tags/parameters.
 * Change the look of the table outputs (yes, that means you don't need to use the colours used in the screenshots)
@@ -112,13 +94,11 @@ running `fog demo settings` but some highlights of the config file are:
 
 ### Output formats
 
-For deployments you can only get the output in table format, but as said you have control over what they look like. If
-you wish to see what all the different options look like you can do so by running `fog demo tables`.
+For deployments you can only get the output in table format, but as said you have control over what they look like. If you wish to see what all the different options look like you can do so by running `fog demo tables`.
 
 ![](docs/fog-demo-tables.png)
 
-Other commands add various output formats like json, csv, or sometimes dotfiles for graphs. This works similar to the
-AWS CLI as in that you can set a default in your config file and override it with the `--output` flag.
+Other commands add various output formats like json, csv, or sometimes dotfiles for graphs. This works similar to the AWS CLI as in that you can set a default in your config file and override it with the `--output` flag.
 
 ### Deployment workflow
 
@@ -134,9 +114,7 @@ While deployments are the main feature of fog, other commands have been added fo
 
 ### fog exports
 
-Running `fog exports` allows you to get an overview of all the exports in your current region. It will also show you
-whether they have been imported and by adding the `--verbose` flag it will show you by which stack. In addition, you can
-filter by either the stack name or export name, including the use of wildcards.
+Running `fog exports` allows you to get an overview of all the exports in your current region. It will also show you whether they have been imported and by adding the `--verbose` flag it will show you by which stack. In addition, you can filter by either the stack name or export name, including the use of wildcards.
 
 ```shell
 $ fog exports --stackname "*my*" --output csv
@@ -152,11 +130,9 @@ myvpc-VPCID,The ID of the VPC,myvpc,vpc-08612404927cb7646,No
 
 This command let's you see all the resources managed by your CloudFormation templates.
 
-The standard output shows the type, resource ID, and stack it's managed by. Verbose mode adds the logical ID in the
-CloudFormation stack and the status.
+The standard output shows the type, resource ID, and stack it's managed by. Verbose mode adds the logical ID in the CloudFormation stack and the status.
 
-Using the stackname argument you can limit this to a specific stack using the stack's name or ID. If you provide a
-wildcard filter such as `*dev*` it will match all stacks that match that pattern.
+Using the stackname argument you can limit this to a specific stack using the stack's name or ID. If you provide a wildcard filter such as `*dev*` it will match all stacks that match that pattern.
 
 ```shell
 fog resources --output json --verbose | jq .
@@ -183,11 +159,9 @@ fog resources --output json --verbose | jq .
 
 This will show your stacks and any dependencies that exist between them.
 
-Dependencies can prevent updates from happening or prevent a stack from getting deleted. Right now dependencies being
-shown are export values that are imperted by other stacks. Upcoming is support for showing nested stacks.
+Dependencies can prevent updates from happening or prevent a stack from getting deleted. Right now dependencies being shown are export values that are imperted by other stacks. Upcoming is support for showing nested stacks.
 
-This function supports the "dot" output format, which outputs the dependencies in a way that you can turn into a
-graphical format using a tool like [graphviz](https://graphviz.org).
+This function supports the "dot" output format, which outputs the dependencies in a way that you can turn into a graphical format using a tool like [graphviz](https://graphviz.org).
 
 ```shell
 fog dependencies --stackname "myvpc" --output dot | dot -T png -o docs/fog-dependencies-demo.png
@@ -201,8 +175,7 @@ There is a lot more planned for the application, and a roadmap etc. will soon sh
 
 ## Contributions
 
-If you wish to contribute in any way (reporting bugs, requesting features, writing code), feel free to do so either by
-opening Issues or Pull Requests. For Pull Requests, just follow the standard pattern.
+If you wish to contribute in any way (reporting bugs, requesting features, writing code), feel free to do so either by opening Issues or Pull Requests. For Pull Requests, just follow the standard pattern.
 
 1. Fork the repository
 2. Make your changes
