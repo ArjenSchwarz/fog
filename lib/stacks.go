@@ -12,17 +12,18 @@ import (
 )
 
 type DeployInfo struct {
-	Changeset     *ChangesetInfo
-	ChangesetName string
-	IsNew         bool
-	Parameters    []types.Parameter
-	RawStack      *types.Stack
-	StackArn      string
-	StackName     string
-	Tags          []types.Tag
-	Template      string
-	TemplateName  string
-	TemplateUrl   string
+	Changeset         *ChangesetInfo
+	ChangesetName     string
+	IsNew             bool
+	Parameters        []types.Parameter
+	RawStack          *types.Stack
+	StackArn          string
+	StackName         string
+	Tags              []types.Tag
+	Template          string
+	TemplateLocalPath string
+	TemplateName      string
+	TemplateUrl       string
 }
 
 type CfnStack struct {
@@ -34,8 +35,8 @@ type CfnStack struct {
 	ImportedBy  []string
 }
 
-func (deploy *DeployInfo) ChangesetType() types.ChangeSetType {
-	if deploy.IsNew {
+func (deployment *DeployInfo) ChangesetType() types.ChangeSetType {
+	if deployment.IsNew {
 		return types.ChangeSetTypeCreate
 	}
 	return types.ChangeSetTypeUpdate
@@ -225,7 +226,7 @@ func (deployment *DeployInfo) AddChangeset(resp cloudformation.DescribeChangeSet
 			Replacement: string(change.ResourceChange.Replacement),
 			ResourceID:  "",
 			LogicalID:   *change.ResourceChange.LogicalResourceId,
-			Type:        string(*change.ResourceChange.ResourceType),
+			Type:        *change.ResourceChange.ResourceType,
 		}
 		if change.ResourceChange.PhysicalResourceId != nil {
 			changestruct.ResourceID = *change.ResourceChange.PhysicalResourceId

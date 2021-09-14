@@ -23,11 +23,15 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/spf13/viper"
 	"log"
 	"os"
 	"sort"
 	"strings"
 	"time"
+
+	"path/filepath"
 
 	"github.com/ArjenSchwarz/fog/config"
 	"github.com/ArjenSchwarz/fog/lib"
@@ -64,6 +68,7 @@ var deploy_Dryrun *bool
 var deploy_NonInteractive *bool
 var deploy_CreateChangeset *bool
 var deploy_DeployChangeset *bool
+var deploy_DefaultTags *bool
 var deployment lib.DeployInfo
 
 func init() {
@@ -78,6 +83,7 @@ func init() {
 	deploy_NonInteractive = deployCmd.Flags().Bool("non-interactive", false, "Run in non-interactive mode: automatically approve the changeset and deploy")
 	deploy_CreateChangeset = deployCmd.Flags().Bool("create-changeset", false, "Only create a change set")
 	deploy_DeployChangeset = deployCmd.Flags().Bool("deploy-changeset", false, "Deploy a specific change set")
+	deploy_DefaultTags = deployCmd.Flags().Bool("default-tags", true, "Add any default tags that are specified in your config file")
 }
 
 func deployTemplate(cmd *cobra.Command, args []string) {
@@ -86,7 +92,7 @@ func deployTemplate(cmd *cobra.Command, args []string) {
 	// Set the changeset name to what's provided, otherwise fall back on the generated value
 	deployment.ChangesetName = *deploy_ChangesetName
 	if deployment.ChangesetName == "" {
-		deployment.ChangesetName = settings.GetString("autochangesetname")
+		deployment.ChangesetName = placeholderParser(viper.GetString("changeset.name-format"), &deployment)
 	}
 	awsConfig := config.DefaultAwsConfig(*settings)
 	deployment.IsNew = deployment.IsNewStack(awsConfig.CloudformationClient())
@@ -97,24 +103,11 @@ func deployTemplate(cmd *cobra.Command, args []string) {
 			os.Exit(1)
 		}
 	}
-	bold := color.New(color.Bold).SprintFunc()
-	if deployment.IsNew {
-		method := "Deploying"
-		if *deploy_Dryrun {
-			method = fmt.Sprintf("Doing a %v for", bold("dry run"))
-		}
-		fmt.Printf("%v new stack '%v' to region %v of account %v\n", method, bold(*deploy_StackName), awsConfig.Region, awsConfig.AccountID)
-	} else {
-		method := "Updating"
-		if *deploy_Dryrun {
-			method = fmt.Sprintf("Doing a %v for updating", bold("dry run"))
-		}
-		fmt.Printf("%v stack '%v' in region %v of account %v\n", method, bold(*deploy_StackName), awsConfig.Region, awsConfig.AccountID)
-	}
+	showDeploymentInfo(deployment, awsConfig)
 	if *deploy_DeployChangeset {
 		rawchangeset, err := deployment.GetChangeset(awsConfig.CloudformationClient())
 		if err != nil {
-			message := fmt.Sprintf("%v %v", texts.DeployChangesetMessageRetrieveFailed, deployment.ChangesetName)
+			message := fmt.Sprintf(string(texts.DeployChangesetMessageRetrieveFailed), deployment.ChangesetName)
 			settings.PrintFailure(message)
 			os.Exit(1)
 		}
@@ -190,8 +183,26 @@ func deployTemplate(cmd *cobra.Command, args []string) {
 	}
 }
 
+// showDeploymentInfo shows what kind of deployment this (New/Update) and where it's happening
+func showDeploymentInfo(deployment lib.DeployInfo, awsConfig config.AWSConfig) {
+	bold := color.New(color.Bold).SprintFunc()
+	if deployment.IsNew {
+		method := "Deploying"
+		if *deploy_Dryrun {
+			method = fmt.Sprintf("Doing a %v for", bold("dry run"))
+		}
+		fmt.Printf("%v new stack '%v' to region %v of account %v\n", method, bold(*deploy_StackName), awsConfig.Region, awsConfig.AccountID)
+	} else {
+		method := "Updating"
+		if *deploy_Dryrun {
+			method = fmt.Sprintf("Doing a %v for updating", bold("dry run"))
+		}
+		fmt.Printf("%v stack '%v' in region %v of account %v\n", method, bold(*deploy_StackName), awsConfig.Region, awsConfig.AccountID)
+	}
+}
+
 func setDeployTemplate(deployment *lib.DeployInfo, awsConfig config.AWSConfig) {
-	template, err := lib.ReadTemplate(deploy_Template)
+	template, path, err := lib.ReadTemplate(deploy_Template)
 	if err != nil {
 		settings.PrintFailure(texts.FileTemplateReadFailure)
 		log.Fatalln(err)
@@ -205,11 +216,33 @@ func setDeployTemplate(deployment *lib.DeployInfo, awsConfig config.AWSConfig) {
 		url := fmt.Sprintf("https://%v.s3-%v.amazonaws.com/%v", *deploy_Bucket, awsConfig.Region, objectname)
 		deployment.TemplateUrl = url
 	}
+	// Use the root path to correctly get the relative path of the templates
+	if cfgFile != "" {
+		confdir := filepath.Dir(cfgFile)
+		confpath, _ := filepath.Abs(fmt.Sprintf("%s%s%s", confdir, string(os.PathSeparator), viper.GetString("rootdir")))
+		localpath, _ := filepath.Abs(path)
+		path, _ = filepath.Rel(confpath, localpath)
+	} else {
+		confpath, _ := filepath.Abs(viper.GetString("rootdir"))
+		localpath, _ := filepath.Abs(path)
+		path, _ = filepath.Rel(confpath, localpath)
+	}
+	deployment.TemplateLocalPath = path
 	deployment.Template = template
 }
 
 func setDeployTags(deployment *lib.DeployInfo) {
 	tagresult := make([]types.Tag, 0)
+	if *deploy_DefaultTags {
+		for key, value := range viper.GetStringMapString("tags.default") {
+			tag := types.Tag{
+				Key:   aws.String(key),
+				Value: aws.String(placeholderParser(value, deployment)),
+			}
+			tagresult = append(tagresult, tag)
+		}
+	}
+
 	if *deploy_Tags != "" {
 		for _, tagfile := range strings.Split(*deploy_Tags, ",") {
 			tags, err := lib.ReadTagsfile(tagfile)
@@ -228,6 +261,13 @@ func setDeployTags(deployment *lib.DeployInfo) {
 		}
 	}
 	deployment.Tags = tagresult
+}
+
+func placeholderParser(value string, deployment *lib.DeployInfo) string {
+	value = strings.Replace(value, "$TEMPLATEPATH", deployment.TemplateLocalPath, -1)
+	//value = strings.Replace(value, "$CURRENTDIR", os.Di)
+	value = strings.Replace(value, "$TIMESTAMP", time.Now().Local().Format("2006-01-02T15-04-05"), -1)
+	return value
 }
 
 func setDeployParameters(deployment *lib.DeployInfo) {
@@ -274,7 +314,7 @@ func createChangeset(deployment *lib.DeployInfo, awsConfig config.AWSConfig) *li
 			settings.PrintSuccess(message)
 			os.Exit(0)
 		}
-		// Otherwise show the error and clean up
+		// Otherwise, show the error and clean up
 		settings.PrintFailure(texts.DeployChangesetMessageCreationFailed)
 		fmt.Println(changeset.StatusReason)
 		fmt.Printf("\r\n%v %v \r\n", texts.DeployChangesetMessageConsole, changeset.GenerateChangesetUrl(awsConfig))

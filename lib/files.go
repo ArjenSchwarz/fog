@@ -13,19 +13,23 @@ import (
 	"github.com/spf13/viper"
 )
 
-func ReadTemplate(templateName *string) (string, error) {
+// ReadTemplate parses the provided string and attempts to read the template that it points to.
+// In doing so it traverses the defined templates.directory config setting and tries to find a file
+// with a name matching the provided string and an extension from the templates.extensions setting.
+// Returns the contents of the template, the relative path of the template, and an error
+func ReadTemplate(templateName *string) (string, string, error) {
 	templateDirectory := viper.GetString("templates.directory")
 	for _, extension := range viper.GetStringSlice("templates.extensions") {
 		templatePath := templateDirectory + "/" + *templateName + extension
 		if _, err := os.Stat(templatePath); !os.IsNotExist(err) {
 			dat, err := os.ReadFile(templatePath)
 			if err != nil {
-				return "", err
+				return "", "", err
 			}
-			return string(dat), nil
+			return string(dat), templatePath, nil
 		}
 	}
-	return "", errors.New("no template found")
+	return "", "", errors.New("no template found")
 }
 
 func UploadTemplate(templateName *string, template string, bucketName *string, svc *s3.Client) (string, error) {

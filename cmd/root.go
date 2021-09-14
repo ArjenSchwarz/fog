@@ -23,11 +23,9 @@ package cmd
 
 import (
 	"fmt"
-	"os"
-	"time"
-
 	"github.com/ArjenSchwarz/fog/config"
 	"github.com/spf13/cobra"
+	"os"
 
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/viper"
@@ -73,10 +71,12 @@ func init() {
 	viper.SetDefault("templates.directory", "templates")
 	viper.SetDefault("tags.extensions", []string{".json"})
 	viper.SetDefault("tags.directory", "tags")
+	viper.SetDefault("tags.default", map[string]string{})
 	viper.SetDefault("parameters.extensions", []string{".json"})
 	viper.SetDefault("parameters.directory", "parameters")
+	viper.SetDefault("rootdir", ".")
 
-	viper.SetDefault("autochangesetname", "fog-"+time.Now().Local().Format("2006-01-02T15-04-05"))
+	viper.SetDefault("changeset.name-format", "fog-$TIMESTAMP")
 }
 
 // initConfig reads in config file and ENV variables if set.
