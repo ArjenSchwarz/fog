@@ -1,0 +1,30 @@
+# Example fog.yaml that aims to show all settings and what they do
+changeset:
+  name-format: fog-$TIMESTAMP # How would you like change sets to be named? $TIMESTAMP is replaced with the current time in ISO8601 format without the timezone
+output: table # The standard format for outputs, choose from table, csv, json.
+parameters:
+  directory: parameters # The directory where you store your parameter files. Relative to where you run the application from
+  extensions:
+    - .json # The extensions for your parameter files. Only json formatted files are currently supported
+profile: "" # If you have a standard AWS profile you wish to use, you can set it here
+region: "" # If you have a standard AWS region you wish to use, you can set it here
+rootdir: . # For use with the $TEMPLATEPATH placeholder, this indicates from where you wish the templatepath to be calculated.
+table:
+  max-column-width: 50 # The width of the columns in the table output
+  style: Default # The style of the table. You can see all available styles by running fog demo tables
+tags:
+  default: # A set of tags that needs to be applied to every stack that will be deployed
+    Source: https://github.com/ArjenSchwarz/fog/$TEMPLATEPATH # An example tag to be added
+  directory: tags # The directory where you store your parameter files. Relative to where you run the application from
+  extensions:
+    - .json # The extensions for your ta files. Only json formatted files are currently supported
+templates:
+  directory: templates # The directory where you store your template files. Relative to where you run the application from
+  extensions: # The extensions for your template files. Both yaml and json formatted files are currently supported
+    - .yaml
+    - .yml
+    - .templ
+    - .tmpl
+    - .template
+    - .json
+verbose: false # If you wish to show verbose information by default, set this to true

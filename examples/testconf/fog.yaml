@@ -1,0 +1,15 @@
+output: table
+table:
+  style: ColoredBlackOnGreenWhite
+  max-column-width: 50
+changeset:
+  name-format: fog-$TIMESTAMP
+templates:
+  directory: templates
+tags:
+  directory: tags
+  default:
+    source: https://github.com/ArjenSchwarzs/fog/$TEMPLATEPATH
+parameters:
+  directory: parameters
+rootdir: ../..

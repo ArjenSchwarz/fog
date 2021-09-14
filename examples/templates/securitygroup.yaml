@@ -1,0 +1,16 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Add an example security group to the VPC through importing the VPC ID
+Resources:
+  Examplegroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: Examplegroup
+      GroupDescription: Examplegroup
+      VpcId: !ImportValue myvpc-VPCID
+
+Outputs:
+  Examplegroup:
+    Description: Example group ID
+    Value:  !Ref Examplegroup
+    Export:
+      Name: !Sub "${AWS::StackName}-examplegroup"
