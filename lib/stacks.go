@@ -17,6 +17,7 @@ type DeployInfo struct {
 	ChangesetName     string
 	IsNew             bool
 	Parameters        []types.Parameter
+	PrechecksFailed   bool
 	RawStack          *types.Stack
 	StackArn          string
 	StackName         string

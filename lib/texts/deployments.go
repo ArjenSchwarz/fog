@@ -36,11 +36,15 @@ const (
 type FileMessage string
 
 const (
-	FileTemplateReadFailure    FileMessage = "Something went wrong trying to read the template file"
-	FileTagsReadFailure        FileMessage = "Something went wrong trying to read the tags file"
-	FileTagsParseFailure       FileMessage = "Something went wrong trying to parse the tags file"
-	FileParametersReadFailure  FileMessage = "Something went wrong trying to read the parameters file"
-	FileParametersParseFailure FileMessage = "Something went wrong trying to parse the parameters file"
+	FileTemplateReadFailure     FileMessage = "Something went wrong trying to read the template file"
+	FileTagsReadFailure         FileMessage = "Something went wrong trying to read the tags file"
+	FileTagsParseFailure        FileMessage = "Something went wrong trying to parse the tags file"
+	FileParametersReadFailure   FileMessage = "Something went wrong trying to read the parameters file"
+	FileParametersParseFailure  FileMessage = "Something went wrong trying to parse the parameters file"
+	FilePrecheckStarted         FileMessage = "Starting %v prechecks..."
+	FilePrecheckSuccess         FileMessage = "All prechecks finished successfully"
+	FilePrecheckFailureStop     FileMessage = "Issues detected during prechecks, stopping deployment. Please read the below output and fix before trying again"
+	FilePrecheckFailureContinue FileMessage = "Issues detected during prechecks, continuing regardless"
 )
 
 type DeployReceivedErrorMessage string

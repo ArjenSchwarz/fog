@@ -23,13 +23,14 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/spf13/viper"
 	"log"
 	"os"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/spf13/viper"
 
 	"path/filepath"
 
@@ -117,6 +118,27 @@ func deployTemplate(cmd *cobra.Command, args []string) {
 		setDeployTemplate(&deployment, awsConfig)
 		setDeployTags(&deployment)
 		setDeployParameters(&deployment)
+		if viper.GetStringSlice("templates.prechecks") != nil {
+			precheckmessage := fmt.Sprintf(string(texts.FilePrecheckStarted), len(viper.GetStringSlice("templates.prechecks")))
+			settings.PrintInfo(precheckmessage)
+			precheckresults, err := lib.RunPrechecks(&deployment)
+			if err != nil {
+				settings.PrintFailure(err)
+			}
+			if deployment.PrechecksFailed {
+				if viper.GetBool("templates.stop-on-failed-prechecks") {
+					settings.PrintFailure(texts.FilePrecheckFailureStop)
+					for command, output := range precheckresults {
+						settings.PrintBold(command)
+						fmt.Println(output)
+					}
+					os.Exit(1)
+				}
+				settings.PrintFailure(texts.FilePrecheckFailureContinue)
+			} else {
+				settings.PrintPositive(string(texts.FilePrecheckSuccess))
+			}
+		}
 		changeset := createChangeset(&deployment, awsConfig)
 		showChangeset(*changeset, awsConfig)
 		if *deploy_Dryrun {

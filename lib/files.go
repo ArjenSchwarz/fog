@@ -1,10 +1,12 @@
 package lib
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -76,4 +78,31 @@ func ReadParametersfile(parametersName string) (string, error) {
 		}
 	}
 	return "", errors.New("no parameters file found")
+}
+
+func RunPrechecks(deployment *DeployInfo) (map[string]string, error) {
+	results := make(map[string]string)
+	for _, precheck := range viper.GetStringSlice("templates.prechecks") {
+		precheck := strings.Replace(precheck, "$TEMPLATEPATH", deployment.TemplateLocalPath, -1)
+		separated := strings.Split(precheck, " ")
+		command, args := separated[0], separated[1:]
+		if stringInSlice(separated[0], []string{"rm", "del", "kill"}) {
+			return results, fmt.Errorf("unsafe command '%v' detected", command)
+		}
+		binary, lookErr := exec.LookPath(separated[0])
+		if lookErr != nil {
+			return results, fmt.Errorf("command '%v' cannot be found", command)
+		}
+		cmd := exec.Command(binary, args...)
+		var out bytes.Buffer
+		var stderr bytes.Buffer
+		cmd.Stdout = &out
+		cmd.Stderr = &stderr
+		err := cmd.Run()
+		if err != nil {
+			results[precheck] = stderr.String() + out.String()
+			deployment.PrechecksFailed = true
+		}
+	}
+	return results, nil
 }
