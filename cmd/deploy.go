@@ -213,7 +213,11 @@ func showDeploymentInfo(deployment lib.DeployInfo, awsConfig config.AWSConfig) {
 		if *deploy_Dryrun {
 			method = fmt.Sprintf("Doing a %v for", bold("dry run"))
 		}
-		fmt.Printf("%v new stack '%v' to region %v of account %v\n", method, bold(*deploy_StackName), awsConfig.Region, awsConfig.AccountID)
+		account := awsConfig.AccountID
+		if awsConfig.AccountAlias != "" {
+			account = fmt.Sprintf("%v (%v)", awsConfig.AccountAlias, awsConfig.AccountID)
+		}
+		fmt.Printf("%v new stack '%v' to region %v of account %v\n", method, bold(*deploy_StackName), awsConfig.Region, account)
 	} else {
 		method := "Updating"
 		if *deploy_Dryrun {

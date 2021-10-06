@@ -3,9 +3,10 @@ module github.com/ArjenSchwarz/fog
 go 1.17
 
 require (
-	github.com/aws/aws-sdk-go-v2 v1.9.0
+	github.com/aws/aws-sdk-go-v2 v1.9.1
 	github.com/aws/aws-sdk-go-v2/config v1.8.1
 	github.com/aws/aws-sdk-go-v2/service/cloudformation v1.10.0
+	github.com/aws/aws-sdk-go-v2/service/iam v1.10.0
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.15.1
 	github.com/aws/aws-sdk-go-v2/service/sts v1.7.0
 	github.com/aws/smithy-go v1.8.0

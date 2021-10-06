@@ -6,6 +6,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	external "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
+	"github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 )
@@ -42,6 +43,7 @@ func DefaultAwsConfig(config Config) AWSConfig {
 	}
 	awsConfig.Region = awsConfig.Config.Region
 	awsConfig.setCallerInfo()
+	awsConfig.setAlias()
 	return awsConfig
 }
 
@@ -50,14 +52,19 @@ func (config *AWSConfig) StsClient() *sts.Client {
 	return sts.NewFromConfig(config.Config)
 }
 
-//CloudformationClient returns an cloudformation Client
+//CloudformationClient returns a Cloudformation Client
 func (config *AWSConfig) CloudformationClient() *cloudformation.Client {
 	return cloudformation.NewFromConfig(config.Config)
 }
 
-//S3Client returns an cloudformation Client
+//S3Client returns an S3 Client
 func (config *AWSConfig) S3Client() *s3.Client {
 	return s3.NewFromConfig(config.Config)
+}
+
+//IAMClient returns an IAM Client
+func (config *AWSConfig) IAMClient() *iam.Client {
+	return iam.NewFromConfig(config.Config)
 }
 
 func (config *AWSConfig) setCallerInfo() {
@@ -68,4 +75,14 @@ func (config *AWSConfig) setCallerInfo() {
 	}
 	config.AccountID = *result.Account
 	config.UserID = *result.UserId
+}
+
+func (config *AWSConfig) setAlias() {
+	c := config.IAMClient()
+	result, err := c.ListAccountAliases(context.TODO(), &iam.ListAccountAliasesInput{})
+	if err != nil && len(result.AccountAliases) > 0 {
+		// If the user doesn't have permission to see the aliases or the account has no aliases, continue without
+		return
+	}
+	config.AccountAlias = result.AccountAliases[0]
 }
