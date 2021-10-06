@@ -3,6 +3,7 @@ package lib
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
 
@@ -224,12 +225,12 @@ func (deployment *DeployInfo) AddChangeset(resp cloudformation.DescribeChangeSet
 		changestruct := ChangesetChanges{
 			Action:      string(change.ResourceChange.Action),
 			Replacement: string(change.ResourceChange.Replacement),
-			ResourceID:  "",
-			LogicalID:   *change.ResourceChange.LogicalResourceId,
-			Type:        *change.ResourceChange.ResourceType,
+			ResourceID:  aws.ToString(change.ResourceChange.PhysicalResourceId),
+			LogicalID:   aws.ToString(change.ResourceChange.LogicalResourceId),
+			Type:        aws.ToString(change.ResourceChange.ResourceType),
 		}
-		if change.ResourceChange.PhysicalResourceId != nil {
-			changestruct.ResourceID = *change.ResourceChange.PhysicalResourceId
+		if change.ResourceChange.ModuleInfo != nil {
+			changestruct.Module = fmt.Sprintf("%v(%v)", aws.ToString(change.ResourceChange.ModuleInfo.LogicalIdHierarchy), aws.ToString(change.ResourceChange.ModuleInfo.TypeHierarchy))
 		}
 		changeset.AddChange(changestruct)
 	}

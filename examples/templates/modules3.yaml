@@ -1,0 +1,7 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Bucket meant to fail, but using modules
+Resources:
+  s3Bucket:
+    Type: IgnoreMe::S3::SampleBucket::MODULE
+    Properties:
+      BucketName: demo-bucket

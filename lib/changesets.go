@@ -13,6 +13,7 @@ import (
 type ChangesetInfo struct {
 	Changes      []ChangesetChanges
 	CreationTime time.Time
+	HasModule    bool
 	ID           string
 	Name         string
 	Status       string
@@ -27,6 +28,7 @@ type ChangesetChanges struct {
 	Replacement string
 	ResourceID  string
 	Type        string
+	Module      string
 }
 
 func (changeset *ChangesetInfo) DeleteChangeset(svc *cloudformation.Client) bool {
@@ -55,6 +57,9 @@ func (changeset *ChangesetInfo) AddChange(changes ChangesetChanges) {
 	}
 	contents = append(contents, changes)
 	changeset.Changes = contents
+	if changes.Module != "" {
+		changeset.HasModule = true
+	}
 }
 
 func (changeset *ChangesetInfo) GetStack(svc *cloudformation.Client) (types.Stack, error) {

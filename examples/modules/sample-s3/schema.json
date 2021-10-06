@@ -1,0 +1,46 @@
+{
+    "typeName": "IgnoreMe::S3::SampleBucket::MODULE",
+    "description": "Schema for Module Fragment of type IgnoreMe::S3::SampleBucket::MODULE",
+    "properties": {
+        "Parameters": {
+            "type": "object",
+            "properties": {
+                "BucketName": {
+                    "type": "object",
+                    "properties": {
+                        "Type": {
+                            "type": "string"
+                        },
+                        "Description": {
+                            "type": "string"
+                        }
+                    },
+                    "required": [
+                        "Type",
+                        "Description"
+                    ],
+                    "description": "Name for the bucket"
+                }
+            }
+        },
+        "Resources": {
+            "properties": {
+                "S3Bucket": {
+                    "type": "object",
+                    "properties": {
+                        "Type": {
+                            "type": "string",
+                            "const": "AWS::S3::Bucket"
+                        },
+                        "Properties": {
+                            "type": "object"
+                        }
+                    }
+                }
+            },
+            "type": "object",
+            "additionalProperties": false
+        }
+    },
+    "additionalProperties": true
+}

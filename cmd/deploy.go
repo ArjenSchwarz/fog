@@ -335,6 +335,9 @@ func createChangeset(deployment *lib.DeployInfo, awsConfig config.AWSConfig) *li
 func showChangeset(changeset lib.ChangesetInfo, awsConfig config.AWSConfig) {
 	bold := color.New(color.Bold).SprintFunc()
 	changesetkeys := []string{"Action", "CfnName", "Type", "ID", "Replacement"}
+	if changeset.HasModule {
+		changesetkeys = append(changesetkeys, "Module")
+	}
 	changesettitle := fmt.Sprintf("%v %v", texts.DeployChangesetMessageChanges, changeset.Name)
 	output := format.OutputArray{Keys: changesetkeys, Title: changesettitle}
 	output.SortKey = "Type"
@@ -352,6 +355,9 @@ func showChangeset(changeset lib.ChangesetInfo, awsConfig config.AWSConfig) {
 			content["CfnName"] = change.LogicalID
 			content["Type"] = change.Type
 			content["ID"] = change.ResourceID
+			if changeset.HasModule {
+				content["Module"] = change.Module
+			}
 			holder := format.OutputHolder{Contents: content}
 			output.AddHolder(holder)
 		}
