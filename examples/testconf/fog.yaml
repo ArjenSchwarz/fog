@@ -6,6 +6,10 @@ changeset:
   name-format: fog-$TIMESTAMP
 templates:
   directory: templates
+  prechecks:
+    - cfn-lint -t $TEMPLATEPATH #Use https://github.com/aws-cloudformation/cfn-lint
+    - checkov -f $TEMPLATEPATH #Use https://github.com/bridgecrewio/checkov
+  stop-on-failed-prechecks: true
 tags:
   directory: tags
   default:

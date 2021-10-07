@@ -83,13 +83,14 @@ func ReadParametersfile(parametersName string) (string, error) {
 func RunPrechecks(deployment *DeployInfo) (map[string]string, error) {
 	results := make(map[string]string)
 	for _, precheck := range viper.GetStringSlice("templates.prechecks") {
-		precheck := strings.Replace(precheck, "$TEMPLATEPATH", deployment.TemplateLocalPath, -1)
+		precheck := strings.Replace(precheck, "$TEMPLATEPATH", deployment.TemplateRelativePath, -1)
 		separated := strings.Split(precheck, " ")
 		command, args := separated[0], separated[1:]
-		if stringInSlice(separated[0], []string{"rm", "del", "kill"}) {
+		//TODO: improve on this list or find a better solution to keep it safe
+		if stringInSlice(command, []string{"rm", "del", "kill"}) {
 			return results, fmt.Errorf("unsafe command '%v' detected", command)
 		}
-		binary, lookErr := exec.LookPath(separated[0])
+		binary, lookErr := exec.LookPath(command)
 		if lookErr != nil {
 			return results, fmt.Errorf("command '%v' cannot be found", command)
 		}

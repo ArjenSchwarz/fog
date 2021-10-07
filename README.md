@@ -4,8 +4,7 @@ Fog is a tool to manage your CloudFormation deployments and ensure you have all 
 
 ## Deployments
 
-The main functionality for fog is to carry out deployments of CloudFormation templates. The logic is based on bash scripts I've written and used with multiple clients over a number of years. You can do a deployment using the `fog deploy` command. You can see the help functionality for this and other commands by adding the `--help`
-flag.
+The main functionality for fog is to carry out deployments of CloudFormation templates. The logic is based on bash scripts I've written and used with multiple clients over a number of years. You can do a deployment using the `fog deploy` command. You can see the help functionality for this and other commands by adding the `--help` flag.
 
 ```shell
 $ fog deploy --help
@@ -36,7 +35,7 @@ Flags:
   -n, --stackname string    The name for the stack
   -t, --tags string         The file(s) containing the tags, comma-separated for multiple
   -f, --template string     The filename for the template
-  
+
 Global Flags:
       --config string    config file (default is fog.yaml in current directory, or $HOME/fog.yaml)
       --output string    Format for the output, currently supported are table, csv, json, and dot (for certain functions) (default "table")
@@ -91,6 +90,22 @@ You can find an annotated example config in [example-fog.yaml](example-fog.yaml)
 * Set a standard name format for the change sets
 * Set standard tags that need to be applied to every template you wish to deploy
 * Set the root directory from which the `$TEMPLATEPATH` placeholder should be calculated
+
+### Prechecks
+
+It is possible to set up optional prechecks in your configuration file. These are commands that will be run before your deployment and you can ensure that a negative result from these checks will prevent deployment. For example, you can use this to ensure your templates succeed on [lint checks](https://github.com/aws-cloudformation/cfn-lint) or follow the rules defined in your [CloudFormation Guard](https://github.com/aws-cloudformation/cloudformation-guard) setup.
+
+You set this up in your config file in the templates section, and you can define as many as you like. As with other settings, it allows the use of the `$TEMPLATEPATH` placeholder to define the template.
+
+```yaml
+templates:
+  prechecks:
+    - cfn-lint -t $TEMPLATEPATH #Use https://github.com/aws-cloudformation/cfn-lint
+    - cfn-guard validate -d $TEMPLATEPATH --rules myrules #Use https://github.com/aws-cloudformation/cloudformation-guard
+  stop-on-failed-prechecks: true
+```
+
+If you don't define `stop-on-failed-prechecks`, or set it to false, fog will continue with the deployment even if issues are found.
 
 ### Output formats
 

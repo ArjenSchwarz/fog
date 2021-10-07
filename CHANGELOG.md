@@ -1,4 +1,11 @@
 
+1.0.0 / 2021-10-07
+==================
+
+  * Show account alias when deploying
+  * Add support for prechecks
+  * Show modules in change sets
+
 0.10.0 / 2021-09-14
 ===================
 

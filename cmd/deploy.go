@@ -55,7 +55,12 @@ A name for the changeset will automatically be generated based on your preferred
 
 When providing tag and/or parameter files, you can add multiple files for each. These are parsed in the order provided and later values will override earlier ones.
 
-Examples: fog deploy mytemplate`,
+Examples:
+
+  fog deploy --stackname testvpc --template basicvpc --parameters vpc-private-only --tags "../globaltags/project,dev"
+  fog deploy --stackname fails3 --template fails3 --non-interactive
+  fog deploy --stackname myvpc --template basicvpc --parameters vpc-public --tags "../globaltags/project,dev" --config testconf/fog.yaml
+`,
 	Run: deployTemplate,
 }
 
@@ -229,6 +234,7 @@ func showDeploymentInfo(deployment lib.DeployInfo, awsConfig config.AWSConfig) {
 
 func setDeployTemplate(deployment *lib.DeployInfo, awsConfig config.AWSConfig) {
 	template, path, err := lib.ReadTemplate(deploy_Template)
+	deployment.TemplateRelativePath = path
 	if err != nil {
 		settings.PrintFailure(texts.FileTemplateReadFailure)
 		log.Fatalln(err)

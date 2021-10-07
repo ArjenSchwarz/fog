@@ -13,19 +13,34 @@ import (
 )
 
 type DeployInfo struct {
-	Changeset         *ChangesetInfo
-	ChangesetName     string
-	IsNew             bool
-	Parameters        []types.Parameter
-	PrechecksFailed   bool
-	RawStack          *types.Stack
-	StackArn          string
-	StackName         string
-	Tags              []types.Tag
-	Template          string
+	// Changeset contains the ChangesetInfo object with the change set information
+	Changeset *ChangesetInfo
+	// ChangesetName contains the name of the change set
+	ChangesetName string
+	// IsNew shows whether this is a new stack or if it will update one
+	IsNew bool
+	// Parameters holds a slice of parameter objects
+	Parameters []types.Parameter
+	// PrechecksFailed shows whether the deployment failed the prechecks
+	PrechecksFailed bool
+	// RawStack holds the raw version of the stack as returned by AWS
+	RawStack *types.Stack
+	// StackArn holds the ARN of the stack
+	StackArn string
+	// StackName holds the name of the stack
+	StackName string
+	// Tags holds a slice of tag objects
+	Tags []types.Tag
+	// Template holds the contents of the template that will be deployed
+	Template string
+	// TemplateLocalPath is the path relative to the root as defined by the config file
 	TemplateLocalPath string
-	TemplateName      string
-	TemplateUrl       string
+	// TemplateName is the name of the template
+	TemplateName string
+	// TemplateRelativePath is the path relative to where the command is run
+	TemplateRelativePath string
+	// TemplateUrl holds the S3 URL where the template has been uploaded to
+	TemplateUrl string
 }
 
 type CfnStack struct {
