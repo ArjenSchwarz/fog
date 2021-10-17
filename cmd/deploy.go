@@ -150,6 +150,10 @@ func deployTemplate(cmd *cobra.Command, args []string) {
 					}
 					os.Exit(1)
 				}
+				for command, output := range precheckresults {
+					settings.PrintBold(command)
+					fmt.Println(output)
+				}
 				deploymentLog.PreChecks = lib.DeploymentLogPreChecksFailed
 				settings.PrintFailure(texts.FilePrecheckFailureContinue)
 			} else {
