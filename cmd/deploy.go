@@ -93,6 +93,7 @@ func init() {
 }
 
 func deployTemplate(cmd *cobra.Command, args []string) {
+	viper.Set("output", "table")
 	settings.SeparateTables = true //Make table output stand out more
 	deployment.StackName = *deploy_StackName
 	// Set the changeset name to what's provided, otherwise fall back on the generated value
@@ -110,6 +111,15 @@ func deployTemplate(cmd *cobra.Command, args []string) {
 		}
 	}
 	showDeploymentInfo(deployment, awsConfig)
+	if !deployment.IsNew {
+		deploymentName := lib.GenerateDeploymentName(awsConfig, deployment.StackName)
+		log := lib.GetLatestSuccessFulLogByDeploymentName(deploymentName)
+		if log.DeploymentName != "" {
+			settings.PrintInfo("Previous deployment found:")
+			printLog(log)
+		}
+	}
+	deploymentLog := lib.NewDeploymentLog(awsConfig, deployment)
 	if *deploy_DeployChangeset {
 		rawchangeset, err := deployment.GetChangeset(awsConfig.CloudformationClient())
 		if err != nil {
@@ -118,6 +128,7 @@ func deployTemplate(cmd *cobra.Command, args []string) {
 			os.Exit(1)
 		}
 		changeset := deployment.AddChangeset(rawchangeset)
+		deploymentLog.AddChangeSet(&changeset)
 		showChangeset(changeset, awsConfig)
 	} else {
 		setDeployTemplate(&deployment, awsConfig)
@@ -139,12 +150,15 @@ func deployTemplate(cmd *cobra.Command, args []string) {
 					}
 					os.Exit(1)
 				}
+				deploymentLog.PreChecks = lib.DeploymentLogPreChecksFailed
 				settings.PrintFailure(texts.FilePrecheckFailureContinue)
 			} else {
+				deploymentLog.PreChecks = lib.DeploymentLogPreChecksPassed
 				settings.PrintPositive(string(texts.FilePrecheckSuccess))
 			}
 		}
 		changeset := createChangeset(&deployment, awsConfig)
+		deploymentLog.AddChangeSet(changeset)
 		showChangeset(*changeset, awsConfig)
 		if *deploy_Dryrun {
 			settings.PrintSuccess(texts.DeployChangesetMessageDryrunSuccess)
@@ -176,6 +190,7 @@ func deployTemplate(cmd *cobra.Command, args []string) {
 	}
 	switch resultStack.StackStatus {
 	case types.StackStatusCreateComplete, types.StackStatusUpdateComplete:
+		deploymentLog.Success()
 		settings.PrintSuccess(texts.DeployStackMessageSuccess)
 		if len(resultStack.Outputs) > 0 {
 			outputkeys := []string{"Key", "Value", "Description", "ExportName"}
@@ -202,7 +217,8 @@ func deployTemplate(cmd *cobra.Command, args []string) {
 		}
 	case types.StackStatusRollbackComplete, types.StackStatusRollbackFailed, types.StackStatusUpdateRollbackComplete, types.StackStatusUpdateRollbackFailed:
 		settings.PrintFailure(texts.DeployStackMessageFailed)
-		showFailedEvents(deployment, awsConfig)
+		failures := showFailedEvents(deployment, awsConfig)
+		deploymentLog.Failed(failures)
 		if deployment.IsNew {
 			//double verify that the stack can be deleted
 			deleteStackIfNew(deployment, awsConfig)
@@ -365,18 +381,24 @@ func createChangeset(deployment *lib.DeployInfo, awsConfig config.AWSConfig) *li
 }
 
 func showChangeset(changeset lib.ChangesetInfo, awsConfig config.AWSConfig) {
+	changesettitle := fmt.Sprintf("%v %v", texts.DeployChangesetMessageChanges, changeset.Name)
+	printChangeset(changesettitle, changeset.Changes, changeset.HasModule)
+
+	fmt.Printf("%v %v \r\n", texts.DeployChangesetMessageConsole, changeset.GenerateChangesetUrl(awsConfig))
+}
+
+func printChangeset(title string, changes []lib.ChangesetChanges, hasModule bool) {
 	bold := color.New(color.Bold).SprintFunc()
 	changesetkeys := []string{"Action", "CfnName", "Type", "ID", "Replacement"}
-	if changeset.HasModule {
+	if hasModule {
 		changesetkeys = append(changesetkeys, "Module")
 	}
-	changesettitle := fmt.Sprintf("%v %v", texts.DeployChangesetMessageChanges, changeset.Name)
-	output := format.OutputArray{Keys: changesetkeys, Title: changesettitle}
+	output := format.OutputArray{Keys: changesetkeys, Title: title}
 	output.SortKey = "Type"
-	if len(changeset.Changes) == 0 {
+	if len(changes) == 0 {
 		fmt.Println(texts.DeployChangesetMessageNoResourceChanges)
 	} else {
-		for _, change := range changeset.Changes {
+		for _, change := range changes {
 			content := make(map[string]string)
 			action := change.Action
 			if action == "Remove" {
@@ -387,7 +409,7 @@ func showChangeset(changeset lib.ChangesetInfo, awsConfig config.AWSConfig) {
 			content["CfnName"] = change.LogicalID
 			content["Type"] = change.Type
 			content["ID"] = change.ResourceID
-			if changeset.HasModule {
+			if hasModule {
 				content["Module"] = change.Module
 			}
 			holder := format.OutputHolder{Contents: content}
@@ -395,7 +417,6 @@ func showChangeset(changeset lib.ChangesetInfo, awsConfig config.AWSConfig) {
 		}
 		output.Write(*settings)
 	}
-	fmt.Printf("%v %v \r\n", texts.DeployChangesetMessageConsole, changeset.GenerateChangesetUrl(awsConfig))
 }
 
 func deleteChangeset(deployment lib.DeployInfo, awsConfig config.AWSConfig) {
@@ -495,7 +516,7 @@ func showEvents(deployment lib.DeployInfo, latest time.Time, awsConfig config.AW
 	return latest
 }
 
-func showFailedEvents(deployment lib.DeployInfo, awsConfig config.AWSConfig) {
+func showFailedEvents(deployment lib.DeployInfo, awsConfig config.AWSConfig) []map[string]string {
 	events, err := deployment.GetEvents(awsConfig.CloudformationClient())
 	if err != nil {
 		settings.PrintFailure("Something went wrong trying to get the events of the stack")
@@ -505,6 +526,7 @@ func showFailedEvents(deployment lib.DeployInfo, awsConfig config.AWSConfig) {
 	changesettitle := fmt.Sprintf("Failed events in deployment of changeset %v", deployment.Changeset.Name)
 	output := format.OutputArray{Keys: changesetkeys, Title: changesettitle}
 	sort.Sort(ReverseEvents(events))
+	result := make([]map[string]string, 0)
 	for _, event := range events {
 		if event.Timestamp.After(deployment.Changeset.CreationTime) {
 			switch event.ResourceStatus {
@@ -516,10 +538,12 @@ func showFailedEvents(deployment lib.DeployInfo, awsConfig config.AWSConfig) {
 				content["Reason"] = *event.ResourceStatusReason
 				holder := format.OutputHolder{Contents: content}
 				output.AddHolder(holder)
+				result = append(result, content)
 			}
 		}
 	}
 	output.Write(*settings)
+	return result
 }
 
 type ReverseEvents []types.StackEvent

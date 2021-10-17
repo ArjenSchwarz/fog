@@ -16,3 +16,5 @@ tags:
     source: https://github.com/ArjenSchwarz/fog/$TEMPLATEPATH
 parameters:
   directory: examples/parameters
+logging:
+  filename: deployments.log
