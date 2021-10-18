@@ -93,7 +93,7 @@ func init() {
 }
 
 func deployTemplate(cmd *cobra.Command, args []string) {
-	viper.Set("output", "table")
+	viper.Set("output", "table")   //Enforce table output for deployments
 	settings.SeparateTables = true //Make table output stand out more
 	deployment.StackName = *deploy_StackName
 	// Set the changeset name to what's provided, otherwise fall back on the generated value
@@ -113,10 +113,12 @@ func deployTemplate(cmd *cobra.Command, args []string) {
 	showDeploymentInfo(deployment, awsConfig)
 	if !deployment.IsNew {
 		deploymentName := lib.GenerateDeploymentName(awsConfig, deployment.StackName)
-		log := lib.GetLatestSuccessFulLogByDeploymentName(deploymentName)
-		if log.DeploymentName != "" {
-			settings.PrintInfo("Previous deployment found:")
-			printLog(log)
+		if settings.GetBool("logging.enabled") && settings.GetBool("logging.show-previous") {
+			log := lib.GetLatestSuccessFulLogByDeploymentName(deploymentName)
+			if log.DeploymentName != "" {
+				settings.PrintInfo("Previous deployment found:")
+				printLog(log)
+			}
 		}
 	}
 	deploymentLog := lib.NewDeploymentLog(awsConfig, deployment)

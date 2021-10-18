@@ -84,15 +84,17 @@ func NewDeploymentLog(awsConfig config.AWSConfig, deployment DeployInfo) Deploym
 }
 
 func (deploymentlog *DeploymentLog) Write() {
-	deploymentlog.UpdatedAt = time.Now().UTC()
-	jsonString, err := json.Marshal(deploymentlog)
-	if err != nil {
-		panic("error with encoding logs")
-	}
-	outputFile := viper.GetString("logging.filename")
-	err = writeLogToFile(jsonString, outputFile)
-	if err != nil {
-		log.Fatal(err.Error())
+	if viper.GetBool("logging.enabled") {
+		deploymentlog.UpdatedAt = time.Now().UTC()
+		jsonString, err := json.Marshal(deploymentlog)
+		if err != nil {
+			panic("error with encoding logs")
+		}
+		outputFile := viper.GetString("logging.filename")
+		err = writeLogToFile(jsonString, outputFile)
+		if err != nil {
+			log.Fatal(err.Error())
+		}
 	}
 }
 

@@ -9,7 +9,7 @@ templates:
   prechecks:
     - cfn-lint -t $TEMPLATEPATH #Use https://github.com/aws-cloudformation/cfn-lint
     - checkov -f $TEMPLATEPATH #Use https://github.com/bridgecrewio/checkov
-  stop-on-failed-prechecks: true
+  stop-on-failed-prechecks: false
 tags:
   directory: examples/tags
   default:
@@ -17,4 +17,6 @@ tags:
 parameters:
   directory: examples/parameters
 logging:
+  enabled: true
   filename: deployments.log
+  show-previous: true

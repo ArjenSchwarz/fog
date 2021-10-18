@@ -23,9 +23,10 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+
 	"github.com/ArjenSchwarz/fog/config"
 	"github.com/spf13/cobra"
-	"os"
 
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/viper"
@@ -77,6 +78,10 @@ func init() {
 	viper.SetDefault("rootdir", ".")
 
 	viper.SetDefault("changeset.name-format", "fog-$TIMESTAMP")
+
+	viper.SetDefault("logging.enabled", true)
+	viper.SetDefault("logging.filename", "fog-deployments.log")
+	viper.SetDefault("logging.show-previous", true)
 }
 
 // initConfig reads in config file and ENV variables if set.
