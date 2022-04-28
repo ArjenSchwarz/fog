@@ -48,7 +48,7 @@ type DeploymentLog struct {
 	// The type of deployment
 	DeploymentType DeploymentType
 	// The rows that failed
-	Failures []map[string]string
+	Failures []map[string]interface{}
 	// Did the prechecks pass?
 	PreChecks DeploymentLogPreChecks
 	// The AWS Region
@@ -122,7 +122,7 @@ func (deploymentlog *DeploymentLog) Success() {
 	deploymentlog.Write()
 }
 
-func (deploymentlog *DeploymentLog) Failed(failures []map[string]string) {
+func (deploymentlog *DeploymentLog) Failed(failures []map[string]interface{}) {
 	deploymentlog.Status = DeploymentLogStatusFailed
 	deploymentlog.Failures = failures
 	deploymentlog.Write()

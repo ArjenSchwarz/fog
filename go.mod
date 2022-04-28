@@ -12,7 +12,7 @@ require (
 	github.com/aws/smithy-go v1.8.0
 	github.com/emicklei/dot v0.16.0
 	github.com/fatih/color v1.12.0
-	github.com/jedib0t/go-pretty/v6 v6.2.4
+	github.com/jedib0t/go-pretty/v6 v6.3.1
 	github.com/mattn/go-runewidth v0.0.13 // indirect
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/spf13/cobra v1.2.1
@@ -23,6 +23,7 @@ require (
 )
 
 require (
+	github.com/ArjenSchwarz/go-output v0.0.0-20220428111129-a74678cb15ad // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.4.1 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.5.0 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.2.2 // indirect

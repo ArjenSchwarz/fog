@@ -36,8 +36,8 @@ import (
 
 	"github.com/ArjenSchwarz/fog/config"
 	"github.com/ArjenSchwarz/fog/lib"
-	"github.com/ArjenSchwarz/fog/lib/format"
 	"github.com/ArjenSchwarz/fog/lib/texts"
+	format "github.com/ArjenSchwarz/go-output"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -201,7 +201,8 @@ func deployTemplate(cmd *cobra.Command, args []string) {
 		if len(resultStack.Outputs) > 0 {
 			outputkeys := []string{"Key", "Value", "Description", "ExportName"}
 			outputtitle := fmt.Sprintf("Outputs for stack %v", *resultStack.StackName)
-			output := format.OutputArray{Keys: outputkeys, Title: outputtitle}
+			output := format.OutputArray{Keys: outputkeys, Settings: settings.NewOutputSettings()}
+			output.Settings.Title = outputtitle
 			for _, outputresult := range resultStack.Outputs {
 				exportName := ""
 				if outputresult.ExportName != nil {
@@ -211,7 +212,7 @@ func deployTemplate(cmd *cobra.Command, args []string) {
 				if outputresult.Description != nil {
 					description = *outputresult.Description
 				}
-				content := make(map[string]string)
+				content := make(map[string]interface{})
 				content["Key"] = *outputresult.OutputKey
 				content["Value"] = *outputresult.OutputValue
 				content["Description"] = description
@@ -219,7 +220,7 @@ func deployTemplate(cmd *cobra.Command, args []string) {
 				holder := format.OutputHolder{Contents: content}
 				output.AddHolder(holder)
 			}
-			output.Write(*settings)
+			output.Write()
 		}
 	case types.StackStatusRollbackComplete, types.StackStatusRollbackFailed, types.StackStatusUpdateRollbackComplete, types.StackStatusUpdateRollbackFailed:
 		settings.PrintFailure(texts.DeployStackMessageFailed)
@@ -318,7 +319,9 @@ func setDeployTags(deployment *lib.DeployInfo) {
 }
 
 func placeholderParser(value string, deployment *lib.DeployInfo) string {
-	value = strings.Replace(value, "$TEMPLATEPATH", deployment.TemplateLocalPath, -1)
+	if deployment != nil {
+		value = strings.Replace(value, "$TEMPLATEPATH", deployment.TemplateLocalPath, -1)
+	}
 	//value = strings.Replace(value, "$CURRENTDIR", os.Di)
 	value = strings.Replace(value, "$TIMESTAMP", time.Now().Local().Format("2006-01-02T15-04-05"), -1)
 	return value
@@ -399,13 +402,14 @@ func printChangeset(title string, changes []lib.ChangesetChanges, hasModule bool
 	if hasModule {
 		changesetkeys = append(changesetkeys, "Module")
 	}
-	output := format.OutputArray{Keys: changesetkeys, Title: title}
-	output.SortKey = "Type"
+	output := format.OutputArray{Keys: changesetkeys, Settings: settings.NewOutputSettings()}
+	output.Settings.Title = title
+	output.Settings.SortKey = "Type"
 	if len(changes) == 0 {
 		fmt.Println(texts.DeployChangesetMessageNoResourceChanges)
 	} else {
 		for _, change := range changes {
-			content := make(map[string]string)
+			content := make(map[string]interface{})
 			action := change.Action
 			if action == "Remove" {
 				action = bold(action)
@@ -421,7 +425,7 @@ func printChangeset(title string, changes []lib.ChangesetChanges, hasModule bool
 			holder := format.OutputHolder{Contents: content}
 			output.AddHolder(holder)
 		}
-		output.Write(*settings)
+		output.Write()
 	}
 }
 
@@ -522,7 +526,7 @@ func showEvents(deployment lib.DeployInfo, latest time.Time, awsConfig config.AW
 	return latest
 }
 
-func showFailedEvents(deployment lib.DeployInfo, awsConfig config.AWSConfig) []map[string]string {
+func showFailedEvents(deployment lib.DeployInfo, awsConfig config.AWSConfig) []map[string]interface{} {
 	events, err := deployment.GetEvents(awsConfig.CloudformationClient())
 	if err != nil {
 		settings.PrintFailure("Something went wrong trying to get the events of the stack")
@@ -530,14 +534,15 @@ func showFailedEvents(deployment lib.DeployInfo, awsConfig config.AWSConfig) []m
 	}
 	changesetkeys := []string{"CfnName", "Type", "Status", "Reason"}
 	changesettitle := fmt.Sprintf("Failed events in deployment of changeset %v", deployment.Changeset.Name)
-	output := format.OutputArray{Keys: changesetkeys, Title: changesettitle}
+	output := format.OutputArray{Keys: changesetkeys, Settings: settings.NewOutputSettings()}
+	output.Settings.Title = changesettitle
 	sort.Sort(ReverseEvents(events))
-	result := make([]map[string]string, 0)
+	result := make([]map[string]interface{}, 0)
 	for _, event := range events {
 		if event.Timestamp.After(deployment.Changeset.CreationTime) {
 			switch event.ResourceStatus {
 			case types.ResourceStatusCreateFailed, types.ResourceStatusImportFailed, types.ResourceStatusDeleteFailed, types.ResourceStatusUpdateFailed:
-				content := make(map[string]string)
+				content := make(map[string]interface{})
 				content["CfnName"] = *event.LogicalResourceId
 				content["Type"] = *event.ResourceType
 				content["Status"] = string(event.ResourceStatus)
@@ -548,7 +553,7 @@ func showFailedEvents(deployment lib.DeployInfo, awsConfig config.AWSConfig) []m
 			}
 		}
 	}
-	output.Write(*settings)
+	output.Write()
 	return result
 }
 

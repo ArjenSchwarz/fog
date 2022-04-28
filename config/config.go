@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	format "github.com/ArjenSchwarz/go-output"
 	"github.com/fatih/color"
 	"github.com/spf13/viper"
 )
@@ -36,6 +37,13 @@ func (config *Config) GetString(setting string) string {
 
 func (config *Config) GetBool(setting string) bool {
 	return viper.GetBool(setting)
+}
+
+func (config *Config) GetInt(setting string) int {
+	if viper.IsSet(setting) {
+		return viper.GetInt(setting)
+	}
+	return 0
 }
 
 func (config *Config) GetSeparator() string {
@@ -101,4 +109,15 @@ func (config *Config) GetFieldOrEmptyValue(value string) string {
 	default:
 		return "-"
 	}
+}
+
+func (config *Config) NewOutputSettings() *format.OutputSettings {
+	settings := format.NewOutputSettings()
+	// settings.UseEmoji = config.GetBool("output.use-emoji")
+	settings.SetOutputFormat(config.GetLCString("output"))
+	// settings.OutputFile = config.GetLCString("output.file")
+	// settings.ShouldAppend = config.GetBool("output.append")
+	settings.TableStyle = format.TableStyles[config.GetString("table.style")]
+	settings.TableMaxColumnWidth = config.GetInt("table.max-column-width")
+	return settings
 }

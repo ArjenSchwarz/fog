@@ -24,7 +24,7 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/ArjenSchwarz/fog/lib/format"
+	format "github.com/ArjenSchwarz/go-output"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -44,11 +44,12 @@ func init() {
 func demoTables(cmd *cobra.Command, args []string) {
 	keys := []string{"Export", "Description", "Stack", "Value", "Imported"}
 	title := "Export values demo"
-	output := format.OutputArray{Keys: keys, Title: title}
-	output.SortKey = "Export"
+	output := format.OutputArray{Keys: keys, Settings: settings.NewOutputSettings()}
+	output.Settings.Title = title
+	output.Settings.SortKey = "Export"
 
 	value1 := format.OutputHolder{
-		Contents: map[string]string{
+		Contents: map[string]interface{}{
 			"Export":      "awesome-stack-dev-s3-arn",
 			"Value":       "arn:aws:s3:::fog-awesome-stack-dev",
 			"Description": "ARN of the S3 bucket",
@@ -57,7 +58,7 @@ func demoTables(cmd *cobra.Command, args []string) {
 		},
 	}
 	value2 := format.OutputHolder{
-		Contents: map[string]string{
+		Contents: map[string]interface{}{
 			"Export":      "awesome-stack-test-s3-arn",
 			"Value":       "arn:aws:s3:::fog-awesome-stack-test",
 			"Description": "ARN of the S3 bucket",
@@ -66,7 +67,7 @@ func demoTables(cmd *cobra.Command, args []string) {
 		},
 	}
 	value3 := format.OutputHolder{
-		Contents: map[string]string{
+		Contents: map[string]interface{}{
 			"Export":      "awesome-stack-prod-s3-arn",
 			"Value":       "arn:aws:s3:::fog-awesome-stack-prod",
 			"Description": "ARN of the S3 bucket",
@@ -75,7 +76,7 @@ func demoTables(cmd *cobra.Command, args []string) {
 		},
 	}
 	value4 := format.OutputHolder{
-		Contents: map[string]string{
+		Contents: map[string]interface{}{
 			"Export":      "demo-s3-bucket",
 			"Value":       "fog-demo-bucket",
 			"Description": "The S3 bucket used for demos but has an exceptionally long description so it can show a multi-line example",
@@ -100,6 +101,6 @@ table:
 		fmt.Println("")
 		fmt.Printf("Showing style: %v\r\n", style)
 		fmt.Println("")
-		output.Write(*settings)
+		output.Write()
 	}
 }

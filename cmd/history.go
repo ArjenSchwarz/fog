@@ -27,7 +27,7 @@ import (
 
 	"github.com/ArjenSchwarz/fog/config"
 	"github.com/ArjenSchwarz/fog/lib"
-	"github.com/ArjenSchwarz/fog/lib/format"
+	format "github.com/ArjenSchwarz/go-output"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -81,8 +81,9 @@ func printLog(log lib.DeploymentLog) {
 	//print log entry info
 	logkeys := []string{"Account", "Region", "Deployer", "Type", "Prechecks", "Started At", "Duration"}
 	logtitle := "Details about the deployment"
-	output := format.OutputArray{Keys: logkeys, Title: logtitle}
-	contents := make(map[string]string)
+	output := format.OutputArray{Keys: logkeys, Settings: settings.NewOutputSettings()}
+	output.Settings.Title = logtitle
+	contents := make(map[string]interface{})
 	contents["Account"] = log.Account
 	contents["Region"] = log.Region
 	contents["Deployer"] = log.Deployer
@@ -92,7 +93,7 @@ func printLog(log lib.DeploymentLog) {
 	contents["Duration"] = log.UpdatedAt.Sub(log.StartedAt).Round(time.Second).String()
 	holder := format.OutputHolder{Contents: contents}
 	output.AddHolder(holder)
-	output.Write(*settings)
+	output.Write()
 
 	//print change set info
 	changesettitle := "Deployed change set"
@@ -110,11 +111,12 @@ func printLog(log lib.DeploymentLog) {
 		settings.PrintWarning("Failed with below errors")
 		eventskeys := []string{"CfnName", "Type", "Status", "Reason"}
 		eventstitle := "Failed events in deployment of change set "
-		output := format.OutputArray{Keys: eventskeys, Title: eventstitle}
+		output := format.OutputArray{Keys: eventskeys, Settings: settings.NewOutputSettings()}
+		output.Settings.Title = eventstitle
 		for _, event := range log.Failures {
 			holder := format.OutputHolder{Contents: event}
 			output.AddHolder(holder)
 		}
-		output.Write(*settings)
+		output.Write()
 	}
 }

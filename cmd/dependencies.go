@@ -28,7 +28,7 @@ import (
 
 	"github.com/ArjenSchwarz/fog/config"
 	"github.com/ArjenSchwarz/fog/lib"
-	"github.com/ArjenSchwarz/fog/lib/format"
+	format "github.com/ArjenSchwarz/go-output"
 	"github.com/spf13/cobra"
 )
 
@@ -69,8 +69,9 @@ func showDependencies(cmd *cobra.Command, args []string) {
 		subtitle = fmt.Sprintf("Stacks filtered by for %v", *dependencies_stackName)
 	}
 	title := fmt.Sprintf("%v in account %v for region %v", subtitle, awsConfig.AccountID, awsConfig.Region)
-	output := format.OutputArray{Keys: keys, Title: title}
-	output.SortKey = "Stack"
+	output := format.OutputArray{Keys: keys, Settings: settings.NewOutputSettings()}
+	output.Settings.Title = title
+	output.Settings.SortKey = "Stack"
 	if settings.GetLCString("output") == "dot" {
 		dotcolumns := config.DotColumns{
 			From: "Stack",
@@ -86,14 +87,14 @@ func showDependencies(cmd *cobra.Command, args []string) {
 		if *dependencies_stackName != "" && !stringInSlice(stackname, stackfilter) {
 			continue
 		}
-		content := make(map[string]string)
+		content := make(map[string]interface{})
 		content["Stack"] = stack.Name
 		content["Description"] = stack.Description
 		content["Imported By"] = strings.Join(unique(stack.ImportedBy), settings.GetSeparator())
 		holder := format.OutputHolder{Contents: content}
 		output.AddHolder(holder)
 	}
-	output.Write(*settings)
+	output.Write()
 }
 
 func getFilteredStacks(stackfilter string, stacks *map[string]lib.CfnStack) []string {

@@ -26,7 +26,7 @@ import (
 
 	"github.com/ArjenSchwarz/fog/config"
 	"github.com/ArjenSchwarz/fog/lib"
-	"github.com/ArjenSchwarz/fog/lib/format"
+	format "github.com/ArjenSchwarz/go-output"
 	"github.com/spf13/cobra"
 )
 
@@ -66,10 +66,11 @@ func listResources(cmd *cobra.Command, args []string) {
 		subtitle = fmt.Sprintf("Resources for %v", *resource_stackname)
 	}
 	title := fmt.Sprintf("%v in account %v for region %v", subtitle, awsConfig.AccountID, awsConfig.Region)
-	output := format.OutputArray{Keys: keys, Title: title}
-	output.SortKey = "Type"
+	output := format.OutputArray{Keys: keys, Settings: settings.NewOutputSettings()}
+	output.Settings.Title = title
+	output.Settings.SortKey = "Type"
 	for _, resource := range resources {
-		content := make(map[string]string)
+		content := make(map[string]interface{})
 		content["Type"] = resource.Type
 		content["ID"] = resource.ResourceID
 		content["Stack"] = resource.StackName
@@ -80,6 +81,6 @@ func listResources(cmd *cobra.Command, args []string) {
 		holder := format.OutputHolder{Contents: content}
 		output.AddHolder(holder)
 	}
-	output.Write(*settings)
+	output.Write()
 
 }

@@ -27,7 +27,7 @@ import (
 
 	"github.com/ArjenSchwarz/fog/config"
 	"github.com/ArjenSchwarz/fog/lib"
-	"github.com/ArjenSchwarz/fog/lib/format"
+	format "github.com/ArjenSchwarz/go-output"
 	"github.com/spf13/cobra"
 )
 
@@ -71,10 +71,11 @@ func listExports(cmd *cobra.Command, args []string) {
 		subtitle = fmt.Sprintf("Exports for %v", *exports_stackName)
 	}
 	title := fmt.Sprintf("%v in account %v for region %v", subtitle, awsConfig.AccountID, awsConfig.Region)
-	output := format.OutputArray{Keys: keys, Title: title}
-	output.SortKey = "Export"
+	output := format.OutputArray{Keys: keys, Settings: settings.NewOutputSettings()}
+	output.Settings.Title = title
+	output.Settings.SortKey = "Export"
 	for _, resource := range exports {
-		content := make(map[string]string)
+		content := make(map[string]interface{})
 		content["Export"] = resource.ExportName
 		content["Value"] = resource.OutputValue
 		content["Description"] = resource.Description
@@ -90,6 +91,6 @@ func listExports(cmd *cobra.Command, args []string) {
 		holder := format.OutputHolder{Contents: content}
 		output.AddHolder(holder)
 	}
-	output.Write(*settings)
+	output.Write()
 
 }
