@@ -51,7 +51,8 @@ func init() {
 
 func history(cmd *cobra.Command, args []string) {
 	viper.Set("output", "table") //TODO support other outputs in a readable manner
-	settings.SeparateTables = true
+	outputsettings = settings.NewOutputSettings()
+	outputsettings.SeparateTables = true
 	awsConfig := config.DefaultAwsConfig(*settings)
 	logs := lib.ReadAllLogs()
 	for _, log := range logs {
@@ -73,9 +74,9 @@ func printLog(log lib.DeploymentLog) {
 	header := fmt.Sprintf("%v - %v", log.StartedAt.Local().Format("2006-01-02 15:04:05 MST"), log.StackName)
 
 	if log.Status == lib.DeploymentLogStatusSuccess {
-		settings.PrintPositive("📋 " + header)
+		fmt.Print(outputsettings.StringPositive("📋 " + header))
 	} else {
-		settings.PrintWarning("📋 " + header)
+		fmt.Print(outputsettings.StringWarning("📋 " + header))
 	}
 
 	//print log entry info
@@ -108,7 +109,7 @@ func printLog(log lib.DeploymentLog) {
 
 	if log.Status == lib.DeploymentLogStatusFailed {
 		//print error info
-		settings.PrintWarning("Failed with below errors")
+		fmt.Print(outputsettings.StringWarning("Failed with below errors"))
 		eventskeys := []string{"CfnName", "Type", "Status", "Reason"}
 		eventstitle := "Failed events in deployment of change set "
 		output := format.OutputArray{Keys: eventskeys, Settings: settings.NewOutputSettings()}

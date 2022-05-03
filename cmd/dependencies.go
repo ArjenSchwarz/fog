@@ -72,12 +72,8 @@ func showDependencies(cmd *cobra.Command, args []string) {
 	output := format.OutputArray{Keys: keys, Settings: settings.NewOutputSettings()}
 	output.Settings.Title = title
 	output.Settings.SortKey = "Stack"
-	if settings.GetLCString("output") == "dot" {
-		dotcolumns := config.DotColumns{
-			From: "Stack",
-			To:   "Imported By",
-		}
-		settings.DotColumns = &dotcolumns
+	if output.Settings.NeedsFromToColumns() {
+		output.Settings.AddFromToColumns("Stack", "Imported By")
 	}
 	stackfilter := []string{}
 	if *dependencies_stackName != "" {
