@@ -10,8 +10,4 @@ jobs:
       - uses: actions/setup-go@v3
         with:
           go-version: '1.18' # The Go version to download (if necessary) and use.
-      - uses: wangyoucao577/go-release-action@v1.28
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          goos: linux
-          goarch: amd64
+      - run: go build
