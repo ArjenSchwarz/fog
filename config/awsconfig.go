@@ -81,7 +81,7 @@ func (config *AWSConfig) setCallerInfo() {
 func (config *AWSConfig) setAlias() {
 	c := config.IAMClient()
 	result, err := c.ListAccountAliases(context.TODO(), &iam.ListAccountAliasesInput{})
-	if err != nil && len(result.AccountAliases) > 0 {
+	if err != nil || len(result.AccountAliases) == 0 {
 		// If the user doesn't have permission to see the aliases or the account has no aliases, continue without
 		return
 	}
