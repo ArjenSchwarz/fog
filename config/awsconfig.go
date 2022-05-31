@@ -2,6 +2,7 @@ package config
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	external "github.com/aws/aws-sdk-go-v2/config"
@@ -85,4 +86,12 @@ func (config *AWSConfig) setAlias() {
 		return
 	}
 	config.AccountAlias = result.AccountAliases[0]
+}
+
+func (config *AWSConfig) GetAccountAliasID() string {
+	if config.AccountAlias != "" {
+		return fmt.Sprintf("%s (%s)", config.AccountAlias, config.AccountID)
+	} else {
+		return config.AccountID
+	}
 }

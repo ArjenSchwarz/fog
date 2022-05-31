@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -50,6 +52,26 @@ type CfnStack struct {
 	Outputs     []CfnOutput
 	Resources   []CfnResource
 	ImportedBy  []string
+	Events      []StackEvent
+}
+
+type StackEvent struct {
+	EndDate        time.Time
+	ResourceEvents []ResourceEvent
+	StartDate      time.Time
+	Type           string
+	Success        bool
+}
+
+type ResourceEvent struct {
+	Resource          CfnResource
+	RawInfo           []types.StackEvent
+	EventType         string
+	StartDate         time.Time
+	EndDate           time.Time
+	StartStatus       string
+	EndStatus         string
+	ExpectedEndStatus string
 }
 
 func (deployment *DeployInfo) ChangesetType() types.ChangeSetType {
@@ -81,7 +103,17 @@ func GetCfnStacks(stackname *string, svc *cloudformation.Client) (map[string]Cfn
 	if err != nil {
 		return result, err
 	}
+	stackRegex := "^" + strings.Replace(*stackname, "*", ".*", -1) + "$"
+	tocheckstacks := make([]types.Stack, 0)
 	for _, stack := range resp.Stacks {
+		if strings.Contains(*stackname, "*") {
+			if matched, _ := regexp.MatchString(stackRegex, *stack.StackName); !matched {
+				continue
+			}
+		}
+		tocheckstacks = append(tocheckstacks, stack)
+	}
+	for _, stack := range tocheckstacks {
 		stackobject := CfnStack{
 			RawInfo: stack,
 			Name:    *stack.StackName,
@@ -302,6 +334,128 @@ func (deployment *DeployInfo) GetEvents(svc *cloudformation.Client) ([]types.Sta
 
 }
 
+func (stack *CfnStack) GetEvents(svc *cloudformation.Client) ([]StackEvent, error) {
+	if len(stack.Events) != 0 {
+		return stack.Events, nil
+	}
+	input := &cloudformation.DescribeStackEventsInput{
+		StackName: &stack.Name,
+	}
+	paginator := cloudformation.NewDescribeStackEventsPaginator(svc, input)
+	allevents := make([]types.StackEvent, 0)
+	for paginator.HasMorePages() {
+		output, err := paginator.NextPage(context.TODO())
+		if err != nil {
+			return nil, err
+		}
+		allevents = append(allevents, output.StackEvents...)
+	}
+	sort.Sort(ReverseEvents(allevents))
+	var resources map[string]ResourceEvent
+	var stackEvent StackEvent
+	eventName := ""
+	for _, event := range allevents {
+		if aws.ToString(event.LogicalResourceId) == stack.Name && aws.ToString(event.ResourceType) == "AWS::CloudFormation::Stack" {
+			if eventName == "" || strings.HasSuffix(eventName, "COMPLETE") || strings.HasSuffix(eventName, "FAILED") {
+				stackEvent = StackEvent{
+					StartDate: *event.Timestamp,
+				}
+				switch string(event.ResourceStatus) {
+				case "REVIEW_IN_PROGRESS":
+					fallthrough
+				case "CREATE_IN_PROGRESS":
+					stackEvent.Type = "Create"
+				case "UPDATE_IN_PROGRESS":
+					stackEvent.Type = "Update"
+				case "DELETE_IN_PROGRESS":
+					stackEvent.Type = "Delete"
+				case "IMPORT_IN_PROGRESS":
+					stackEvent.Type = "Import"
+				}
+				resources = make(map[string]ResourceEvent)
+				eventName = string(event.ResourceStatus)
+			} else {
+				stackEvent.EndDate = *event.Timestamp
+				resourceSlice := make([]ResourceEvent, 0)
+				for _, revent := range resources {
+					resourceSlice = append(resourceSlice, revent)
+				}
+				stackEvent.ResourceEvents = resourceSlice
+				if !strings.Contains(string(event.ResourceStatus), "IN_PROGRESS") {
+					if stringInSlice(string(event.ResourceStatus), GetSuccessStates()) {
+						stackEvent.Success = true
+					} else {
+						stackEvent.Success = false
+					}
+					stack.Events = append(stack.Events, stackEvent)
+				}
+				eventName = string(event.ResourceStatus)
+			}
+		} else {
+			name := fmt.Sprintf("%s (%s)", strings.ReplaceAll(*event.ResourceType, ":", " "), *event.LogicalResourceId)
+			var resource ResourceEvent
+			if _, ok := resources[name]; !ok {
+				resitem := CfnResource{
+					StackName:  stack.Name,
+					Type:       aws.ToString(event.ResourceType),
+					ResourceID: aws.ToString(event.PhysicalResourceId),
+					LogicalID:  aws.ToString(event.LogicalResourceId),
+				}
+				resource = ResourceEvent{
+					Resource:    resitem,
+					StartDate:   *event.Timestamp,
+					StartStatus: string(event.ResourceStatus),
+					EndDate:     *event.Timestamp,
+					EndStatus:   string(event.ResourceStatus),
+					RawInfo:     []types.StackEvent{event},
+				}
+				if strings.Contains(string(event.ResourceStatus), "CREATE") {
+					resource.EventType = "Add"
+					resource.ExpectedEndStatus = string(types.ResourceStatusCreateComplete)
+				} else if strings.Contains(string(event.ResourceStatus), "UPDATE") {
+					resource.EventType = "Modify"
+					resource.ExpectedEndStatus = string(types.ResourceStatusUpdateComplete)
+				} else if strings.Contains(string(event.ResourceStatus), "DELETE") {
+					resource.EventType = "Remove"
+					resource.ExpectedEndStatus = string(types.ResourceStatusDeleteComplete)
+				}
+			} else {
+				resource = resources[name]
+				resource.EndDate = *event.Timestamp
+				resource.EndStatus = string(event.ResourceStatus)
+			}
+			resources[name] = resource
+		}
+	}
+	return stack.Events, nil
+}
+
+func GetSuccessStates() []string {
+	return []string{
+		string(types.StackStatusCreateComplete),
+		string(types.StackStatusImportComplete),
+		string(types.StackStatusUpdateComplete),
+		string(types.StackStatusDeleteComplete),
+	}
+}
+
+func (event *ResourceEvent) GetDuration() time.Duration {
+	return event.EndDate.Sub(event.StartDate)
+}
+
+func (event *StackEvent) GetDuration() time.Duration {
+	return event.EndDate.Sub(event.StartDate)
+}
+
+func (stack *CfnStack) GetEventSummaries(svc *cloudformation.Client) ([]types.StackEvent, error) {
+	input := &cloudformation.DescribeStackEventsInput{
+		StackName: &stack.Name,
+	}
+	resp, err := svc.DescribeStackEvents(context.TODO(), input)
+	return resp.StackEvents, err
+
+}
+
 func (deployment *DeployInfo) DeleteStack(svc *cloudformation.Client) bool {
 	input := &cloudformation.DeleteStackInput{
 		StackName: &deployment.StackName,
@@ -310,3 +464,33 @@ func (deployment *DeployInfo) DeleteStack(svc *cloudformation.Client) bool {
 
 	return err == nil
 }
+
+func (deployment *DeployInfo) GetExecutionTimes(svc *cloudformation.Client) (map[string]map[string]time.Time, error) {
+	result := make(map[string]map[string]time.Time)
+	events, err := deployment.GetEvents(svc)
+	if err != nil {
+		return result, err
+	}
+	for _, event := range events {
+		if event.Timestamp.After(deployment.Changeset.CreationTime) {
+			name := fmt.Sprintf("%s (%s)", strings.ReplaceAll(*event.ResourceType, ":", " "), *event.LogicalResourceId)
+			if _, ok := result[name]; !ok {
+				result[name] = make(map[string]time.Time, 0)
+			}
+			result[name][string(event.ResourceStatus)] = *event.Timestamp
+		}
+	}
+	return result, nil
+}
+
+type ReverseEvents []types.StackEvent
+
+func (a ReverseEvents) Len() int           { return len(a) }
+func (a ReverseEvents) Less(i, j int) bool { return a[i].Timestamp.Before(*a[j].Timestamp) }
+func (a ReverseEvents) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+
+type SortStacks []CfnStack
+
+func (a SortStacks) Len() int           { return len(a) }
+func (a SortStacks) Less(i, j int) bool { return strings.Compare(a[i].Name, a[j].Name) == -1 }
+func (a SortStacks) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }

@@ -123,9 +123,79 @@ The below diagram shows the flow that fog goes through when doing a deployment.
 
 (If it's hard to read, open the linked SVG file in your graphics app of choice)
 
+## fog report
+
+Another major feature added is the ability to run a report on your CloudFormation stacks. This report will show the create/update/delete events of your stack, grouped by event and resource.
+
+Running this with either the markdown or html output formats set will also add a timeline of the events in the form of a mermaid graph and if multiple stacks are requested it will add a table of contents to the top of the output.
+
+You can write the output to a file using the --file flag.
+
+Example of full output written to file:
+```bash
+$ fog report --stackname demovpc43 --output markdown --file docs/fog-report-demo.md
+```
+
+See [docs/fog-report-demo.md](docs/fog-report-demo.md) for the output.
+
+Example of inline output:
+```bash
+$ fog report --stackname demovpc43 --output markdown --latest
+```
+
+<truncated header to not break the layout of the readme file>
+
+#### Metadata of demovpc43 - Update event - Started 2022-05-26T22:34:13+10:00
+
+| Stack | Account | Region | Type | Start time | Duration | Success |
+| --- | --- | --- | --- | --- | --- | --- |
+| demovpc43 | ignoreme-demo (1234567890) | ap-southeast-2 | Update | 2022-05-26T22:34:13+10:00 | 1m1s | ✅ |
+
+#### Events of demovpc43 - Update event - Started 2022-05-26T22:34:13+10:00
+
+| Action | CfnName | Type | ID | Start time | Duration | Success |
+| --- | --- | --- | --- | --- | --- | --- |
+| Add | InternetGateway | AWS::EC2::InternetGateway |  | 2022-05-26T22:34:17+10:00 | 19s | ✅ |
+| Modify | VPC | AWS::EC2::VPC | vpc-0582693d136c8d1bd | 2022-05-26T22:34:18+10:00 | 3s | ✅ |
+| Add | RouteTablePublic | AWS::EC2::RouteTable |  | 2022-05-26T22:34:21+10:00 | 13s | ✅ |
+| Modify | RouteTablePrivate | AWS::EC2::RouteTable | rtb-02dda6c7d7dc07bdc | 2022-05-26T22:34:22+10:00 | 12s | ✅ |
+| Add | SubnetAPub | AWS::EC2::Subnet |  | 2022-05-26T22:34:25+10:00 | 5s | ✅ |
+| Add | SubnetCPub | AWS::EC2::Subnet |  | 2022-05-26T22:34:25+10:00 | 5s | ✅ |
+| Modify | SubnetBPriv | AWS::EC2::Subnet | subnet-0d96f06ce27d5c388 | 2022-05-26T22:34:26+10:00 | 17s | ✅ |
+| Add | SubnetBPub | AWS::EC2::Subnet |  | 2022-05-26T22:34:26+10:00 | 10s | ✅ |
+| Modify | SubnetAPriv | AWS::EC2::Subnet | subnet-0d08715f3dc8719f0 | 2022-05-26T22:34:26+10:00 | 13s | ✅ |
+| Modify | SubnetCPriv | AWS::EC2::Subnet | subnet-0ba29189e259b3b29 | 2022-05-26T22:34:26+10:00 | 13s | ✅ |
+| Add | AssignPublicRouteTableA | AWS::EC2::SubnetRouteTableAssociation |  | 2022-05-26T22:34:37+10:00 | 7s | ✅ |
+| Add | AssignPublicRouteTableC | AWS::EC2::SubnetRouteTableAssociation |  | 2022-05-26T22:34:37+10:00 | 3s | ✅ |
+| Add | AssignPublicRouteTableB | AWS::EC2::SubnetRouteTableAssociation |  | 2022-05-26T22:34:37+10:00 | 7s | ✅ |
+| Add | VPCGatewayAttachment | AWS::EC2::VPCGatewayAttachment |  | 2022-05-26T22:34:38+10:00 | 16s | ✅ |
+| Add | InternetRoutePublic | AWS::EC2::Route |  | 2022-05-26T22:34:55+10:00 | 16s | ✅ |
+
+```mermaid
+gantt
+	title Visual timeline of demovpc43 - Update event - Started 2022-05-26T22:34:13+10:00
+	dateFormat HH:mm:ss
+	axisFormat %H:%M:%S
+	InternetGateway	:22:34:17 , 19s
+	VPC	:active, 22:34:18 , 3s
+	RouteTablePublic	:22:34:21 , 13s
+	RouteTablePrivate	:active, 22:34:22 , 12s
+	SubnetAPub	:22:34:25 , 5s
+	SubnetCPub	:22:34:25 , 5s
+	SubnetBPriv	:active, 22:34:26 , 17s
+	SubnetBPub	:22:34:26 , 10s
+	SubnetAPriv	:active, 22:34:26 , 13s
+	SubnetCPriv	:active, 22:34:26 , 13s
+	AssignPublicRouteTableA	:22:34:37 , 7s
+	AssignPublicRouteTableC	:22:34:37 , 3s
+	AssignPublicRouteTableB	:22:34:37 , 7s
+	VPCGatewayAttachment	:22:34:38 , 16s
+	InternetRoutePublic	:22:34:55 , 16s
+```
+
 ## Other functionalities
 
-While deployments are the main feature of fog, other commands have been added for convenience.
+While deployments and reports are the main features of fog, other commands have been added for convenience.
 
 ### fog exports
 
