@@ -154,6 +154,17 @@ func stackReport(cmd *cobra.Command, args []string) {
 				StatusColumn:    "Status",
 			}
 			mermaidoutput.Settings.SortKey = "Sorttime"
+			// Add milestones for stack events
+			for moment, status := range event.Milestones {
+				mermaidcontent := make(map[string]interface{})
+				mermaidcontent["Label"] = fmt.Sprintf("Stack %s", status)
+				mermaidcontent["Start time"] = moment.Local().Format("15:04:05")
+				mermaidcontent["Duration"] = "0s"
+				mermaidcontent["Sorttime"] = moment.Local().Format(time.RFC3339)
+				mermaidcontent["Status"] = "milestone"
+				mermaidholder := format.OutputHolder{Contents: mermaidcontent}
+				mermaidoutput.AddHolder(mermaidholder)
+			}
 
 			for _, resource := range event.ResourceEvents {
 				// Add row to table OutputArray
@@ -175,7 +186,7 @@ func stackReport(cmd *cobra.Command, args []string) {
 				mermaidcontent["Duration"] = resource.GetDuration().Round(time.Second).String()
 				mermaidcontent["Sorttime"] = resource.StartDate.Local().Format(time.RFC3339)
 				mermaidcontent["Status"] = ""
-				if resource.EventType == "Remove" {
+				if resource.EventType == "Remove" || resource.EventType == "Cleanup" {
 					mermaidcontent["Status"] = "crit"
 				} else if resource.EventType == "Modify" {
 					mermaidcontent["Status"] = "active"

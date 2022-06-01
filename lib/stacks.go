@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
+	"github.com/gosimple/slug"
 )
 
 type DeployInfo struct {
@@ -61,6 +62,7 @@ type StackEvent struct {
 	StartDate      time.Time
 	Type           string
 	Success        bool
+	Milestones     map[time.Time]string
 }
 
 type ResourceEvent struct {
@@ -354,11 +356,13 @@ func (stack *CfnStack) GetEvents(svc *cloudformation.Client) ([]StackEvent, erro
 	var resources map[string]ResourceEvent
 	var stackEvent StackEvent
 	eventName := ""
+	finishedEvents := make([]string, 0)
 	for _, event := range allevents {
 		if aws.ToString(event.LogicalResourceId) == stack.Name && aws.ToString(event.ResourceType) == "AWS::CloudFormation::Stack" {
 			if eventName == "" || strings.HasSuffix(eventName, "COMPLETE") || strings.HasSuffix(eventName, "FAILED") {
 				stackEvent = StackEvent{
-					StartDate: *event.Timestamp,
+					StartDate:  *event.Timestamp,
+					Milestones: map[time.Time]string{},
 				}
 				switch string(event.ResourceStatus) {
 				case "REVIEW_IN_PROGRESS":
@@ -391,8 +395,12 @@ func (stack *CfnStack) GetEvents(svc *cloudformation.Client) ([]StackEvent, erro
 				}
 				eventName = string(event.ResourceStatus)
 			}
+			stackEvent.Milestones[*event.Timestamp] = string(event.ResourceStatus)
 		} else {
-			name := fmt.Sprintf("%s (%s)", strings.ReplaceAll(*event.ResourceType, ":", " "), *event.LogicalResourceId)
+			name := fmt.Sprintf("%s-%s-%s", slug.Make(*event.ResourceType), *event.LogicalResourceId, stackEvent.StartDate.Format(time.RFC3339))
+			if stringInSlice(name, finishedEvents) {
+				name += "-replacement"
+			}
 			var resource ResourceEvent
 			if _, ok := resources[name]; !ok {
 				resitem := CfnResource{
@@ -416,13 +424,20 @@ func (stack *CfnStack) GetEvents(svc *cloudformation.Client) ([]StackEvent, erro
 					resource.EventType = "Modify"
 					resource.ExpectedEndStatus = string(types.ResourceStatusUpdateComplete)
 				} else if strings.Contains(string(event.ResourceStatus), "DELETE") {
-					resource.EventType = "Remove"
+					if strings.HasSuffix(name, "-replacement") {
+						resource.EventType = "Cleanup"
+					} else {
+						resource.EventType = "Remove"
+					}
 					resource.ExpectedEndStatus = string(types.ResourceStatusDeleteComplete)
 				}
 			} else {
 				resource = resources[name]
 				resource.EndDate = *event.Timestamp
 				resource.EndStatus = string(event.ResourceStatus)
+				if strings.Contains(string(event.ResourceStatus), "COMPLETE") {
+					finishedEvents = append(finishedEvents, name)
+				}
 			}
 			resources[name] = resource
 		}
