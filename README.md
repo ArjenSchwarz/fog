@@ -145,8 +145,6 @@ $ fog report --stackname demovpc43 --output markdown --latest
 
 <truncated header to not break the layout of the readme file>
 
-#### Metadata of demovpc43 - Update event - Started 2022-05-26T22:34:13+10:00
-
 | Stack | Account | Region | Type | Start time | Duration | Success |
 | --- | --- | --- | --- | --- | --- | --- |
 | demovpc43 | ignoreme-demo (1234567890) | ap-southeast-2 | Update | 2022-05-26T22:34:13+10:00 | 1m1s | ✅ |
@@ -161,36 +159,39 @@ $ fog report --stackname demovpc43 --output markdown --latest
 | Modify | RouteTablePrivate | AWS::EC2::RouteTable | rtb-02dda6c7d7dc07bdc | 2022-05-26T22:34:22+10:00 | 12s | ✅ |
 | Add | SubnetAPub | AWS::EC2::Subnet |  | 2022-05-26T22:34:25+10:00 | 5s | ✅ |
 | Add | SubnetCPub | AWS::EC2::Subnet |  | 2022-05-26T22:34:25+10:00 | 5s | ✅ |
-| Modify | SubnetBPriv | AWS::EC2::Subnet | subnet-0d96f06ce27d5c388 | 2022-05-26T22:34:26+10:00 | 17s | ✅ |
-| Add | SubnetBPub | AWS::EC2::Subnet |  | 2022-05-26T22:34:26+10:00 | 10s | ✅ |
 | Modify | SubnetAPriv | AWS::EC2::Subnet | subnet-0d08715f3dc8719f0 | 2022-05-26T22:34:26+10:00 | 13s | ✅ |
+| Add | SubnetBPub | AWS::EC2::Subnet |  | 2022-05-26T22:34:26+10:00 | 10s | ✅ |
 | Modify | SubnetCPriv | AWS::EC2::Subnet | subnet-0ba29189e259b3b29 | 2022-05-26T22:34:26+10:00 | 13s | ✅ |
-| Add | AssignPublicRouteTableA | AWS::EC2::SubnetRouteTableAssociation |  | 2022-05-26T22:34:37+10:00 | 7s | ✅ |
-| Add | AssignPublicRouteTableC | AWS::EC2::SubnetRouteTableAssociation |  | 2022-05-26T22:34:37+10:00 | 3s | ✅ |
+| Modify | SubnetBPriv | AWS::EC2::Subnet | subnet-0d96f06ce27d5c388 | 2022-05-26T22:34:26+10:00 | 17s | ✅ |
 | Add | AssignPublicRouteTableB | AWS::EC2::SubnetRouteTableAssociation |  | 2022-05-26T22:34:37+10:00 | 7s | ✅ |
+| Add | AssignPublicRouteTableC | AWS::EC2::SubnetRouteTableAssociation |  | 2022-05-26T22:34:37+10:00 | 3s | ✅ |
+| Add | AssignPublicRouteTableA | AWS::EC2::SubnetRouteTableAssociation |  | 2022-05-26T22:34:37+10:00 | 7s | ✅ |
 | Add | VPCGatewayAttachment | AWS::EC2::VPCGatewayAttachment |  | 2022-05-26T22:34:38+10:00 | 16s | ✅ |
 | Add | InternetRoutePublic | AWS::EC2::Route |  | 2022-05-26T22:34:55+10:00 | 16s | ✅ |
 
 ```mermaid
 gantt
-	title Visual timeline of demovpc43 - Update event - Started 2022-05-26T22:34:13+10:00
-	dateFormat HH:mm:ss
-	axisFormat %H:%M:%S
-	InternetGateway	:22:34:17 , 19s
-	VPC	:active, 22:34:18 , 3s
-	RouteTablePublic	:22:34:21 , 13s
-	RouteTablePrivate	:active, 22:34:22 , 12s
-	SubnetAPub	:22:34:25 , 5s
-	SubnetCPub	:22:34:25 , 5s
-	SubnetBPriv	:active, 22:34:26 , 17s
-	SubnetBPub	:22:34:26 , 10s
-	SubnetAPriv	:active, 22:34:26 , 13s
-	SubnetCPriv	:active, 22:34:26 , 13s
-	AssignPublicRouteTableA	:22:34:37 , 7s
-	AssignPublicRouteTableC	:22:34:37 , 3s
-	AssignPublicRouteTableB	:22:34:37 , 7s
-	VPCGatewayAttachment	:22:34:38 , 16s
-	InternetRoutePublic	:22:34:55 , 16s
+        title Visual timeline of demovpc43 - Update event - Started 2022-05-26T22:34:13+10:00
+        dateFormat HH:mm:ss
+        axisFormat %H:%M:%S
+        Stack UPDATE_IN_PROGRESS        :milestone, 22:34:13 , 0s
+        InternetGateway :22:34:17 , 19s
+        VPC     :active, 22:34:18 , 3s
+        RouteTablePublic        :22:34:21 , 13s
+        RouteTablePrivate       :active, 22:34:22 , 12s
+        SubnetAPub      :22:34:25 , 5s
+        SubnetCPub      :22:34:25 , 5s
+        SubnetAPriv     :active, 22:34:26 , 13s
+        SubnetBPub      :22:34:26 , 10s
+        SubnetBPriv     :active, 22:34:26 , 17s
+        SubnetCPriv     :active, 22:34:26 , 13s
+        AssignPublicRouteTableC :22:34:37 , 3s
+        AssignPublicRouteTableA :22:34:37 , 7s
+        AssignPublicRouteTableB :22:34:37 , 7s
+        VPCGatewayAttachment    :22:34:38 , 16s
+        InternetRoutePublic     :22:34:55 , 16s
+        Stack UPDATE_COMPLETE_CLEANUP_IN_PROGRESS       :milestone, 22:35:13 , 0s
+        Stack UPDATE_COMPLETE   :milestone, 22:35:14 , 0s
 ```
 
 ## Other functionalities
