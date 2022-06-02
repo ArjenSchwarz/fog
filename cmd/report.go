@@ -104,7 +104,6 @@ func stackReport(cmd *cobra.Command, args []string) {
 	if len(stacks) > 1 {
 		mainoutput.Settings.HasTOC = true
 	}
-	keys := []string{"Action", "CfnName", "Type", "ID", "Start time", "Duration", "Success"}
 	stackskeys := make([]string, 0, len(stacks))
 	for stackkey := range stacks {
 		stackskeys = append(stackskeys, stackkey)
@@ -119,6 +118,10 @@ func stackReport(cmd *cobra.Command, args []string) {
 			panic(err)
 		}
 		for counter, event := range events {
+			keys := []string{"Action", "CfnName", "Type", "ID", "Start time", "Duration", "Success"}
+			if !event.Success {
+				keys = append(keys, "Reason")
+			}
 			if *report_LatestOnly && counter+1 < len(events) {
 				continue
 			}
@@ -176,6 +179,9 @@ func stackReport(cmd *cobra.Command, args []string) {
 				content["Start time"] = resource.StartDate.Local().Format(time.RFC3339)
 				content["Duration"] = resource.GetDuration().Round(time.Second).String()
 				content["Success"] = resource.EndStatus == resource.ExpectedEndStatus
+				if !event.Success {
+					content["Reason"] = resource.EndStatusReason
+				}
 				holder := format.OutputHolder{Contents: content}
 				output.AddHolder(holder)
 
@@ -186,7 +192,9 @@ func stackReport(cmd *cobra.Command, args []string) {
 				mermaidcontent["Duration"] = resource.GetDuration().Round(time.Second).String()
 				mermaidcontent["Sorttime"] = resource.StartDate.Local().Format(time.RFC3339)
 				mermaidcontent["Status"] = ""
-				if resource.EventType == "Remove" || resource.EventType == "Cleanup" {
+				if resource.EndStatus != resource.ExpectedEndStatus {
+					mermaidcontent["Status"] = "done, crit"
+				} else if resource.EventType == "Remove" || resource.EventType == "Cleanup" {
 					mermaidcontent["Status"] = "crit"
 				} else if resource.EventType == "Modify" {
 					mermaidcontent["Status"] = "active"

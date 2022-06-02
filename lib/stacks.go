@@ -73,6 +73,7 @@ type ResourceEvent struct {
 	EndDate           time.Time
 	StartStatus       string
 	EndStatus         string
+	EndStatusReason   string
 	ExpectedEndStatus string
 }
 
@@ -357,6 +358,7 @@ func (stack *CfnStack) GetEvents(svc *cloudformation.Client) ([]StackEvent, erro
 	var stackEvent StackEvent
 	eventName := ""
 	finishedEvents := make([]string, 0)
+	failedEvents := make([]string, 0)
 	for _, event := range allevents {
 		if aws.ToString(event.LogicalResourceId) == stack.Name && aws.ToString(event.ResourceType) == "AWS::CloudFormation::Stack" {
 			if eventName == "" || strings.HasSuffix(eventName, "COMPLETE") || strings.HasSuffix(eventName, "FAILED") {
@@ -401,6 +403,9 @@ func (stack *CfnStack) GetEvents(svc *cloudformation.Client) ([]StackEvent, erro
 			if stringInSlice(name, finishedEvents) {
 				name += "-replacement"
 			}
+			if stringInSlice(name, failedEvents) {
+				name += "-cleanup"
+			}
 			var resource ResourceEvent
 			if _, ok := resources[name]; !ok {
 				resitem := CfnResource{
@@ -424,7 +429,7 @@ func (stack *CfnStack) GetEvents(svc *cloudformation.Client) ([]StackEvent, erro
 					resource.EventType = "Modify"
 					resource.ExpectedEndStatus = string(types.ResourceStatusUpdateComplete)
 				} else if strings.Contains(string(event.ResourceStatus), "DELETE") {
-					if strings.HasSuffix(name, "-replacement") {
+					if strings.HasSuffix(name, "-replacement") || strings.HasSuffix(name, "-cleanup") {
 						resource.EventType = "Cleanup"
 					} else {
 						resource.EventType = "Remove"
@@ -437,6 +442,16 @@ func (stack *CfnStack) GetEvents(svc *cloudformation.Client) ([]StackEvent, erro
 				resource.EndStatus = string(event.ResourceStatus)
 				if strings.Contains(string(event.ResourceStatus), "COMPLETE") {
 					finishedEvents = append(finishedEvents, name)
+				}
+				if strings.Contains(string(event.ResourceStatus), "FAILED") {
+					failedEvents = append(failedEvents, name)
+					resource.EndStatusReason = *event.ResourceStatusReason
+				}
+				if resource.Resource.ResourceID == "" && *event.PhysicalResourceId != "" {
+					resource.Resource.ResourceID = *event.PhysicalResourceId
+				}
+				if resource.Resource.ResourceID != "" && *event.PhysicalResourceId != "" && !strings.Contains(resource.Resource.ResourceID, *event.PhysicalResourceId) {
+					resource.Resource.ResourceID = fmt.Sprintf("%s => %s", resource.Resource.ResourceID, *event.PhysicalResourceId)
 				}
 			}
 			resources[name] = resource
