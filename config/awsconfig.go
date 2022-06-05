@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/aws/retry"
 	external "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
@@ -33,7 +34,10 @@ func DefaultAwsConfig(config Config) AWSConfig {
 		}
 		awsConfig.Config = cfg
 	} else {
-		cfg, err := external.LoadDefaultConfig(context.TODO())
+		cfg, err := external.LoadDefaultConfig(context.TODO(), external.WithRetryer(func() aws.Retryer {
+			return retry.AddWithMaxAttempts(retry.NewStandard(), 0)
+		}))
+
 		if err != nil {
 			panic(err)
 		}

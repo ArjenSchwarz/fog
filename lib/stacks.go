@@ -102,13 +102,18 @@ func GetCfnStacks(stackname *string, svc *cloudformation.Client) (map[string]Cfn
 	if *stackname != "" && !strings.Contains(*stackname, "*") {
 		input.StackName = stackname
 	}
-	resp, err := svc.DescribeStacks(context.TODO(), input)
-	if err != nil {
-		return result, err
+	paginator := cloudformation.NewDescribeStacksPaginator(svc, input)
+	allstacks := make([]types.Stack, 0)
+	for paginator.HasMorePages() {
+		output, err := paginator.NextPage(context.TODO())
+		if err != nil {
+			return nil, err
+		}
+		allstacks = append(allstacks, output.Stacks...)
 	}
 	stackRegex := "^" + strings.Replace(*stackname, "*", ".*", -1) + "$"
 	tocheckstacks := make([]types.Stack, 0)
-	for _, stack := range resp.Stacks {
+	for _, stack := range allstacks {
 		if strings.Contains(*stackname, "*") {
 			if matched, _ := regexp.MatchString(stackRegex, *stack.StackName); !matched {
 				continue
