@@ -13,7 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 )
 
-//AWSConfig is a holder for AWS Config type information
+// AWSConfig is a holder for AWS Config type information
 type AWSConfig struct {
 	AccountAlias string
 	AccountID    string
@@ -57,17 +57,17 @@ func (config *AWSConfig) StsClient() *sts.Client {
 	return sts.NewFromConfig(config.Config)
 }
 
-//CloudformationClient returns a Cloudformation Client
+// CloudformationClient returns a Cloudformation Client
 func (config *AWSConfig) CloudformationClient() *cloudformation.Client {
 	return cloudformation.NewFromConfig(config.Config)
 }
 
-//S3Client returns an S3 Client
+// S3Client returns an S3 Client
 func (config *AWSConfig) S3Client() *s3.Client {
 	return s3.NewFromConfig(config.Config)
 }
 
-//IAMClient returns an IAM Client
+// IAMClient returns an IAM Client
 func (config *AWSConfig) IAMClient() *iam.Client {
 	return iam.NewFromConfig(config.Config)
 }
