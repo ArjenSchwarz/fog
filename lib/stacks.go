@@ -474,10 +474,12 @@ func GetSuccessStates() []string {
 	}
 }
 
+// GetDuration returns how long the resource took to finish its event
 func (event *ResourceEvent) GetDuration() time.Duration {
 	return event.EndDate.Sub(event.StartDate)
 }
 
+// GetDuration returns how long it took for the stack to finish its event
 func (event *StackEvent) GetDuration() time.Duration {
 	return event.EndDate.Sub(event.StartDate)
 }

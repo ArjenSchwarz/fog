@@ -1,0 +1,47 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Create an S3 bucket that can be used to store reports for fog
+
+Parameters:
+  OrgID:
+    Description: The SSM Parameter store object storing the organization ID
+    Type: AWS::SSM::Parameter::Value<String>
+
+Resources:
+  ReportsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "fog-reports-${AWS::AccountId}"
+      AccessControl: Private
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+
+  ReportsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ReportsBucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action:
+              - 's3:PutObject'
+            Effect: Allow
+            Resource: !Sub "arn:aws:s3:::${ReportsBucket}/reports/*"
+            Principal: '*'
+            Condition:
+              StringEquals:
+                "aws:PrincipalOrgID": !Ref OrgID
+          - Action:
+              - 's3:*'
+            Effect: Allow
+            Resource:
+              - !Sub "arn:aws:s3:::${ReportsBucket}/*"
+              - !Sub "arn:aws:s3:::${ReportsBucket}"
+            Principal:
+              AWS:
+                - !Ref AWS::AccountId

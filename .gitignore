@@ -16,3 +16,5 @@ fog
 # vendor/
 
 rpdk.log
+
+deployments.log
