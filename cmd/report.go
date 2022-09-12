@@ -167,7 +167,7 @@ func getReportOutputSettingsFromCli(awsConfig config.AWSConfig) *format.OutputSe
 }
 
 func reportPlaceholderParser(value string, stackname string, awsConfig config.AWSConfig) string {
-	value = strings.Replace(value, "$TIMESTAMP", time.Now().Local().Format("2006-01-02T15-04-05"), -1)
+	value = strings.Replace(value, "$TIMESTAMP", time.Now().In(settings.GetTimezoneLocation()).Format("2006-01-02T15-04-05"), -1)
 	value = strings.Replace(value, "$STACKNAME", cleanStackName(stackname), -1)
 	value = strings.Replace(value, "$REGION", awsConfig.Region, -1)
 	value = strings.Replace(value, "$ACCOUNTID", awsConfig.AccountID, -1)
@@ -233,7 +233,7 @@ func generateFrontMatter(stacks map[string]lib.CfnStack, awsConfig config.AWSCon
 			result["accountalias"] = awsConfig.GetAccountAliasID()
 			result["region"] = awsConfig.Region
 			result["stack"] = stack.Name
-			result["date"] = event.StartDate.Local().Format(time.RFC3339)
+			result["date"] = event.StartDate.In(settings.GetTimezoneLocation()).Format(time.RFC3339)
 			result["duration"] = event.GetDuration().Round(time.Second).String()
 			result["eventtype"] = event.Type
 			if event.Success {
@@ -256,7 +256,7 @@ func createTableOutput(stack lib.CfnStack, event lib.StackEvent) format.OutputAr
 		keys = append(keys, "Reason")
 	}
 	output := format.OutputArray{Keys: keys, Settings: outputsettings}
-	output.Settings.Title = fmt.Sprintf("Event details of %s - %s event - Started %s", stack.Name, event.Type, event.StartDate.Local().Format(time.RFC3339))
+	output.Settings.Title = fmt.Sprintf("Event details of %s - %s event - Started %s", stack.Name, event.Type, event.StartDate.In(settings.GetTimezoneLocation()).Format(time.RFC3339))
 	output.Settings.SortKey = "Start time"
 	return output
 }
@@ -264,7 +264,7 @@ func createTableOutput(stack lib.CfnStack, event lib.StackEvent) format.OutputAr
 // createMermaidOutput creates the outputArray for the mermaid graph
 func createMermaidOutput(stack lib.CfnStack, event lib.StackEvent) format.OutputArray {
 	mermaidoutput := format.OutputArray{Keys: []string{"Start time", "Duration", "Label"}, Settings: getReportMermaidSettings()}
-	mermaidoutput.Settings.Title = fmt.Sprintf("Visual timeline of %s - %s event - Started %s", stack.Name, event.Type, event.StartDate.Local().Format(time.RFC3339))
+	mermaidoutput.Settings.Title = fmt.Sprintf("Visual timeline of %s - %s event - Started %s", stack.Name, event.Type, event.StartDate.In(settings.GetTimezoneLocation()).Format(time.RFC3339))
 	mermaidoutput.Settings.MermaidSettings.GanttSettings = &mermaid.GanttSettings{
 		LabelColumn:     "Label",
 		StartDateColumn: "Start time",
@@ -276,9 +276,9 @@ func createMermaidOutput(stack lib.CfnStack, event lib.StackEvent) format.Output
 	for moment, status := range event.Milestones {
 		mermaidcontent := make(map[string]interface{})
 		mermaidcontent["Label"] = fmt.Sprintf("Stack %s", status)
-		mermaidcontent["Start time"] = moment.Local().Format("15:04:05")
+		mermaidcontent["Start time"] = moment.In(settings.GetTimezoneLocation()).Format("15:04:05")
 		mermaidcontent["Duration"] = "0s"
-		mermaidcontent["Sorttime"] = moment.Local().Format(time.RFC3339)
+		mermaidcontent["Sorttime"] = moment.In(settings.GetTimezoneLocation()).Format(time.RFC3339)
 		mermaidcontent["Status"] = "milestone"
 		mermaidholder := format.OutputHolder{Contents: mermaidcontent}
 		mermaidoutput.AddHolder(mermaidholder)
@@ -287,7 +287,7 @@ func createMermaidOutput(stack lib.CfnStack, event lib.StackEvent) format.Output
 }
 
 func createMetadataTable(stack lib.CfnStack, event lib.StackEvent, awsConfig config.AWSConfig, usetitle bool) format.OutputArray {
-	title := fmt.Sprintf("Metadata of %s - %s event - Started %s", stack.Name, event.Type, event.StartDate.Local().Format(time.RFC3339))
+	title := fmt.Sprintf("Metadata of %s - %s event - Started %s", stack.Name, event.Type, event.StartDate.In(settings.GetTimezoneLocation()).Format(time.RFC3339))
 	metadatakeys := []string{"Stack", "Account", "Region", "Type", "Start time", "Duration", "Success"}
 	output := format.OutputArray{Keys: metadatakeys, Settings: outputsettings}
 	if usetitle {
@@ -298,7 +298,7 @@ func createMetadataTable(stack lib.CfnStack, event lib.StackEvent, awsConfig con
 	contents["Account"] = awsConfig.GetAccountAliasID()
 	contents["Region"] = awsConfig.Region
 	contents["Type"] = event.Type
-	contents["Start time"] = event.StartDate.Local().Format(time.RFC3339)
+	contents["Start time"] = event.StartDate.In(settings.GetTimezoneLocation()).Format(time.RFC3339)
 	contents["Duration"] = event.GetDuration().Round(time.Second).String()
 	contents["Success"] = event.Success
 	metadataholder := format.OutputHolder{Contents: contents}
@@ -313,7 +313,7 @@ func createTableResourceHolder(resource lib.ResourceEvent, event lib.StackEvent)
 	content["CfnName"] = resource.Resource.LogicalID
 	content["Type"] = resource.Resource.Type
 	content["ID"] = resource.Resource.ResourceID
-	content["Start time"] = resource.StartDate.Local().Format(time.RFC3339)
+	content["Start time"] = resource.StartDate.In(settings.GetTimezoneLocation()).Format(time.RFC3339)
 	content["Duration"] = resource.GetDuration().Round(time.Second).String()
 	content["Success"] = resource.EndStatus == resource.ExpectedEndStatus
 	if !event.Success {
@@ -326,9 +326,9 @@ func createMermaidResourceHolder(resource lib.ResourceEvent) format.OutputHolder
 	// Add row to mermaid OutputArray
 	mermaidcontent := make(map[string]interface{})
 	mermaidcontent["Label"] = resource.Resource.LogicalID
-	mermaidcontent["Start time"] = resource.StartDate.Local().Format("15:04:05")
+	mermaidcontent["Start time"] = resource.StartDate.In(settings.GetTimezoneLocation()).Format("15:04:05")
 	mermaidcontent["Duration"] = resource.GetDuration().Round(time.Second).String()
-	mermaidcontent["Sorttime"] = resource.StartDate.Local().Format(time.RFC3339)
+	mermaidcontent["Sorttime"] = resource.StartDate.In(settings.GetTimezoneLocation()).Format(time.RFC3339)
 	mermaidcontent["Status"] = ""
 	if resource.EndStatus != resource.ExpectedEndStatus {
 		mermaidcontent["Status"] = "done, crit"

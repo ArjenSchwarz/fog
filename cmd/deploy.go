@@ -324,7 +324,7 @@ func placeholderParser(value string, deployment *lib.DeployInfo) string {
 		value = strings.Replace(value, "$TEMPLATEPATH", deployment.TemplateLocalPath, -1)
 	}
 	//value = strings.Replace(value, "$CURRENTDIR", os.Di)
-	value = strings.Replace(value, "$TIMESTAMP", time.Now().Local().Format("2006-01-02T15-04-05"), -1)
+	value = strings.Replace(value, "$TIMESTAMP", time.Now().In(settings.GetTimezoneLocation()).Format("2006-01-02T15-04-05"), -1)
 	return value
 }
 
@@ -392,12 +392,12 @@ func createChangeset(deployment *lib.DeployInfo, awsConfig config.AWSConfig) *li
 
 func showChangeset(changeset lib.ChangesetInfo, awsConfig config.AWSConfig) {
 	changesettitle := fmt.Sprintf("%v %v", texts.DeployChangesetMessageChanges, changeset.Name)
-	printChangeset(changesettitle, changeset.Changes, changeset.HasModule)
+	printChangeset(changesettitle, changeset.Changes, changeset.HasModule, false)
 
 	fmt.Printf("%v %v \r\n", texts.DeployChangesetMessageConsole, changeset.GenerateChangesetUrl(awsConfig))
 }
 
-func printChangeset(title string, changes []lib.ChangesetChanges, hasModule bool) {
+func printChangeset(title string, changes []lib.ChangesetChanges, hasModule bool, buffer bool) {
 	bold := color.New(color.Bold).SprintFunc()
 	changesetkeys := []string{"Action", "CfnName", "Type", "ID", "Replacement"}
 	if hasModule {
@@ -426,7 +426,11 @@ func printChangeset(title string, changes []lib.ChangesetChanges, hasModule bool
 			holder := format.OutputHolder{Contents: content}
 			output.AddHolder(holder)
 		}
-		output.Write()
+		if buffer {
+			output.AddToBuffer()
+		} else {
+			output.Write()
+		}
 	}
 }
 
@@ -513,7 +517,7 @@ func showEvents(deployment lib.DeployInfo, latest time.Time, awsConfig config.AW
 	for _, event := range events {
 		if event.Timestamp.After(latest) {
 			latest = *event.Timestamp
-			message := fmt.Sprintf("%v: %v %v in status %v", event.Timestamp.Local().Format("2006-01-02 15:04:05 MST"), *event.ResourceType, *event.LogicalResourceId, event.ResourceStatus)
+			message := fmt.Sprintf("%v: %v %v in status %v", event.Timestamp.In(settings.GetTimezoneLocation()).Format(time.RFC3339), *event.ResourceType, *event.LogicalResourceId, event.ResourceStatus)
 			switch event.ResourceStatus {
 			case types.ResourceStatusCreateFailed, types.ResourceStatusImportFailed, types.ResourceStatusDeleteFailed, types.ResourceStatusUpdateFailed, types.ResourceStatusImportRollbackComplete, types.ResourceStatus(types.StackStatusRollbackComplete), types.ResourceStatus(types.StackStatusUpdateRollbackComplete):
 				fmt.Print(outputsettings.StringWarning(message))

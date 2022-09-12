@@ -2,6 +2,7 @@ package config
 
 import (
 	"strings"
+	"time"
 
 	format "github.com/ArjenSchwarz/go-output"
 	"github.com/spf13/viper"
@@ -57,6 +58,16 @@ func (config *Config) GetFieldOrEmptyValue(value string) string {
 	default:
 		return "-"
 	}
+}
+
+// GetTimezoneLocation gets the location object you can use in a time object
+// based on the timezone specified in your settings.
+func (config *Config) GetTimezoneLocation() *time.Location {
+	location, err := time.LoadLocation(config.GetString("timezone"))
+	if err != nil {
+		panic(err)
+	}
+	return location
 }
 
 func (config *Config) NewOutputSettings() *format.OutputSettings {

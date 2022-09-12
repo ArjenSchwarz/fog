@@ -40,7 +40,10 @@ var rootCmd = &cobra.Command{
 	Short: "Fog is a tool for managing your CloudFormation stacks",
 	Long: `Fog is a tool for managing your CloudFormation stacks.
 
-Its aim is to make your life easier by handling some of the annoyances from the CLI. Look at the specific commands to see what they can do.`,
+Its aim is to make your life easier by handling some of the annoyances from the CLI. Look at the specific commands to see what they can do.
+
+The timezone parameter supports both the shortform of a timezone (e.g. AEST) or the region/cityname (e.g. Australia/Melbourne)
+`,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -56,15 +59,18 @@ func init() {
 	rootCmd.PersistentFlags().String("output", "table", "Format for the output, currently supported are table, csv, json, and dot (for certain functions)")
 	rootCmd.PersistentFlags().String("profile", "", "Use a specific AWS profile")
 	rootCmd.PersistentFlags().String("region", "", "Use a specific AWS region")
+	rootCmd.PersistentFlags().String("timezone", "", "Specify a timezone you want to use for any times shown in output. By default it uses your system's timezone")
 
 	viper.BindPFlag("verbose", rootCmd.PersistentFlags().Lookup("verbose"))
 	viper.BindPFlag("output", rootCmd.PersistentFlags().Lookup("output"))
 	viper.BindPFlag("profile", rootCmd.PersistentFlags().Lookup("profile"))
 	viper.BindPFlag("region", rootCmd.PersistentFlags().Lookup("region"))
+	viper.BindPFlag("timezone", rootCmd.PersistentFlags().Lookup("timezone"))
 
 	// Default table settings
 	viper.SetDefault("table.style", "Default")
 	viper.SetDefault("table.max-column-width", 50)
+	viper.SetDefault("timezone", "Local")
 
 	// Default file structure settings
 	viper.SetDefault("templates.extensions", []string{".yaml", ".yml", ".templ", ".tmpl", ".template", ".json"})
