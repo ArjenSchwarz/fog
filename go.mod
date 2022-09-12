@@ -51,7 +51,7 @@ require (
 )
 
 require (
-	github.com/ArjenSchwarz/go-output v1.1.1
+	github.com/ArjenSchwarz/go-output v1.1.2
 	github.com/gosimple/slug v1.12.0
 )
 
