@@ -73,12 +73,12 @@ func init() {
 	viper.SetDefault("timezone", "Local")
 
 	// Default file structure settings
-	viper.SetDefault("templates.extensions", []string{".yaml", ".yml", ".templ", ".tmpl", ".template", ".json"})
+	viper.SetDefault("templates.extensions", []string{"", ".yaml", ".yml", ".templ", ".tmpl", ".template", ".json"})
 	viper.SetDefault("templates.directory", "templates")
-	viper.SetDefault("tags.extensions", []string{".json"})
+	viper.SetDefault("tags.extensions", []string{"", ".json"})
 	viper.SetDefault("tags.directory", "tags")
 	viper.SetDefault("tags.default", map[string]string{})
-	viper.SetDefault("parameters.extensions", []string{".json"})
+	viper.SetDefault("parameters.extensions", []string{"", ".json"})
 	viper.SetDefault("parameters.directory", "parameters")
 	viper.SetDefault("rootdir", ".")
 
