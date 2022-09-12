@@ -119,6 +119,9 @@ func deployTemplate(cmd *cobra.Command, args []string) {
 			if log.DeploymentName != "" {
 				fmt.Print(outputsettings.StringInfo("Previous deployment found:"))
 				printLog(log)
+				// Hack to print the buffer in printLog. Need to get a better solution.
+				output := format.OutputArray{Keys: []string{}, Settings: settings.NewOutputSettings()}
+				output.Write()
 			}
 		}
 	}
