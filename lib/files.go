@@ -15,23 +15,46 @@ import (
 	"github.com/spf13/viper"
 )
 
-// ReadTemplate parses the provided string and attempts to read the template that it points to.
-// In doing so it traverses the defined templates.directory config setting and tries to find a file
-// with a name matching the provided string and an extension from the templates.extensions setting.
-// Returns the contents of the template, the relative path of the template, and an error
-func ReadTemplate(templateName *string) (string, string, error) {
-	templateDirectory := viper.GetString("templates.directory")
-	for _, extension := range viper.GetStringSlice("templates.extensions") {
-		templatePath := templateDirectory + "/" + *templateName + extension
-		if _, err := os.Stat(templatePath); !os.IsNotExist(err) {
-			dat, err := os.ReadFile(templatePath)
-			if err != nil {
-				return "", "", err
+// Locate and read the file. Either it's an actual file name in which case
+// we'll read it right away, or if not we'll try to locate it in the appropriate
+// directory with one of the configured extensions.
+func ReadFile(fileName *string, fileType string) (string, string, error) {
+	filePath := *fileName
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		// fileName is not an actual file. Try to find it in the right subdirectory.
+		fileFound := false
+		fileDirectory := viper.GetString(fileType + ".directory")
+		for _, extension := range viper.GetStringSlice(fileType + ".extensions") {
+			filePath = fileDirectory + "/" + *fileName + extension
+			if _, err := os.Stat(filePath); !os.IsNotExist(err) {
+				fileFound = true
+				break
 			}
-			return string(dat), templatePath, nil
+		}
+		if !fileFound {
+			errMsg := fmt.Sprintf("No file found for '%s' matching '%s'", fileType, *fileName)
+			return "", "", errors.New(errMsg)
 		}
 	}
-	return "", "", errors.New("no template found")
+	msg := fmt.Sprintf("Using %s: %s", fileType, filePath)
+	fmt.Fprintln(os.Stderr, msg)
+	dat, err := os.ReadFile(filePath)
+	if err != nil {
+		return "", "", err
+	}
+	return string(dat), filePath, nil
+}
+
+func ReadTemplate(templateName *string) (string, string, error) {
+	return ReadFile(templateName, "templates")
+}
+
+func ReadTagsfile(tagsName string) (string, string, error) {
+	return ReadFile(&tagsName, "tags")
+}
+
+func ReadParametersfile(parametersName string) (string, string, error) {
+	return ReadFile(&parametersName, "parameters")
 }
 
 func UploadTemplate(templateName *string, template string, bucketName *string, svc *s3.Client) (string, error) {
@@ -48,36 +71,6 @@ func UploadTemplate(templateName *string, template string, bucketName *string, s
 		return generatedname, err
 	}
 	return generatedname, nil
-}
-
-func ReadTagsfile(tagsName string) (string, error) {
-	tagsDirectory := viper.GetString("tags.directory")
-	for _, extension := range viper.GetStringSlice("tags.extensions") {
-		tagsPath := tagsDirectory + "/" + tagsName + extension
-		if _, err := os.Stat(tagsPath); !os.IsNotExist(err) {
-			dat, err := os.ReadFile(tagsPath)
-			if err != nil {
-				return "", err
-			}
-			return string(dat), nil
-		}
-	}
-	return "", errors.New("no tags file found")
-}
-
-func ReadParametersfile(parametersName string) (string, error) {
-	parametersDirectory := viper.GetString("parameters.directory")
-	for _, extension := range viper.GetStringSlice("parameters.extensions") {
-		parametersPath := parametersDirectory + "/" + parametersName + extension
-		if _, err := os.Stat(parametersPath); !os.IsNotExist(err) {
-			dat, err := os.ReadFile(parametersPath)
-			if err != nil {
-				return "", err
-			}
-			return string(dat), nil
-		}
-	}
-	return "", errors.New("no parameters file found")
 }
 
 func RunPrechecks(deployment *DeployInfo) (map[string]string, error) {

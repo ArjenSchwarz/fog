@@ -304,7 +304,7 @@ func setDeployTags(deployment *lib.DeployInfo) {
 
 	if *deploy_Tags != "" {
 		for _, tagfile := range strings.Split(*deploy_Tags, ",") {
-			tags, err := lib.ReadTagsfile(tagfile)
+			tags, _, err := lib.ReadTagsfile(tagfile)
 			if err != nil {
 				message := fmt.Sprintf("%v '%v'", texts.FileTagsReadFailure, tagfile)
 				fmt.Print(outputsettings.StringFailure(message))
@@ -335,7 +335,7 @@ func setDeployParameters(deployment *lib.DeployInfo) {
 	parameterresult := make([]types.Parameter, 0)
 	if *deploy_Parameters != "" {
 		for _, parameterfile := range strings.Split(*deploy_Parameters, ",") {
-			parameters, err := lib.ReadParametersfile(parameterfile)
+			parameters, _, err := lib.ReadParametersfile(parameterfile)
 			if err != nil {
 				message := fmt.Sprintf("%v '%v'", texts.FileParametersReadFailure, parameterfile)
 				fmt.Print(outputsettings.StringFailure(message))
