@@ -15,7 +15,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-// Locate and read the file. Either it's an actual file name in which case
+// Readfile locates and reads the file. Either it's an actual file name in which case
 // we'll read it right away, or if not we'll try to locate it in the appropriate
 // directory with one of the configured extensions.
 func ReadFile(fileName *string, fileType string) (string, string, error) {
@@ -32,12 +32,10 @@ func ReadFile(fileName *string, fileType string) (string, string, error) {
 			}
 		}
 		if !fileFound {
-			errMsg := fmt.Sprintf("No file found for '%s' matching '%s'", fileType, *fileName)
+			errMsg := fmt.Sprintf("no file found for '%s' matching '%s'", fileType, *fileName)
 			return "", "", errors.New(errMsg)
 		}
 	}
-	msg := fmt.Sprintf("Using %s: %s", fileType, filePath)
-	fmt.Fprintln(os.Stderr, msg)
 	dat, err := os.ReadFile(filePath)
 	if err != nil {
 		return "", "", err
