@@ -132,6 +132,7 @@ func generateReport(awsConfig config.AWSConfig) {
 	sort.Strings(stackskeys)
 
 	for _, stackkey := range stackskeys {
+		fmt.Println(stackkey)
 		generateStackReport(stacks[stackkey], mainoutput, awsConfig)
 	}
 	// Set the title for the output file that we actually want

@@ -48,6 +48,7 @@ type DeployInfo struct {
 
 type CfnStack struct {
 	Name        string
+	Id          string
 	Description string
 	RawInfo     types.Stack
 	Outputs     []CfnOutput
@@ -125,6 +126,7 @@ func GetCfnStacks(stackname *string, svc *cloudformation.Client) (map[string]Cfn
 		stackobject := CfnStack{
 			RawInfo: stack,
 			Name:    *stack.StackName,
+			Id:      *stack.StackId,
 		}
 		if stack.Description != nil {
 			stackobject.Description = *stack.Description
@@ -137,7 +139,7 @@ func GetCfnStacks(stackname *string, svc *cloudformation.Client) (map[string]Cfn
 			}
 		}
 		stackobject.Outputs = outputs
-		result[*stack.StackName] = stackobject
+		result[*stack.StackId] = stackobject
 	}
 	return result, nil
 }
@@ -347,7 +349,7 @@ func (stack *CfnStack) GetEvents(svc *cloudformation.Client) ([]StackEvent, erro
 		return stack.Events, nil
 	}
 	input := &cloudformation.DescribeStackEventsInput{
-		StackName: &stack.Name,
+		StackName: &stack.Id,
 	}
 	paginator := cloudformation.NewDescribeStackEventsPaginator(svc, input)
 	allevents := make([]types.StackEvent, 0)
@@ -486,7 +488,7 @@ func (event *StackEvent) GetDuration() time.Duration {
 
 func (stack *CfnStack) GetEventSummaries(svc *cloudformation.Client) ([]types.StackEvent, error) {
 	input := &cloudformation.DescribeStackEventsInput{
-		StackName: &stack.Name,
+		StackName: &stack.Id,
 	}
 	resp, err := svc.DescribeStackEvents(context.TODO(), input)
 	return resp.StackEvents, err
