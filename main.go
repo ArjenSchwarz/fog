@@ -21,8 +21,46 @@ THE SOFTWARE.
 */
 package main
 
-import "github.com/ArjenSchwarz/fog/cmd"
+import (
+	"os"
+	"time"
+
+	"github.com/ArjenSchwarz/fog/cmd"
+	"github.com/aws/aws-lambda-go/lambda"
+)
+
+type EventBridgeMessage struct {
+	Version    string    `json:"version"`
+	Source     string    `json:"source"`
+	Account    string    `json:"account"`
+	Id         string    `json:"id"`
+	Region     string    `json:"region"`
+	DetailType string    `json:"detail-type"`
+	Time       time.Time `json:"time"`
+	Resources  []string  `json:"resources"`
+	Detail     struct {
+		StackId       string `json:"stack-id"`
+		StatusDetails struct {
+			Status       string `json:"status"`
+			StatusReason string `json:"status-reason"`
+		} `json:"status-details"`
+	} `json:"detail"`
+}
 
 func main() {
-	cmd.Execute()
+	// Check the env var to see if we're running as a Lambda function
+	if os.Getenv("AWS_LAMBDA_FUNCTION_NAME") != "" {
+		lambda.Start(HandleRequest)
+	} else {
+		cmd.Execute()
+	}
+}
+
+// HandleRequest is the handler for the Lambda function
+func HandleRequest(message EventBridgeMessage) {
+	s3bucket := os.Getenv("ReportS3Bucket")
+	filename := os.Getenv("ReportNamePattern")
+	format := os.Getenv("ReportOutputFormat")
+	timezone := os.Getenv("ReportTimezone")
+	cmd.GenerateReportFromLambda(message.Detail.StackId, s3bucket, filename, format, timezone)
 }

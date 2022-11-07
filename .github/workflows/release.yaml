@@ -28,3 +28,23 @@ jobs:
         goarch: ${{ matrix.goarch }}
         binary_name: "fog"
         ldflags: "-X 'github.com/ArjenSchwarz/fog/cmd.Version=${{ env.APP_VERSION}}'"
+  s3release:
+    name: Publish Lambda zipfile
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+        with:
+          go-version: '1.19' # The Go version to download (if necessary) and use.
+      - name: Build file
+        run: GOOS=linux GOARCH=amd64 go build -o fog && zip fog.zip fog
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          role-to-assume: arn:aws:iam::613864977396:role/github-oidc-FogS3DeploymentsRole-EQO45UDOAHSL
+          aws-region: us-east-1
+      - name: Copy to S3 bucket
+        run: |
+          aws s3 cp fog.zip s3://public.ig.nore.me/fog/latest.zip
+          aws s3 cp fog.zip s3://public.ig.nore.me/fog/${{ env.APP_VERSION }}.zip
+          aws s3 cp fog.zip s3://public.ig.nore.me/fog/v${{ env.APP_VERSION }}.zip

@@ -1,0 +1,22 @@
+[
+    {
+        "ParameterKey": "ReportS3Bucket",
+        "ParameterValue": "examplebucket"
+    },
+    {
+        "ParameterKey": "ReportNamePattern",
+        "ParameterValue": "reports/$ACCOUNTID-$REGION-$STACKNAME-$TIMESTAMP.md"
+    },
+    {
+        "ParameterKey": "ReportOutputFormat",
+        "ParameterValue": "markdown"
+    },
+    {
+        "ParameterKey": "ReportTimezone",
+        "ParameterValue": "Australia/Melbourne"
+    },
+    {
+        "ParameterKey": "FogVersion",
+        "ParameterValue": "latest"
+    }
+]

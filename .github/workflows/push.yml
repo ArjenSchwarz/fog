@@ -10,4 +10,12 @@ jobs:
       - uses: actions/setup-go@v3
         with:
           go-version: '1.19' # The Go version to download (if necessary) and use.
-      - run: go build
+      - name: Build file
+        run: GOOS=linux GOARCH=amd64 go build -o fog && zip unstable.zip fog
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          role-to-assume: arn:aws:iam::613864977396:role/github-oidc-FogS3DeploymentsRole-EQO45UDOAHSL
+          aws-region: us-east-1
+      - name: Copy to S3 bucket
+        run: aws s3 cp unstable.zip s3://public.ig.nore.me/fog/unstable.zip

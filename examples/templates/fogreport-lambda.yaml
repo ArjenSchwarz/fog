@@ -1,0 +1,86 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: 'Creates a Lambda function that generates a report for every CloudFormation
+  deployment which is stored in an S3 bucket
+  '
+Globals:
+  Function:
+    Timeout: 10
+Parameters:
+  ReportS3Bucket:
+    Type: String
+    Description: Name of the bucket the reports should be send to. If empty, a new
+      bucket will be created.
+    Default: ''
+  ReportNamePattern:
+    Type: String
+    Description: The filepattern that the reports will have
+    Default: reports/$ACCOUNTID-$REGION-$STACKNAME-$TIMESTAMP.md
+  ReportOutputFormat:
+    Type: String
+    Description: The format the files will be saved in
+    Default: markdown
+    AllowedValues:
+    - markdown
+    - html
+  ReportTimezone:
+    Type: String
+    Description: The timezone the reports should use. Can be either as a timezone
+      (e.g. AEDT) or location (e.g. Australia/Melbourne)
+    Default: Z
+  FogVersion:
+    Type: String
+    Description: The version of fog that needs to be deployed
+    Default: latest
+Resources:
+  ReportGeneratorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri:
+        Bucket: public.ig.nore.me
+        Key: !Sub "fog/${FogVersion}.zip"
+      Handler: fog
+      Runtime: go1.x
+      Architectures:
+      - x86_64
+      Environment:
+        Variables:
+          ReportS3Bucket:
+            Ref: ReportS3Bucket
+          ReportNamePattern:
+            Ref: ReportNamePattern
+          ReportOutputFormat:
+            Ref: ReportOutputFormat
+          ReportTimezone:
+            Ref: ReportTimezone
+      Policies:
+      - S3WritePolicy:
+          BucketName:
+            Ref: ReportS3Bucket
+      - Statement:
+        - Sid: CloudFormationAccess
+          Effect: Allow
+          Action:
+          - cloudformation:DescribeStacks
+          - cloudformation:DescribeStackEvents
+          Resource:
+            Fn::Sub: arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/*
+      Events:
+        Trigger:
+          Type: CloudWatchEvent
+          Properties:
+            Pattern:
+              source:
+              - aws.cloudformation
+              detail-type:
+              - CloudFormation Stack Status Change
+              detail:
+                status-details:
+                  status:
+                  - CREATE_COMPLETE
+                  - UPDATE_COMPLETE
+                  - DELETE_COMPLETE
+                  - ROLLBACK_COMPLETE
+                  - IMPORT_COMPLETE
+    Metadata:
+      SamResourceId: ReportGeneratorFunction
