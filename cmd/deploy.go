@@ -395,17 +395,26 @@ func createChangeset(deployment *lib.DeployInfo, awsConfig config.AWSConfig) *li
 
 func showChangeset(changeset lib.ChangesetInfo, awsConfig config.AWSConfig) {
 	changesettitle := fmt.Sprintf("%v %v", texts.DeployChangesetMessageChanges, changeset.Name)
-	printChangeset(changesettitle, changeset.Changes, changeset.HasModule, false)
+	changesetsummarytitle := fmt.Sprintf("Summary for %v", changeset.Name)
+	printChangeset(changesettitle, changesetsummarytitle, changeset.Changes, changeset.HasModule, false)
 
 	fmt.Printf("%v %v \r\n", texts.DeployChangesetMessageConsole, changeset.GenerateChangesetUrl(awsConfig))
 }
 
-func printChangeset(title string, changes []lib.ChangesetChanges, hasModule bool, buffer bool) {
+func printChangeset(title string, summaryTitle string, changes []lib.ChangesetChanges, hasModule bool, buffer bool) {
 	bold := color.New(color.Bold).SprintFunc()
 	changesetkeys := []string{"Action", "CfnName", "Type", "ID", "Replacement"}
 	if hasModule {
 		changesetkeys = append(changesetkeys, "Module")
 	}
+	summarykeys := []string{"Total", "Added", "Removed", "Modified", "Replacements", "Conditionals"}
+	summaryContent := make(map[string]interface{})
+	summaryContent["Total"] = 0
+	summaryContent["Added"] = 0
+	summaryContent["Removed"] = 0
+	summaryContent["Modified"] = 0
+	summaryContent["Replacements"] = 0
+	summaryContent["Conditionals"] = 0
 	output := format.OutputArray{Keys: changesetkeys, Settings: outputsettings}
 	output.Settings.Title = title
 	output.Settings.SortKey = "Type"
@@ -428,11 +437,32 @@ func printChangeset(title string, changes []lib.ChangesetChanges, hasModule bool
 			}
 			holder := format.OutputHolder{Contents: content}
 			output.AddHolder(holder)
+			summaryContent["Total"] = summaryContent["Total"].(int) + 1
+			switch change.Action {
+			case "Add":
+				summaryContent["Added"] = summaryContent["Added"].(int) + 1
+			case "Remove":
+				summaryContent["Removed"] = summaryContent["Removed"].(int) + 1
+			case "Modify":
+				summaryContent["Modified"] = summaryContent["Modified"].(int) + 1
+			}
+			switch change.Replacement {
+			case "True":
+				summaryContent["Replacements"] = summaryContent["Replacements"].(int) + 1
+			case "Conditional":
+				summaryContent["Conditionals"] = summaryContent["Conditionals"].(int) + 1
+			}
 		}
+		summaryOutput := format.OutputArray{Keys: summarykeys, Settings: outputsettings}
+		summaryOutput.Settings.Title = summaryTitle
+		summaryHolder := format.OutputHolder{Contents: summaryContent}
+		summaryOutput.AddHolder(summaryHolder)
 		if buffer {
 			output.AddToBuffer()
+			summaryOutput.AddToBuffer()
 		} else {
 			output.Write()
+			summaryOutput.Write()
 		}
 	}
 }

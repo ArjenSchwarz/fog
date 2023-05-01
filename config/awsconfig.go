@@ -8,6 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws/retry"
 	external "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
@@ -70,6 +71,11 @@ func (config *AWSConfig) S3Client() *s3.Client {
 // IAMClient returns an IAM Client
 func (config *AWSConfig) IAMClient() *iam.Client {
 	return iam.NewFromConfig(config.Config)
+}
+
+// IAMClient returns an EC2 Client
+func (config *AWSConfig) EC2Client() *ec2.Client {
+	return ec2.NewFromConfig(config.Config)
 }
 
 func (config *AWSConfig) setCallerInfo() {

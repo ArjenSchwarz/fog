@@ -266,7 +266,7 @@ func (deployment *DeployInfo) WaitUntilChangesetDone(svc *cloudformation.Client)
 		return &changeset, err
 	}
 
-	for !stringInSlice(string(resp.Status), availableStatuses) {
+	for !stringInSlice(string(resp[0].Status), availableStatuses) {
 		time.Sleep(5 * time.Second)
 		resp, err = deployment.GetChangeset(svc)
 		if err != nil {
@@ -277,47 +277,65 @@ func (deployment *DeployInfo) WaitUntilChangesetDone(svc *cloudformation.Client)
 	return &changeset, err
 }
 
-func (deployment *DeployInfo) AddChangeset(resp cloudformation.DescribeChangeSetOutput) ChangesetInfo {
+func (deployment *DeployInfo) AddChangeset(resp []cloudformation.DescribeChangeSetOutput) ChangesetInfo {
 	changeset := ChangesetInfo{}
-	for _, change := range resp.Changes {
-		changestruct := ChangesetChanges{
-			Action:      string(change.ResourceChange.Action),
-			Replacement: string(change.ResourceChange.Replacement),
-			ResourceID:  aws.ToString(change.ResourceChange.PhysicalResourceId),
-			LogicalID:   aws.ToString(change.ResourceChange.LogicalResourceId),
-			Type:        aws.ToString(change.ResourceChange.ResourceType),
+	for _, changesets := range resp {
+		for _, change := range changesets.Changes {
+			changestruct := ChangesetChanges{
+				Action:      string(change.ResourceChange.Action),
+				Replacement: string(change.ResourceChange.Replacement),
+				ResourceID:  aws.ToString(change.ResourceChange.PhysicalResourceId),
+				LogicalID:   aws.ToString(change.ResourceChange.LogicalResourceId),
+				Type:        aws.ToString(change.ResourceChange.ResourceType),
+			}
+			if change.ResourceChange.ModuleInfo != nil {
+				changestruct.Module = fmt.Sprintf("%v(%v)", aws.ToString(change.ResourceChange.ModuleInfo.LogicalIdHierarchy), aws.ToString(change.ResourceChange.ModuleInfo.TypeHierarchy))
+			}
+			changeset.AddChange(changestruct)
 		}
-		if change.ResourceChange.ModuleInfo != nil {
-			changestruct.Module = fmt.Sprintf("%v(%v)", aws.ToString(change.ResourceChange.ModuleInfo.LogicalIdHierarchy), aws.ToString(change.ResourceChange.ModuleInfo.TypeHierarchy))
-		}
-		changeset.AddChange(changestruct)
 	}
-	changeset.StackID = *resp.StackId
-	changeset.StackName = *resp.StackName
-	changeset.Status = string(resp.Status)
+	changeset.StackID = *resp[0].StackId
+	changeset.StackName = *resp[0].StackName
+	changeset.Status = string(resp[0].Status)
 	statusreason := ""
-	if resp.StatusReason != nil {
-		statusreason = *resp.StatusReason
+	if resp[0].StatusReason != nil {
+		statusreason = *resp[0].StatusReason
 	}
 	changeset.StatusReason = statusreason
-	changeset.ID = *resp.ChangeSetId
-	changeset.Name = *resp.ChangeSetName
-	changeset.CreationTime = *resp.CreationTime
+	changeset.ID = *resp[0].ChangeSetId
+	changeset.Name = *resp[0].ChangeSetName
+	changeset.CreationTime = *resp[0].CreationTime
 	deployment.StackArn = changeset.StackID
 	deployment.Changeset = &changeset
 	return changeset
 }
 
-func (deployment *DeployInfo) GetChangeset(svc *cloudformation.Client) (cloudformation.DescribeChangeSetOutput, error) {
+func (deployment *DeployInfo) GetChangeset(svc *cloudformation.Client) ([]cloudformation.DescribeChangeSetOutput, error) {
+	results := []cloudformation.DescribeChangeSetOutput{}
 	input := &cloudformation.DescribeChangeSetInput{
 		ChangeSetName: &deployment.ChangesetName,
+		NextToken:     nil,
 		StackName:     &deployment.StackName,
 	}
 	resp, err := svc.DescribeChangeSet(context.TODO(), input)
+	results = append(results, *resp)
 	if err != nil {
-		return cloudformation.DescribeChangeSetOutput{}, err
+		return results, err
 	}
-	return *resp, nil
+	// write a for loop to get all the changesets
+	for resp.NextToken != nil {
+		input = &cloudformation.DescribeChangeSetInput{
+			ChangeSetName: &deployment.ChangesetName,
+			NextToken:     resp.NextToken,
+			StackName:     &deployment.StackName,
+		}
+		resp, err = svc.DescribeChangeSet(context.TODO(), input)
+		results = append(results, *resp)
+		if err != nil {
+			return results, err
+		}
+	}
+	return results, nil
 }
 
 func (deployment *DeployInfo) GetFreshStack(svc *cloudformation.Client) (types.Stack, error) {

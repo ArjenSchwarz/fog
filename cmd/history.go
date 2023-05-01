@@ -105,6 +105,7 @@ func printLog(log lib.DeploymentLog) {
 
 	//print change set info
 	changesettitle := "Deployed change set"
+	summaryTitle := "Summary of changes"
 	hasModule := false
 	for _, change := range log.Changes {
 		if change.Module != "" {
@@ -112,7 +113,7 @@ func printLog(log lib.DeploymentLog) {
 			break
 		}
 	}
-	printChangeset(changesettitle, log.Changes, hasModule, true)
+	printChangeset(changesettitle, summaryTitle, log.Changes, hasModule, true)
 
 	if log.Status == lib.DeploymentLogStatusFailed {
 		//print error info
