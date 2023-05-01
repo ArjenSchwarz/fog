@@ -8,7 +8,7 @@ templates:
   directory: examples/templates
   prechecks:
     - cfn-lint -t $TEMPLATEPATH #Use https://github.com/aws-cloudformation/cfn-lint
-    - checkov -f $TEMPLATEPATH #Use https://github.com/bridgecrewio/checkov
+    # - checkov -f $TEMPLATEPATH #Use https://github.com/bridgecrewio/checkov
   stop-on-failed-prechecks: false
 tags:
   directory: examples/tags

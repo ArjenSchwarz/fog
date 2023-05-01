@@ -1,0 +1,175 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Create an S3 bucket that can be used to store reports for fog
+
+Parameters:
+  OrgID:
+    Description: The SSM Parameter store object storing the organization ID
+    Type: AWS::SSM::Parameter::Value<String>
+
+Resources:
+  ReportsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "fog-reports-${AWS::AccountId}-${AWS::Region}"
+      AccessControl: Private
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+
+  ReportsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ReportsBucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action:
+              - 's3:PutObject'
+            Effect: Allow
+            Resource: !Sub "${ReportsBucket.Arn}/reports/*"
+            Principal: '*'
+            Condition:
+              StringEquals:
+                "aws:PrincipalOrgID": !Ref OrgID
+          - Action:
+              - 's3:List*'
+              - 's3:Get*'
+            Effect: Allow
+            Resource:
+              - !GetAtt ReportsBucket.Arn
+              - !Sub "${ReportsBucket.Arn}/*"
+            Principal:
+              AWS:
+                - !Ref AWS::AccountId
+
+  # The CodeCommit Repository holding the source for the website
+  SiteRepo:
+    Type: AWS::CodeCommit::Repository
+    Properties:
+      RepositoryName: fog-report-site
+      RepositoryDescription: Source code for the fog report site
+  AmplifyRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - amplify.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: Amplify
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action: "amplify:*"
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - "codecommit:*"
+                  - "codecommit:Get*"
+                  - "codecommit:Describe*"
+                Resource: !GetAtt SiteRepo.Arn
+              - Effect: Allow
+                Action:
+                  - "s3:Get*"
+                  - "s3:List*"
+                Resource:
+                  - !GetAtt ReportsBucket.Arn
+                  - !Sub "${ReportsBucket.Arn}/*"
+  AmplifyApp:
+    Type: "AWS::Amplify::App"
+    Properties:
+      Name: "fog-report-site"
+      Repository: !GetAtt SiteRepo.CloneUrlHttp
+      IAMServiceRole: !GetAtt AmplifyRole.Arn
+      CustomRules:
+      - Source: "/<*>"
+        Target: "/index.html"
+        Status: "404-200"
+      BuildSpec: !Sub |
+          version: 1
+          frontend:
+            phases:
+              preBuild:
+                commands:
+                # Hacky way to get extended version of Hugo as AWS doesn't supply that in Amplify
+                  - curl -s https://api.github.com/repos/gohugoio/hugo/releases/latest | grep "browser_download_url.*hugo_extended.*_Linux-64bit\.tar\.gz" | cut -d ":" -f 2,3 | tr -d '\\"' | wget -qi -
+                  - tar -xzf "$(find . -name "*Linux-64bit.tar.gz")"
+                  - chmod +x hugo
+                  - mv hugo /usr/bin/hugo
+                  - rm -rf "$(find . -name '*Linux-64bit.tar.gz')"
+                  - hugo version
+              build:
+                commands:
+                  - aws s3 sync s3://${ReportsBucket}/reports content/reports/
+                  - hugo
+            artifacts:
+              baseDirectory: public
+              files:
+                - '**/*'
+            cache:
+              paths: []
+      EnableBranchAutoDeletion: false
+
+  AmplifyBranch:
+    Type: "AWS::Amplify::Branch"
+    Properties:
+      BranchName: "main"
+      Stage: "PRODUCTION"
+      AppId: !GetAtt AmplifyApp.AppId
+      EnablePullRequestPreview: false
+      EnableAutoBuild: true
+      EnablePerformanceMode: false
+
+  # AmplifyDomain:
+  #   Type: "AWS::Amplify::Domain"
+  #   Properties:
+  #     AppId: !GetAtt AmplifyApp.AppId
+  #     DomainName: "ig.nore.me"
+  #     SubDomainSettings:
+  #     - Prefix: "report-demo"
+  #       BranchName: "main"
+  #     EnableAutoSubDomain: false
+
+  TriggerFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      InlineCode:
+        Fn::Sub: |
+          import boto3
+
+          def lambda_handler(event, context):
+              client = boto3.client('amplify')
+              client.start_job(
+                  appId='${AmplifyApp.AppId}',
+                  branchName='main',
+                  jobType='RELEASE'
+              )
+
+      Handler: index.lambda_handler
+      Runtime: python3.9
+      Architectures:
+        - x86_64
+      Policies:
+        - Statement:
+          - Sid: AmplifyAccess
+            Effect: Allow
+            Action:
+              - amplify:*
+            Resource: "*"
+
+Outputs:
+  MainDomain:
+    Description: Default Domain for Amplify
+    Value: !Sub "https://main.${AmplifyApp.DefaultDomain}"

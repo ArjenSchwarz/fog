@@ -1,7 +1,7 @@
 [
     {
         "ParameterKey": "ReportS3Bucket",
-        "ParameterValue": "examplebucket"
+        "ParameterValue": "fog-reports-725691714333-us-east-1"
     },
     {
         "ParameterKey": "ReportNamePattern",
@@ -17,6 +17,6 @@
     },
     {
         "ParameterKey": "FogVersion",
-        "ParameterValue": "latest"
+        "ParameterValue": "unstable"
     }
 ]
