@@ -1,4 +1,14 @@
 
+1.8.0 / 2023-06-17
+==================
+
+  * Improved changesets and added drift detection
+
+1.7.0 / 2023-05-01
+==================
+
+  * Changeset improvements: show all changes + summary
+
 1.6.0 / 2022-09-12
 ==================
 
