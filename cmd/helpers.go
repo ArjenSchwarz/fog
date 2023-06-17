@@ -55,3 +55,8 @@ func stringInSlice(a string, list []string) bool {
 	}
 	return false
 }
+
+// addToField increases the integer value of the field by the provided value
+func addToField(field *map[string]interface{}, key string, value int) {
+	(*field)[key] = (*field)[key].(int) + value
+}

@@ -111,6 +111,7 @@ func deployTemplate(cmd *cobra.Command, args []string) {
 			os.Exit(1)
 		}
 	}
+	deployment.IsDryRun = *deploy_Dryrun
 	showDeploymentInfo(deployment, awsConfig)
 	if !deployment.IsNew {
 		deploymentName := lib.GenerateDeploymentName(awsConfig, deployment.StackName)
@@ -135,7 +136,7 @@ func deployTemplate(cmd *cobra.Command, args []string) {
 		}
 		changeset := deployment.AddChangeset(rawchangeset)
 		deploymentLog.AddChangeSet(&changeset)
-		showChangeset(changeset, awsConfig)
+		showChangeset(changeset, deployment, awsConfig)
 	} else {
 		setDeployTemplate(&deployment, awsConfig)
 		setDeployTags(&deployment)
@@ -169,7 +170,7 @@ func deployTemplate(cmd *cobra.Command, args []string) {
 		}
 		changeset := createChangeset(&deployment, awsConfig)
 		deploymentLog.AddChangeSet(changeset)
-		showChangeset(*changeset, awsConfig)
+		showChangeset(*changeset, deployment, awsConfig)
 		if *deploy_Dryrun {
 			fmt.Print(outputsettings.StringSuccess(texts.DeployChangesetMessageDryrunSuccess))
 			deleteChangeset(deployment, awsConfig)
@@ -257,6 +258,7 @@ func showDeploymentInfo(deployment lib.DeployInfo, awsConfig config.AWSConfig) {
 		}
 		fmt.Printf("%v stack '%v' in region %v of account %v\n", method, bold(*deploy_StackName), awsConfig.Region, awsConfig.AccountID)
 	}
+	printBasicStackInfo(deployment, true, awsConfig)
 }
 
 func setDeployTemplate(deployment *lib.DeployInfo, awsConfig config.AWSConfig) {
@@ -391,80 +393,6 @@ func createChangeset(deployment *lib.DeployInfo, awsConfig config.AWSConfig) *li
 		os.Exit(1)
 	}
 	return changeset
-}
-
-func showChangeset(changeset lib.ChangesetInfo, awsConfig config.AWSConfig) {
-	changesettitle := fmt.Sprintf("%v %v", texts.DeployChangesetMessageChanges, changeset.Name)
-	changesetsummarytitle := fmt.Sprintf("Summary for %v", changeset.Name)
-	printChangeset(changesettitle, changesetsummarytitle, changeset.Changes, changeset.HasModule, false)
-
-	fmt.Printf("%v %v \r\n", texts.DeployChangesetMessageConsole, changeset.GenerateChangesetUrl(awsConfig))
-}
-
-func printChangeset(title string, summaryTitle string, changes []lib.ChangesetChanges, hasModule bool, buffer bool) {
-	bold := color.New(color.Bold).SprintFunc()
-	changesetkeys := []string{"Action", "CfnName", "Type", "ID", "Replacement"}
-	if hasModule {
-		changesetkeys = append(changesetkeys, "Module")
-	}
-	summarykeys := []string{"Total", "Added", "Removed", "Modified", "Replacements", "Conditionals"}
-	summaryContent := make(map[string]interface{})
-	summaryContent["Total"] = 0
-	summaryContent["Added"] = 0
-	summaryContent["Removed"] = 0
-	summaryContent["Modified"] = 0
-	summaryContent["Replacements"] = 0
-	summaryContent["Conditionals"] = 0
-	output := format.OutputArray{Keys: changesetkeys, Settings: outputsettings}
-	output.Settings.Title = title
-	output.Settings.SortKey = "Type"
-	if len(changes) == 0 {
-		fmt.Println(texts.DeployChangesetMessageNoResourceChanges)
-	} else {
-		for _, change := range changes {
-			content := make(map[string]interface{})
-			action := change.Action
-			if action == "Remove" {
-				action = bold(action)
-			}
-			content["Action"] = action
-			content["Replacement"] = change.Replacement
-			content["CfnName"] = change.LogicalID
-			content["Type"] = change.Type
-			content["ID"] = change.ResourceID
-			if hasModule {
-				content["Module"] = change.Module
-			}
-			holder := format.OutputHolder{Contents: content}
-			output.AddHolder(holder)
-			summaryContent["Total"] = summaryContent["Total"].(int) + 1
-			switch change.Action {
-			case "Add":
-				summaryContent["Added"] = summaryContent["Added"].(int) + 1
-			case "Remove":
-				summaryContent["Removed"] = summaryContent["Removed"].(int) + 1
-			case "Modify":
-				summaryContent["Modified"] = summaryContent["Modified"].(int) + 1
-			}
-			switch change.Replacement {
-			case "True":
-				summaryContent["Replacements"] = summaryContent["Replacements"].(int) + 1
-			case "Conditional":
-				summaryContent["Conditionals"] = summaryContent["Conditionals"].(int) + 1
-			}
-		}
-		summaryOutput := format.OutputArray{Keys: summarykeys, Settings: outputsettings}
-		summaryOutput.Settings.Title = summaryTitle
-		summaryHolder := format.OutputHolder{Contents: summaryContent}
-		summaryOutput.AddHolder(summaryHolder)
-		if buffer {
-			output.AddToBuffer()
-			summaryOutput.AddToBuffer()
-		} else {
-			output.Write()
-			summaryOutput.Write()
-		}
-	}
 }
 
 func deleteChangeset(deployment lib.DeployInfo, awsConfig config.AWSConfig) {

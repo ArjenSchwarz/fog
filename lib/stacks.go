@@ -20,6 +20,8 @@ type DeployInfo struct {
 	Changeset *ChangesetInfo
 	// ChangesetName contains the name of the change set
 	ChangesetName string
+	// IsDryRun shows whether this is a dry run or not
+	IsDryRun bool
 	// IsNew shows whether this is a new stack or if it will update one
 	IsNew bool
 	// Parameters holds a slice of parameter objects
@@ -287,6 +289,7 @@ func (deployment *DeployInfo) AddChangeset(resp []cloudformation.DescribeChangeS
 				ResourceID:  aws.ToString(change.ResourceChange.PhysicalResourceId),
 				LogicalID:   aws.ToString(change.ResourceChange.LogicalResourceId),
 				Type:        aws.ToString(change.ResourceChange.ResourceType),
+				Details:     change.ResourceChange.Details,
 			}
 			if change.ResourceChange.ModuleInfo != nil {
 				changestruct.Module = fmt.Sprintf("%v(%v)", aws.ToString(change.ResourceChange.ModuleInfo.LogicalIdHierarchy), aws.ToString(change.ResourceChange.ModuleInfo.TypeHierarchy))
@@ -360,6 +363,15 @@ func (deployment *DeployInfo) GetEvents(svc *cloudformation.Client) ([]types.Sta
 	resp, err := svc.DescribeStackEvents(context.TODO(), input)
 	return resp.StackEvents, err
 
+}
+
+func (deployment *DeployInfo) GetCleanedStackName() string {
+	// if deployment.StackName starts with arn, get the name otherwise return deployment.StackName
+	if strings.HasPrefix(deployment.StackName, "arn:") {
+		filtered := strings.Split(deployment.StackName, "/")
+		return filtered[1]
+	}
+	return deployment.StackName
 }
 
 func (stack *CfnStack) GetEvents(svc *cloudformation.Client) ([]StackEvent, error) {

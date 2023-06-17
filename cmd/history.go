@@ -113,7 +113,7 @@ func printLog(log lib.DeploymentLog) {
 			break
 		}
 	}
-	printChangeset(changesettitle, summaryTitle, log.Changes, hasModule, true)
+	printChangeset(changesettitle, summaryTitle, log.Changes, hasModule)
 
 	if log.Status == lib.DeploymentLogStatusFailed {
 		//print error info

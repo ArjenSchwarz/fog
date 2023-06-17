@@ -3,9 +3,13 @@ package lib
 import (
 	"context"
 	"fmt"
+	"log"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/ArjenSchwarz/fog/config"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
 )
@@ -29,6 +33,7 @@ type ChangesetChanges struct {
 	ResourceID  string
 	Type        string
 	Module      string
+	Details     []types.ResourceChangeDetail
 }
 
 func (changeset *ChangesetInfo) DeleteChangeset(svc *cloudformation.Client) bool {
@@ -69,4 +74,38 @@ func (changeset *ChangesetInfo) GetStack(svc *cloudformation.Client) (types.Stac
 func (changeset *ChangesetInfo) GenerateChangesetUrl(settings config.AWSConfig) string {
 	return fmt.Sprintf("https://console.aws.amazon.com/cloudformation/home?region=%v#/stacks/changesets/changes?stackId=%v&changeSetId=%v",
 		settings.Region, changeset.StackID, changeset.ID)
+}
+
+func GetStackAndChangesetFromURL(changeseturl string, region string) (string, string) {
+	decodedValue, err := url.QueryUnescape(changeseturl)
+	if err != nil {
+		log.Fatal(err)
+		return "", ""
+	}
+	decodedValue = strings.Replace(decodedValue, "\\", "", -1)
+	replacestring := fmt.Sprintf("?region=%s#/stacks/changesets/changes", region)
+	decodedValue = strings.Replace(decodedValue, replacestring, "", 1)
+	u, err := url.Parse(decodedValue)
+	if err != nil {
+		panic(err)
+	}
+	q, err := url.ParseQuery(u.RawQuery)
+	if err != nil {
+		panic(err)
+	}
+	stackid := q.Get("stackId")
+	changesetid := q.Get("changeSetId")
+	return stackid, changesetid
+}
+
+func (changes *ChangesetChanges) GetDangerDetails() []string {
+	details := []string{}
+	for _, detail := range changes.Details {
+		if detail.Target.RequiresRecreation != "Never" {
+			change := fmt.Sprintf("%v: %v - %v", detail.Evaluation, detail.Target.Attribute, aws.ToString(detail.CausingEntity))
+			details = append(details, change)
+		}
+
+	}
+	return details
 }
