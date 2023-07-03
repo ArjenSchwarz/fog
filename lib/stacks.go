@@ -552,6 +552,14 @@ func (deployment *DeployInfo) GetExecutionTimes(svc *cloudformation.Client) (map
 	return result, nil
 }
 
+func GetParametersMap(params []types.Parameter) *map[string]interface{} {
+	result := make(map[string]interface{})
+	for _, param := range params {
+		result[*param.ParameterKey] = *param.ParameterValue
+	}
+	return &result
+}
+
 type ReverseEvents []types.StackEvent
 
 func (a ReverseEvents) Len() int           { return len(a) }

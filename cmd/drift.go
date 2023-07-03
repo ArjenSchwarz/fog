@@ -150,7 +150,8 @@ func detectDrift(cmd *cobra.Command, args []string) {
 			output.AddHolder(holder)
 		}
 	}
-	template := lib.GetTemplateBody(drift_StackName, nil, svc)
+	params := lib.GetParametersMap(stack.Parameters)
+	template := lib.GetTemplateBody(drift_StackName, params, svc)
 	checkNaclEntries(naclResources, template, stack.Parameters, &output, awsConfig)
 	checkRouteTableRoutes(routetableResources, template, stack.Parameters, logicalToPhysical, &output, awsConfig)
 	output.Write()
@@ -223,8 +224,10 @@ func checkRouteTableRoutes(routetableResources map[string]string, template lib.C
 		rulechanges := []string{}
 		routetable := lib.GetRouteTable(physicalId, awsConfig.EC2Client())
 		attachedRules := lib.FilterRoutesByLogicalId(logicalId, template, parameters, logicalToPhysical)
+		// fmt.Print(attachedRules)
 		for _, route := range routetable.Routes {
 			ruleid := lib.GetRouteDestination(route)
+			// fmt.Printf("Route: %s - %s\n", ruleid, routeToString(route))
 			if cfnroute, ok := attachedRules[ruleid]; ok {
 				if !lib.CompareRoutes(route, cfnroute) {
 					ruledetails := fmt.Sprintf("Expected: %s%sActual: %s", routeToString(cfnroute), outputsettings.GetSeparator(), routeToString(route))
