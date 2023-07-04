@@ -48,9 +48,16 @@ var driftCmd = &cobra.Command{
 	Short: "Better drift detection for a VPC",
 	Long: `Enables drift detection and shows the results.
 
-	Including checking certain values that aren't currently
-	supported natively by CloudFormation drift detection.
-	In particular it will show NACLs and Routes changes.`,
+Including checking certain values that aren't currently
+supported natively by CloudFormation drift detection.
+In particular it will show NACLs and Routes changes.
+
+Due to limitations in CloudFormation, prefix lists in routes don't
+show up by default as they can't be managed using CloudFormation and
+therefore we can't see if they've drifted.
+If you wish these to be shown, you can use the --verbose flag. This
+will still exclude AWS managed prefix lists, as these are automatically
+assigned.`,
 	Run: detectDrift,
 }
 
@@ -219,15 +226,25 @@ func checkNaclEntries(naclResources map[string]string, template lib.CfnTemplateB
 
 // checkRouteTableRoutes verifies the routes and if there are differences adds those to the provided output array
 func checkRouteTableRoutes(routetableResources map[string]string, template lib.CfnTemplateBody, parameters []types.Parameter, logicalToPhysical map[string]string, output *format.OutputArray, awsConfig config.AWSConfig) {
+	// Create a list of all AWS managed prefixes
+	managedPrefixLists := lib.GetManagedPrefixLists(awsConfig.EC2Client())
+	awsPrefixesSlice := make([]string, 0)
+	for _, prefixlist := range managedPrefixLists {
+		if *prefixlist.OwnerId == "AWS" {
+			awsPrefixesSlice = append(awsPrefixesSlice, *prefixlist.PrefixListId)
+		}
+	}
 	// Specific check for NACLs
 	for logicalId, physicalId := range routetableResources {
 		rulechanges := []string{}
 		routetable := lib.GetRouteTable(physicalId, awsConfig.EC2Client())
 		attachedRules := lib.FilterRoutesByLogicalId(logicalId, template, parameters, logicalToPhysical)
-		// fmt.Print(attachedRules)
 		for _, route := range routetable.Routes {
 			ruleid := lib.GetRouteDestination(route)
-			// fmt.Printf("Route: %s - %s\n", ruleid, routeToString(route))
+			if route.DestinationPrefixListId != nil && (!settings.GetBool("verbose") || stringInSlice(*route.DestinationPrefixListId, awsPrefixesSlice)) {
+				// If the route is for a prefixlist, don't report it by default as they're not defined in CloudFormation. Also don't report any AWS managed prefixlists
+				continue
+			}
 			if cfnroute, ok := attachedRules[ruleid]; ok {
 				if !lib.CompareRoutes(route, cfnroute) {
 					ruledetails := fmt.Sprintf("Expected: %s%sActual: %s", routeToString(cfnroute), outputsettings.GetSeparator(), routeToString(route))
@@ -237,10 +254,6 @@ func checkRouteTableRoutes(routetableResources map[string]string, template lib.C
 			} else {
 				// If the route was created with the table, don't report it
 				if route.Origin == ec2types.RouteOriginCreateRouteTable {
-					continue
-				}
-				// If the route is for the S3 prefixlist or the dynamodb prefixlist, don't report it
-				if route.DestinationPrefixListId != nil && (*route.DestinationPrefixListId == "pl-6ca54005" || *route.DestinationPrefixListId == "pl-62a5400b") {
 					continue
 				}
 				ruledetails := fmt.Sprintf("Unmanaged route: %s", routeToString(route))
@@ -356,6 +369,13 @@ func naclEntryToString(entry ec2types.NetworkAclEntry) string {
 			ports = fmt.Sprintf("Port: %v", *entry.PortRange.From)
 		} else {
 			ports = fmt.Sprintf("Ports: %v-%v", *entry.PortRange.From, *entry.PortRange.To)
+		}
+	}
+	if entry.IcmpTypeCode != nil {
+		if *entry.IcmpTypeCode.Type == -1 {
+			ports = "ICMP: All"
+		} else {
+			ports = fmt.Sprintf("ICMP: %v-%v", *entry.IcmpTypeCode.Type, *entry.IcmpTypeCode.Code)
 		}
 	}
 	var cidr string

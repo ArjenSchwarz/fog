@@ -157,3 +157,13 @@ func stringPointerValueMatch(pointer1 *string, pointer2 *string) bool {
 	// otherwise the values need to match
 	return *pointer1 == *pointer2
 }
+
+// GetManagedPrefixLists returns all managed prefix lists for the region/account
+func GetManagedPrefixLists(svc *ec2.Client) []types.ManagedPrefixList {
+	input := ec2.DescribeManagedPrefixListsInput{}
+	result, err := svc.DescribeManagedPrefixLists(context.Background(), &input)
+	if err != nil {
+		panic(err)
+	}
+	return result.PrefixLists
+}

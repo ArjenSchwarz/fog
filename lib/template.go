@@ -304,6 +304,30 @@ func NaclResourceToNaclEntry(resource CfnTemplateResource, params []cfntypes.Par
 		}
 		result.PortRange = &portrange
 	}
+	// In CloudFormation the IcmpTypeCode is just called Icmp
+	if resource.Properties["Icmp"] != nil {
+		icmptypecodedata := resource.Properties["Icmp"].(map[string]interface{})
+		var icmptype, icmpcode int32
+		switch value := icmptypecodedata["Code"].(type) {
+		case float64:
+			icmpcode = int32(value)
+		case string:
+			icmpcodea, _ := strconv.Atoi(value)
+			icmpcode = int32(icmpcodea)
+		}
+		switch value := icmptypecodedata["Type"].(type) {
+		case float64:
+			icmptype = int32(value)
+		case string:
+			icmptypea, _ := strconv.Atoi(value)
+			icmptype = int32(icmptypea)
+		}
+		icmptypecode := types.IcmpTypeCode{
+			Code: &icmpcode,
+			Type: &icmptype,
+		}
+		result.IcmpTypeCode = &icmptypecode
+	}
 	return result
 }
 
