@@ -57,11 +57,14 @@ func init() {
 }
 
 func showDependencies(cmd *cobra.Command, args []string) {
-	awsConfig := config.DefaultAwsConfig(*settings)
+	awsConfig, err := config.DefaultAwsConfig(*settings)
+	if err != nil {
+		failWithError(err)
+	}
 	emptystring := ""
 	stacks, err := lib.GetCfnStacks(&emptystring, awsConfig.CloudformationClient())
 	if err != nil {
-		panic(err)
+		failWithError(err)
 	}
 	keys := []string{"Stack", "Description", "Imported By"}
 	subtitle := "All stacks"

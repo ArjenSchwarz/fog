@@ -59,11 +59,11 @@ So, what are your current settings and what would they look like in a settings f
 	// fmt.Print(viper.AllSettings())
 	yamlconfig, err := yaml.Marshal(viper.AllSettings())
 	if err != nil {
-		panic(err)
+		failWithError(err)
 	}
 	jsonconfig, err := json.MarshalIndent(viper.AllSettings(), "", "  ")
 	if err != nil {
-		panic(err)
+		failWithError(err)
 	}
 
 	fmt.Println("As fog.yml:")

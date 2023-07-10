@@ -60,12 +60,14 @@ func init() {
 	rootCmd.PersistentFlags().String("profile", "", "Use a specific AWS profile")
 	rootCmd.PersistentFlags().String("region", "", "Use a specific AWS region")
 	rootCmd.PersistentFlags().String("timezone", "", "Specify a timezone you want to use for any times shown in output. By default it uses your system's timezone")
+	rootCmd.PersistentFlags().Bool("debug", false, "Enable debug mode, mainly for development purposes")
 
 	viper.BindPFlag("verbose", rootCmd.PersistentFlags().Lookup("verbose"))
 	viper.BindPFlag("output", rootCmd.PersistentFlags().Lookup("output"))
 	viper.BindPFlag("profile", rootCmd.PersistentFlags().Lookup("profile"))
 	viper.BindPFlag("region", rootCmd.PersistentFlags().Lookup("region"))
 	viper.BindPFlag("timezone", rootCmd.PersistentFlags().Lookup("timezone"))
+	viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug"))
 
 	// Default table settings
 	viper.SetDefault("table.style", "Default")

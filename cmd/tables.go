@@ -44,9 +44,8 @@ func init() {
 func demoTables(cmd *cobra.Command, args []string) {
 	keys := []string{"Export", "Description", "Stack", "Value", "Imported"}
 	title := "Export values demo"
+
 	output := format.OutputArray{Keys: keys, Settings: settings.NewOutputSettings()}
-	output.Settings.Title = title
-	output.Settings.SortKey = "Export"
 
 	value1 := format.OutputHolder{
 		Contents: map[string]interface{}{
@@ -54,7 +53,7 @@ func demoTables(cmd *cobra.Command, args []string) {
 			"Value":       "arn:aws:s3:::fog-awesome-stack-dev",
 			"Description": "ARN of the S3 bucket",
 			"Stack":       "awesome-stack-dev",
-			"Imported":    "Yes",
+			"Imported":    true,
 		},
 	}
 	value2 := format.OutputHolder{
@@ -63,7 +62,7 @@ func demoTables(cmd *cobra.Command, args []string) {
 			"Value":       "arn:aws:s3:::fog-awesome-stack-test",
 			"Description": "ARN of the S3 bucket",
 			"Stack":       "awesome-stack-test",
-			"Imported":    "Yes",
+			"Imported":    true,
 		},
 	}
 	value3 := format.OutputHolder{
@@ -72,7 +71,7 @@ func demoTables(cmd *cobra.Command, args []string) {
 			"Value":       "arn:aws:s3:::fog-awesome-stack-prod",
 			"Description": "ARN of the S3 bucket",
 			"Stack":       "awesome-stack-prod",
-			"Imported":    "Yes",
+			"Imported":    true,
 		},
 	}
 	value4 := format.OutputHolder{
@@ -81,7 +80,7 @@ func demoTables(cmd *cobra.Command, args []string) {
 			"Value":       "fog-demo-bucket",
 			"Description": "The S3 bucket used for demos but has an exceptionally long description so it can show a multi-line example",
 			"Stack":       "demo-resources",
-			"Imported":    "No",
+			"Imported":    false,
 		},
 	}
 	output.AddHolder(value1)
@@ -98,9 +97,11 @@ table:
 `)
 	for style := range format.TableStyles {
 		viper.Set("table.style", style)
-		fmt.Println("")
+		output.Settings = settings.NewOutputSettings()
+		output.Settings.Title = title
+		output.Settings.SortKey = "Export"
+		output.Settings.SeparateTables = true
 		fmt.Printf("Showing style: %v\r\n", style)
-		fmt.Println("")
 		output.Write()
 	}
 }

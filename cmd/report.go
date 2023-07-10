@@ -119,7 +119,10 @@ func GenerateReportFromLambda(stackname string, bucketname string, outputfilenam
 
 // generateReport creates the complete report
 func generateReport() {
-	awsConfig := config.DefaultAwsConfig(*settings)
+	awsConfig, err := config.DefaultAwsConfig(*settings)
+	if err != nil {
+		failWithError(err)
+	}
 	outputsettings = getReportOutputSettingsFromCli(awsConfig)
 	mainoutput := format.OutputArray{Keys: []string{}, Settings: outputsettings}
 	if mainoutput.Settings.OutputFormat == "markdown" || mainoutput.Settings.OutputFormat == "html" {
@@ -131,7 +134,7 @@ func generateReport() {
 	}
 
 	if err != nil {
-		panic(err)
+		failWithError(err)
 	}
 	if len(stacks) > 1 {
 		mainoutput.Settings.HasTOC = true
@@ -206,7 +209,7 @@ func generateStackReport(stack lib.CfnStack, mainoutput format.OutputArray, awsC
 	mainoutput.AddHeader(fmt.Sprintf("Stack %s", stack.Name))
 	events, err := stack.GetEvents(awsConfig.CloudformationClient())
 	if err != nil {
-		panic(err)
+		failWithError(err)
 	}
 	for counter, event := range events {
 		if *report_LatestOnly && counter+1 < len(events) {
@@ -239,7 +242,7 @@ func generateFrontMatter(stacks map[string]lib.CfnStack, awsConfig config.AWSCon
 	for _, stack := range stacks {
 		events, err := stack.GetEvents(awsConfig.CloudformationClient())
 		if err != nil {
-			panic(err)
+			failWithError(err)
 		}
 		for _, event := range events {
 			result["account"] = awsConfig.AccountID

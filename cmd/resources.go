@@ -55,7 +55,10 @@ func init() {
 }
 
 func listResources(cmd *cobra.Command, args []string) {
-	awsConfig := config.DefaultAwsConfig(*settings)
+	awsConfig, err := config.DefaultAwsConfig(*settings)
+	if err != nil {
+		failWithError(err)
+	}
 	resources := lib.GetResources(resource_stackname, awsConfig.CloudformationClient())
 	keys := []string{"Type", "ID", "Stack"}
 	if settings.GetBool("verbose") {

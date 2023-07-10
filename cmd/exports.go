@@ -60,7 +60,10 @@ func init() {
 }
 
 func listExports(cmd *cobra.Command, args []string) {
-	awsConfig := config.DefaultAwsConfig(*settings)
+	awsConfig, err := config.DefaultAwsConfig(*settings)
+	if err != nil {
+		failWithError(err)
+	}
 	exports := lib.GetExports(exports_stackName, export_exportName, awsConfig.CloudformationClient())
 	keys := []string{"Export", "Description", "Stack", "Value", "Imported"}
 	if settings.GetBool("verbose") {

@@ -6,6 +6,8 @@ import (
 	"log"
 	"os"
 	"strings"
+
+	"github.com/spf13/viper"
 )
 
 // askForConfirmation asks the user for confirmation. A user must type in "yes" or "no" and
@@ -59,4 +61,12 @@ func stringInSlice(a string, list []string) bool {
 // addToField increases the integer value of the field by the provided value
 func addToField(field *map[string]interface{}, key string, value int) {
 	(*field)[key] = (*field)[key].(int) + value
+}
+
+func failWithError(err error) {
+	fmt.Print(settings.NewOutputSettings().StringFailure(fmt.Sprintf("Error: %v", err)))
+	if viper.GetBool("debug") {
+		panic(err)
+	}
+	os.Exit(1)
 }

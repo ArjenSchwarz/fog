@@ -69,7 +69,10 @@ func init() {
 }
 
 func detectDrift(cmd *cobra.Command, args []string) {
-	awsConfig := config.DefaultAwsConfig(*settings)
+	awsConfig, err := config.DefaultAwsConfig(*settings)
+	if err != nil {
+		failWithError(err)
+	}
 	svc := awsConfig.CloudformationClient()
 	resultTitle := "Drift results for stack " + *drift_StackName
 	keys := []string{"LogicalId", "Type", "ChangeType", "Details"}
@@ -81,25 +84,16 @@ func detectDrift(cmd *cobra.Command, args []string) {
 		driftid := lib.StartDriftDetection(drift_StackName, awsConfig.CloudformationClient())
 		lib.WaitForDriftDetectionToFinish(driftid, awsConfig.CloudformationClient())
 	}
-	naclResources := make(map[string]string)
-	routetableResources := make(map[string]string)
-	logicalToPhysical := make(map[string]string)
+	defaultDrift := lib.GetDefaultStackDrift(drift_StackName, svc)
+	naclResources, routetableResources, logicalToPhysical := separateSpecialCases(defaultDrift)
 	checkedResources := []string{}
 	stack, err := lib.GetStack(drift_StackName, svc)
 	if err != nil {
-		panic(err)
+		failWithError(err)
 	}
-	for _, drift := range lib.GetDefaultStackDrift(drift_StackName, svc) {
+
+	for _, drift := range defaultDrift {
 		checkedResources = append(checkedResources, *drift.LogicalResourceId)
-		logicalToPhysical[*drift.LogicalResourceId] = *drift.PhysicalResourceId
-		switch *drift.ResourceType {
-		case "AWS::EC2::NetworkAcl":
-			naclResources[*drift.LogicalResourceId] = *drift.PhysicalResourceId
-			break
-		case "AWS::EC2::RouteTable":
-			routetableResources[*drift.LogicalResourceId] = *drift.PhysicalResourceId
-			break
-		}
 		if drift.StackResourceDriftStatus == types.StackResourceDriftStatusInSync {
 			continue
 		}
@@ -148,13 +142,11 @@ func detectDrift(cmd *cobra.Command, args []string) {
 					separateContent[k] = v
 				}
 				separateContent["Details"] = property
-				holder := format.OutputHolder{Contents: separateContent}
-				output.AddHolder(holder)
+				output.AddContents(separateContent)
 			}
 		} else {
 			content["Details"] = properties
-			holder := format.OutputHolder{Contents: content}
-			output.AddHolder(holder)
+			output.AddContents(content)
 		}
 	}
 	params := lib.GetParametersMap(stack.Parameters)
@@ -164,12 +156,33 @@ func detectDrift(cmd *cobra.Command, args []string) {
 	output.Write()
 }
 
+func separateSpecialCases(defaultDrift []types.StackResourceDrift) (map[string]string, map[string]string, map[string]string) {
+	naclResources := make(map[string]string)
+	routetableResources := make(map[string]string)
+	logicalToPhysical := make(map[string]string)
+	for _, drift := range defaultDrift {
+		logicalToPhysical[*drift.LogicalResourceId] = *drift.PhysicalResourceId
+		switch *drift.ResourceType {
+		case "AWS::EC2::NetworkAcl":
+			naclResources[*drift.LogicalResourceId] = *drift.PhysicalResourceId
+			break
+		case "AWS::EC2::RouteTable":
+			routetableResources[*drift.LogicalResourceId] = *drift.PhysicalResourceId
+			break
+		}
+	}
+	return naclResources, routetableResources, logicalToPhysical
+}
+
 // checkNaclEntries verifies the NACL entries and if there are differences adds those to the provided output array
 func checkNaclEntries(naclResources map[string]string, template lib.CfnTemplateBody, parameters []types.Parameter, output *format.OutputArray, awsConfig config.AWSConfig) {
 	// Specific check for NACLs
 	for logicalId, physicalId := range naclResources {
 		rulechanges := []string{}
-		nacl := lib.GetNacl(physicalId, awsConfig.EC2Client())
+		nacl, err := lib.GetNacl(physicalId, awsConfig.EC2Client())
+		if err != nil {
+			failWithError(err)
+		}
 		attachedRules := lib.FilterNaclEntriesByLogicalId(logicalId, template, parameters)
 		for _, entry := range nacl.Entries {
 			rulenumberstring := "I"
@@ -208,8 +221,7 @@ func checkNaclEntries(naclResources map[string]string, template lib.CfnTemplateB
 					content["Type"] = "AWS::EC2::NetworkACLEntry"
 					content["ChangeType"] = string(types.StackResourceDriftStatusModified)
 					content["Details"] = change
-					holder := format.OutputHolder{Contents: content}
-					output.AddHolder(holder)
+					output.AddContents(content)
 				}
 			} else {
 				content := make(map[string]interface{})
@@ -217,8 +229,7 @@ func checkNaclEntries(naclResources map[string]string, template lib.CfnTemplateB
 				content["Type"] = "AWS::EC2::NetworkACLEntry"
 				content["ChangeType"] = string(types.StackResourceDriftStatusModified)
 				content["Details"] = rulechanges
-				holder := format.OutputHolder{Contents: content}
-				output.AddHolder(holder)
+				output.AddContents(content)
 			}
 		}
 	}
@@ -237,7 +248,10 @@ func checkRouteTableRoutes(routetableResources map[string]string, template lib.C
 	// Specific check for NACLs
 	for logicalId, physicalId := range routetableResources {
 		rulechanges := []string{}
-		routetable := lib.GetRouteTable(physicalId, awsConfig.EC2Client())
+		routetable, err := lib.GetRouteTable(physicalId, awsConfig.EC2Client())
+		if err != nil {
+			failWithError(err)
+		}
 		attachedRules := lib.FilterRoutesByLogicalId(logicalId, template, parameters, logicalToPhysical)
 		for _, route := range routetable.Routes {
 			ruleid := lib.GetRouteDestination(route)
@@ -278,8 +292,7 @@ func checkRouteTableRoutes(routetableResources map[string]string, template lib.C
 					content["Type"] = "AWS::EC2::Route"
 					content["ChangeType"] = string(types.StackResourceDriftStatusModified)
 					content["Details"] = change
-					holder := format.OutputHolder{Contents: content}
-					output.AddHolder(holder)
+					output.AddContents(content)
 				}
 			} else {
 				content := make(map[string]interface{})
@@ -287,8 +300,7 @@ func checkRouteTableRoutes(routetableResources map[string]string, template lib.C
 				content["Type"] = "AWS::EC2::Route"
 				content["ChangeType"] = string(types.StackResourceDriftStatusModified)
 				content["Details"] = rulechanges
-				holder := format.OutputHolder{Contents: content}
-				output.AddHolder(holder)
+				output.AddContents(content)
 			}
 		}
 	}
@@ -337,7 +349,13 @@ func tagDifferences(property types.PropertyDifference, handledtags []string, exp
 	switch property.DifferenceType {
 	case types.DifferenceTypeRemove:
 		tagstructs := []tag{}
-		json.Unmarshal(expected.Bytes(), &tagstructs)
+		if expected.String()[0] == '[' {
+			json.Unmarshal(expected.Bytes(), &tagstructs)
+		} else {
+			tagstruct := tag{}
+			json.Unmarshal(expected.Bytes(), &tagstruct)
+			tagstructs = append(tagstructs, tagstruct)
+		}
 		for _, tagstruct := range tagstructs {
 			return outputsettings.StringWarningInline(fmt.Sprintf("%s: %s - %s: %s", property.DifferenceType, pathsplit[1], tagstruct.Key, tagstruct.Value)), ""
 		}
@@ -389,37 +407,8 @@ func naclEntryToString(entry ec2types.NetworkAclEntry) string {
 }
 
 func routeToString(route ec2types.Route) string {
-	destination := ""
-	if route.DestinationCidrBlock != nil {
-		destination = *route.DestinationCidrBlock
-	} else if route.DestinationPrefixListId != nil {
-		destination = *route.DestinationPrefixListId
-	} else {
-		destination = *route.DestinationIpv6CidrBlock
-	}
-	target := ""
-	if route.CarrierGatewayId != nil {
-		target = *route.CarrierGatewayId
-	} else if route.CoreNetworkArn != nil {
-		target = *route.CoreNetworkArn
-	} else if route.EgressOnlyInternetGatewayId != nil {
-		target = *route.EgressOnlyInternetGatewayId
-	} else if route.GatewayId != nil {
-		target = *route.GatewayId
-	} else if route.InstanceId != nil {
-		target = *route.InstanceId
-		// InstanceOwnerId
-	} else if route.LocalGatewayId != nil {
-		target = *route.LocalGatewayId
-	} else if route.NatGatewayId != nil {
-		target = *route.NatGatewayId
-	} else if route.NetworkInterfaceId != nil {
-		target = *route.NetworkInterfaceId
-	} else if route.TransitGatewayId != nil {
-		target = *route.TransitGatewayId
-	} else if route.VpcPeeringConnectionId != nil {
-		target = *route.VpcPeeringConnectionId
-	}
+	destination := lib.GetRouteDestination(route)
+	target := lib.GetRouteTarget(route)
 	status := ""
 	if route.State == ec2types.RouteStateBlackhole {
 		status = fmt.Sprintf(" (%s)", string(route.State))

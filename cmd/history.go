@@ -54,7 +54,10 @@ func init() {
 func history(cmd *cobra.Command, args []string) {
 	outputsettings = settings.NewOutputSettings()
 	outputsettings.SeparateTables = true
-	awsConfig := config.DefaultAwsConfig(*settings)
+	awsConfig, err := config.DefaultAwsConfig(*settings)
+	if err != nil {
+		failWithError(err)
+	}
 	logs := lib.ReadAllLogs()
 	for _, log := range logs {
 		// Only show logs from the selected account and region

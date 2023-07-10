@@ -102,7 +102,10 @@ func deployTemplate(cmd *cobra.Command, args []string) {
 	if deployment.ChangesetName == "" {
 		deployment.ChangesetName = placeholderParser(viper.GetString("changeset.name-format"), &deployment)
 	}
-	awsConfig := config.DefaultAwsConfig(*settings)
+	awsConfig, err := config.DefaultAwsConfig(*settings)
+	if err != nil {
+		failWithError(err)
+	}
 	deployment.IsNew = deployment.IsNewStack(awsConfig.CloudformationClient())
 	if !deployment.IsNew {
 		if ready, status := deployment.IsReadyForUpdate(awsConfig.CloudformationClient()); !ready {

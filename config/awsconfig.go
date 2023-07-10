@@ -25,13 +25,13 @@ type AWSConfig struct {
 }
 
 // DefaultAwsConfig loads default AWS Config
-func DefaultAwsConfig(config Config) AWSConfig {
+func DefaultAwsConfig(config Config) (AWSConfig, error) {
 	awsConfig := AWSConfig{}
 	if config.GetLCString("profile") != "" {
 		awsConfig.ProfileName = config.GetLCString("profile")
 		cfg, err := external.LoadDefaultConfig(context.TODO(), external.WithSharedConfigProfile(config.GetLCString("profile")))
 		if err != nil {
-			panic(err)
+			return awsConfig, err
 		}
 		awsConfig.Config = cfg
 	} else {
@@ -40,7 +40,7 @@ func DefaultAwsConfig(config Config) AWSConfig {
 		}))
 
 		if err != nil {
-			panic(err)
+			return awsConfig, err
 		}
 		awsConfig.Config = cfg
 	}
@@ -48,9 +48,12 @@ func DefaultAwsConfig(config Config) AWSConfig {
 		awsConfig.Config.Region = config.GetLCString("region")
 	}
 	awsConfig.Region = awsConfig.Config.Region
-	awsConfig.setCallerInfo()
+	err := awsConfig.setCallerInfo()
+	if err != nil {
+		return awsConfig, err
+	}
 	awsConfig.setAlias()
-	return awsConfig
+	return awsConfig, nil
 }
 
 // StsClient returns an STS Client
@@ -78,14 +81,15 @@ func (config *AWSConfig) EC2Client() *ec2.Client {
 	return ec2.NewFromConfig(config.Config)
 }
 
-func (config *AWSConfig) setCallerInfo() {
+func (config *AWSConfig) setCallerInfo() error {
 	c := config.StsClient()
 	result, err := c.GetCallerIdentity(context.TODO(), &sts.GetCallerIdentityInput{})
 	if err != nil {
-		panic(err)
+		return err
 	}
 	config.AccountID = *result.Account
 	config.UserID = *result.UserId
+	return nil
 }
 
 func (config *AWSConfig) setAlias() {

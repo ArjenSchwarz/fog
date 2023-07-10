@@ -1,6 +1,8 @@
 package lib
 
 import (
+	"context"
+	"errors"
 	"reflect"
 	"testing"
 
@@ -9,43 +11,113 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 )
 
+type mockEC2DescribeNaclsAPI func(ctx context.Context, params *ec2.DescribeNetworkAclsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeNetworkAclsOutput, error)
+
+func (m mockEC2DescribeNaclsAPI) DescribeNetworkAcls(ctx context.Context, params *ec2.DescribeNetworkAclsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeNetworkAclsOutput, error) {
+	return m(ctx, params, optFns...)
+}
+
+type mockEC2DescribeRouteTablesAPI func(ctx context.Context, params *ec2.DescribeRouteTablesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeRouteTablesOutput, error)
+
+func (m mockEC2DescribeRouteTablesAPI) DescribeRouteTables(ctx context.Context, params *ec2.DescribeRouteTablesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeRouteTablesOutput, error) {
+	return m(ctx, params, optFns...)
+}
+
 func TestGetNacl(t *testing.T) {
 	type args struct {
 		naclid string
-		svc    *ec2.Client
+		svc    EC2DescribeNaclsAPI
 	}
 	tests := []struct {
-		name string
-		args args
-		want types.NetworkAcl
+		name    string
+		args    args
+		want    types.NetworkAcl
+		wantErr bool
 	}{
-		// TODO: Add test cases.
+		{"Test Get Nacl Success", args{"naclid", mockEC2DescribeNaclsAPI(func(ctx context.Context, params *ec2.DescribeNetworkAclsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeNetworkAclsOutput, error) {
+			return &ec2.DescribeNetworkAclsOutput{
+					NetworkAcls: []types.NetworkAcl{
+						{
+							Associations: []types.NetworkAclAssociation{
+								{
+									NetworkAclAssociationId: aws.String("NetworkAclAssociationId"),
+									NetworkAclId:            aws.String("NetworkAclId"),
+									SubnetId:                aws.String("SubnetId"),
+								},
+							},
+							Entries: []types.NetworkAclEntry{
+								{
+									CidrBlock:     aws.String("Cidr"),
+									Egress:        aws.Bool(true),
+									IcmpTypeCode:  &types.IcmpTypeCode{Code: aws.Int32(12), Type: aws.Int32(12)},
+									Ipv6CidrBlock: aws.String("Ipv6CidrBlock"),
+									PortRange:     &types.PortRange{From: aws.Int32(12), To: aws.Int32(12)},
+									Protocol:      aws.String("Protocol"),
+									RuleAction:    types.RuleActionAllow,
+									RuleNumber:    aws.Int32(12),
+								},
+							},
+							IsDefault:    aws.Bool(true),
+							NetworkAclId: aws.String("NetworkAclId"),
+							OwnerId:      aws.String("OwnerId"),
+							Tags: []types.Tag{
+								{
+									Key:   aws.String("Key"),
+									Value: aws.String("Value"),
+								},
+							},
+							VpcId: aws.String("VpcId"),
+						},
+					},
+				},
+				nil
+		})}, types.NetworkAcl{
+			Associations: []types.NetworkAclAssociation{
+				{
+					NetworkAclAssociationId: aws.String("NetworkAclAssociationId"),
+					NetworkAclId:            aws.String("NetworkAclId"),
+					SubnetId:                aws.String("SubnetId"),
+				},
+			},
+			Entries: []types.NetworkAclEntry{
+				{
+					CidrBlock:     aws.String("Cidr"),
+					Egress:        aws.Bool(true),
+					IcmpTypeCode:  &types.IcmpTypeCode{Code: aws.Int32(12), Type: aws.Int32(12)},
+					Ipv6CidrBlock: aws.String("Ipv6CidrBlock"),
+					PortRange:     &types.PortRange{From: aws.Int32(12), To: aws.Int32(12)},
+					Protocol:      aws.String("Protocol"),
+					RuleAction:    types.RuleActionAllow,
+					RuleNumber:    aws.Int32(12),
+				},
+			},
+			IsDefault:    aws.Bool(true),
+			NetworkAclId: aws.String("NetworkAclId"),
+			OwnerId:      aws.String("OwnerId"),
+			Tags: []types.Tag{
+				{
+					Key:   aws.String("Key"),
+					Value: aws.String("Value"),
+				},
+			},
+			VpcId: aws.String("VpcId"),
+		}, false},
+		{"Test Get Nacl Error", args{"naclid", mockEC2DescribeNaclsAPI(func(ctx context.Context, params *ec2.DescribeNetworkAclsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeNetworkAclsOutput, error) {
+			return nil, errors.New("error")
+		})}, types.NetworkAcl{}, true},
+		{"Test Get Nacl No Match", args{"naclid", mockEC2DescribeNaclsAPI(func(ctx context.Context, params *ec2.DescribeNetworkAclsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeNetworkAclsOutput, error) {
+			return nil, errors.New("No match")
+		})}, types.NetworkAcl{}, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := GetNacl(tt.args.naclid, tt.args.svc); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetNacl() = %v, want %v", got, tt.want)
+			got, err := GetNacl(tt.args.naclid, tt.args.svc)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetNacl() error = %v, wantErr %v", err, tt.wantErr)
+				return
 			}
-		})
-	}
-}
-
-func TestGetRouteTable(t *testing.T) {
-	type args struct {
-		routetableId string
-		svc          *ec2.Client
-	}
-	tests := []struct {
-		name string
-		args args
-		want types.RouteTable
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := GetRouteTable(tt.args.routetableId, tt.args.svc); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetRouteTable() = %v, want %v", got, tt.want)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GetNacl() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -278,6 +350,55 @@ func Test_stringPointerValueMatch(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := stringPointerValueMatch(tt.args.pointer1, tt.args.pointer2); got != tt.want {
 				t.Errorf("stringPointerValueMatch() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGetManagedPrefixLists(t *testing.T) {
+	type args struct {
+		svc *ec2.Client
+	}
+	tests := []struct {
+		name string
+		args args
+		want []types.ManagedPrefixList
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := GetManagedPrefixLists(tt.args.svc); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GetManagedPrefixLists() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGetRouteTarget(t *testing.T) {
+	type args struct {
+		route types.Route
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{"If CarrierGatewayId set return that", args{route: types.Route{CarrierGatewayId: aws.String("carriergateway")}}, "carriergateway"},
+		{"If CoreNetworkArn set return that", args{route: types.Route{CoreNetworkArn: aws.String("corenetworkarn")}}, "corenetworkarn"},
+		{"If EgressOnlyInternetGatewayId set return that", args{route: types.Route{EgressOnlyInternetGatewayId: aws.String("egressonlyinternetgatewayid")}}, "egressonlyinternetgatewayid"},
+		{"If GatewayId set return that", args{route: types.Route{GatewayId: aws.String("gateway")}}, "gateway"},
+		{"If InstanceId set return that", args{route: types.Route{InstanceId: aws.String("instance")}}, "instance"},
+		{"If LocalGatewayId set return that", args{route: types.Route{LocalGatewayId: aws.String("local")}}, "local"},
+		{"If NatGatewayId set return that", args{route: types.Route{NatGatewayId: aws.String("nat")}}, "nat"},
+		{"If NetworkInterfaceId set return that", args{route: types.Route{NetworkInterfaceId: aws.String("eni")}}, "eni"},
+		{"If TransitGatewayId set return that", args{route: types.Route{TransitGatewayId: aws.String("tgw")}}, "tgw"},
+		{"If VpcPeeringConnectionId set return that", args{route: types.Route{VpcPeeringConnectionId: aws.String("peer")}}, "peer"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := GetRouteTarget(tt.args.route); got != tt.want {
+				t.Errorf("GetRouteTarget() = %v, want %v", got, tt.want)
 			}
 		})
 	}

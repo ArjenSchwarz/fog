@@ -7,30 +7,43 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 )
 
-func GetNacl(naclid string, svc *ec2.Client) types.NetworkAcl {
+// GetNacl returns the Network ACL for the given ID
+func GetNacl(naclid string, svc EC2DescribeNaclsAPI) (types.NetworkAcl, error) {
 	naclids := []string{naclid}
 	input := ec2.DescribeNetworkAclsInput{
 		NetworkAclIds: naclids,
 	}
 	result, err := svc.DescribeNetworkAcls(context.TODO(), &input)
 	if err != nil {
-		panic(err)
+		return types.NetworkAcl{}, err
 	}
-	return result.NetworkAcls[0]
+	return result.NetworkAcls[0], nil
 }
 
-func GetRouteTable(routetableId string, svc *ec2.Client) types.RouteTable {
+// GetRouteTable returns the Route Table for the given ID
+func GetRouteTable(routetableId string, svc EC2DescribeRouteTablesAPI) (types.RouteTable, error) {
 	routetableids := []string{routetableId}
 	input := ec2.DescribeRouteTablesInput{
 		RouteTableIds: routetableids,
 	}
 	result, err := svc.DescribeRouteTables(context.TODO(), &input)
 	if err != nil {
-		panic(err)
+		return types.RouteTable{}, err
 	}
-	return result.RouteTables[0]
+	return result.RouteTables[0], nil
 }
 
+// GetManagedPrefixLists returns all managed prefix lists for the region/account
+func GetManagedPrefixLists(svc EC2DescribeManagedPrefixListsAPI) []types.ManagedPrefixList {
+	input := ec2.DescribeManagedPrefixListsInput{}
+	result, err := svc.DescribeManagedPrefixLists(context.Background(), &input)
+	if err != nil {
+		panic(err)
+	}
+	return result.PrefixLists
+}
+
+// CompareNaclEntries compares two Network ACL entries and returns true if they are the same
 func CompareNaclEntries(nacl1 types.NetworkAclEntry, nacl2 types.NetworkAclEntry) bool {
 	if !stringPointerValueMatch(nacl1.CidrBlock, nacl2.CidrBlock) {
 		return false
@@ -81,6 +94,7 @@ func CompareNaclEntries(nacl1 types.NetworkAclEntry, nacl2 types.NetworkAclEntry
 	return true
 }
 
+// CompareRoutes compares two Routes and returns true if they are the same
 func CompareRoutes(route1 types.Route, route2 types.Route) bool {
 	if !stringPointerValueMatch(route1.CarrierGatewayId, route2.CarrierGatewayId) {
 		return false
@@ -133,6 +147,8 @@ func CompareRoutes(route1 types.Route, route2 types.Route) bool {
 	return true
 }
 
+// GetRouteDestination returns the destination of a route
+// Either DestinationCidrBlock, DestinationPrefixListId or DestinationIpv6CidrBlock
 func GetRouteDestination(route types.Route) string {
 	var result string
 	if route.DestinationCidrBlock != nil {
@@ -145,6 +161,39 @@ func GetRouteDestination(route types.Route) string {
 	return result
 }
 
+// GetRouteTarget returns the target of a route
+// Either CarrierGatewayId, CoreNetworkArn, EgressOnlyInternetGatewayId, GatewayId, InstanceId, LocalGatewayId, NatGatewayId, NetworkInterfaceId, TransitGatewayId or VpcPeeringConnectionId
+func GetRouteTarget(route types.Route) string {
+	var target string
+	if route.CarrierGatewayId != nil {
+		target = *route.CarrierGatewayId
+	} else if route.CoreNetworkArn != nil {
+		target = *route.CoreNetworkArn
+	} else if route.EgressOnlyInternetGatewayId != nil {
+		target = *route.EgressOnlyInternetGatewayId
+	} else if route.GatewayId != nil {
+		target = *route.GatewayId
+	} else if route.InstanceId != nil {
+		target = *route.InstanceId
+		// InstanceOwnerId
+	} else if route.LocalGatewayId != nil {
+		target = *route.LocalGatewayId
+	} else if route.NatGatewayId != nil {
+		target = *route.NatGatewayId
+	} else if route.NetworkInterfaceId != nil {
+		target = *route.NetworkInterfaceId
+	} else if route.TransitGatewayId != nil {
+		target = *route.TransitGatewayId
+	} else if route.VpcPeeringConnectionId != nil {
+		target = *route.VpcPeeringConnectionId
+	}
+	return target
+}
+
+// stringPointerValueMatch checks if two string pointers have equal values;
+// if both are nil, they match;
+// if only 1 is nil, they don't match;
+// otherwise the values need to match
 func stringPointerValueMatch(pointer1 *string, pointer2 *string) bool {
 	// if both nil, they match
 	if pointer1 == nil && pointer2 == nil {
@@ -156,14 +205,4 @@ func stringPointerValueMatch(pointer1 *string, pointer2 *string) bool {
 	}
 	// otherwise the values need to match
 	return *pointer1 == *pointer2
-}
-
-// GetManagedPrefixLists returns all managed prefix lists for the region/account
-func GetManagedPrefixLists(svc *ec2.Client) []types.ManagedPrefixList {
-	input := ec2.DescribeManagedPrefixListsInput{}
-	result, err := svc.DescribeManagedPrefixLists(context.Background(), &input)
-	if err != nil {
-		panic(err)
-	}
-	return result.PrefixLists
 }

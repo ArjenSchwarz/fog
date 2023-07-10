@@ -55,7 +55,10 @@ func describeChangeset(cmd *cobra.Command, args []string) {
 	viper.Set("output", "table") //Enforce table output for deployments
 	outputsettings = settings.NewOutputSettings()
 	outputsettings.SeparateTables = true //Make table output stand out more
-	awsConfig := config.DefaultAwsConfig(*settings)
+	awsConfig, err := config.DefaultAwsConfig(*settings)
+	if err != nil {
+		failWithError(err)
+	}
 	if describe_ChangesetName != nil && *describe_ChangesetName != "" && describe_ChangesetUrl != nil && *describe_ChangesetUrl != "" {
 		fmt.Println(outputsettings.StringFailure("You can only use one of the following flags: changeset, url"))
 		os.Exit(1)

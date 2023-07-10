@@ -35,13 +35,10 @@ var describe_Template *string
 // describeCmd represents the describe command
 var describeCmd = &cobra.Command{
 	Use:   "describe",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
+	Short: "Describe lets you describe/see various items",
+	Long: `Describe lets you describe/see various items, such as stacks, changesets, templates, etc.
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+For details see the subcommands.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("describe called")
 	},

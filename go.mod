@@ -5,20 +5,20 @@ go 1.20
 require (
 	github.com/aws/aws-sdk-go-v2 v1.18.1
 	github.com/aws/aws-sdk-go-v2/config v1.18.27
-	github.com/aws/aws-sdk-go-v2/service/cloudformation v1.29.2
-	github.com/aws/aws-sdk-go-v2/service/iam v1.20.3
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.35.0
+	github.com/aws/aws-sdk-go-v2/service/cloudformation v1.30.0
+	github.com/aws/aws-sdk-go-v2/service/iam v1.21.0
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.36.0
 	github.com/aws/aws-sdk-go-v2/service/sts v1.19.2
 	github.com/aws/smithy-go v1.13.5
-	github.com/emicklei/dot v1.4.2 //indirect
+	github.com/emicklei/dot v1.5.0 //indirect
 	github.com/fatih/color v1.15.0
 	github.com/jedib0t/go-pretty/v6 v6.4.6 //indirect
 	github.com/mattn/go-runewidth v0.0.14 // indirect
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/viper v1.16.0
-	golang.org/x/sys v0.9.0 // indirect
-	golang.org/x/text v0.10.0 // indirect
+	golang.org/x/sys v0.10.0 // indirect
+	golang.org/x/text v0.11.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0
 )
 
@@ -52,8 +52,8 @@ require (
 require (
 	github.com/ArjenSchwarz/go-output v1.3.0
 	github.com/aws/aws-lambda-go v1.41.0
-	github.com/aws/aws-sdk-go-v2/service/ec2 v1.100.1
-	github.com/awslabs/goformation/v7 v7.8.2
+	github.com/aws/aws-sdk-go-v2/service/ec2 v1.102.0
+	github.com/awslabs/goformation/v7 v7.8.4
 	github.com/gosimple/slug v1.13.1
 )
 
