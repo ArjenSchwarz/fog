@@ -75,7 +75,8 @@ func (config *Config) NewOutputSettings() *format.OutputSettings {
 	settings.UseEmoji = true
 	settings.UseColors = true
 	settings.SetOutputFormat(config.GetLCString("output"))
-	// settings.OutputFile = config.GetLCString("output.file")
+	settings.OutputFile = config.GetLCString("output-file")
+	settings.OutputFileFormat = config.GetLCString("output-file-format")
 	// settings.ShouldAppend = config.GetBool("output.append")
 	settings.TableStyle = format.TableStyles[config.GetString("table.style")]
 	settings.TableMaxColumnWidth = config.GetInt("table.max-column-width")

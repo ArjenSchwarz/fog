@@ -21,30 +21,30 @@ jobs:
     - uses: actions/checkout@v3
     - name: Set APP_VERSION env
       run: echo APP_VERSION=$(echo ${GITHUB_REF} | rev | cut -d'/' -f 1 | rev ) >> ${GITHUB_ENV}
-    - uses: wangyoucao577/go-release-action@v1.28
+    - uses: wangyoucao577/go-release-action@v1.40
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         goos: ${{ matrix.goos }}
         goarch: ${{ matrix.goarch }}
         binary_name: "fog"
         ldflags: "-X 'github.com/ArjenSchwarz/fog/cmd.Version=${{ env.APP_VERSION}}'"
-  s3release:
-    name: Publish Lambda zipfile
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v3
-        with:
-          go-version: '1.20' # The Go version to download (if necessary) and use.
-      - name: Build file
-        run: GOOS=linux GOARCH=amd64 go build -o fog && zip fog.zip fog
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v2
-        with:
-          role-to-assume: arn:aws:iam::613864977396:role/github-oidc-FogS3DeploymentsRole-EQO45UDOAHSL
-          aws-region: us-east-1
-      - name: Copy to S3 bucket
-        run: |
-          aws s3 cp fog.zip s3://public.ig.nore.me/fog/latest.zip
-          aws s3 cp fog.zip s3://public.ig.nore.me/fog/${{ env.APP_VERSION }}.zip
-          aws s3 cp fog.zip s3://public.ig.nore.me/fog/v${{ env.APP_VERSION }}.zip
+  # s3release:
+  #   name: Publish Lambda zipfile
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v3
+  #     - uses: actions/setup-go@v3
+  #       with:
+  #         go-version: '1.21' # The Go version to download (if necessary) and use.
+  #     - name: Build file
+  #       run: GOOS=linux GOARCH=amd64 go build -o fog && zip fog.zip fog
+  #     - name: Configure AWS Credentials
+  #       uses: aws-actions/configure-aws-credentials@v2
+  #       with:
+  #         role-to-assume: arn:aws:iam::613864977396:role/github-oidc-FogS3DeploymentsRole-EQO45UDOAHSL
+  #         aws-region: us-east-1
+  #     - name: Copy to S3 bucket
+  #       run: |
+  #         aws s3 cp fog.zip s3://public.ig.nore.me/fog/latest.zip
+  #         aws s3 cp fog.zip s3://public.ig.nore.me/fog/${{ env.APP_VERSION }}.zip
+  #         aws s3 cp fog.zip s3://public.ig.nore.me/fog/v${{ env.APP_VERSION }}.zip

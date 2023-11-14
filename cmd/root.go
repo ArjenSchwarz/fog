@@ -57,6 +57,8 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is fog.yaml in current directory, or $HOME/fog.yaml)")
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Give verbose output")
 	rootCmd.PersistentFlags().String("output", "table", "Format for the output, currently supported are table, csv, json, and dot (for certain functions)")
+	rootCmd.PersistentFlags().String("file", "", "Optional file to save the output to, in addition to stdout")
+	rootCmd.PersistentFlags().String("file-format", "", "Optional format for the file, defaults to the same as output")
 	rootCmd.PersistentFlags().String("profile", "", "Use a specific AWS profile")
 	rootCmd.PersistentFlags().String("region", "", "Use a specific AWS region")
 	rootCmd.PersistentFlags().String("timezone", "", "Specify a timezone you want to use for any times shown in output. By default it uses your system's timezone")
@@ -64,6 +66,8 @@ func init() {
 
 	viper.BindPFlag("verbose", rootCmd.PersistentFlags().Lookup("verbose"))
 	viper.BindPFlag("output", rootCmd.PersistentFlags().Lookup("output"))
+	viper.BindPFlag("output-file", rootCmd.PersistentFlags().Lookup("file"))
+	viper.BindPFlag("output-file-format", rootCmd.PersistentFlags().Lookup("file-format"))
 	viper.BindPFlag("profile", rootCmd.PersistentFlags().Lookup("profile"))
 	viper.BindPFlag("region", rootCmd.PersistentFlags().Lookup("region"))
 	viper.BindPFlag("timezone", rootCmd.PersistentFlags().Lookup("timezone"))
