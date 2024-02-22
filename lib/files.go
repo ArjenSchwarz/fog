@@ -3,6 +3,7 @@ package lib
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -13,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/spf13/viper"
+	"gopkg.in/yaml.v2"
 )
 
 // Readfile locates and reads the file. Either it's an actual file name in which case
@@ -53,6 +55,10 @@ func ReadTagsfile(tagsName string) (string, string, error) {
 
 func ReadParametersfile(parametersName string) (string, string, error) {
 	return ReadFile(&parametersName, "parameters")
+}
+
+func ReadDeploymentFile(deploymentmentFileName string) (string, string, error) {
+	return ReadFile(&deploymentmentFileName, "deployments")
 }
 
 func UploadTemplate(templateName *string, template string, bucketName *string, svc *s3.Client) (string, error) {
@@ -97,4 +103,36 @@ func RunPrechecks(deployment *DeployInfo) (map[string]string, error) {
 		}
 	}
 	return results, nil
+}
+
+// YamlToJson converts a YAML byte array to a JSON byte array
+func YamlToJson(input []byte) ([]byte, error) {
+	var unmarshalled interface{}
+	if err := yaml.Unmarshal(input, &unmarshalled); err != nil {
+		return nil, fmt.Errorf("invalid YAML: %s", err)
+	}
+	unmarshalled = convertMapInterfaceToMapString(unmarshalled)
+	result, err := json.Marshal(unmarshalled)
+	if err != nil {
+		return nil, fmt.Errorf("invalid JSON: %s", err)
+	}
+	return result, nil
+}
+
+// convertMapInterfaceToMapString converts a map[interface{}]interface{} to a map[string]interface{}
+// This is required for the YAML to JSON conversion as the JSON library does not support interface{} keys
+func convertMapInterfaceToMapString(i interface{}) interface{} {
+	switch x := i.(type) {
+	case map[interface{}]interface{}:
+		m2 := map[string]interface{}{}
+		for key, value := range x {
+			m2[fmt.Sprint(key)] = convertMapInterfaceToMapString(value)
+		}
+		return m2
+	case []interface{}:
+		for i, v := range x {
+			x[i] = convertMapInterfaceToMapString(v)
+		}
+	}
+	return i
 }

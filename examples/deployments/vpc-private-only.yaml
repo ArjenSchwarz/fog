@@ -1,0 +1,7 @@
+template-file-path: "../templates/basicvpc.yaml"
+
+parameters:
+  IncludePublicSubnets: "no"
+
+tags:
+  Environment: dev

@@ -75,6 +75,7 @@ var deploy_NonInteractive *bool
 var deploy_CreateChangeset *bool
 var deploy_DeployChangeset *bool
 var deploy_DefaultTags *bool
+var deploy_DeploymentFile *string
 var deployment lib.DeployInfo
 
 func init() {
@@ -90,6 +91,7 @@ func init() {
 	deploy_CreateChangeset = deployCmd.Flags().Bool("create-changeset", false, "Only create a change set")
 	deploy_DeployChangeset = deployCmd.Flags().Bool("deploy-changeset", false, "Deploy a specific change set")
 	deploy_DefaultTags = deployCmd.Flags().Bool("default-tags", true, "Add any default tags that are specified in your config file")
+	deploy_DeploymentFile = deployCmd.Flags().StringP("deployment-file", "d", "", "The file to use for the deployment")
 }
 
 func deployTemplate(cmd *cobra.Command, args []string) {
@@ -105,6 +107,10 @@ func deployTemplate(cmd *cobra.Command, args []string) {
 	awsConfig, err := config.DefaultAwsConfig(*settings)
 	if err != nil {
 		failWithError(err)
+	}
+	if *deploy_DeploymentFile != "" && (*deploy_Template != "" || *deploy_Parameters != "" || *deploy_Tags != "") {
+		outputsettings.StringFailure("You can't provide a deployment file and other parameters at the same time")
+		os.Exit(1)
 	}
 	deployment.IsNew = deployment.IsNewStack(awsConfig.CloudformationClient())
 	if !deployment.IsNew {
@@ -141,6 +147,13 @@ func deployTemplate(cmd *cobra.Command, args []string) {
 		deploymentLog.AddChangeSet(&changeset)
 		showChangeset(changeset, deployment, awsConfig)
 	} else {
+		if *deploy_DeploymentFile != "" {
+			err := deployment.LoadDeploymentFile(*deploy_DeploymentFile)
+			if err != nil {
+				fmt.Print(outputsettings.StringFailure(err.Error()))
+				os.Exit(1)
+			}
+		}
 		setDeployTemplate(&deployment, awsConfig)
 		setDeployTags(&deployment)
 		setDeployParameters(&deployment)
@@ -265,7 +278,15 @@ func showDeploymentInfo(deployment lib.DeployInfo, awsConfig config.AWSConfig) {
 }
 
 func setDeployTemplate(deployment *lib.DeployInfo, awsConfig config.AWSConfig) {
-	template, path, err := lib.ReadTemplate(deploy_Template)
+	var template string
+	var path string
+	var err error
+	if deployment.StackDeploymentFile != nil {
+		// The deployment file has the path relative to that file
+		template, path, err = lib.ReadFile(&deployment.StackDeploymentFile.TemplateFilePath, "templates")
+	} else {
+		template, path, err = lib.ReadTemplate(deploy_Template)
+	}
 	deployment.TemplateRelativePath = path
 	if err != nil {
 		fmt.Print(outputsettings.StringFailure(texts.FileTemplateReadFailure))
@@ -306,8 +327,15 @@ func setDeployTags(deployment *lib.DeployInfo) {
 			tagresult = append(tagresult, tag)
 		}
 	}
-
-	if *deploy_Tags != "" {
+	if deployment.StackDeploymentFile != nil {
+		for key, value := range deployment.StackDeploymentFile.Tags {
+			tag := types.Tag{
+				Key:   aws.String(key),
+				Value: aws.String(placeholderParser(value, deployment)),
+			}
+			tagresult = append(tagresult, tag)
+		}
+	} else if *deploy_Tags != "" {
 		for _, tagfile := range strings.Split(*deploy_Tags, ",") {
 			tags, _, err := lib.ReadTagsfile(tagfile)
 			if err != nil {
@@ -338,7 +366,15 @@ func placeholderParser(value string, deployment *lib.DeployInfo) string {
 
 func setDeployParameters(deployment *lib.DeployInfo) {
 	parameterresult := make([]types.Parameter, 0)
-	if *deploy_Parameters != "" {
+	if deployment.StackDeploymentFile != nil {
+		for key, value := range deployment.StackDeploymentFile.Parameters {
+			parameter := types.Parameter{
+				ParameterKey:   aws.String(key),
+				ParameterValue: aws.String(value),
+			}
+			parameterresult = append(parameterresult, parameter)
+		}
+	} else if *deploy_Parameters != "" {
 		for _, parameterfile := range strings.Split(*deploy_Parameters, ",") {
 			parameters, _, err := lib.ReadParametersfile(parameterfile)
 			if err != nil {

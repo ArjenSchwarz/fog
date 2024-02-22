@@ -13,6 +13,12 @@ import (
 	"github.com/awslabs/goformation/v7/intrinsics"
 )
 
+type StackDeploymentFile struct {
+	TemplateFilePath string            `json:"template-file-path"`
+	Parameters       map[string]string `json:"parameters"`
+	Tags             map[string]string `json:"tags"`
+}
+
 type CfnTemplateBody struct {
 	AWSTemplateFormatVersion string                          `json:"AWSTemplateFormatVersion"`
 	Description              string                          `json:"Description"`

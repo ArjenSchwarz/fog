@@ -32,6 +32,8 @@ type DeployInfo struct {
 	RawStack *types.Stack
 	// StackArn holds the ARN of the stack
 	StackArn string
+	// StackDeploymentFile holds the contents of the stack deployment file
+	StackDeploymentFile *StackDeploymentFile
 	// StackName holds the name of the stack
 	StackName string
 	// Tags holds a slice of tag objects
@@ -200,6 +202,20 @@ func (deployment DeployInfo) IsNewStack(svc *cloudformation.Client) bool {
 	return stringInSlice(string(stack.StackStatus), availableStatuses)
 }
 
+// LoadDeploymentFile loads a deployment file and sets the StackDeploymentFile field
+func (deployment *DeployInfo) LoadDeploymentFile(filelocation string) error {
+	deploymentFile, _, err := ReadDeploymentFile(filelocation)
+	if err != nil {
+		return err
+	}
+	deploymentFileObject, err := ParseDeploymentFile(deploymentFile)
+	if err != nil {
+		return err
+	}
+	deployment.StackDeploymentFile = &deploymentFileObject
+	return nil
+}
+
 // stringInSlice checks if a string exists in a slice
 func stringInSlice(a string, list []string) bool {
 	for _, b := range list {
@@ -243,6 +259,27 @@ func ParseParameterString(parameters string) ([]types.Parameter, error) {
 	if err != nil {
 		return result, err
 	}
+	return result, nil
+}
+
+// ParseDeploymentFile parses a deployment file and returns a StackDeploymentFile object
+func ParseDeploymentFile(deploymentFile string) (StackDeploymentFile, error) {
+	// If the deploymentfile is yaml, convert it to json
+	if deploymentFile[0] != '{' {
+		deploymentFileBytes, err := YamlToJson([]byte(deploymentFile))
+		if err != nil {
+			return StackDeploymentFile{}, err
+		}
+		deploymentFile = string(deploymentFileBytes)
+	}
+
+	result := StackDeploymentFile{}
+	err := json.Unmarshal([]byte(deploymentFile), &result)
+	if err != nil {
+		fmt.Print(err.Error())
+		return result, err
+	}
+
 	return result, nil
 }
 
