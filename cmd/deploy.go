@@ -75,6 +75,7 @@ var deploy_NonInteractive *bool
 var deploy_CreateChangeset *bool
 var deploy_DeployChangeset *bool
 var deploy_DefaultTags *bool
+var deploy_DeploymentFile *string
 var deployment lib.DeployInfo
 
 func init() {
@@ -90,6 +91,7 @@ func init() {
 	deploy_CreateChangeset = deployCmd.Flags().Bool("create-changeset", false, "Only create a change set")
 	deploy_DeployChangeset = deployCmd.Flags().Bool("deploy-changeset", false, "Deploy a specific change set")
 	deploy_DefaultTags = deployCmd.Flags().Bool("default-tags", true, "Add any default tags that are specified in your config file")
+	deploy_DeploymentFile = deployCmd.Flags().StringP("deployment-file", "d", "", "The file to use for the deployment")
 }
 
 func deployTemplate(cmd *cobra.Command, args []string) {
@@ -105,6 +107,10 @@ func deployTemplate(cmd *cobra.Command, args []string) {
 	awsConfig, err := config.DefaultAwsConfig(*settings)
 	if err != nil {
 		failWithError(err)
+	}
+	if *deploy_DeploymentFile != "" && (*deploy_Template != "" || *deploy_Parameters != "" || *deploy_Tags != "") {
+		outputsettings.StringFailure("You can't provide a deployment file and other parameters at the same time")
+		os.Exit(1)
 	}
 	deployment.IsNew = deployment.IsNewStack(awsConfig.CloudformationClient())
 	if !deployment.IsNew {
