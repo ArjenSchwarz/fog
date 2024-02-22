@@ -20,3 +20,6 @@ logging:
   enabled: true
   filename: deployments.log
   show-previous: true
+drift:
+  ignore-tags:
+    - AWS::EC2::TransitGatewayAttachment:Application

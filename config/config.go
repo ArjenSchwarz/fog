@@ -26,6 +26,13 @@ func (config *Config) GetString(setting string) string {
 	return ""
 }
 
+func (config *Config) GetStringSlice(setting string) []string {
+	if viper.IsSet(setting) {
+		return viper.GetStringSlice(setting)
+	}
+	return []string{}
+}
+
 func (config *Config) GetBool(setting string) bool {
 	return viper.GetBool(setting)
 }

@@ -41,6 +41,7 @@ import (
 var drift_StackName *string
 var drift_resultsOnly *bool
 var drift_separateProperties *bool
+var drift_IgnoreTags *string
 
 // driftCmd represents the drift command
 var driftCmd = &cobra.Command{
@@ -66,6 +67,7 @@ func init() {
 	drift_StackName = driftCmd.Flags().StringP("stackname", "n", "", "The name of the stack")
 	drift_resultsOnly = driftCmd.Flags().BoolP("results-only", "r", false, "Don't trigger a new drift detection")
 	drift_separateProperties = driftCmd.Flags().BoolP("separate-properties", "s", false, "Put every property on its own line")
+	drift_IgnoreTags = driftCmd.Flags().StringP("ignore-tags", "i", "", "Comma separated list of tags to ignore, additional to any configured in the config file")
 }
 
 func detectDrift(cmd *cobra.Command, args []string) {
@@ -97,6 +99,14 @@ func detectDrift(cmd *cobra.Command, args []string) {
 		if drift.StackResourceDriftStatus == types.StackResourceDriftStatusInSync {
 			continue
 		}
+		actualProperties := make(map[string]interface{})
+		if drift.ActualProperties != nil {
+			json.Unmarshal([]byte(*drift.ActualProperties), &actualProperties)
+		}
+		expectedProperties := make(map[string]interface{})
+		if drift.ExpectedProperties != nil {
+			json.Unmarshal([]byte(*drift.ExpectedProperties), &expectedProperties)
+		}
 		content := make(map[string]interface{})
 		content["LogicalId"] = *drift.LogicalResourceId
 		content["Type"] = *drift.ResourceType
@@ -105,13 +115,15 @@ func detectDrift(cmd *cobra.Command, args []string) {
 			changetype = outputsettings.StringWarningInline(changetype)
 		}
 		content["ChangeType"] = changetype
-		expectedtags, actualtags := verifyTagOrder(drift.PropertyDifferences)
+		tagMap := getExpectedAndActualTags(expectedProperties, actualProperties)
+
 		properties := []string{}
 		handledtags := []string{}
+
 		for _, property := range drift.PropertyDifferences {
 			pathsplit := strings.Split(*property.PropertyPath, "/")
 			if stringInSlice("Tags", pathsplit) {
-				tagprop, taghandled := tagDifferences(property, handledtags, expectedtags, actualtags, properties)
+				tagprop, taghandled := tagDifferences(property, handledtags, tagMap, properties, &drift)
 				if tagprop != "" {
 					properties = append(properties, tagprop)
 				}
@@ -134,19 +146,21 @@ func detectDrift(cmd *cobra.Command, args []string) {
 				properties = append(properties, fmt.Sprintf("%s: %s - %s => %s", property.DifferenceType, aws.ToString(property.PropertyPath), aws.ToString(property.ExpectedValue), aws.ToString(property.ActualValue)))
 			}
 		}
-		sort.Strings(properties)
-		if *drift_separateProperties {
-			for _, property := range properties {
-				separateContent := make(map[string]interface{})
-				for k, v := range content {
-					separateContent[k] = v
+		if properties != nil && len(properties) != 0 {
+			sort.Strings(properties)
+			if *drift_separateProperties {
+				for _, property := range properties {
+					separateContent := make(map[string]interface{})
+					for k, v := range content {
+						separateContent[k] = v
+					}
+					separateContent["Details"] = property
+					output.AddContents(separateContent)
 				}
-				separateContent["Details"] = property
-				output.AddContents(separateContent)
+			} else {
+				content["Details"] = properties
+				output.AddContents(content)
 			}
-		} else {
-			content["Details"] = properties
-			output.AddContents(content)
 		}
 	}
 	params := lib.GetParametersMap(stack.Parameters)
@@ -337,7 +351,63 @@ func verifyTagOrder(properties []types.PropertyDifference) (map[string]string, m
 	return expectedmap, actualmap
 }
 
-func tagDifferences(property types.PropertyDifference, handledtags []string, expectedtags map[string]string, actualtags map[string]string, properties []string) (string, string) {
+func getExpectedAndActualTags(expectedResources map[string]interface{}, actualResources map[string]interface{}) map[string]map[string]string {
+	// if Tags exists in expectedResources, compare the list of tags with those in actualResources
+	tags := make(map[string]map[string]string)
+	// go through expectedResources["Tags"] and add each item in expectedTags
+	if expectedResources["Tags"] != nil {
+		for _, tag := range expectedResources["Tags"].([]interface{}) {
+			tagMap := tag.(map[string]interface{})
+			tags[tagMap["Key"].(string)] = map[string]string{"Expected": tagMap["Value"].(string)}
+		}
+	}
+	// go through actualResources["Tags"] and add each item in actualTags
+	if actualResources["Tags"] != nil {
+		for _, tag := range actualResources["Tags"].([]interface{}) {
+			fmt.Println(tag)
+			tagMap := tag.(map[string]interface{})
+			if tags[tagMap["Key"].(string)] == nil {
+				tags[tagMap["Key"].(string)] = map[string]string{"Expected": "", "Actual": tagMap["Value"].(string)}
+			}
+			tags[tagMap["Key"].(string)]["Actual"] = tagMap["Value"].(string)
+		}
+	}
+	return tags
+}
+
+func shouldTagBeHandled(tag string, drift types.StackResourceDrift) bool {
+	ignoredSlice := strings.Split(*drift_IgnoreTags, ",")
+	ignoredSlice = append(ignoredSlice, settings.GetStringSlice("drift.ignore-tags")...)
+	// check high-level tags
+	if stringInSlice(tag, ignoredSlice) {
+		return false
+	}
+	// check tags per resource id and resource type
+	for _, ignoredtag := range ignoredSlice {
+		ignoredtag = strings.ReplaceAll(ignoredtag, "::", "YSPACERY")
+		separate := strings.Split(ignoredtag, ":")
+		if strings.Contains(ignoredtag, ":") {
+			// it's a service
+			if strings.Contains(ignoredtag, "YSPACERY") {
+				service := strings.ReplaceAll(separate[0], "YSPACERY", "::")
+				if service == *drift.ResourceType && strings.Join(separate[1:], ":") == tag {
+					return false
+				}
+				// it's a logicalID
+			} else {
+				if separate[0] == *drift.LogicalResourceId && strings.Join(separate[1:], ":") == tag {
+					return false
+				}
+
+			}
+
+		}
+
+	}
+	return true
+}
+
+func tagDifferences(property types.PropertyDifference, handledtags []string, tagMap map[string]map[string]string, properties []string, drift *types.StackResourceDrift) (string, string) {
 	type tag struct {
 		Key   string
 		Value string
@@ -365,14 +435,26 @@ func tagDifferences(property types.PropertyDifference, handledtags []string, exp
 		json.Unmarshal(actual.Bytes(), &tagstruct)
 		return outputsettings.StringPositiveInline(fmt.Sprintf("%s: %s - %s: %s", property.DifferenceType, pathsplit[1], tagstruct.Key, tagstruct.Value)), ""
 	default:
+		tagKey := ""
+		tags := map[string]string{}
+		//loop over the tags in the tagMap and see if the "Expected" value matches *property.ExpectedValue
+		for key, values := range tagMap {
+			if values["Expected"] == *property.ExpectedValue && values["Actual"] == *property.ActualValue {
+				tagKey = key
+				tags = values
+			}
+		}
+		if !shouldTagBeHandled(tagKey, *drift) {
+			return "", ""
+		}
 		if pathsplit[3] == "Key" {
-			if actualtags[*property.ExpectedValue] == expectedtags[*property.ExpectedValue] {
+			if tags["Expected"] == tags["Actual"] {
 				return fmt.Sprintf("%s: Tag %s sequence change", property.DifferenceType, aws.ToString(property.ExpectedValue)), pathsplit[2]
 			}
 		} else if pathsplit[3] == "Value" && stringInSlice(pathsplit[2], handledtags) {
 			return "", ""
 		}
-		return fmt.Sprintf("%s: %s - %s => %s", property.DifferenceType, aws.ToString(property.PropertyPath), aws.ToString(property.ExpectedValue), aws.ToString(property.ActualValue)), ""
+		return fmt.Sprintf("%s: %s - %s => %s", property.DifferenceType, tagKey, tags["Expected"], tags["Actual"]), ""
 	}
 }
 
