@@ -1,4 +1,12 @@
 
+1.9.0 / 2024-02-27
+==================
+
+  * Add support for deployment files
+  * Add support for ignoring certain tags in the drift detection.
+  * Dependency updates
+  * Update Go version and support for separate output files
+
 1.8.0 / 2023-06-17
 ==================
 
