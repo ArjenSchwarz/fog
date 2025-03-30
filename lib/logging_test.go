@@ -110,7 +110,11 @@ func TestDeploymentLog_Write(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to open log file: %v", err)
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			t.Fatalf("Failed to close log file: %v", err)
+		}
+	}()
 
 	scanner := bufio.NewScanner(file)
 	if !scanner.Scan() {
@@ -195,7 +199,11 @@ func TestDeploymentLog_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to open log file: %v", err)
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			t.Fatalf("Failed to close log file: %v", err)
+		}
+	}()
 
 	scanner := bufio.NewScanner(file)
 	if !scanner.Scan() {
@@ -242,7 +250,11 @@ func TestDeploymentLog_Failed(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to open log file: %v", err)
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			t.Fatalf("Failed to close log file: %v", err)
+		}
+	}()
 
 	scanner := bufio.NewScanner(file)
 	if !scanner.Scan() {
@@ -308,8 +320,12 @@ func TestReadAllLogs(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to marshal log: %v", err)
 		}
-		file.Write(data)
-		file.Write([]byte("\n"))
+		if _, err := file.Write(data); err != nil {
+			t.Fatalf("Failed to write to log file: %v", err)
+		}
+		if _, err := file.Write([]byte("\n")); err != nil {
+			t.Fatalf("Failed to write newline to log file: %v", err)
+		}
 	}
 	file.Close()
 
@@ -369,8 +385,12 @@ func TestGetLatestSuccessFulLogByDeploymentName(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to marshal log: %v", err)
 		}
-		file.Write(data)
-		file.Write([]byte("\n"))
+		if _, err := file.Write(data); err != nil {
+			t.Fatalf("Failed to write to log file: %v", err)
+		}
+		if _, err := file.Write([]byte("\n")); err != nil {
+			t.Fatalf("Failed to write newline to log file: %v", err)
+		}
 	}
 	file.Close()
 

@@ -80,7 +80,7 @@ func UploadTemplate(templateName *string, template string, bucketName *string, s
 func RunPrechecks(deployment *DeployInfo) (map[string]string, error) {
 	results := make(map[string]string)
 	for _, precheck := range viper.GetStringSlice("templates.prechecks") {
-		precheck := strings.Replace(precheck, "$TEMPLATEPATH", deployment.TemplateRelativePath, -1)
+		precheck := strings.ReplaceAll(precheck, "$TEMPLATEPATH", deployment.TemplateRelativePath)
 		separated := strings.Split(precheck, " ")
 		command, args := separated[0], separated[1:]
 		//TODO: improve on this list or find a better solution to keep it safe

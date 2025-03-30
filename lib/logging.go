@@ -108,7 +108,9 @@ func writeLogToFile(contents []byte, outputFile string) error {
 	}
 	w := bufio.NewWriter(target)
 	contents = append(contents, '\n')
-	w.Write(contents)
+	if _, err := w.Write(contents); err != nil {
+		return err
+	}
 	err = w.Flush()
 	return err
 }
@@ -135,7 +137,11 @@ func ReadAllLogs() []DeploymentLog {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			log.Printf("Error closing file: %v", err)
+		}
+	}()
 
 	scanner := bufio.NewScanner(file)
 	// optionally, resize scanner's capacity for lines over 64K, see next example

@@ -253,7 +253,7 @@ func NaclResourceToNaclEntry(resource CfnTemplateResource, params []cfntypes.Par
 	switch value := resource.Properties["Protocol"].(type) {
 	case string:
 		protocol = value
-		break
+		// break statement removed as it's redundant at the end of a case
 	case float64:
 		protocol = strconv.Itoa(int(value))
 	}
@@ -373,7 +373,7 @@ func stringPointer(array map[string]interface{}, params []cfntypes.Parameter, lo
 		} else {
 			result = value
 		}
-		break
+		// break statement removed as it's redundant at the end of a case
 	case map[string]interface{}:
 		refname := value["Ref"].(string)
 		if _, ok := logicalToPhysical[refname]; ok {
@@ -401,23 +401,23 @@ func (body *CfnTemplateBody) ShouldHaveResource(resource CfnTemplateResource) bo
 	return true
 }
 
-func getParsedValueOfCondition(input interface{}, params []cfntypes.Parameter) string {
-	result := ""
-	switch value := input.(type) {
-	case string:
-		result = value
-		break
-	case map[string]interface{}:
-		refname := value["Ref"].(string)
-		for _, parameter := range params {
-			if *parameter.ParameterKey == refname {
-				if parameter.ResolvedValue != nil {
-					result = *parameter.ResolvedValue
-				} else {
-					result = *parameter.ParameterValue
-				}
-			}
-		}
-	}
-	return result
-}
+// func getParsedValueOfCondition(input interface{}, params []cfntypes.Parameter) string {
+// 	result := ""
+// 	switch value := input.(type) {
+// 	case string:
+// 		result = value
+// 		// break statement removed as it's redundant at the end of a case
+// 	case map[string]interface{}:
+// 		refname := value["Ref"].(string)
+// 		for _, parameter := range params {
+// 			if *parameter.ParameterKey == refname {
+// 				if parameter.ResolvedValue != nil {
+// 					result = *parameter.ResolvedValue
+// 				} else {
+// 					result = *parameter.ParameterValue
+// 				}
+// 			}
+// 		}
+// 	}
+// 	return result
+// }

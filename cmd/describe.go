@@ -30,7 +30,8 @@ import (
 var describe_StackName *string
 var describe_ChangesetName *string
 var describe_ChangesetUrl *string
-var describe_Template *string
+
+// Removed unused variable: describe_Template
 
 // describeCmd represents the describe command
 var describeCmd = &cobra.Command{
