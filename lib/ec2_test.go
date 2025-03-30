@@ -17,11 +17,11 @@ func (m mockEC2DescribeNaclsAPI) DescribeNetworkAcls(ctx context.Context, params
 	return m(ctx, params, optFns...)
 }
 
-type mockEC2DescribeRouteTablesAPI func(ctx context.Context, params *ec2.DescribeRouteTablesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeRouteTablesOutput, error)
+// type mockEC2DescribeRouteTablesAPI func(ctx context.Context, params *ec2.DescribeRouteTablesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeRouteTablesOutput, error)
 
-func (m mockEC2DescribeRouteTablesAPI) DescribeRouteTables(ctx context.Context, params *ec2.DescribeRouteTablesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeRouteTablesOutput, error) {
-	return m(ctx, params, optFns...)
-}
+// func (m mockEC2DescribeRouteTablesAPI) DescribeRouteTables(ctx context.Context, params *ec2.DescribeRouteTablesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeRouteTablesOutput, error) {
+// 	return m(ctx, params, optFns...)
+// }
 
 func TestGetNacl(t *testing.T) {
 	type args struct {

@@ -82,7 +82,7 @@ func GetStackAndChangesetFromURL(changeseturl string, region string) (string, st
 		log.Fatal(err)
 		return "", ""
 	}
-	decodedValue = strings.Replace(decodedValue, "\\", "", -1)
+	decodedValue = strings.ReplaceAll(decodedValue, "\\", "")
 	replacestring := fmt.Sprintf("?region=%s#/stacks/changesets/changes", region)
 	decodedValue = strings.Replace(decodedValue, replacestring, "", 1)
 	u, err := url.Parse(decodedValue)

@@ -64,14 +64,30 @@ func init() {
 	rootCmd.PersistentFlags().String("timezone", "", "Specify a timezone you want to use for any times shown in output. By default it uses your system's timezone")
 	rootCmd.PersistentFlags().Bool("debug", false, "Enable debug mode, mainly for development purposes")
 
-	viper.BindPFlag("verbose", rootCmd.PersistentFlags().Lookup("verbose"))
-	viper.BindPFlag("output", rootCmd.PersistentFlags().Lookup("output"))
-	viper.BindPFlag("output-file", rootCmd.PersistentFlags().Lookup("file"))
-	viper.BindPFlag("output-file-format", rootCmd.PersistentFlags().Lookup("file-format"))
-	viper.BindPFlag("profile", rootCmd.PersistentFlags().Lookup("profile"))
-	viper.BindPFlag("region", rootCmd.PersistentFlags().Lookup("region"))
-	viper.BindPFlag("timezone", rootCmd.PersistentFlags().Lookup("timezone"))
-	viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug"))
+	if err := viper.BindPFlag("verbose", rootCmd.PersistentFlags().Lookup("verbose")); err != nil {
+		cobra.CheckErr(err)
+	}
+	if err := viper.BindPFlag("output", rootCmd.PersistentFlags().Lookup("output")); err != nil {
+		cobra.CheckErr(err)
+	}
+	if err := viper.BindPFlag("output-file", rootCmd.PersistentFlags().Lookup("file")); err != nil {
+		cobra.CheckErr(err)
+	}
+	if err := viper.BindPFlag("output-file-format", rootCmd.PersistentFlags().Lookup("file-format")); err != nil {
+		cobra.CheckErr(err)
+	}
+	if err := viper.BindPFlag("profile", rootCmd.PersistentFlags().Lookup("profile")); err != nil {
+		cobra.CheckErr(err)
+	}
+	if err := viper.BindPFlag("region", rootCmd.PersistentFlags().Lookup("region")); err != nil {
+		cobra.CheckErr(err)
+	}
+	if err := viper.BindPFlag("timezone", rootCmd.PersistentFlags().Lookup("timezone")); err != nil {
+		cobra.CheckErr(err)
+	}
+	if err := viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug")); err != nil {
+		cobra.CheckErr(err)
+	}
 
 	// Default table settings
 	viper.SetDefault("table.style", "Default")
@@ -117,7 +133,6 @@ func initConfig() {
 	viper.AutomaticEnv() // read in environment variables that match
 
 	// If a config file is found, read it in.
-	if err := viper.ReadInConfig(); err != nil {
-		// fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
-	}
+	// Silently ignore error if config file not found
+	_ = viper.ReadInConfig()
 }

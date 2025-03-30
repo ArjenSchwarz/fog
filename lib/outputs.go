@@ -75,8 +75,8 @@ func GetExports(stackname *string, exportname *string, svc *cloudformation.Clien
 
 func getOutputsForStack(stack types.Stack, stackfilter string, exportfilter string, exportsOnly bool) []CfnOutput {
 	result := []CfnOutput{}
-	stackRegex := "^" + strings.Replace(stackfilter, "*", ".*", -1) + "$"
-	exportRegex := "^" + strings.Replace(exportfilter, "*", ".*", -1) + "$"
+	stackRegex := "^" + strings.ReplaceAll(stackfilter, "*", ".*") + "$"
+	exportRegex := "^" + strings.ReplaceAll(exportfilter, "*", ".*") + "$"
 	if strings.Contains(stackfilter, "*") {
 		if matched, err := regexp.MatchString(stackRegex, *stack.StackName); !matched || err != nil {
 			return result

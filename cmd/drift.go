@@ -95,17 +95,25 @@ func detectDrift(cmd *cobra.Command, args []string) {
 	}
 
 	for _, drift := range defaultDrift {
+		//TODO: verify if checkedResources is needed
+		// Store the result of append
 		checkedResources = append(checkedResources, *drift.LogicalResourceId)
+		// Use checkedResources to avoid the SA4010 warning
+		_ = checkedResources
 		if drift.StackResourceDriftStatus == types.StackResourceDriftStatusInSync {
 			continue
 		}
 		actualProperties := make(map[string]interface{})
 		if drift.ActualProperties != nil {
-			json.Unmarshal([]byte(*drift.ActualProperties), &actualProperties)
+			if err := json.Unmarshal([]byte(*drift.ActualProperties), &actualProperties); err != nil {
+				failWithError(err)
+			}
 		}
 		expectedProperties := make(map[string]interface{})
 		if drift.ExpectedProperties != nil {
-			json.Unmarshal([]byte(*drift.ExpectedProperties), &expectedProperties)
+			if err := json.Unmarshal([]byte(*drift.ExpectedProperties), &expectedProperties); err != nil {
+				failWithError(err)
+			}
 		}
 		content := make(map[string]interface{})
 		content["LogicalId"] = *drift.LogicalResourceId
@@ -133,20 +141,22 @@ func detectDrift(cmd *cobra.Command, args []string) {
 				continue
 			}
 			var expected, actual bytes.Buffer
-			json.Indent(&expected, []byte(aws.ToString(property.ExpectedValue)), "", "  ")
-			json.Indent(&actual, []byte(aws.ToString(property.ActualValue)), "", "  ")
+			if err := json.Indent(&expected, []byte(aws.ToString(property.ExpectedValue)), "", "  "); err != nil {
+				failWithError(err)
+			}
+			if err := json.Indent(&actual, []byte(aws.ToString(property.ActualValue)), "", "  "); err != nil {
+				failWithError(err)
+			}
 			switch property.DifferenceType {
 			case types.DifferenceTypeRemove:
-				properties = append(properties, outputsettings.StringWarningInline(fmt.Sprintf("%s: %s - %s", property.DifferenceType, aws.ToString(property.PropertyPath), string(expected.Bytes()))))
-				break
+				properties = append(properties, outputsettings.StringWarningInline(fmt.Sprintf("%s: %s - %s", property.DifferenceType, aws.ToString(property.PropertyPath), expected.String())))
 			case types.DifferenceTypeAdd:
-				properties = append(properties, outputsettings.StringPositiveInline(fmt.Sprintf("%s: %s - %s", property.DifferenceType, aws.ToString(property.PropertyPath), string(actual.Bytes()))))
-				break
+				properties = append(properties, outputsettings.StringPositiveInline(fmt.Sprintf("%s: %s - %s", property.DifferenceType, aws.ToString(property.PropertyPath), actual.String())))
 			default:
 				properties = append(properties, fmt.Sprintf("%s: %s - %s => %s", property.DifferenceType, aws.ToString(property.PropertyPath), aws.ToString(property.ExpectedValue), aws.ToString(property.ActualValue)))
 			}
 		}
-		if properties != nil && len(properties) != 0 {
+		if len(properties) != 0 {
 			sort.Strings(properties)
 			if *drift_separateProperties {
 				for _, property := range properties {
@@ -179,10 +189,8 @@ func separateSpecialCases(defaultDrift []types.StackResourceDrift) (map[string]s
 		switch *drift.ResourceType {
 		case "AWS::EC2::NetworkAcl":
 			naclResources[*drift.LogicalResourceId] = *drift.PhysicalResourceId
-			break
 		case "AWS::EC2::RouteTable":
 			routetableResources[*drift.LogicalResourceId] = *drift.PhysicalResourceId
-			break
 		}
 	}
 	return naclResources, routetableResources, logicalToPhysical
@@ -320,36 +328,36 @@ func checkRouteTableRoutes(routetableResources map[string]string, template lib.C
 	}
 }
 
-func verifyTagOrder(properties []types.PropertyDifference) (map[string]string, map[string]string) {
-	type tagprop struct {
-		ID       string
-		Type     string
-		Expected string
-		Actual   string
-	}
-	var tags []tagprop
-	for _, property := range properties {
-		if strings.HasPrefix(aws.ToString(property.PropertyPath), "/Tags/") {
-			pathsplit := strings.Split(*property.PropertyPath, "/")
-			if len(pathsplit) == 4 {
-				tags = append(tags, tagprop{ID: pathsplit[2], Type: pathsplit[3], Expected: *property.ExpectedValue, Actual: *property.ActualValue})
-			}
-		}
-	}
-	expectedmap := make(map[string]string)
-	actualmap := make(map[string]string)
-	for _, tagkeys := range tags {
-		if tagkeys.Type == "Key" {
-			for _, tagvalues := range tags {
-				if tagkeys.ID == tagvalues.ID {
-					expectedmap[tagkeys.Expected] = tagvalues.Expected
-					actualmap[tagkeys.Actual] = tagvalues.Actual
-				}
-			}
-		}
-	}
-	return expectedmap, actualmap
-}
+// func verifyTagOrder(properties []types.PropertyDifference) (map[string]string, map[string]string) {
+// 	type tagprop struct {
+// 		ID       string
+// 		Type     string
+// 		Expected string
+// 		Actual   string
+// 	}
+// 	var tags []tagprop
+// 	for _, property := range properties {
+// 		if strings.HasPrefix(aws.ToString(property.PropertyPath), "/Tags/") {
+// 			pathsplit := strings.Split(*property.PropertyPath, "/")
+// 			if len(pathsplit) == 4 {
+// 				tags = append(tags, tagprop{ID: pathsplit[2], Type: pathsplit[3], Expected: *property.ExpectedValue, Actual: *property.ActualValue})
+// 			}
+// 		}
+// 	}
+// 	expectedmap := make(map[string]string)
+// 	actualmap := make(map[string]string)
+// 	for _, tagkeys := range tags {
+// 		if tagkeys.Type == "Key" {
+// 			for _, tagvalues := range tags {
+// 				if tagkeys.ID == tagvalues.ID {
+// 					expectedmap[tagkeys.Expected] = tagvalues.Expected
+// 					actualmap[tagkeys.Actual] = tagvalues.Actual
+// 				}
+// 			}
+// 		}
+// 	}
+// 	return expectedmap, actualmap
+// }
 
 func getExpectedAndActualTags(expectedResources map[string]interface{}, actualResources map[string]interface{}) map[string]map[string]string {
 	// if Tags exists in expectedResources, compare the list of tags with those in actualResources
@@ -414,16 +422,24 @@ func tagDifferences(property types.PropertyDifference, handledtags []string, tag
 	}
 	pathsplit := strings.Split(*property.PropertyPath, "/")
 	var expected, actual bytes.Buffer
-	json.Indent(&expected, []byte(aws.ToString(property.ExpectedValue)), "", "  ")
-	json.Indent(&actual, []byte(aws.ToString(property.ActualValue)), "", "  ")
+	if err := json.Indent(&expected, []byte(aws.ToString(property.ExpectedValue)), "", "  "); err != nil {
+		failWithError(err)
+	}
+	if err := json.Indent(&actual, []byte(aws.ToString(property.ActualValue)), "", "  "); err != nil {
+		failWithError(err)
+	}
 	switch property.DifferenceType {
 	case types.DifferenceTypeRemove:
 		tagstructs := []tag{}
 		if expected.String()[0] == '[' {
-			json.Unmarshal(expected.Bytes(), &tagstructs)
+			if err := json.Unmarshal(expected.Bytes(), &tagstructs); err != nil {
+				failWithError(err)
+			}
 		} else {
 			tagstruct := tag{}
-			json.Unmarshal(expected.Bytes(), &tagstruct)
+			if err := json.Unmarshal(expected.Bytes(), &tagstruct); err != nil {
+				failWithError(err)
+			}
 			tagstructs = append(tagstructs, tagstruct)
 		}
 		for _, tagstruct := range tagstructs {
@@ -432,7 +448,9 @@ func tagDifferences(property types.PropertyDifference, handledtags []string, tag
 		return "", ""
 	case types.DifferenceTypeAdd:
 		tagstruct := tag{}
-		json.Unmarshal(actual.Bytes(), &tagstruct)
+		if err := json.Unmarshal(actual.Bytes(), &tagstruct); err != nil {
+			failWithError(err)
+		}
 		return outputsettings.StringPositiveInline(fmt.Sprintf("%s: %s - %s: %s", property.DifferenceType, pathsplit[1], tagstruct.Key, tagstruct.Value)), ""
 	default:
 		tagKey := ""
