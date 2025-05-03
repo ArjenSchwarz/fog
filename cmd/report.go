@@ -93,7 +93,7 @@ var report_FrontMatter *bool
 var report_HasMermaid = false
 
 func init() {
-	rootCmd.AddCommand(reportCmd)
+	stackCmd.AddCommand(reportCmd)
 	report_StackName = reportCmd.Flags().StringP("stackname", "n", "", "The name for the stack")
 	report_Outputfile = reportCmd.Flags().String("file", "", "Optional file to save the output to. Supports placeholders, see --help for details")
 	report_LatestOnly = reportCmd.Flags().Bool("latest", false, "Only show the latest event")

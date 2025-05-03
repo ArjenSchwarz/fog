@@ -33,5 +33,5 @@ var demoCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(demoCmd)
+	utilGroupCmd.AddCommand(demoCmd)
 }

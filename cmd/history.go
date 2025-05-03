@@ -47,7 +47,7 @@ All output formats are supported for this, but best results are with those suppo
 }
 
 func init() {
-	rootCmd.AddCommand(historyCmd)
+	stackCmd.AddCommand(historyCmd)
 	history_StackName = historyCmd.Flags().StringP("stackname", "n", "", "(Optional) The name of the stack to filter by")
 }
 

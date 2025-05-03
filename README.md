@@ -227,7 +227,14 @@ While deployments and reports are the main features of fog, other commands have 
 
 ### fog exports
 
-Running `fog exports` allows you to get an overview of all the exports in your current region. It will also show you whether they have been imported and by adding the `--verbose` flag it will show you by which stack. In addition, you can filter by either the stack name or export name, including the use of wildcards.
+Running `fog exports` provides an overview of all CloudFormation exports in your current region. Key features include:
+
+* Filtering exports by stack name, ID, or wildcard patterns (e.g., `--stackname "*dev*"`)
+* Filtering exports by export name using wildcard patterns (e.g., `--export "*myproject*"`)
+* Displaying whether exports are imported and, in verbose mode, showing which stacks imported them
+* Sorting and customizing output formats, including CSV and JSON
+
+Examples:
 
 ```shell
 $ fog exports --stackname "*my*" --output csv
@@ -237,6 +244,18 @@ Export,Description,Stack,Value,Imported
 myvpc-PRIVATE-SUBNET-IDS,IDs of the Private Subnets in the VPC,myvpc,"subnet-055c908d42ebe457e\,subnet-0efb4869fbb02ba97\,subnet-0d0def1b2fe23c603",No
 myvpc-PUBLIC-SUBNET-IDS,IDs of the Public Subnets in the VPC,myvpc,"subnet-0ff8e5fa5476094d5\,subnet-0b500f7016c92a897\,subnet-06ad46345cd608711",No
 myvpc-VPCID,The ID of the VPC,myvpc,vpc-08612404927cb7646,No
+```
+
+Verbose mode example:
+
+```shell
+$ fog exports --verbose
+
+Exports for all stacks in account <redacted> for region us-east-1
+Export,Description,Stack,Value,Imported,Imported By
+myvpc-PRIVATE-SUBNET-IDS,IDs of the Private Subnets in the VPC,myvpc,"subnet-055c908d42ebe457e\,subnet-0efb4869fbb02ba97\,subnet-0d0def1b2fe23c603",No,
+myvpc-PUBLIC-SUBNET-IDS,IDs of the Public Subnets in the VPC,myvpc,"subnet-0ff8e5fa5476094d5\,subnet-0b500f7016c92a897\,subnet-06ad46345cd608711",No,
+myvpc-VPCID,The ID of the VPC,myvpc,vpc-08612404927cb7646,No,
 ```
 
 ### fog resources
@@ -284,12 +303,15 @@ fog dependencies --stackname "myvpc" --output dot | dot -T png -o docs/fog-depen
 
 ### fog drift
 
-Fog's drift detection builds upon the built-in drift detection from CloudFormation, but adds some nice to haves. This includes:
+Fog's drift detection builds upon the built-in drift detection from CloudFormation, but adds several enhancements. These include:
 
-* Don't show a difference if the order of tags has changed
-* Show differences for the routes in route tables
-* Show differences for NACL rules
-* Allow certain tags to be ignored for the drift result
+* Ignoring differences caused by the order of tags
+* Detecting differences in route tables, including unmanaged or removed routes
+* Detecting differences in NACL rules, including unmanaged or removed entries
+* Allowing specific tags to be ignored in drift results
+* Supporting verbose mode to detect prefix list changes in routes (excluding AWS-managed prefix lists)
+* Providing customizable output options, such as results-only mode and separating properties
+* Monitoring drift detection progress and fetching detailed drift results
 
 ## TODO
 

@@ -79,7 +79,7 @@ var deploy_DeploymentFile *string
 var deployment lib.DeployInfo
 
 func init() {
-	rootCmd.AddCommand(deployCmd)
+	stackCmd.AddCommand(deployCmd)
 	deploy_StackName = deployCmd.Flags().StringP("stackname", "n", "", "The name for the stack")
 	deploy_Template = deployCmd.Flags().StringP("template", "f", "", "The filename for the template")
 	deploy_Parameters = deployCmd.Flags().StringP("parameters", "p", "", "The file(s) containing the parameter values, comma-separated for multiple")

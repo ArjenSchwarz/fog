@@ -63,7 +63,7 @@ assigned.`,
 }
 
 func init() {
-	rootCmd.AddCommand(driftCmd)
+	stackCmd.AddCommand(driftCmd)
 	drift_StackName = driftCmd.Flags().StringP("stackname", "n", "", "The name of the stack")
 	drift_resultsOnly = driftCmd.Flags().BoolP("results-only", "r", false, "Don't trigger a new drift detection")
 	drift_separateProperties = driftCmd.Flags().BoolP("separate-properties", "s", false, "Put every property on its own line")
