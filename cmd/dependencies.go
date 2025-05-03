@@ -52,7 +52,7 @@ $ fog dependencies --output dot --stackname "*dev*" | dot -Tpng -o cfn-deps.png
 }
 
 func init() {
-	rootCmd.AddCommand(dependenciesCmd)
+	stackCmd.AddCommand(dependenciesCmd)
 	dependencies_stackName = dependenciesCmd.Flags().StringP("stackname", "n", "", "Name, ID, or wildcard filter for the stack (optional)")
 }
 

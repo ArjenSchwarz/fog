@@ -54,7 +54,7 @@ var exports_stackName *string
 var export_exportName *string
 
 func init() {
-	rootCmd.AddCommand(exportsCmd)
+	resourceGroupCmd.AddCommand(exportsCmd)
 	exports_stackName = exportsCmd.Flags().StringP("stackname", "n", "", "Name, ID, or wildcard filter for the stack (optional)")
 	export_exportName = exportsCmd.Flags().StringP("export", "e", "", "Filter for the export name")
 }

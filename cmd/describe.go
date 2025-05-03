@@ -46,6 +46,6 @@ For details see the subcommands.`,
 }
 
 func init() {
-	rootCmd.AddCommand(describeCmd)
+	stackCmd.AddCommand(describeCmd)
 	describe_StackName = describeCmd.PersistentFlags().StringP("stackname", "n", "", "The name for the stack")
 }

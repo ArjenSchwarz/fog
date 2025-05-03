@@ -30,9 +30,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// resourcesCmd represents the resources command
-var resourcesCmd = &cobra.Command{
-	Use:   "resources",
+// resourcesListCmd represents the list command
+var resourcesListCmd = &cobra.Command{
+	Use:   "list",
 	Short: "List all CloudFormation managed resources",
 	Long: `This command let's you see all the resources managed by your CloudFormation templates.
 
@@ -41,17 +41,17 @@ Using the stackname argument you can limit this to a specific stack using the st
 
 Examples:
 
-$ fog resources
-$ fog resources --stackname my-awesome-stack
-$ fog resources --stackname "*awesome*"`,
+$ fog resource list
+$ fog resource list --stackname my-awesome-stack
+$ fog resource list --stackname "*awesome*"`,
 	Run: listResources,
 }
 
 var resource_stackname *string
 
 func init() {
-	rootCmd.AddCommand(resourcesCmd)
-	resource_stackname = resourcesCmd.Flags().StringP("stackname", "n", "", "Name, ID, or wildcard filter for the stack (optional)")
+	resourceGroupCmd.AddCommand(resourcesListCmd)
+	resource_stackname = resourcesListCmd.Flags().StringP("stackname", "n", "", "Name, ID, or wildcard filter for the stack (optional)")
 }
 
 func listResources(cmd *cobra.Command, args []string) {

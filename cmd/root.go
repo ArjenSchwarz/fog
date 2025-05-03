@@ -54,6 +54,18 @@ func Execute() {
 
 func init() {
 	cobra.OnInitialize(initConfig)
+
+	// Initialize command groups
+	InitGroups()
+
+	// Add aliases for commonly used commands at the root level
+	rootCmd.AddCommand(NewCommandAlias("deploy", "stack deploy", "Alias for 'stack deploy'"))
+	rootCmd.AddCommand(NewCommandAlias("drift", "stack drift", "Alias for 'stack drift'"))
+	rootCmd.AddCommand(NewCommandAlias("describe", "stack describe", "Alias for 'stack describe'"))
+	rootCmd.AddCommand(NewCommandAlias("history", "stack history", "Alias for 'stack history'"))
+	rootCmd.AddCommand(NewCommandAlias("dependencies", "stack dependencies", "Alias for 'stack dependencies'"))
+	rootCmd.AddCommand(NewCommandAlias("report", "stack report", "Alias for 'stack report'"))
+	rootCmd.AddCommand(NewCommandAlias("resources", "resource list", "Alias for 'resource list'"))
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is fog.yaml in current directory, or $HOME/fog.yaml)")
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Give verbose output")
 	rootCmd.PersistentFlags().String("output", "table", "Format for the output, currently supported are table, csv, json, and dot (for certain functions)")
