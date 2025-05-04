@@ -47,11 +47,11 @@ $ fog resource list --stackname "*awesome*"`,
 	Run: listResources,
 }
 
-var resource_stackname *string
+var resourcesFlags ResourcesFlags
 
 func init() {
 	resourceGroupCmd.AddCommand(resourcesListCmd)
-	resource_stackname = resourcesListCmd.Flags().StringP("stackname", "n", "", "Name, ID, or wildcard filter for the stack (optional)")
+	resourcesFlags.RegisterFlags(resourcesListCmd)
 }
 
 func listResources(cmd *cobra.Command, args []string) {
@@ -59,14 +59,14 @@ func listResources(cmd *cobra.Command, args []string) {
 	if err != nil {
 		failWithError(err)
 	}
-	resources := lib.GetResources(resource_stackname, awsConfig.CloudformationClient())
+	resources := lib.GetResources(&resourcesFlags.StackName, awsConfig.CloudformationClient())
 	keys := []string{"Type", "ID", "Stack"}
 	if settings.GetBool("verbose") {
 		keys = append(keys, []string{"LogicalID", "Status"}...)
 	}
 	subtitle := "All resources created by CloudFormation"
-	if *resource_stackname != "" {
-		subtitle = fmt.Sprintf("Resources for %v", *resource_stackname)
+	if resourcesFlags.StackName != "" {
+		subtitle = fmt.Sprintf("Resources for %v", resourcesFlags.StackName)
 	}
 	title := fmt.Sprintf("%v in account %v for region %v", subtitle, awsConfig.AccountID, awsConfig.Region)
 	output := format.OutputArray{Keys: keys, Settings: settings.NewOutputSettings()}

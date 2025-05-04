@@ -47,8 +47,8 @@ var changesetCmd = &cobra.Command{
 
 func init() {
 	describeCmd.AddCommand(changesetCmd)
-	describe_ChangesetName = changesetCmd.Flags().StringP("changeset", "c", "", "The name of the changeset")
-	describe_ChangesetUrl = changesetCmd.Flags().StringP("url", "u", "", "The URL of the changeset, will be parsed to get the stack and template name")
+	changesetCmd.Flags().StringVarP(&describeFlags.ChangesetName, "changeset", "c", "", "The name of the changeset")
+	changesetCmd.Flags().StringVarP(&describeFlags.ChangesetUrl, "url", "u", "", "The URL of the changeset, will be parsed to get the stack and template name")
 }
 
 func describeChangeset(cmd *cobra.Command, args []string) {
@@ -59,18 +59,18 @@ func describeChangeset(cmd *cobra.Command, args []string) {
 	if err != nil {
 		failWithError(err)
 	}
-	if describe_ChangesetName != nil && *describe_ChangesetName != "" && describe_ChangesetUrl != nil && *describe_ChangesetUrl != "" {
+	if describeFlags.ChangesetName != "" && describeFlags.ChangesetUrl != "" {
 		fmt.Println(outputsettings.StringFailure("You can only use one of the following flags: changeset, url"))
 		os.Exit(1)
 	}
-	if *describe_ChangesetUrl != "" {
-		stackid, changesetid := lib.GetStackAndChangesetFromURL(*describe_ChangesetUrl, awsConfig.Region)
-		describe_StackName = &stackid
-		describe_ChangesetName = &changesetid
+	if describeFlags.ChangesetUrl != "" {
+		stackid, changesetid := lib.GetStackAndChangesetFromURL(describeFlags.ChangesetUrl, awsConfig.Region)
+		describeFlags.StackName = stackid
+		describeFlags.ChangesetName = changesetid
 	}
-	deployment.StackName = *describe_StackName
+	deployment.StackName = describeFlags.StackName
 	// Set the changeset name to what's provided, otherwise fall back on the generated value
-	deployment.ChangesetName = *describe_ChangesetName
+	deployment.ChangesetName = describeFlags.ChangesetName
 	// We're calling an existing change set, so it can't be a dry run. Set explicitly.
 	deployment.IsDryRun = false
 	rawchangeset, err := deployment.GetChangeset(awsConfig.CloudformationClient())

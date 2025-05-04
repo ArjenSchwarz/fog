@@ -38,10 +38,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var drift_StackName *string
-var drift_resultsOnly *bool
-var drift_separateProperties *bool
-var drift_IgnoreTags *string
+var driftFlags DriftFlags
 
 // driftCmd represents the drift command
 var driftCmd = &cobra.Command{
@@ -64,10 +61,7 @@ assigned.`,
 
 func init() {
 	stackCmd.AddCommand(driftCmd)
-	drift_StackName = driftCmd.Flags().StringP("stackname", "n", "", "The name of the stack")
-	drift_resultsOnly = driftCmd.Flags().BoolP("results-only", "r", false, "Don't trigger a new drift detection")
-	drift_separateProperties = driftCmd.Flags().BoolP("separate-properties", "s", false, "Put every property on its own line")
-	drift_IgnoreTags = driftCmd.Flags().StringP("ignore-tags", "i", "", "Comma separated list of tags to ignore, additional to any configured in the config file")
+	driftFlags.RegisterFlags(driftCmd)
 }
 
 func detectDrift(cmd *cobra.Command, args []string) {
@@ -76,20 +70,20 @@ func detectDrift(cmd *cobra.Command, args []string) {
 		failWithError(err)
 	}
 	svc := awsConfig.CloudformationClient()
-	resultTitle := "Drift results for stack " + *drift_StackName
+	resultTitle := "Drift results for stack " + driftFlags.StackName
 	keys := []string{"LogicalId", "Type", "ChangeType", "Details"}
 	outputsettings = settings.NewOutputSettings()
 	output := format.OutputArray{Keys: keys, Settings: settings.NewOutputSettings()}
 	output.Settings.Title = resultTitle
 	output.Settings.SortKey = "LogicalId"
-	if !*drift_resultsOnly {
-		driftid := lib.StartDriftDetection(drift_StackName, awsConfig.CloudformationClient())
+	if !driftFlags.ResultsOnly {
+		driftid := lib.StartDriftDetection(&driftFlags.StackName, awsConfig.CloudformationClient())
 		lib.WaitForDriftDetectionToFinish(driftid, awsConfig.CloudformationClient())
 	}
-	defaultDrift := lib.GetDefaultStackDrift(drift_StackName, svc)
+	defaultDrift := lib.GetDefaultStackDrift(&driftFlags.StackName, svc)
 	naclResources, routetableResources, logicalToPhysical := separateSpecialCases(defaultDrift)
 	checkedResources := []string{}
-	stack, err := lib.GetStack(drift_StackName, svc)
+	stack, err := lib.GetStack(&driftFlags.StackName, svc)
 	if err != nil {
 		failWithError(err)
 	}
@@ -158,7 +152,7 @@ func detectDrift(cmd *cobra.Command, args []string) {
 		}
 		if len(properties) != 0 {
 			sort.Strings(properties)
-			if *drift_separateProperties {
+			if driftFlags.SeparateProperties {
 				for _, property := range properties {
 					separateContent := make(map[string]interface{})
 					for k, v := range content {
@@ -174,7 +168,7 @@ func detectDrift(cmd *cobra.Command, args []string) {
 		}
 	}
 	params := lib.GetParametersMap(stack.Parameters)
-	template := lib.GetTemplateBody(drift_StackName, params, svc)
+	template := lib.GetTemplateBody(&driftFlags.StackName, params, svc)
 	checkNaclEntries(naclResources, template, stack.Parameters, &output, awsConfig)
 	checkRouteTableRoutes(routetableResources, template, stack.Parameters, logicalToPhysical, &output, awsConfig)
 	output.Write()
@@ -236,7 +230,7 @@ func checkNaclEntries(naclResources map[string]string, template lib.CfnTemplateB
 
 		}
 		if len(rulechanges) != 0 {
-			if *drift_separateProperties {
+			if driftFlags.SeparateProperties {
 				for _, change := range rulechanges {
 					content := make(map[string]interface{})
 					content["LogicalId"] = fmt.Sprintf("Entry for NACL %s", logicalId)
@@ -307,7 +301,7 @@ func checkRouteTableRoutes(routetableResources map[string]string, template lib.C
 
 		}
 		if len(rulechanges) != 0 {
-			if *drift_separateProperties {
+			if driftFlags.SeparateProperties {
 				for _, change := range rulechanges {
 					content := make(map[string]interface{})
 					content["LogicalId"] = fmt.Sprintf("Route for RouteTable %s", logicalId)
@@ -384,7 +378,7 @@ func getExpectedAndActualTags(expectedResources map[string]interface{}, actualRe
 }
 
 func shouldTagBeHandled(tag string, drift types.StackResourceDrift) bool {
-	ignoredSlice := strings.Split(*drift_IgnoreTags, ",")
+	ignoredSlice := strings.Split(driftFlags.IgnoreTags, ",")
 	ignoredSlice = append(ignoredSlice, settings.GetStringSlice("drift.ignore-tags")...)
 	// check high-level tags
 	if stringInSlice(tag, ignoredSlice) {

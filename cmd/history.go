@@ -31,7 +31,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var history_StackName *string
+var historyFlags HistoryFlags
 
 // historyCmd represents the history command
 var historyCmd = &cobra.Command{
@@ -48,7 +48,7 @@ All output formats are supported for this, but best results are with those suppo
 
 func init() {
 	stackCmd.AddCommand(historyCmd)
-	history_StackName = historyCmd.Flags().StringP("stackname", "n", "", "(Optional) The name of the stack to filter by")
+	historyFlags.RegisterFlags(historyCmd)
 }
 
 func history(cmd *cobra.Command, args []string) {
@@ -65,18 +65,18 @@ func history(cmd *cobra.Command, args []string) {
 			continue
 		}
 		// If filtering by a stack, only show that stack
-		if *history_StackName != "" {
-			if *history_StackName != log.StackName {
+		if historyFlags.StackName != "" {
+			if historyFlags.StackName != log.StackName {
 				continue
 			}
 		}
 		printLog(log)
 	}
 	output := format.OutputArray{Keys: []string{}, Settings: settings.NewOutputSettings()}
-	if *history_StackName == "" {
+	if historyFlags.StackName == "" {
 		output.Settings.Title = fmt.Sprintf("Deployments in account %s for region %s", awsConfig.GetAccountAliasID(), awsConfig.Region)
 	} else {
-		output.Settings.Title = fmt.Sprintf("Deployments for stack(s) %s in account %s for region %s", *history_StackName, awsConfig.GetAccountAliasID(), awsConfig.Region)
+		output.Settings.Title = fmt.Sprintf("Deployments for stack(s) %s in account %s for region %s", historyFlags.StackName, awsConfig.GetAccountAliasID(), awsConfig.Region)
 	}
 	output.Write()
 }
