@@ -27,11 +27,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var describe_StackName *string
-var describe_ChangesetName *string
-var describe_ChangesetUrl *string
-
-// Removed unused variable: describe_Template
+var describeFlags DescribeFlags
 
 // describeCmd represents the describe command
 var describeCmd = &cobra.Command{
@@ -47,5 +43,5 @@ For details see the subcommands.`,
 
 func init() {
 	stackCmd.AddCommand(describeCmd)
-	describe_StackName = describeCmd.PersistentFlags().StringP("stackname", "n", "", "The name for the stack")
+	describeFlags.RegisterFlags(describeCmd)
 }

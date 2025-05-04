@@ -50,13 +50,11 @@ $ fog exports --export "*myproject*"
 	Run: listExports,
 }
 
-var exports_stackName *string
-var export_exportName *string
+var exportsFlags ExportsFlags
 
 func init() {
 	resourceGroupCmd.AddCommand(exportsCmd)
-	exports_stackName = exportsCmd.Flags().StringP("stackname", "n", "", "Name, ID, or wildcard filter for the stack (optional)")
-	export_exportName = exportsCmd.Flags().StringP("export", "e", "", "Filter for the export name")
+	exportsFlags.RegisterFlags(exportsCmd)
 }
 
 func listExports(cmd *cobra.Command, args []string) {
@@ -64,14 +62,14 @@ func listExports(cmd *cobra.Command, args []string) {
 	if err != nil {
 		failWithError(err)
 	}
-	exports := lib.GetExports(exports_stackName, export_exportName, awsConfig.CloudformationClient())
+	exports := lib.GetExports(&exportsFlags.StackName, &exportsFlags.ExportName, awsConfig.CloudformationClient())
 	keys := []string{"Export", "Description", "Stack", "Value", "Imported"}
 	if settings.GetBool("verbose") {
 		keys = append(keys, "Imported By")
 	}
 	subtitle := "All exports"
-	if *exports_stackName != "" {
-		subtitle = fmt.Sprintf("Exports for %v", *exports_stackName)
+	if exportsFlags.StackName != "" {
+		subtitle = fmt.Sprintf("Exports for %v", exportsFlags.StackName)
 	}
 	title := fmt.Sprintf("%v in account %v for region %v", subtitle, awsConfig.AccountID, awsConfig.Region)
 	output := format.OutputArray{Keys: keys, Settings: settings.NewOutputSettings()}

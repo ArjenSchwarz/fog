@@ -32,7 +32,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var dependencies_stackName *string
+var dependenciesFlags DependenciesFlags
 
 // dependenciesCmd represents the dependencies command
 var dependenciesCmd = &cobra.Command{
@@ -53,7 +53,7 @@ $ fog dependencies --output dot --stackname "*dev*" | dot -Tpng -o cfn-deps.png
 
 func init() {
 	stackCmd.AddCommand(dependenciesCmd)
-	dependencies_stackName = dependenciesCmd.Flags().StringP("stackname", "n", "", "Name, ID, or wildcard filter for the stack (optional)")
+	dependenciesFlags.RegisterFlags(dependenciesCmd)
 }
 
 func showDependencies(cmd *cobra.Command, args []string) {
@@ -68,8 +68,8 @@ func showDependencies(cmd *cobra.Command, args []string) {
 	}
 	keys := []string{"Stack", "Description", "Imported By"}
 	subtitle := "All stacks"
-	if *dependencies_stackName != "" {
-		subtitle = fmt.Sprintf("Stacks filtered by for %v", *dependencies_stackName)
+	if dependenciesFlags.StackName != "" {
+		subtitle = fmt.Sprintf("Stacks filtered by for %v", dependenciesFlags.StackName)
 	}
 	title := fmt.Sprintf("%v in account %v for region %v", subtitle, awsConfig.AccountID, awsConfig.Region)
 	output := format.OutputArray{Keys: keys, Settings: settings.NewOutputSettings()}
@@ -79,11 +79,11 @@ func showDependencies(cmd *cobra.Command, args []string) {
 		output.Settings.AddFromToColumns("Stack", "Imported By")
 	}
 	stackfilter := []string{}
-	if *dependencies_stackName != "" {
-		stackfilter = unique(getFilteredStacks(*dependencies_stackName, &stacks))
+	if dependenciesFlags.StackName != "" {
+		stackfilter = unique(getFilteredStacks(dependenciesFlags.StackName, &stacks))
 	}
 	for stackname, stack := range stacks {
-		if *dependencies_stackName != "" && !stringInSlice(stackname, stackfilter) {
+		if dependenciesFlags.StackName != "" && !stringInSlice(stackname, stackfilter) {
 			continue
 		}
 		content := make(map[string]interface{})

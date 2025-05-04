@@ -22,6 +22,7 @@ THE SOFTWARE.
 package cmd
 
 import (
+	"log"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -77,27 +78,12 @@ func NewCommandAlias(name, target, short string) *cobra.Command {
 			rootCmd.SetArgs(append([]string{targetParts[0]}, newArgs...))
 
 			// Execute the target command
-			rootCmd.Execute()
+			err := rootCmd.Execute()
+			if err != nil {
+				log.Fatal(err)
+			}
 		},
 	}
 
 	return aliasCmd
-}
-
-// findCommand recursively searches for a command by its path
-func findCommand(root *cobra.Command, path []string) *cobra.Command {
-	if len(path) == 0 {
-		return root
-	}
-
-	for _, cmd := range root.Commands() {
-		if cmd.Name() == path[0] {
-			if len(path) == 1 {
-				return cmd
-			}
-			return findCommand(cmd, path[1:])
-		}
-	}
-
-	return nil
 }
