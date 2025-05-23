@@ -135,7 +135,8 @@ func ReadAllLogs() []DeploymentLog {
 	filename := viper.GetString("logging.filename")
 	file, err := os.Open(filename)
 	if err != nil {
-		log.Fatal(err)
+		// If the file doesn't exist, just return an empty result
+		return result
 	}
 	defer func() {
 		if err := file.Close(); err != nil {
