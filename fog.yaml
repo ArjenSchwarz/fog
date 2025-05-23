@@ -25,3 +25,11 @@ logging:
 drift:
   ignore-tags:
     - AWS::EC2::TransitGatewayAttachment:Application
+  ignore-blackholes:
+    - pcx-0887c71683c64bb22
+    - pcx-0e44ccbb3961891ce
+  detect-unmanaged-resources:
+    - AWS::SSO::PermissionSet
+    - AWS::SSO::Assignment
+  ignore-unmanaged-resources:
+    - "arn:aws:sso:::instance/ssoins-8259f891ee104aab|arn:aws:sso:::permissionSet/ssoins-8259f891ee104aab/ps-60990b5cc02d8693"
