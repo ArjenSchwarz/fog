@@ -211,7 +211,7 @@ func checkIfResourcesAreManaged(allresources map[string]string, logicalToPhysica
 			content["LogicalId"] = resource
 			content["Type"] = resourcetype
 			content["ChangeType"] = "UNMANAGED"
-			content["Details"] = fmt.Sprintf("Not managed by this CloudFormation stack")
+			content["Details"] = "Not managed by this CloudFormation stack"
 			output.AddContents(content)
 		}
 	}
