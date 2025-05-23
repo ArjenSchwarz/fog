@@ -1,3 +1,26 @@
+1.10.0 / 2025-05-23
+===================
+
+  * Major drift detection enhancements:
+    - Detect unmanaged AWS resources (e.g., SSO Permission Sets and Assignments)
+    - Support for ignoring specific blackhole routes and unmanaged resources via config
+    - Improved handling of IPv6 CIDR blocks in NACL resource parsing
+    - New drift detection options in `fog.yaml` (`ignore-blackholes`, `detect-unmanaged-resources`, `ignore-unmanaged-resources`)
+  * SSO/Identity Center support:
+    - List SSO Permission Sets and Assignments, with helper functions for AWS SSO and Organizations APIs
+  * Testing:
+    - Added comprehensive unit tests for drift detection, file handling, logging, deployment messages, EC2, stacks, and changesets
+  * Refactoring and improvements:
+    - Refactored commands into command groups
+    - Refactored handling of flags through flag groups
+    - Refactored and added helper functions for string/map handling
+    - Improved error handling and logging
+  * Dependency and tooling updates:
+    - Updated AWS SDKs and other dependencies in `go.mod` and `go.sum`
+    - Bumped Go version to 1.24.0 in both `go.mod` and CI workflow
+  * Other:
+    - Improved release workflow
+    - Minor configuration and code quality improvements
 
 1.9.0 / 2024-02-27
 ==================

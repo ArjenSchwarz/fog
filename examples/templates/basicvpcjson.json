@@ -1,0 +1,693 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "VPC including subnets and peering",
+    "Parameters": {
+        "Identifier": {
+            "Type": "String",
+            "Description": "The unique identifier of the VPC",
+            "Default": "Fog"
+        },
+        "CidrBlock": {
+            "Type": "String",
+            "Description": "The CIDR block for the VPC.",
+            "AllowedPattern": "^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\\/([0-9]|[1-2][0-9]|3[0-2]))$",
+            "Default": "10.42.0.0/16",
+            "ConstraintDescription": "Must be a valid IP CIDR block"
+        },
+        "IncludePublicSubnets": {
+            "Default": "yes",
+            "Description": "Do you wish to use public subnets?",
+            "Type": "String",
+            "AllowedValues": [
+                "yes",
+                "no"
+            ]
+        }
+    },
+    "Conditions": {
+        "HasPublicSubnets": {
+            "Fn::Equals": [
+                {
+                    "Ref": "IncludePublicSubnets"
+                },
+                "yes"
+            ]
+        }
+    },
+    "Resources": {
+        "VPC": {
+            "Type": "AWS::EC2::VPC",
+            "Properties": {
+                "CidrBlock": {
+                    "Ref": "CidrBlock"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": {
+                            "Fn::Sub": "${Identifier}-VPC"
+                        }
+                    }
+                ]
+            }
+        },
+        "IPv6CidrBlock": {
+            "Type": "AWS::EC2::VPCCidrBlock",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VPC"
+                },
+                "AmazonProvidedIpv6CidrBlock": true
+            }
+        },
+        "InternetGateway": {
+            "Type": "AWS::EC2::InternetGateway",
+            "Condition": "HasPublicSubnets",
+            "Properties": {
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": {
+                            "Fn::Sub": "${Identifier}-IGW"
+                        }
+                    }
+                ]
+            }
+        },
+        "VPCGatewayAttachment": {
+            "Type": "AWS::EC2::VPCGatewayAttachment",
+            "Condition": "HasPublicSubnets",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VPC"
+                },
+                "InternetGatewayId": {
+                    "Ref": "InternetGateway"
+                }
+            }
+        },
+        "RouteTablePublic": {
+            "Type": "AWS::EC2::RouteTable",
+            "Condition": "HasPublicSubnets",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VPC"
+                },
+                "Tags": [
+                    {
+                        "Key": "AccessControl",
+                        "Value": "PUBLIC"
+                    },
+                    {
+                        "Key": "Name",
+                        "Value": {
+                            "Fn::Sub": "${Identifier}-RT-PUBLIC"
+                        }
+                    }
+                ]
+            }
+        },
+        "InternetRoutePublic": {
+            "Type": "AWS::EC2::Route",
+            "Condition": "HasPublicSubnets",
+            "DependsOn": "VPCGatewayAttachment",
+            "Properties": {
+                "DestinationCidrBlock": "0.0.0.0/0",
+                "GatewayId": {
+                    "Ref": "InternetGateway"
+                },
+                "RouteTableId": {
+                    "Ref": "RouteTablePublic"
+                }
+            }
+        },
+        "SubnetAPub": {
+            "Type": "AWS::EC2::Subnet",
+            "Condition": "HasPublicSubnets",
+            "DependsOn": "IPv6CidrBlock",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VPC"
+                },
+                "AssignIpv6AddressOnCreation": true,
+                "Ipv6CidrBlock": {
+                    "Fn::Select": [
+                        0,
+                        {
+                            "Fn::Cidr": [
+                                {
+                                    "Fn::Select": [
+                                        0,
+                                        {
+                                            "Fn::GetAtt": [
+                                                "VPC",
+                                                "Ipv6CidrBlocks"
+                                            ]
+                                        }
+                                    ]
+                                },
+                                9,
+                                64
+                            ]
+                        }
+                    ]
+                },
+                "CidrBlock": {
+                    "Fn::Select": [
+                        0,
+                        {
+                            "Fn::Cidr": [
+                                {
+                                    "Fn::GetAtt": [
+                                        "VPC",
+                                        "CidrBlock"
+                                    ]
+                                },
+                                9,
+                                8
+                            ]
+                        }
+                    ]
+                },
+                "AvailabilityZone": {
+                    "Fn::Select": [
+                        0,
+                        {
+                            "Fn::GetAZs": ""
+                        }
+                    ]
+                },
+                "Tags": [
+                    {
+                        "Key": "AccessControl",
+                        "Value": "PUBLIC"
+                    },
+                    {
+                        "Key": "Name",
+                        "Value": {
+                            "Fn::Sub": "${Identifier}-SN-PUBLIC-A"
+                        }
+                    }
+                ]
+            }
+        },
+        "AssignPublicRouteTableA": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "Condition": "HasPublicSubnets",
+            "Properties": {
+                "SubnetId": {
+                    "Ref": "SubnetAPub"
+                },
+                "RouteTableId": {
+                    "Ref": "RouteTablePublic"
+                }
+            }
+        },
+        "SubnetBPub": {
+            "Type": "AWS::EC2::Subnet",
+            "Condition": "HasPublicSubnets",
+            "DependsOn": "IPv6CidrBlock",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VPC"
+                },
+                "AssignIpv6AddressOnCreation": true,
+                "Ipv6CidrBlock": {
+                    "Fn::Select": [
+                        1,
+                        {
+                            "Fn::Cidr": [
+                                {
+                                    "Fn::Select": [
+                                        0,
+                                        {
+                                            "Fn::GetAtt": [
+                                                "VPC",
+                                                "Ipv6CidrBlocks"
+                                            ]
+                                        }
+                                    ]
+                                },
+                                9,
+                                64
+                            ]
+                        }
+                    ]
+                },
+                "CidrBlock": {
+                    "Fn::Select": [
+                        1,
+                        {
+                            "Fn::Cidr": [
+                                {
+                                    "Fn::GetAtt": [
+                                        "VPC",
+                                        "CidrBlock"
+                                    ]
+                                },
+                                9,
+                                8
+                            ]
+                        }
+                    ]
+                },
+                "AvailabilityZone": {
+                    "Fn::Select": [
+                        1,
+                        {
+                            "Fn::GetAZs": ""
+                        }
+                    ]
+                },
+                "Tags": [
+                    {
+                        "Key": "AccessControl",
+                        "Value": "PUBLIC"
+                    },
+                    {
+                        "Key": "Name",
+                        "Value": {
+                            "Fn::Sub": "${Identifier}-SN-PUBLIC-B"
+                        }
+                    }
+                ]
+            }
+        },
+        "AssignPublicRouteTableB": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "Condition": "HasPublicSubnets",
+            "Properties": {
+                "SubnetId": {
+                    "Ref": "SubnetBPub"
+                },
+                "RouteTableId": {
+                    "Ref": "RouteTablePublic"
+                }
+            }
+        },
+        "SubnetCPub": {
+            "Type": "AWS::EC2::Subnet",
+            "Condition": "HasPublicSubnets",
+            "DependsOn": "IPv6CidrBlock",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VPC"
+                },
+                "AssignIpv6AddressOnCreation": true,
+                "Ipv6CidrBlock": {
+                    "Fn::Select": [
+                        2,
+                        {
+                            "Fn::Cidr": [
+                                {
+                                    "Fn::Select": [
+                                        0,
+                                        {
+                                            "Fn::GetAtt": [
+                                                "VPC",
+                                                "Ipv6CidrBlocks"
+                                            ]
+                                        }
+                                    ]
+                                },
+                                9,
+                                64
+                            ]
+                        }
+                    ]
+                },
+                "CidrBlock": {
+                    "Fn::Select": [
+                        2,
+                        {
+                            "Fn::Cidr": [
+                                {
+                                    "Fn::GetAtt": [
+                                        "VPC",
+                                        "CidrBlock"
+                                    ]
+                                },
+                                9,
+                                8
+                            ]
+                        }
+                    ]
+                },
+                "AvailabilityZone": {
+                    "Fn::Select": [
+                        2,
+                        {
+                            "Fn::GetAZs": ""
+                        }
+                    ]
+                },
+                "Tags": [
+                    {
+                        "Key": "AccessControl",
+                        "Value": "PUBLIC"
+                    },
+                    {
+                        "Key": "Name",
+                        "Value": {
+                            "Fn::Sub": "${Identifier}-SN-PUBLIC-C"
+                        }
+                    }
+                ]
+            }
+        },
+        "AssignPublicRouteTableC": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "Condition": "HasPublicSubnets",
+            "Properties": {
+                "SubnetId": {
+                    "Ref": "SubnetCPub"
+                },
+                "RouteTableId": {
+                    "Ref": "RouteTablePublic"
+                }
+            }
+        },
+        "RouteTablePrivate": {
+            "Type": "AWS::EC2::RouteTable",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VPC"
+                },
+                "Tags": [
+                    {
+                        "Key": "AccessControl",
+                        "Value": "PRIVATE"
+                    },
+                    {
+                        "Key": "Name",
+                        "Value": {
+                            "Fn::Sub": "${Identifier}-RT-PRIVATE"
+                        }
+                    }
+                ]
+            }
+        },
+        "SubnetAPriv": {
+            "Type": "AWS::EC2::Subnet",
+            "DependsOn": "IPv6CidrBlock",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VPC"
+                },
+                "AssignIpv6AddressOnCreation": true,
+                "Ipv6CidrBlock": {
+                    "Fn::Select": [
+                        3,
+                        {
+                            "Fn::Cidr": [
+                                {
+                                    "Fn::Select": [
+                                        0,
+                                        {
+                                            "Fn::GetAtt": [
+                                                "VPC",
+                                                "Ipv6CidrBlocks"
+                                            ]
+                                        }
+                                    ]
+                                },
+                                9,
+                                64
+                            ]
+                        }
+                    ]
+                },
+                "CidrBlock": {
+                    "Fn::Select": [
+                        3,
+                        {
+                            "Fn::Cidr": [
+                                {
+                                    "Fn::GetAtt": [
+                                        "VPC",
+                                        "CidrBlock"
+                                    ]
+                                },
+                                9,
+                                8
+                            ]
+                        }
+                    ]
+                },
+                "AvailabilityZone": {
+                    "Fn::Select": [
+                        0,
+                        {
+                            "Fn::GetAZs": ""
+                        }
+                    ]
+                },
+                "Tags": [
+                    {
+                        "Key": "AccessControl",
+                        "Value": "PRIVATE"
+                    },
+                    {
+                        "Key": "Name",
+                        "Value": {
+                            "Fn::Sub": "${Identifier}-SN-PRIVATE-A"
+                        }
+                    }
+                ]
+            }
+        },
+        "AssignPrivateRouteTableA": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties": {
+                "SubnetId": {
+                    "Ref": "SubnetAPriv"
+                },
+                "RouteTableId": {
+                    "Ref": "RouteTablePrivate"
+                }
+            }
+        },
+        "SubnetBPriv": {
+            "Type": "AWS::EC2::Subnet",
+            "DependsOn": "IPv6CidrBlock",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VPC"
+                },
+                "AssignIpv6AddressOnCreation": true,
+                "Ipv6CidrBlock": {
+                    "Fn::Select": [
+                        4,
+                        {
+                            "Fn::Cidr": [
+                                {
+                                    "Fn::Select": [
+                                        0,
+                                        {
+                                            "Fn::GetAtt": [
+                                                "VPC",
+                                                "Ipv6CidrBlocks"
+                                            ]
+                                        }
+                                    ]
+                                },
+                                9,
+                                64
+                            ]
+                        }
+                    ]
+                },
+                "CidrBlock": {
+                    "Fn::Select": [
+                        4,
+                        {
+                            "Fn::Cidr": [
+                                {
+                                    "Fn::GetAtt": [
+                                        "VPC",
+                                        "CidrBlock"
+                                    ]
+                                },
+                                9,
+                                8
+                            ]
+                        }
+                    ]
+                },
+                "AvailabilityZone": {
+                    "Fn::Select": [
+                        1,
+                        {
+                            "Fn::GetAZs": ""
+                        }
+                    ]
+                },
+                "Tags": [
+                    {
+                        "Key": "AccessControl",
+                        "Value": "PRIVATE"
+                    },
+                    {
+                        "Key": "Name",
+                        "Value": {
+                            "Fn::Sub": "${Identifier}-SN-PRIVATE-B"
+                        }
+                    }
+                ]
+            }
+        },
+        "AssignPrivateRouteTableB": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties": {
+                "SubnetId": {
+                    "Ref": "SubnetBPriv"
+                },
+                "RouteTableId": {
+                    "Ref": "RouteTablePrivate"
+                }
+            }
+        },
+        "SubnetCPriv": {
+            "Type": "AWS::EC2::Subnet",
+            "DependsOn": "IPv6CidrBlock",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VPC"
+                },
+                "AssignIpv6AddressOnCreation": true,
+                "Ipv6CidrBlock": {
+                    "Fn::Select": [
+                        5,
+                        {
+                            "Fn::Cidr": [
+                                {
+                                    "Fn::Select": [
+                                        0,
+                                        {
+                                            "Fn::GetAtt": [
+                                                "VPC",
+                                                "Ipv6CidrBlocks"
+                                            ]
+                                        }
+                                    ]
+                                },
+                                9,
+                                64
+                            ]
+                        }
+                    ]
+                },
+                "CidrBlock": {
+                    "Fn::Select": [
+                        5,
+                        {
+                            "Fn::Cidr": [
+                                {
+                                    "Fn::GetAtt": [
+                                        "VPC",
+                                        "CidrBlock"
+                                    ]
+                                },
+                                9,
+                                8
+                            ]
+                        }
+                    ]
+                },
+                "AvailabilityZone": {
+                    "Fn::Select": [
+                        2,
+                        {
+                            "Fn::GetAZs": ""
+                        }
+                    ]
+                },
+                "Tags": [
+                    {
+                        "Key": "AccessControl",
+                        "Value": "PRIVATE"
+                    },
+                    {
+                        "Key": "Name",
+                        "Value": {
+                            "Fn::Sub": "${Identifier}-SN-PRIVATE-C"
+                        }
+                    }
+                ]
+            }
+        },
+        "AssignPrivateRouteTableC": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties": {
+                "SubnetId": {
+                    "Ref": "SubnetCPriv"
+                },
+                "RouteTableId": {
+                    "Ref": "RouteTablePrivate"
+                }
+            }
+        }
+    },
+    "Outputs": {
+        "VPCID": {
+            "Description": "The ID of the VPC",
+            "Value": {
+                "Ref": "VPC"
+            },
+            "Export": {
+                "Name": {
+                    "Fn::Sub": "${AWS::StackName}-VPCID"
+                }
+            }
+        },
+        "PublicSubnetIDs": {
+            "Condition": "HasPublicSubnets",
+            "Description": "IDs of the Public Subnets in the VPC",
+            "Value": {
+                "Fn::Join": [
+                    ",",
+                    [
+                        {
+                            "Ref": "SubnetAPub"
+                        },
+                        {
+                            "Ref": "SubnetBPub"
+                        },
+                        {
+                            "Ref": "SubnetCPub"
+                        }
+                    ]
+                ]
+            },
+            "Export": {
+                "Name": {
+                    "Fn::Sub": "${AWS::StackName}-PUBLIC-SUBNET-IDS"
+                }
+            }
+        },
+        "PrivateSubnetIDs": {
+            "Description": "IDs of the Private Subnets in the VPC",
+            "Value": {
+                "Fn::Join": [
+                    ",",
+                    [
+                        {
+                            "Ref": "SubnetAPriv"
+                        },
+                        {
+                            "Ref": "SubnetBPriv"
+                        },
+                        {
+                            "Ref": "SubnetCPriv"
+                        }
+                    ]
+                ]
+            },
+            "Export": {
+                "Name": {
+                    "Fn::Sub": "${AWS::StackName}-PRIVATE-SUBNET-IDS"
+                }
+            }
+        }
+    }
+}

@@ -25,6 +25,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"log"
 	"sort"
 	"strconv"
 	"strings"
@@ -171,6 +172,13 @@ func detectDrift(cmd *cobra.Command, args []string) {
 	template := lib.GetTemplateBody(&driftFlags.StackName, params, svc)
 	checkNaclEntries(naclResources, template, stack.Parameters, &output, awsConfig)
 	checkRouteTableRoutes(routetableResources, template, stack.Parameters, logicalToPhysical, &output, awsConfig)
+	for _, resourcetype := range settings.GetStringSlice("drift.detect-unmanaged-resources") {
+		allresources, err := lib.ListAllResources(resourcetype, awsConfig.CloudControlClient(), awsConfig.SSOAdminClient(), awsConfig.OrganizationsClient())
+		if err != nil {
+			log.Fatal(err)
+		}
+		checkIfResourcesAreManaged(allresources, logicalToPhysical, &output)
+	}
 	output.Write()
 }
 
@@ -188,6 +196,25 @@ func separateSpecialCases(defaultDrift []types.StackResourceDrift) (map[string]s
 		}
 	}
 	return naclResources, routetableResources, logicalToPhysical
+}
+
+func checkIfResourcesAreManaged(allresources map[string]string, logicalToPhysical map[string]string, output *format.OutputArray) {
+	toIgnore := settings.GetStringSlice("drift.ignore-unmanaged-resources")
+	for resource, resourcetype := range allresources {
+		// If the resource isn't in the logicalToPhysical map, it's not managed by CloudFormation
+		if !stringValueInMap(resource, logicalToPhysical) {
+			// If the resource is in the ignore list, don't report it
+			if stringInSlice(resource, toIgnore) {
+				continue
+			}
+			content := make(map[string]interface{})
+			content["LogicalId"] = resource
+			content["Type"] = resourcetype
+			content["ChangeType"] = "UNMANAGED"
+			content["Details"] = fmt.Sprintf("Not managed by this CloudFormation stack")
+			output.AddContents(content)
+		}
+	}
 }
 
 // checkNaclEntries verifies the NACL entries and if there are differences adds those to the provided output array
@@ -276,7 +303,7 @@ func checkRouteTableRoutes(routetableResources map[string]string, template lib.C
 				continue
 			}
 			if cfnroute, ok := attachedRules[ruleid]; ok {
-				if !lib.CompareRoutes(route, cfnroute) {
+				if !lib.CompareRoutes(route, cfnroute, settings.GetStringSlice("drift.ignore-blackholes")) {
 					ruledetails := fmt.Sprintf("Expected: %s%sActual: %s", routeToString(cfnroute), outputsettings.GetSeparator(), routeToString(route))
 					rulechanges = append(rulechanges, ruledetails)
 				}
@@ -366,7 +393,6 @@ func getExpectedAndActualTags(expectedResources map[string]interface{}, actualRe
 	// go through actualResources["Tags"] and add each item in actualTags
 	if actualResources["Tags"] != nil {
 		for _, tag := range actualResources["Tags"].([]interface{}) {
-			fmt.Println(tag)
 			tagMap := tag.(map[string]interface{})
 			if tags[tagMap["Key"].(string)] == nil {
 				tags[tagMap["Key"].(string)] = map[string]string{"Expected": "", "Actual": tagMap["Value"].(string)}
