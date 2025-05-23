@@ -3,13 +3,14 @@ module github.com/ArjenSchwarz/fog
 go 1.21
 
 require (
-	github.com/aws/aws-sdk-go-v2 v1.25.2
+	github.com/aws/aws-sdk-go-v2 v1.32.5
 	github.com/aws/aws-sdk-go-v2/config v1.27.4
+	github.com/aws/aws-sdk-go-v2/service/cloudcontrol v1.23.1
 	github.com/aws/aws-sdk-go-v2/service/cloudformation v1.46.1
 	github.com/aws/aws-sdk-go-v2/service/iam v1.31.1
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.51.1
 	github.com/aws/aws-sdk-go-v2/service/sts v1.28.1
-	github.com/aws/smithy-go v1.20.1
+	github.com/aws/smithy-go v1.22.1
 	github.com/emicklei/dot v1.6.1 //indirect
 	github.com/fatih/color v1.16.0
 	github.com/jedib0t/go-pretty/v6 v6.5.4 //indirect
@@ -58,10 +59,12 @@ require (
 
 require (
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.6.1 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.2 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.2 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.24 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.24 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/v4a v1.3.2 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.3.2 // indirect
+	github.com/aws/aws-sdk-go-v2/service/organizations v1.35.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssoadmin v1.29.6 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.23.1 // indirect
 	github.com/gosimple/unidecode v1.0.1 // indirect
 	github.com/pelletier/go-toml/v2 v2.1.1 // indirect

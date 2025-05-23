@@ -274,6 +274,24 @@ func NaclResourceToNaclEntry(resource CfnTemplateResource, params []cfntypes.Par
 			}
 		}
 	}
+	ipv6cidrblock := ""
+	if cidrblock == "" {
+		switch value := resource.Properties["Ipv6CidrBlock"].(type) {
+		case string:
+			ipv6cidrblock = value
+		case map[string]interface{}:
+			refname := value["Ref"].(string)
+			for _, parameter := range params {
+				if *parameter.ParameterKey == refname {
+					if parameter.ResolvedValue != nil {
+						ipv6cidrblock = *parameter.ResolvedValue
+					} else {
+						ipv6cidrblock = *parameter.ParameterValue
+					}
+				}
+			}
+		}
+	}
 	ruleaction := types.RuleActionAllow
 	ruleactionprop := resource.Properties["RuleAction"].(string)
 	if ruleactionprop == string(types.RuleActionDeny) {
@@ -281,11 +299,16 @@ func NaclResourceToNaclEntry(resource CfnTemplateResource, params []cfntypes.Par
 	}
 	egress := resource.Properties["Egress"].(bool)
 	result := types.NetworkAclEntry{
-		CidrBlock:  &cidrblock,
 		Egress:     &egress,
 		Protocol:   &protocol,
 		RuleAction: ruleaction,
 		RuleNumber: &rulenr,
+	}
+	if cidrblock != "" {
+		result.CidrBlock = &cidrblock
+	}
+	if ipv6cidrblock != "" {
+		result.Ipv6CidrBlock = &ipv6cidrblock
 	}
 	if resource.Properties["PortRange"] != nil {
 		ports := resource.Properties["PortRange"].(map[string]interface{})

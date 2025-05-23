@@ -7,10 +7,13 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/retry"
 	external "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/cloudcontrol"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
+	"github.com/aws/aws-sdk-go-v2/service/organizations"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/ssoadmin"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 )
 
@@ -79,6 +82,20 @@ func (config *AWSConfig) IAMClient() *iam.Client {
 // IAMClient returns an EC2 Client
 func (config *AWSConfig) EC2Client() *ec2.Client {
 	return ec2.NewFromConfig(config.Config)
+}
+
+// CloudControlClient returns a CloudControl Client
+func (config *AWSConfig) CloudControlClient() *cloudcontrol.Client {
+	return cloudcontrol.NewFromConfig(config.Config)
+}
+
+// SSOAdminClient returns an SSO Admin Client
+func (config *AWSConfig) SSOAdminClient() *ssoadmin.Client {
+	return ssoadmin.NewFromConfig(config.Config)
+}
+
+func (config *AWSConfig) OrganizationsClient() *organizations.Client {
+	return organizations.NewFromConfig(config.Config)
 }
 
 func (config *AWSConfig) setCallerInfo() error {

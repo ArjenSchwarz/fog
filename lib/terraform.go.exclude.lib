@@ -1,0 +1,61 @@
+package lib
+
+type TerraformPlan struct {
+	FormatVersion    string                 `json:"format_version"`
+	TerraformVersion string                 `json:"terraform_version"`
+	PlannedValues    TerraformPlannedValues `json:"planned_values"`
+	ResourceChanges  []TerraformResource    `json:"resource_changes"`
+}
+
+type TerraformPlannedValues struct {
+	RootModule TerraformModule `json:"root_module"`
+}
+
+type TerraformModule struct {
+	Resources []TerraformResource `json:"resources"`
+}
+
+type TerraformResource struct {
+	Address      string          `json:"address"`
+	Mode         string          `json:"mode"`
+	Type         string          `json:"type"`
+	Name         string          `json:"name"`
+	ProviderName string          `json:"provider_name"`
+	Change       TerraformChange `json:"change"`
+}
+
+type TerraformChange struct {
+	Actions []string               `json:"actions"`
+	Before  TerraformChangeDetails `json:"before"`
+	After   TerraformChangeDetails `json:"after"`
+}
+
+type TerraformChangeDetails struct {
+	Name string `json:"name"`
+	ID   string `json:"id"`
+}
+
+func (resource *TerraformResource) HasChange() bool {
+	for _, change := range resource.Change.Actions {
+		if change == "no-op" {
+			return false
+		}
+	}
+	return true
+}
+
+func (resource *TerraformResource) GetName() string {
+	if resource.Change.Before.Name != "" {
+		return resource.Change.Before.Name
+	}
+	if resource.Change.Before.ID != "" {
+		return resource.Change.Before.ID
+	}
+	if resource.Change.After.Name != "" {
+		return resource.Change.After.Name
+	}
+	if resource.Change.After.ID != "" {
+		return resource.Change.After.ID
+	}
+	return ""
+}

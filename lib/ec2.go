@@ -95,7 +95,7 @@ func CompareNaclEntries(nacl1 types.NetworkAclEntry, nacl2 types.NetworkAclEntry
 }
 
 // CompareRoutes compares two Routes and returns true if they are the same
-func CompareRoutes(route1 types.Route, route2 types.Route) bool {
+func CompareRoutes(route1 types.Route, route2 types.Route, blackholeIgnore []string) bool {
 	if !stringPointerValueMatch(route1.CarrierGatewayId, route2.CarrierGatewayId) {
 		return false
 	}
@@ -142,6 +142,10 @@ func CompareRoutes(route1 types.Route, route2 types.Route) bool {
 		return false
 	}
 	if string(route1.State) != string(route2.State) {
+		// If the route is a blackhole and the destination is in the ignore list, consider it a match
+		if route1.State == types.RouteStateBlackhole && stringInSlice(*route1.VpcPeeringConnectionId, blackholeIgnore) {
+			return true
+		}
 		return false
 	}
 	return true

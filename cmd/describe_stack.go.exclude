@@ -1,0 +1,199 @@
+/*
+Copyright © 2023 Arjen Schwarz <developer@arjen.eu>
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+*/
+package cmd
+
+import (
+	"github.com/ArjenSchwarz/fog/config"
+	"github.com/ArjenSchwarz/fog/lib"
+	format "github.com/ArjenSchwarz/go-output"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+)
+
+// stackCmd represents the stack command
+var stackCmd = &cobra.Command{
+	Use:   "stack",
+	Short: "A brief description of your command",
+	Long: `A longer description that spans multiple lines and likely contains examples
+and usage of using your command. For example:
+
+Cobra is a CLI library for Go that empowers applications.
+This application is a tool to generate the needed files
+to quickly create a Cobra application.`,
+	Run: describeStack,
+}
+
+func describeStack(cmd *cobra.Command, args []string) {
+	viper.Set("output", "table") //Enforce table output for deployments
+	outputsettings = settings.NewOutputSettings()
+	outputsettings.SeparateTables = true //Make table output stand out more
+	awsConfig, err := config.DefaultAwsConfig(*settings)
+	if err != nil {
+		failWithError(err)
+	}
+	stack, err := lib.GetStack(describe_StackName, awsConfig.CloudformationClient())
+	params := make(map[string]interface{})
+	for _, param := range stack.Parameters {
+		params[*param.ParameterKey] = *param.ParameterValue
+	}
+	template := lib.GetTemplateBody(describe_StackName, &params, awsConfig.CloudformationClient())
+	if err != nil {
+		failWithError(err)
+	}
+
+	stacktitle := "CloudFormation stack information"
+	keys := []string{"Name", "Value"}
+	output := format.OutputArray{Keys: keys, Settings: outputsettings}
+	output.Settings.Title = stacktitle
+	content := nameValueContent("StackName", *describe_StackName)
+	output.AddContents(content)
+	content = nameValueContent("Account", awsConfig.GetAccountAliasID())
+	output.AddContents(content)
+	content = nameValueContent("Region", awsConfig.Region)
+	output.AddContents(content)
+	content = nameValueContent("Description", template.Description)
+	output.AddContents(content)
+	content = nameValueContent("AWSTemplateFormatVersion", template.AWSTemplateFormatVersion)
+	output.AddContents(content)
+	output.AddToBuffer()
+
+	paramTitle := "Parameters"
+	paramkeys := []string{"Name", "Actual value", "Resolved value"}
+	parameterOutput := format.OutputArray{Keys: paramkeys, Settings: outputsettings}
+	parameterOutput.Settings.Title = paramTitle
+	for _, value := range stack.Parameters {
+		// get actual value from the stack
+		content := make(map[string]interface{})
+		content["Name"] = aws.ToString(value.ParameterKey)
+		// content["Description"] = value.Description
+		// content["Type"] = value.Type
+		content["Actual value"] = aws.ToString(value.ParameterValue)
+		content["Resolved value"] = aws.ToString(value.ResolvedValue)
+		parameterOutput.AddContents(content)
+	}
+	parameterOutput.AddToBuffer()
+
+	rulesTitle := "Rules"
+	ruleskeys := []string{"Name", "Value"}
+	rulesOutput := format.OutputArray{Keys: ruleskeys, Settings: outputsettings}
+	rulesOutput.Settings.Title = rulesTitle
+	for key, value := range template.Rules {
+		// get actual value from the stack
+		content := nameValueContent(key, value)
+		rulesOutput.AddContents(content)
+	}
+	if rulesOutput.Contents != nil {
+		rulesOutput.AddToBuffer()
+	}
+
+	conditionTitle := "Conditions"
+	conditionKeys := []string{"Name", "Active"}
+	conditionOutput := format.OutputArray{Keys: conditionKeys, Settings: outputsettings}
+	conditionOutput.Settings.Title = conditionTitle
+	conditionOutput.Settings.SortKey = "Name"
+	for key, value := range template.Conditions {
+		content := make(map[string]interface{})
+		content["Name"] = key
+		content["Active"] = value
+		conditionOutput.AddContents(content)
+	}
+	if conditionOutput.Contents != nil {
+		conditionOutput.AddToBuffer()
+	}
+
+	resourceTitle := "Resources"
+	resourceKeys := []string{"Name", "Type", "PhysicalId"}
+	resourceOutput := format.OutputArray{Keys: resourceKeys, Settings: outputsettings}
+	resourceOutput.Settings.Title = resourceTitle
+	resourceOutput.Settings.SortKey = "Type"
+	// undeployedTitle := "Undeployed resources"
+	// undeployedKeys := []string{"Name", "Type", "Conditions"}
+	// undeployedOutput := format.OutputArray{Keys: undeployedKeys, Settings: outputsettings}
+	// undeployedOutput.Settings.SortKey = "Type"
+	for _, value := range lib.GetResources(describe_StackName, awsConfig.CloudformationClient()) {
+		// if template.ShouldHaveResource(value) {
+		content := make(map[string]interface{})
+		content["Name"] = value.LogicalID
+		content["Type"] = value.Type
+		content["PhysicalId"] = value.ResourceID
+		// content["Should have resource"] = template.ShouldHaveResource(value)
+		resourceOutput.AddContents(content)
+		// } else {
+		// 	content := make(map[string]interface{})
+		// 	content["Name"] = key
+		// 	content["Type"] = value.Type
+		// 	content["Conditions"] = value.Condition
+		// 	undeployedOutput.AddContents(content)
+		// }
+	}
+	resourceOutput.AddToBuffer()
+	// undeployedOutput.Settings.Title = undeployedTitle
+	// undeployedOutput.AddToBuffer()
+
+	outputTitle := "Outputs"
+	outputKeys := []string{"Name", "Description", "Value", "Export"}
+	outputOutput := format.OutputArray{Keys: outputKeys, Settings: outputsettings}
+	outputOutput.Settings.Title = outputTitle
+	outputOutput.Settings.SortKey = "Type"
+	for _, value := range stack.Outputs {
+		content := make(map[string]interface{})
+		content["Name"] = aws.ToString(value.OutputKey)
+		content["Description"] = aws.ToString(value.Description)
+		content["Value"] = aws.ToString(value.OutputValue)
+		content["Export"] = aws.ToString(value.ExportName)
+		outputOutput.AddContents(content)
+	}
+	// for key, value := range template.Outputs {
+	// 	content := make(map[string]interface{})
+	// 	content["Name"] = key
+	// 	content["Description"] = value.Description
+	// 	content["Value"] = fmt.Sprintf("%s", value.Value) //value.Value
+	// 	content["Export"] = value.Export.Name
+	// 	outputOutput.AddContents(content)
+	// }
+	if outputOutput.Contents != nil {
+		outputOutput.AddToBuffer()
+	}
+
+	output.Write()
+}
+
+func nameValueContent(name string, value interface{}) map[string]interface{} {
+	content := make(map[string]interface{})
+	content["Name"] = name
+	content["Value"] = value
+	return content
+}
+
+func init() {
+	describeCmd.AddCommand(stackCmd)
+	// Here you will define your flags and configuration settings.
+
+	// Cobra supports Persistent Flags which will work for this command
+	// and all subcommands, e.g.:
+	// stackCmd.PersistentFlags().String("foo", "", "A help for foo")
+
+	// Cobra supports local flags which will only run when this command
+	// is called directly, e.g.:
+	// stackCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+}
