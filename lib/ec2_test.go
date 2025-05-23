@@ -289,7 +289,7 @@ func TestCompareRoutes(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := CompareRoutes(tt.args.route1, tt.args.route2); got != tt.want {
+			if got := CompareRoutes(tt.args.route1, tt.args.route2, []string{}); got != tt.want {
 				t.Errorf("CompareRoutes() = %v, want %v", got, tt.want)
 			}
 		})

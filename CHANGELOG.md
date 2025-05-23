@@ -21,6 +21,7 @@
   * Other:
     - Improved release workflow
     - Minor configuration and code quality improvements
+    - Add logo for fog
 
 1.9.0 / 2024-02-27
 ==================

@@ -1,5 +1,7 @@
 # fog
 
+![Fog logo](docs/fog-logo.png)
+
 Fog is a tool to manage your CloudFormation deployments and ensure you have all your config as code. Please note, fog is **not** a DSL. It only works with standard CloudFormation files and doesn't do anything you can't do using the AWS CLI (and some hacking around with jq). It just makes it easier by combining functionality and preventing you from needing to deal with unnecesary overhead like different commands for creating a new stack or updating an existing one. In addition, it has little helper functionalities like offering to remove an empty stack for you.
 
 ## Deployments
@@ -303,15 +305,47 @@ fog dependencies --stackname "myvpc" --output dot | dot -T png -o docs/fog-depen
 
 ### fog drift
 
-Fog's drift detection builds upon the built-in drift detection from CloudFormation, but adds several enhancements. These include:
+Fog's drift detection builds upon the built-in drift detection from CloudFormation, but adds several enhancements and new capabilities:
 
-* Ignoring differences caused by the order of tags
-* Detecting differences in route tables, including unmanaged or removed routes
-* Detecting differences in NACL rules, including unmanaged or removed entries
-* Allowing specific tags to be ignored in drift results
-* Supporting verbose mode to detect prefix list changes in routes (excluding AWS-managed prefix lists)
-* Providing customizable output options, such as results-only mode and separating properties
-* Monitoring drift detection progress and fetching detailed drift results
+#### Enhanced Drift Detection Features
+
+* **Tag handling**: Ignoring differences caused by the order of tags and allowing specific tags to be ignored in drift results
+* **Route table monitoring**: Detecting differences in route tables, including unmanaged or removed routes
+* **NACL monitoring**: Detecting differences in NACL rules, including unmanaged or removed entries, with improved IPv6 CIDR block handling
+* **Prefix list support**: Supporting verbose mode to detect prefix list changes in routes (excluding AWS-managed prefix lists)
+* **Blackhole route filtering**: Option to ignore specific blackhole routes via configuration
+
+#### Unmanaged Resource Detection
+
+Fog can now detect AWS resources that exist in your account but are not managed by CloudFormation:
+
+* **SSO/Identity Center resources**: Detect unmanaged SSO Permission Sets and Assignments
+* **Configurable resource types**: Support for detecting any AWS resource type via configuration
+* **Ignore lists**: Configure specific resources to ignore in unmanaged resource detection
+
+#### Configuration Options
+
+Configure drift detection behavior in your `fog.yaml`:
+
+```yaml
+drift:
+  ignore-tags:
+    - AWS::EC2::TransitGatewayAttachment:Application  # Ignore specific tags by resource type
+  ignore-blackholes:
+    - pcx-0887c71683c64bb22  # Ignore specific blackhole routes
+  detect-unmanaged-resources:
+    - AWS::SSO::PermissionSet  # Detect unmanaged SSO Permission Sets
+    - AWS::SSO::Assignment     # Detect unmanaged SSO Assignments
+  ignore-unmanaged-resources:
+    - "arn:aws:sso:::instance/ssoins-xxx|arn:aws:sso:::permissionSet/ssoins-xxx/ps-xxx"  # Ignore specific unmanaged resources
+```
+
+#### Command Line Options
+
+* `--results-only` (`-r`): Don't trigger a new drift detection, use existing results
+* `--separate-properties` (`-s`): Put every property difference on its own line for better readability
+* `--ignore-tags` (`-i`): Comma-separated list of additional tags to ignore
+* `--verbose` (`-v`): Show prefix list changes in routes (excluding AWS-managed prefix lists)
 
 ## TODO
 
