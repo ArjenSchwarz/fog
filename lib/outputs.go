@@ -26,7 +26,7 @@ type CfnOutput struct {
 // GetExports returns all the exports in the account and region. If stackname
 // is provided, results will be limited to that stack. Each export will also
 // be checked whether it is being imported or not.
-func GetExports(stackname *string, exportname *string, svc *cloudformation.Client) []CfnOutput {
+func GetExports(stackname *string, exportname *string, svc CloudFormationExportsAPI) []CfnOutput {
 	exports := []CfnOutput{}
 	input := &cloudformation.DescribeStacksInput{}
 	if *stackname != "" && !strings.Contains(*stackname, "*") {
@@ -105,7 +105,7 @@ func getOutputsForStack(stack types.Stack, stackfilter string, exportfilter stri
 	return result
 }
 
-func (output *CfnOutput) FillImports(svc *cloudformation.Client) {
+func (output *CfnOutput) FillImports(svc CloudFormationListImportsAPI) {
 	if output.ExportName == "" {
 		return
 	}

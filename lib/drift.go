@@ -58,7 +58,10 @@ func GetDefaultStackDrift(stackName *string, svc *cloudformation.Client) []types
 	return allDrifts
 }
 
-func GetUncheckedStackResources(stackName *string, checkedResources []string, svc *cloudformation.Client) []CfnResource {
+func GetUncheckedStackResources(stackName *string, checkedResources []string, svc interface {
+	CloudFormationDescribeStacksAPI
+	CloudFormationDescribeStackResourcesAPI
+}) []CfnResource {
 	resources := GetResources(stackName, svc)
 	uncheckedresources := []CfnResource{}
 	for _, resource := range resources {
