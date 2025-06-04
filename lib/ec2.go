@@ -143,7 +143,7 @@ func CompareRoutes(route1 types.Route, route2 types.Route, blackholeIgnore []str
 	}
 	if string(route1.State) != string(route2.State) {
 		// If the route is a blackhole and the destination is in the ignore list, consider it a match
-		if route1.State == types.RouteStateBlackhole && stringInSlice(*route1.VpcPeeringConnectionId, blackholeIgnore) {
+		if route1.State == types.RouteStateBlackhole && route1.VpcPeeringConnectionId != nil && stringInSlice(*route1.VpcPeeringConnectionId, blackholeIgnore) {
 			return true
 		}
 		return false
