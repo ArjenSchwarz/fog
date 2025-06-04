@@ -18,6 +18,7 @@ jobs:
         uses: golangci/golangci-lint-action@v3
         with:
           version: latest
+          skip-cache: true
       - name: Build file
         run: GOOS=linux GOARCH=amd64 go build -o fog && zip unstable.zip fog
       - name: Configure AWS Credentials
