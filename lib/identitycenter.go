@@ -9,7 +9,10 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ssoadmin"
 )
 
-func GetPermissionSetArns(ssoClient *ssoadmin.Client) (map[string]string, error) {
+func GetPermissionSetArns(ssoClient interface {
+	SSOAdminListInstancesAPI
+	SSOAdminListPermissionSetsAPI
+}) (map[string]string, error) {
 	// Get the SSO instance ARN
 	ssoInstanceArn, err := GetSSOInstanceArn(ssoClient)
 	if err != nil {
@@ -32,7 +35,7 @@ func GetPermissionSetArns(ssoClient *ssoadmin.Client) (map[string]string, error)
 	return permissionSetArns, nil
 }
 
-func GetSSOInstanceArn(ssoClient *ssoadmin.Client) (string, error) {
+func GetSSOInstanceArn(ssoClient SSOAdminListInstancesAPI) (string, error) {
 	input := &ssoadmin.ListInstancesInput{}
 
 	result, err := ssoClient.ListInstances(context.TODO(), input)
@@ -47,7 +50,11 @@ func GetSSOInstanceArn(ssoClient *ssoadmin.Client) (string, error) {
 	return *result.Instances[0].InstanceArn, nil
 }
 
-func GetAssignmentArns(ssoClient *ssoadmin.Client, organizationsClient *organizations.Client) (map[string]string, error) {
+func GetAssignmentArns(ssoClient interface {
+	SSOAdminListInstancesAPI
+	SSOAdminListPermissionSetsAPI
+	SSOAdminListAccountAssignmentsAPI
+}, organizationsClient OrganizationsListAccountsAPI) (map[string]string, error) {
 	// Get the SSO instance ARN
 	ssoInstanceArn, err := GetSSOInstanceArn(ssoClient)
 	if err != nil {
@@ -73,7 +80,7 @@ func GetAssignmentArns(ssoClient *ssoadmin.Client, organizationsClient *organiza
 	return assignmentArns, nil
 }
 
-func GetAccountAssignmentArnsForPermissionSet(ssoClient *ssoadmin.Client, organizationsClient *organizations.Client, ssoInstanceArn string, permissionSetArn string) (map[string]string, error) {
+func GetAccountAssignmentArnsForPermissionSet(ssoClient SSOAdminListAccountAssignmentsAPI, organizationsClient OrganizationsListAccountsAPI, ssoInstanceArn string, permissionSetArn string) (map[string]string, error) {
 	//Get the list of accounts
 	accounts, err := GetAccountIDs(organizationsClient)
 	if err != nil {
@@ -101,7 +108,7 @@ func GetAccountAssignmentArnsForPermissionSet(ssoClient *ssoadmin.Client, organi
 	return assignmentArns, nil
 }
 
-func GetAccountIDs(organizationsClient *organizations.Client) ([]string, error) {
+func GetAccountIDs(organizationsClient OrganizationsListAccountsAPI) ([]string, error) {
 	input := &organizations.ListAccountsInput{}
 
 	var accounts []string
