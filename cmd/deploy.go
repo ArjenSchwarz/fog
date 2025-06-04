@@ -338,10 +338,10 @@ func setDeployTags(deployment *lib.DeployInfo) {
 
 func placeholderParser(value string, deployment *lib.DeployInfo) string {
 	if deployment != nil {
-		value = strings.Replace(value, "$TEMPLATEPATH", deployment.TemplateLocalPath, -1)
+		value = strings.ReplaceAll(value, "$TEMPLATEPATH", deployment.TemplateLocalPath)
 	}
 	//value = strings.Replace(value, "$CURRENTDIR", os.Di)
-	value = strings.Replace(value, "$TIMESTAMP", time.Now().In(settings.GetTimezoneLocation()).Format("2006-01-02T15-04-05"), -1)
+	value = strings.ReplaceAll(value, "$TIMESTAMP", time.Now().In(settings.GetTimezoneLocation()).Format("2006-01-02T15-04-05"))
 	return value
 }
 

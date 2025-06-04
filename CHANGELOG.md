@@ -2,6 +2,8 @@
 ===================
 
   * Add unit tests for GetResources and document the scenarios covered.
+  * Fix `golangci-lint` errors by checking file close errors and
+    replacing `strings.Replace` with `strings.ReplaceAll`.
 
 1.10.1 / 2025-06-04
 ===================
