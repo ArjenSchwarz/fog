@@ -36,7 +36,7 @@ func GetResources(stackname *string, svc *cloudformation.Client) []CfnResource {
 		}
 		log.Fatalln(err)
 	}
-	stackRegex := "^" + strings.Replace(*stackname, "*", ".*", -1) + "$"
+	stackRegex := "^" + strings.ReplaceAll(*stackname, "*", ".*") + "$"
 	tocheckstacks := make([]types.Stack, 0)
 	for _, stack := range resp.Stacks {
 		if strings.Contains(*stackname, "*") {
