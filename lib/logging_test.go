@@ -327,7 +327,9 @@ func TestReadAllLogs(t *testing.T) {
 			t.Fatalf("Failed to write newline to log file: %v", err)
 		}
 	}
-	file.Close()
+	if err := file.Close(); err != nil {
+		t.Fatalf("Failed to close log file: %v", err)
+	}
 
 	// Test reading all logs
 	readLogs := ReadAllLogs()
@@ -392,7 +394,9 @@ func TestGetLatestSuccessFulLogByDeploymentName(t *testing.T) {
 			t.Fatalf("Failed to write newline to log file: %v", err)
 		}
 	}
-	file.Close()
+	if err := file.Close(); err != nil {
+		t.Fatalf("Failed to close log file: %v", err)
+	}
 
 	// Test getting latest successful log
 	log := GetLatestSuccessFulLogByDeploymentName(deploymentName)
