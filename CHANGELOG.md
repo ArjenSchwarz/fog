@@ -1,3 +1,9 @@
+1.10.2 / 2025-06-04
+===================
+
+  * Fix `golangci-lint` errors by checking file close errors and
+    replacing `strings.Replace` with `strings.ReplaceAll`.
+
 1.10.1 / 2025-06-04
 ===================
 

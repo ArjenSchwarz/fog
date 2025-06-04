@@ -98,7 +98,7 @@ func showDependencies(cmd *cobra.Command, args []string) {
 
 func getFilteredStacks(stackfilter string, stacks *map[string]lib.CfnStack) []string {
 	result := []string{}
-	stackRegex := "^" + strings.Replace(stackfilter, "*", ".*", -1) + "$"
+	stackRegex := "^" + strings.ReplaceAll(stackfilter, "*", ".*") + "$"
 	for stackname, stack := range *stacks {
 		if strings.Contains(stackfilter, "*") {
 			if matched, err := regexp.MatchString(stackRegex, stackname); matched && err == nil {
