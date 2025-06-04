@@ -17,7 +17,7 @@ tags:
     Source: https://github.com/ArjenSchwarz/fog/$TEMPLATEPATH # An example tag to be added
   directory: tags # The directory where you store your parameter files. Relative to where you run the application from
   extensions:
-    - .json # The extensions for your ta files. Only json formatted files are currently supported
+    - .json # The extensions for your tag files. Only json formatted files are currently supported
 templates:
   directory: templates # The directory where you store your template files. Relative to where you run the application from
   extensions: # The extensions for your template files. Both yaml and json formatted files are currently supported
