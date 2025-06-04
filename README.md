@@ -2,7 +2,7 @@
 
 [![Fog logo](docs/fog-logo-small.png)](docs/fog-logo.png)
 
-Fog is a tool to manage your CloudFormation deployments and ensure you have all your config as code. Please note, fog is **not** a DSL. It only works with standard CloudFormation files and doesn't do anything you can't do using the AWS CLI (and some hacking around with jq). It just makes it easier by combining functionality and preventing you from needing to deal with unnecesary overhead like different commands for creating a new stack or updating an existing one. In addition, it has little helper functionalities like offering to remove an empty stack for you.
+Fog is a tool to manage your CloudFormation deployments and ensure you have all your config as code. Please note, fog is **not** a DSL. It only works with standard CloudFormation files and doesn't do anything you can't do using the AWS CLI (and some hacking around with jq). It just makes it easier by combining functionality and preventing you from needing to deal with unnecessary overhead like different commands for creating a new stack or updating an existing one. In addition, it has little helper functionalities like offering to remove an empty stack for you.
 
 ## Deployments
 
