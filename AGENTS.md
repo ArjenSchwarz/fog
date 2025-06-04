@@ -21,6 +21,11 @@ Before opening a pull request run the following commands:
 1. Add or update tests for any code you change, even if nobody asked.
 2. Tests should be complete and cover both failure and success states.
 3. Tests should NOT recreate functions from the files that are being tested. Instead, the original function can be updated to make it possible to provide mock objects.
+4. Include clear documentation of what the tests cover
+
+## New functionality
+
+1. If new functionality is created, ensure that the README file is updated to include this.
 
 ## Pull request requirements
 
