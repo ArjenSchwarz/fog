@@ -262,6 +262,12 @@ func TestCompareRoutes(t *testing.T) {
 	state.State = types.RouteStateBlackhole
 	origin := fullRoute
 	origin.Origin = types.RouteOriginCreateRouteTable
+	noppeer := fullRoute
+	noppeer.VpcPeeringConnectionId = nil
+	noppeer.State = types.RouteStateBlackhole
+	noppeerActive := noppeer
+	noppeerActive.State = types.RouteStateActive
+	noppeerBlackhole := noppeer
 	tests := []struct {
 		name string
 		args args
@@ -286,6 +292,8 @@ func TestCompareRoutes(t *testing.T) {
 		{"Different value VpcPeeringConnectionId", args{route1: fullRoute, route2: peer}, false},
 		{"Different value State", args{route1: fullRoute, route2: state}, false},
 		{"Different value Origin", args{route1: fullRoute, route2: origin}, false},
+		{"Nil VpcPeeringConnectionId with Blackhole state", args{route1: noppeer, route2: noppeerActive}, false},
+		{"Nil VpcPeeringConnectionId with same state", args{route1: noppeer, route2: noppeerBlackhole}, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
