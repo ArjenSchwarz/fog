@@ -17,6 +17,12 @@ func (m mockEC2DescribeNaclsAPI) DescribeNetworkAcls(ctx context.Context, params
 	return m(ctx, params, optFns...)
 }
 
+type mockEC2DescribeManagedPrefixListsAPI func(ctx context.Context, params *ec2.DescribeManagedPrefixListsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeManagedPrefixListsOutput, error)
+
+func (m mockEC2DescribeManagedPrefixListsAPI) DescribeManagedPrefixLists(ctx context.Context, params *ec2.DescribeManagedPrefixListsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeManagedPrefixListsOutput, error) {
+	return m(ctx, params, optFns...)
+}
+
 // type mockEC2DescribeRouteTablesAPI func(ctx context.Context, params *ec2.DescribeRouteTablesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeRouteTablesOutput, error)
 
 // func (m mockEC2DescribeRouteTablesAPI) DescribeRouteTables(ctx context.Context, params *ec2.DescribeRouteTablesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeRouteTablesOutput, error) {
@@ -357,14 +363,36 @@ func Test_stringPointerValueMatch(t *testing.T) {
 
 func TestGetManagedPrefixLists(t *testing.T) {
 	type args struct {
-		svc *ec2.Client
+		svc EC2DescribeManagedPrefixListsAPI
 	}
+	pl1 := types.ManagedPrefixList{
+		PrefixListArn: aws.String("arn:aws:ec2:pl/test1"),
+		PrefixListId:  aws.String("pl-test1"),
+	}
+	pl2 := types.ManagedPrefixList{
+		PrefixListArn: aws.String("arn:aws:ec2:pl/test2"),
+		PrefixListId:  aws.String("pl-test2"),
+	}
+
 	tests := []struct {
 		name string
 		args args
 		want []types.ManagedPrefixList
 	}{
-		// TODO: Add test cases.
+		{
+			name: "return prefix lists",
+			args: args{svc: mockEC2DescribeManagedPrefixListsAPI(func(ctx context.Context, params *ec2.DescribeManagedPrefixListsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeManagedPrefixListsOutput, error) {
+				return &ec2.DescribeManagedPrefixListsOutput{PrefixLists: []types.ManagedPrefixList{pl1, pl2}}, nil
+			})},
+			want: []types.ManagedPrefixList{pl1, pl2},
+		},
+		{
+			name: "no prefix lists",
+			args: args{svc: mockEC2DescribeManagedPrefixListsAPI(func(ctx context.Context, params *ec2.DescribeManagedPrefixListsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeManagedPrefixListsOutput, error) {
+				return &ec2.DescribeManagedPrefixListsOutput{}, nil
+			})},
+			want: nil,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
