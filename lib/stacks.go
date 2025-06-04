@@ -116,7 +116,7 @@ func GetCfnStacks(stackname *string, svc *cloudformation.Client) (map[string]Cfn
 		}
 		allstacks = append(allstacks, output.Stacks...)
 	}
-	stackRegex := "^" + strings.Replace(*stackname, "*", ".*", -1) + "$"
+	stackRegex := "^" + strings.ReplaceAll(*stackname, "*", ".*") + "$"
 	tocheckstacks := make([]types.Stack, 0)
 	for _, stack := range allstacks {
 		if strings.Contains(*stackname, "*") {

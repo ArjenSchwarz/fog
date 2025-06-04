@@ -24,14 +24,6 @@ type CloudFormationDescribeStackResourceDriftsAPI interface {
 	DescribeStackResourceDrifts(ctx context.Context, params *cloudformation.DescribeStackResourceDriftsInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStackResourceDriftsOutput, error)
 }
 
-type CloudFormationDescribeStacksAPI interface {
-	DescribeStacks(ctx context.Context, params *cloudformation.DescribeStacksInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStacksOutput, error)
-}
-
-type CloudFormationDescribeStackResourcesAPI interface {
-	DescribeStackResources(ctx context.Context, params *cloudformation.DescribeStackResourcesInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStackResourcesOutput, error)
-}
-
 // MockCloudFormationClient is a mock implementation of the CloudFormation client
 type MockCloudFormationClient struct {
 	DetectStackDriftOutput                  cloudformation.DetectStackDriftOutput

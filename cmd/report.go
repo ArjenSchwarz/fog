@@ -174,10 +174,10 @@ func getReportOutputSettingsFromCli(awsConfig config.AWSConfig) *format.OutputSe
 }
 
 func reportPlaceholderParser(value string, stackname string, awsConfig config.AWSConfig) string {
-	value = strings.Replace(value, "$TIMESTAMP", time.Now().In(settings.GetTimezoneLocation()).Format("2006-01-02T15-04-05"), -1)
-	value = strings.Replace(value, "$STACKNAME", cleanStackName(stackname), -1)
-	value = strings.Replace(value, "$REGION", awsConfig.Region, -1)
-	value = strings.Replace(value, "$ACCOUNTID", awsConfig.AccountID, -1)
+	value = strings.ReplaceAll(value, "$TIMESTAMP", time.Now().In(settings.GetTimezoneLocation()).Format("2006-01-02T15-04-05"))
+	value = strings.ReplaceAll(value, "$STACKNAME", cleanStackName(stackname))
+	value = strings.ReplaceAll(value, "$REGION", awsConfig.Region)
+	value = strings.ReplaceAll(value, "$ACCOUNTID", awsConfig.AccountID)
 	return value
 }
 
