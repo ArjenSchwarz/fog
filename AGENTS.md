@@ -15,12 +15,17 @@ Before opening a pull request run the following commands:
 1. `go test ./... -v`
 2. `golangci-lint run`
 3. Optionally `go build -o fog` to confirm the project builds.
-4. Add or update tests for any code you change, even if nobody asked.
+
+## Test instructions
+
+1. Add or update tests for any code you change, even if nobody asked.
+2. Tests should be complete and cover both failure and success states.
+3. Tests should NOT recreate functions from the files that are being tested. Instead, the original function can be updated to make it possible to provide mock objects.
 
 ## Pull request requirements
 
 - PR titles should follow the format `[fog] <Title>` and should reference the relevant issue when applicable.
-- `CHANGELOG.md` must be updated with a concise message about the changes made.
+- `CHANGELOG.md` must be updated with a concise message about the changes made, this should be added to the bottom of the list under the header Unreleased. If this header doesn't exist, add it to the top of the file.
 
 ## Configuration examples
 
