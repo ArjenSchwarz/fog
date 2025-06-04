@@ -1,3 +1,7 @@
+Unreleased
+===========
+
+  * Document deploy workflow
 1.10.2 / 2025-06-04
 ===================
 
