@@ -21,9 +21,12 @@ type CfnResource struct {
 	Status     string
 }
 
-// GetResources returns all the exports in the account and region. If stackname
+// GetResources returns all the resources in the account and region. If stackname
 // is provided, results will be limited to that stack.
-func GetResources(stackname *string, svc *cloudformation.Client) []CfnResource {
+func GetResources(stackname *string, svc interface {
+	CloudFormationDescribeStacksAPI
+	CloudFormationDescribeStackResourcesAPI
+}) []CfnResource {
 	input := &cloudformation.DescribeStacksInput{}
 	if *stackname != "" && !strings.Contains(*stackname, "*") {
 		input.StackName = stackname
@@ -36,7 +39,7 @@ func GetResources(stackname *string, svc *cloudformation.Client) []CfnResource {
 		}
 		log.Fatalln(err)
 	}
-	stackRegex := "^" + strings.Replace(*stackname, "*", ".*", -1) + "$"
+	stackRegex := "^" + strings.ReplaceAll(*stackname, "*", ".*") + "$"
 	tocheckstacks := make([]types.Stack, 0)
 	for _, stack := range resp.Stacks {
 		if strings.Contains(*stackname, "*") {
