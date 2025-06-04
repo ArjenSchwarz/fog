@@ -3,26 +3,11 @@ package lib
 import (
 	"context"
 	"errors"
-	"strings"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
 )
-
-// Interfaces for the cloudformation operations used
-type CFNDescribeStacksAPI interface {
-	DescribeStacks(ctx context.Context, params *cloudformation.DescribeStacksInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStacksOutput, error)
-}
-
-type CFNListImportsAPI interface {
-	ListImports(ctx context.Context, params *cloudformation.ListImportsInput, optFns ...func(*cloudformation.Options)) (*cloudformation.ListImportsOutput, error)
-}
-
-type CFNExportsAPI interface {
-	CFNDescribeStacksAPI
-	CFNListImportsAPI
-}
 
 // Mock client implementing the interfaces
 type MockCFNClient struct {
@@ -49,62 +34,7 @@ func (m MockCFNClient) ListImports(ctx context.Context, params *cloudformation.L
 	return &cloudformation.ListImportsOutput{Imports: imports}, nil
 }
 
-// Wrapper for GetExports using interfaces for testing
-func GetExportsTest(stackname *string, exportname *string, svc CFNExportsAPI) []CfnOutput {
-	exports := []CfnOutput{}
-	input := &cloudformation.DescribeStacksInput{}
-	if *stackname != "" && !strings.Contains(*stackname, "*") {
-		input.StackName = stackname
-	}
-	resp, err := svc.DescribeStacks(context.TODO(), input)
-	if err != nil {
-		panic(err)
-	}
-	for _, stack := range resp.Stacks {
-		exports = append(exports, getOutputsForStack(stack, *stackname, *exportname, true)...)
-	}
-	c := make(chan CfnOutput)
-	results := make([]CfnOutput, len(exports))
-	for _, export := range exports {
-		go func(export CfnOutput) {
-			resexport := CfnOutput{
-				StackName:   export.StackName,
-				OutputKey:   export.OutputKey,
-				OutputValue: export.OutputValue,
-				ExportName:  export.ExportName,
-				Description: export.Description,
-			}
-			imports, err := svc.ListImports(context.TODO(), &cloudformation.ListImportsInput{ExportName: &export.ExportName})
-			if err != nil {
-				resexport.Imported = false
-			} else {
-				resexport.Imported = true
-				resexport.ImportedBy = imports.Imports
-			}
-			c <- resexport
-		}(export)
-	}
-	for i := 0; i < len(results); i++ {
-		results[i] = <-c
-	}
-	return results
-}
-
-// Wrapper for FillImports using interface
-func (output *CfnOutput) FillImportsTest(svc CFNListImportsAPI) {
-	if output.ExportName == "" {
-		return
-	}
-	imports, err := svc.ListImports(context.TODO(), &cloudformation.ListImportsInput{ExportName: &output.ExportName})
-	if err != nil {
-		output.Imported = false
-	} else {
-		output.Imported = true
-		output.ImportedBy = imports.Imports
-	}
-}
-
-// Test getOutputsForStack filtering and parsing
+// Test_getOutputsForStack verifies export filtering and parsing logic.
 func Test_getOutputsForStack(t *testing.T) {
 	stack := types.Stack{
 		StackName: strPtr("test-stack"),
@@ -149,12 +79,12 @@ func Test_getOutputsForStack(t *testing.T) {
 	}
 }
 
-// Test FillImports logic with and without error
+// TestCfnOutput_FillImports checks success and error cases when populating import information.
 func TestCfnOutput_FillImports(t *testing.T) {
 	out := &CfnOutput{ExportName: "Export1"}
 	mock := MockCFNClient{ImportsByExport: map[string][]string{"Export1": {"stackA"}}}
 
-	out.FillImportsTest(mock)
+	out.FillImports(mock)
 	if !out.Imported || len(out.ImportedBy) != 1 || out.ImportedBy[0] != "stackA" {
 		t.Errorf("FillImports success case failed: %#v", out)
 	}
@@ -162,13 +92,13 @@ func TestCfnOutput_FillImports(t *testing.T) {
 	out2 := &CfnOutput{ExportName: "Export1"}
 	mockErr := MockCFNClient{ListImportsError: errors.New("fail")}
 
-	out2.FillImportsTest(mockErr)
+	out2.FillImports(mockErr)
 	if out2.Imported {
 		t.Errorf("expected Imported=false on error")
 	}
 }
 
-// Test GetExports wrapper combining DescribeStacks and ListImports logic
+// TestGetExports validates that exports are returned with import information populated.
 func TestGetExports(t *testing.T) {
 	stackName := "test-stack"
 	export1 := types.Output{
@@ -196,7 +126,7 @@ func TestGetExports(t *testing.T) {
 		},
 	}
 
-	results := GetExportsTest(&stackName, strPtr(""), mock)
+	results := GetExports(&stackName, strPtr(""), mock)
 	if len(results) != 2 {
 		t.Fatalf("expected two results, got %d", len(results))
 	}
