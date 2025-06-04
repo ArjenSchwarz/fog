@@ -1,3 +1,13 @@
+1.10.2 / 2025-06-04
+===================
+
+  * Add unit tests for GetResources and document the scenarios covered.
+
+1.10.1 / 2025-06-04
+===================
+
+  * Document contribution guidelines and local validation steps.
+
 1.10.0 / 2025-05-23
 ===================
 
