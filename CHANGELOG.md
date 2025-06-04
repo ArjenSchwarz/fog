@@ -2,6 +2,8 @@ Unreleased
 ===========
 
   * Document deploy workflow
+  * Add stack utility tests
+
 1.10.2 / 2025-06-04
 ===================
 

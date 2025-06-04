@@ -89,7 +89,7 @@ func (deployment *DeployInfo) ChangesetType() types.ChangeSetType {
 	return types.ChangeSetTypeUpdate
 }
 
-func GetStack(stackname *string, svc *cloudformation.Client) (types.Stack, error) {
+func GetStack(stackname *string, svc CloudFormationDescribeStacksAPI) (types.Stack, error) {
 	input := &cloudformation.DescribeStacksInput{}
 	if *stackname != "" && !strings.Contains(*stackname, "*") {
 		input.StackName = stackname
@@ -148,7 +148,7 @@ func GetCfnStacks(stackname *string, svc *cloudformation.Client) (map[string]Cfn
 	return result, nil
 }
 
-func StackExists(deployment *DeployInfo, svc *cloudformation.Client) bool {
+func StackExists(deployment *DeployInfo, svc CloudFormationDescribeStacksAPI) bool {
 	stack, err := GetStack(&deployment.StackName, svc)
 	if err != nil {
 		deployment.RawStack = &stack
@@ -156,7 +156,7 @@ func StackExists(deployment *DeployInfo, svc *cloudformation.Client) bool {
 	return err == nil
 }
 
-func (deployment DeployInfo) IsReadyForUpdate(svc *cloudformation.Client) (bool, string) {
+func (deployment DeployInfo) IsReadyForUpdate(svc CloudFormationDescribeStacksAPI) (bool, string) {
 	stack, err := deployment.GetStack(svc)
 	if err != nil {
 		return false, ""
@@ -171,7 +171,7 @@ func (deployment DeployInfo) IsReadyForUpdate(svc *cloudformation.Client) (bool,
 	return stringInSlice(string(stack.StackStatus), availableStatuses), string(stack.StackStatus)
 }
 
-func (deployment DeployInfo) IsOngoing(svc *cloudformation.Client) bool {
+func (deployment DeployInfo) IsOngoing(svc CloudFormationDescribeStacksAPI) bool {
 	stack, err := deployment.GetFreshStack(svc)
 	if err != nil {
 		return false
@@ -187,7 +187,7 @@ func (deployment DeployInfo) IsOngoing(svc *cloudformation.Client) bool {
 }
 
 // IsNewStack verifies if a stack is new. This can mean either that it doesn't exist yet or is in review in progress state
-func (deployment DeployInfo) IsNewStack(svc *cloudformation.Client) bool {
+func (deployment DeployInfo) IsNewStack(svc CloudFormationDescribeStacksAPI) bool {
 	stackExists := StackExists(&deployment, svc)
 	if !stackExists {
 		return true
@@ -378,11 +378,11 @@ func (deployment *DeployInfo) GetChangeset(svc *cloudformation.Client) ([]cloudf
 	return results, nil
 }
 
-func (deployment *DeployInfo) GetFreshStack(svc *cloudformation.Client) (types.Stack, error) {
+func (deployment *DeployInfo) GetFreshStack(svc CloudFormationDescribeStacksAPI) (types.Stack, error) {
 	return GetStack(&deployment.StackArn, svc)
 }
 
-func (deployment *DeployInfo) GetStack(svc *cloudformation.Client) (types.Stack, error) {
+func (deployment *DeployInfo) GetStack(svc CloudFormationDescribeStacksAPI) (types.Stack, error) {
 	if deployment.RawStack == nil {
 		stack, err := GetStack(&deployment.StackName, svc)
 		if err != nil {
@@ -393,7 +393,7 @@ func (deployment *DeployInfo) GetStack(svc *cloudformation.Client) (types.Stack,
 	return *deployment.RawStack, nil
 }
 
-func (deployment *DeployInfo) GetEvents(svc *cloudformation.Client) ([]types.StackEvent, error) {
+func (deployment *DeployInfo) GetEvents(svc CloudFormationDescribeStackEventsAPI) ([]types.StackEvent, error) {
 	input := &cloudformation.DescribeStackEventsInput{
 		StackName: &deployment.StackName,
 	}
@@ -571,7 +571,7 @@ func (deployment *DeployInfo) DeleteStack(svc *cloudformation.Client) bool {
 	return err == nil
 }
 
-func (deployment *DeployInfo) GetExecutionTimes(svc *cloudformation.Client) (map[string]map[string]time.Time, error) {
+func (deployment *DeployInfo) GetExecutionTimes(svc CloudFormationDescribeStackEventsAPI) (map[string]map[string]time.Time, error) {
 	result := make(map[string]map[string]time.Time)
 	events, err := deployment.GetEvents(svc)
 	if err != nil {
