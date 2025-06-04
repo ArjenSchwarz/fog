@@ -100,19 +100,25 @@ func (deploymentlog *DeploymentLog) Write() {
 
 // writeLogToFile prints the provided contents to stdout or the provided filepath
 func writeLogToFile(contents []byte, outputFile string) error {
-	var target io.Writer
-	var err error
-	target, err = os.OpenFile(outputFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	file, err := os.OpenFile(outputFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
 	}
-	w := bufio.NewWriter(target)
+	defer func() {
+		if cerr := file.Close(); cerr != nil && err == nil {
+			err = cerr
+		}
+	}()
+
+	w := bufio.NewWriter(file)
 	contents = append(contents, '\n')
-	if _, err := w.Write(contents); err != nil {
-		return err
+	if _, werr := w.Write(contents); werr != nil {
+		return werr
 	}
-	err = w.Flush()
-	return err
+	if ferr := w.Flush(); ferr != nil {
+		return ferr
+	}
+	return nil
 }
 
 func (deploymentlog *DeploymentLog) AddChangeSet(changeset *ChangesetInfo) {
