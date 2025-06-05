@@ -3,6 +3,7 @@ Unreleased
 
   * Document deploy workflow
   * Add stack utility tests
+  * Expand design for refactoring deploy command
 
 1.10.2 / 2025-06-04
 ===================

@@ -37,23 +37,23 @@ func (m MockCFNClient) ListImports(ctx context.Context, params *cloudformation.L
 // Test_getOutputsForStack verifies export filtering and parsing logic.
 func Test_getOutputsForStack(t *testing.T) {
 	stack := types.Stack{
-		StackName: strPtr("test-stack"),
+		StackName: strPtrOut("test-stack"),
 		Outputs: []types.Output{
 			{
-				OutputKey:   strPtr("Key1"),
-				OutputValue: strPtr("Val1"),
-				ExportName:  strPtr("Export1"),
-				Description: strPtr("desc1"),
+				OutputKey:   strPtrOut("Key1"),
+				OutputValue: strPtrOut("Val1"),
+				ExportName:  strPtrOut("Export1"),
+				Description: strPtrOut("desc1"),
 			},
 			{
-				OutputKey:   strPtr("Key2"),
-				OutputValue: strPtr("Val2"),
+				OutputKey:   strPtrOut("Key2"),
+				OutputValue: strPtrOut("Val2"),
 				ExportName:  nil, // not an export
 			},
 			{
-				OutputKey:   strPtr("Key3"),
-				OutputValue: strPtr("Val3"),
-				ExportName:  strPtr("OtherExport"),
+				OutputKey:   strPtrOut("Key3"),
+				OutputValue: strPtrOut("Val3"),
+				ExportName:  strPtrOut("OtherExport"),
 			},
 		},
 	}
@@ -102,19 +102,19 @@ func TestCfnOutput_FillImports(t *testing.T) {
 func TestGetExports(t *testing.T) {
 	stackName := "test-stack"
 	export1 := types.Output{
-		OutputKey:   strPtr("Key1"),
-		OutputValue: strPtr("Val1"),
-		ExportName:  strPtr("Export1"),
+		OutputKey:   strPtrOut("Key1"),
+		OutputValue: strPtrOut("Val1"),
+		ExportName:  strPtrOut("Export1"),
 	}
 	export2 := types.Output{
-		OutputKey:   strPtr("Key2"),
-		OutputValue: strPtr("Val2"),
-		ExportName:  strPtr("Export2"),
+		OutputKey:   strPtrOut("Key2"),
+		OutputValue: strPtrOut("Val2"),
+		ExportName:  strPtrOut("Export2"),
 	}
 	stacksOutput := cloudformation.DescribeStacksOutput{
 		Stacks: []types.Stack{
 			{
-				StackName: strPtr(stackName),
+				StackName: strPtrOut(stackName),
 				Outputs:   []types.Output{export1, export2},
 			},
 		},
@@ -126,7 +126,7 @@ func TestGetExports(t *testing.T) {
 		},
 	}
 
-	results := GetExports(&stackName, strPtr(""), mock)
+	results := GetExports(&stackName, strPtrOut(""), mock)
 	if len(results) != 2 {
 		t.Fatalf("expected two results, got %d", len(results))
 	}
@@ -144,4 +144,4 @@ func TestGetExports(t *testing.T) {
 	}
 }
 
-func strPtr(s string) *string { return &s }
+func strPtrOut(s string) *string { return &s }
