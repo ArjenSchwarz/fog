@@ -43,20 +43,20 @@ func (m testMiddleware) Execute(ctx context.Context, next func(context.Context) 
 }
 
 func TestBaseCommandBuilder_Run(t *testing.T) {
-	order := []string{}
-	h := &testHandler{calls: &order}
-	v := &testValidator{calls: &order}
-	m1 := testMiddleware{id: "m1", calls: &order}
-	m2 := testMiddleware{id: "m2", calls: &order}
+	executionOrder := []string{}
+	handler := &testHandler{calls: &executionOrder}
+	validator := &testValidator{calls: &executionOrder}
+	middleware1 := testMiddleware{id: "m1", calls: &executionOrder}
+	middleware2 := testMiddleware{id: "m2", calls: &executionOrder}
 
-	b := NewBaseCommandBuilder("test", "", "").
-		WithHandler(h).
-		WithValidator(v).
-		WithMiddleware(m1).
-		WithMiddleware(m2)
+	builder := NewBaseCommandBuilder("test", "", "").
+		WithHandler(handler).
+		WithValidator(validator).
+		WithMiddleware(middleware1).
+		WithMiddleware(middleware2)
 
-	cmd := b.BuildCommand()
-	if !v.registered {
+	cmd := builder.BuildCommand()
+	if !validator.registered {
 		t.Errorf("validator did not register flags")
 	}
 	if err := cmd.RunE(cmd, []string{}); err != nil {
@@ -64,7 +64,7 @@ func TestBaseCommandBuilder_Run(t *testing.T) {
 	}
 
 	expected := []string{"m1 before", "m2 before", "validate", "handler", "m2 after", "m1 after"}
-	if !reflect.DeepEqual(order, expected) {
-		t.Errorf("execution order mismatch\nwant %v\n got %v", expected, order)
+	if !reflect.DeepEqual(executionOrder, expected) {
+		t.Errorf("execution order mismatch\nwant %v\n got %v", expected, executionOrder)
 	}
 }

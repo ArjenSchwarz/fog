@@ -6,6 +6,15 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// contextKey is the type used for values stored in context.Context.
+// Using a custom type prevents collisions with keys from other packages.
+type contextKey string
+
+const (
+	commandCtxKey contextKey = "command"
+	argsCtxKey    contextKey = "args"
+)
+
 // Middleware defines a command middleware.
 type Middleware interface {
 	Execute(ctx context.Context, next func(context.Context) error) error
@@ -70,8 +79,8 @@ func (b *BaseCommandBuilder) GetHandler() CommandHandler { return b.handler }
 
 func (b *BaseCommandBuilder) createRunFunc() func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) error {
-		ctx := context.WithValue(context.Background(), "command", cmd)
-		ctx = context.WithValue(ctx, "args", args)
+		ctx := context.WithValue(context.Background(), commandCtxKey, cmd)
+		ctx = context.WithValue(ctx, argsCtxKey, args)
 
 		handler := func(ctx context.Context) error {
 			if b.validator != nil {
