@@ -51,3 +51,31 @@ func TestRegistryBuildAllNilCommand(t *testing.T) {
 		t.Errorf("expected error when builder returns nil")
 	}
 }
+
+// TestRegistryBuildAllMultiple ensures that multiple registered commands are
+// added to the root command when BuildAll is called.
+func TestRegistryBuildAllMultiple(t *testing.T) {
+	root := &cobra.Command{Use: "root"}
+	registry := NewCommandRegistry(root)
+
+	err := registry.Register("one", stubBuilder{cmd: &cobra.Command{Use: "one"}})
+	if err != nil {
+		t.Fatalf("unexpected register error: %v", err)
+	}
+	err = registry.Register("two", stubBuilder{cmd: &cobra.Command{Use: "two"}})
+	if err != nil {
+		t.Fatalf("unexpected register error: %v", err)
+	}
+
+	if err := registry.BuildAll(); err != nil {
+		t.Fatalf("unexpected build error: %v", err)
+	}
+
+	if len(root.Commands()) != 2 {
+		t.Fatalf("expected two commands to be registered")
+	}
+	uses := []string{root.Commands()[0].Use, root.Commands()[1].Use}
+	if !(uses[0] == "one" && uses[1] == "two" || uses[0] == "two" && uses[1] == "one") {
+		t.Errorf("commands not registered correctly: %v", uses)
+	}
+}
