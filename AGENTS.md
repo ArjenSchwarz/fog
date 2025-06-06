@@ -52,7 +52,6 @@ Before opening a pull request run the following commands:
 ## Pull request requirements
 
 - PR titles should clarify if they're bug fixes, features, refactors, or documentation based in the format `[bug|feature|refactor|doc] <Title>` and should reference the relevant issue when applicable.
-- `CHANGELOG.md` must be updated with a concise message about the changes made, this should be added to the bottom of the list under the header Unreleased. If this header doesn't exist, add it to the top of the file.
 
 ## Configuration examples
 
