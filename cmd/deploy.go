@@ -77,161 +77,20 @@ func deployTemplate(cmd *cobra.Command, args []string) {
 	outputsettings = settings.NewOutputSettings()
 	outputsettings.SeparateTables = true //Make table output stand out more
 
-	// Validate flags
-	if err := deployFlags.Validate(); err != nil {
+	deployment, awsConfig, err := prepareDeployment()
+	if err != nil {
 		fmt.Print(outputsettings.StringFailure(err.Error()))
 		os.Exit(1)
 	}
 
-	deployment.StackName = deployFlags.StackName
-	// Set the changeset name to what's provided, otherwise fall back on the generated value
-	deployment.ChangesetName = deployFlags.ChangesetName
-	if deployment.ChangesetName == "" {
-		deployment.ChangesetName = placeholderParser(viper.GetString("changeset.name-format"), &deployment)
-	}
-	awsConfig, err := config.DefaultAwsConfig(*settings)
-	if err != nil {
-		failWithError(err)
-	}
-	deployment.IsNew = deployment.IsNewStack(awsConfig.CloudformationClient())
-	if !deployment.IsNew {
-		if ready, status := deployment.IsReadyForUpdate(awsConfig.CloudformationClient()); !ready {
-			message := fmt.Sprintf("The stack '%v' is currently in status %v and can't be updated", deployFlags.StackName, status)
-			fmt.Print(outputsettings.StringFailure(message))
-			os.Exit(1)
-		}
-	}
-	deployment.IsDryRun = deployFlags.Dryrun
-	showDeploymentInfo(deployment, awsConfig)
-	if !deployment.IsNew {
-		deploymentName := lib.GenerateDeploymentName(awsConfig, deployment.StackName)
-		if settings.GetBool("logging.enabled") && settings.GetBool("logging.show-previous") {
-			log := lib.GetLatestSuccessFulLogByDeploymentName(deploymentName)
-			if log.DeploymentName != "" {
-				fmt.Print(outputsettings.StringInfo("Previous deployment found:"))
-				printLog(log)
-				// Hack to print the buffer in printLog. Need to get a better solution.
-				output := format.OutputArray{Keys: []string{}, Settings: settings.NewOutputSettings()}
-				output.Write()
-			}
-		}
-	}
 	deploymentLog := lib.NewDeploymentLog(awsConfig, deployment)
-	if deployFlags.DeployChangeset {
-		rawchangeset, err := deployment.GetChangeset(awsConfig.CloudformationClient())
-		if err != nil {
-			message := fmt.Sprintf(string(texts.DeployChangesetMessageRetrieveFailed), deployment.ChangesetName)
-			fmt.Print(outputsettings.StringFailure(message))
-			os.Exit(1)
-		}
-		changeset := deployment.AddChangeset(rawchangeset)
-		deploymentLog.AddChangeSet(&changeset)
-		showChangeset(changeset, deployment, awsConfig)
-	} else {
-		if deployFlags.DeploymentFile != "" {
-			err := deployment.LoadDeploymentFile(deployFlags.DeploymentFile)
-			if err != nil {
-				fmt.Print(outputsettings.StringFailure(err.Error()))
-				os.Exit(1)
-			}
-		}
-		setDeployTemplate(&deployment, awsConfig)
-		setDeployTags(&deployment)
-		setDeployParameters(&deployment)
-		if viper.GetStringSlice("templates.prechecks") != nil {
-			precheckmessage := fmt.Sprintf(string(texts.FilePrecheckStarted), len(viper.GetStringSlice("templates.prechecks")))
-			fmt.Print(outputsettings.StringInfo(precheckmessage))
-			precheckresults, err := lib.RunPrechecks(&deployment)
-			if err != nil {
-				fmt.Print(outputsettings.StringFailure(err))
-			}
-			if deployment.PrechecksFailed {
-				if viper.GetBool("templates.stop-on-failed-prechecks") {
-					fmt.Print(outputsettings.StringFailure(texts.FilePrecheckFailureStop))
-					for command, output := range precheckresults {
-						fmt.Print(outputsettings.StringBold(command))
-						fmt.Println(output)
-					}
-					os.Exit(1)
-				}
-				for command, output := range precheckresults {
-					fmt.Print(outputsettings.StringBold(command))
-					fmt.Println(output)
-				}
-				deploymentLog.PreChecks = lib.DeploymentLogPreChecksFailed
-				fmt.Print(outputsettings.StringFailure(texts.FilePrecheckFailureContinue))
-			} else {
-				deploymentLog.PreChecks = lib.DeploymentLogPreChecksPassed
-				fmt.Print(outputsettings.StringPositive(string(texts.FilePrecheckSuccess)))
-			}
-		}
-		changeset := createChangeset(&deployment, awsConfig)
-		deploymentLog.AddChangeSet(changeset)
-		showChangeset(*changeset, deployment, awsConfig)
-		if deployFlags.Dryrun {
-			fmt.Print(outputsettings.StringSuccess(texts.DeployChangesetMessageDryrunSuccess))
-			deleteChangeset(deployment, awsConfig)
-			os.Exit(0)
-		}
-		if deployFlags.CreateChangeset {
-			fmt.Print(outputsettings.StringSuccess(texts.DeployChangesetMessageSuccess))
-			fmt.Print(outputsettings.StringInfo("Only created the change set, will now terminate"))
-			os.Exit(0)
-		}
-	}
-	var deployChangesetConfirmation bool
-	if deployFlags.NonInteractive {
-		deployChangesetConfirmation = true
-	} else {
-		deployChangesetConfirmation = askForConfirmation(string(texts.DeployChangesetMessageDeployConfirm))
-	}
-	if deployChangesetConfirmation {
-		deployChangeset(deployment, awsConfig)
-	} else {
-		deleteChangeset(deployment, awsConfig)
-		os.Exit(0)
-	}
-	resultStack, err := deployment.GetFreshStack(awsConfig.CloudformationClient())
-	if err != nil {
-		fmt.Print(outputsettings.StringFailure(texts.DeployStackMessageRetrievePostFailed))
-		log.Fatalln(err.Error())
-	}
-	switch resultStack.StackStatus {
-	case types.StackStatusCreateComplete, types.StackStatusUpdateComplete:
-		deploymentLog.Success()
-		fmt.Print(outputsettings.StringSuccess(texts.DeployStackMessageSuccess))
-		if len(resultStack.Outputs) > 0 {
-			outputkeys := []string{"Key", "Value", "Description", "ExportName"}
-			outputtitle := fmt.Sprintf("Outputs for stack %v", *resultStack.StackName)
-			output := format.OutputArray{Keys: outputkeys, Settings: outputsettings}
-			output.Settings.Title = outputtitle
-			for _, outputresult := range resultStack.Outputs {
-				exportName := ""
-				if outputresult.ExportName != nil {
-					exportName = *outputresult.ExportName
-				}
-				description := ""
-				if outputresult.Description != nil {
-					description = *outputresult.Description
-				}
-				content := make(map[string]interface{})
-				content["Key"] = *outputresult.OutputKey
-				content["Value"] = *outputresult.OutputValue
-				content["Description"] = description
-				content["ExportName"] = exportName
-				holder := format.OutputHolder{Contents: content}
-				output.AddHolder(holder)
-			}
-			output.Write()
-		}
-	case types.StackStatusRollbackComplete, types.StackStatusRollbackFailed, types.StackStatusUpdateRollbackComplete, types.StackStatusUpdateRollbackFailed:
-		fmt.Print(outputsettings.StringFailure(texts.DeployStackMessageFailed))
-		failures := showFailedEvents(deployment, awsConfig)
-		deploymentLog.Failed(failures)
-		if deployment.IsNew {
-			//double verify that the stack can be deleted
-			deleteStackIfNew(deployment, awsConfig)
-		}
+
+	precheckOutput := runPrechecks(&deployment, awsConfig, &deploymentLog)
+	fmt.Print(precheckOutput)
+
+	changeset := createAndShowChangeset(&deployment, awsConfig, &deploymentLog)
+	if confirmAndDeployChangeset(changeset, &deployment, awsConfig) {
+		printDeploymentResults(&deployment, awsConfig, &deploymentLog)
 	}
 }
 
