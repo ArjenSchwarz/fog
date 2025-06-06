@@ -67,6 +67,7 @@ func prepareDeployment() (lib.DeployInfo, config.AWSConfig, error) {
 			if log.DeploymentName != "" {
 				fmt.Print(outputsettings.StringInfo("Previous deployment found:"))
 				printLog(log)
+				// Hack to print the buffer in printLog. Need to get a better solution.
 				output := format.OutputArray{Keys: []string{}, Settings: settings.NewOutputSettings()}
 				output.Write()
 			}
@@ -199,6 +200,7 @@ func printDeploymentResults(info *lib.DeployInfo, cfg config.AWSConfig, logObj *
 		failures := showFailedEventsFunc(*info, cfg)
 		logObj.Failed(failures)
 		if info.IsNew {
+			//double verify that the stack can be deleted
 			deleteStackIfNewFunc(*info, cfg)
 		}
 	}

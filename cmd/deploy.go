@@ -73,9 +73,9 @@ func init() {
 }
 
 func deployTemplate(cmd *cobra.Command, args []string) {
-	viper.Set("output", "table")
+	viper.Set("output", "table") //Enforce table output for deployments
 	outputsettings = settings.NewOutputSettings()
-	outputsettings.SeparateTables = true
+	outputsettings.SeparateTables = true //Make table output stand out more
 
 	deployment, awsConfig, err := prepareDeployment()
 	if err != nil {
