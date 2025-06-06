@@ -2,6 +2,7 @@ Unreleased
 ===========
 
   * Document deploy workflow
+  * Use interfaces for CloudFormation exports functions and add tests
   * Add stack utility tests
   * Expand design for refactoring deploy command
   * Refactor deploy command using helper functions
