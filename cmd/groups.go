@@ -22,6 +22,7 @@ THE SOFTWARE.
 package cmd
 
 import (
+	"fmt"
 	"log"
 	"strings"
 
@@ -50,6 +51,9 @@ var (
 		Short: "Utility commands",
 		Long:  `Utility commands for various helper functions.`,
 	}
+
+	// Names of commands already migrated to the new registry-based structure
+	migratedStackCommands = []string{"deploy"}
 )
 
 // InitGroups initializes all command groups and adds them to the root command
@@ -58,6 +62,14 @@ func InitGroups() {
 	rootCmd.AddCommand(stackCmd)
 	rootCmd.AddCommand(resourceGroupCmd)
 	rootCmd.AddCommand(utilGroupCmd)
+
+	// For migrated commands in the stack group, create aliases so old paths
+	// continue to work while the new command registry attaches them at the
+	// root level.
+	for _, name := range migratedStackCommands {
+		short := fmt.Sprintf("Alias for '%s'", name)
+		stackCmd.AddCommand(NewCommandAlias(name, name, short))
+	}
 }
 
 // NewCommandAlias creates a command that redirects to another command path
