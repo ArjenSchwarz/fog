@@ -22,6 +22,10 @@ THE SOFTWARE.
 package cmd
 
 import (
+	"log"
+
+	"github.com/ArjenSchwarz/fog/cmd/commands/deploy"
+	"github.com/ArjenSchwarz/fog/cmd/registry"
 	"github.com/ArjenSchwarz/fog/config"
 	format "github.com/ArjenSchwarz/go-output"
 	"github.com/spf13/cobra"
@@ -55,7 +59,20 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	// Initialize command groups
+	// Create command registry
+	commandRegistry := registry.NewCommandRegistry(rootCmd)
+
+	// Register commands
+	if err := commandRegistry.Register("deploy", deploy.NewCommandBuilder()); err != nil {
+		log.Fatal(err)
+	}
+
+	// Build all commands
+	if err := commandRegistry.BuildAll(); err != nil {
+		log.Fatal(err)
+	}
+
+	// Initialize command groups (temporary during transition)
 	InitGroups()
 
 	// Add aliases for commonly used commands at the root level
