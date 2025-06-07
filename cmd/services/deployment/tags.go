@@ -19,6 +19,7 @@ func (t *TagService) LoadTags(ctx context.Context, tagFiles []string, defaults m
 	// Real implementation would merge defaults and file contents
 	tags := make([]cfnTypes.Tag, 0, len(defaults))
 	for k, v := range defaults {
+		// copy loop vars so pointers remain stable
 		key := k
 		value := v
 		tags = append(tags, cfnTypes.Tag{Key: &key, Value: &value})
