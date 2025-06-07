@@ -9,8 +9,6 @@ import (
 
 // ServiceFactory creates service instances with proper dependencies
 // and provides access to configuration objects.
-// ServiceFactory creates service instances with proper dependencies
-// and provides access to configuration objects.
 type ServiceFactory struct {
 	config    *config.Config
 	awsConfig *config.AWSConfig
