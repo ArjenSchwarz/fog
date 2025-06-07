@@ -3,9 +3,9 @@ package deploy
 import (
 	"context"
 	"fmt"
-	"strings"
 	"testing"
 
+	ferr "github.com/ArjenSchwarz/fog/cmd/errors"
 	"github.com/ArjenSchwarz/fog/cmd/services"
 	"github.com/ArjenSchwarz/fog/config"
 )
@@ -34,8 +34,13 @@ func TestValidateFlags(t *testing.T) {
 	}
 
 	h = NewHandler(&Flags{}, mockHandlerDeploymentService{}, &config.Config{})
-	if err := h.ValidateFlags(); err == nil {
+	err := h.ValidateFlags()
+	if err == nil {
 		t.Fatalf("expected validation error when stack name missing")
+	}
+	fe, ok := err.(ferr.FogError)
+	if !ok || fe.Code() != ferr.ErrRequiredField {
+		t.Fatalf("unexpected error type: %#v", err)
 	}
 }
 
@@ -43,7 +48,11 @@ func TestValidateFlags(t *testing.T) {
 func TestExecute(t *testing.T) {
 	h := NewHandler(&Flags{StackName: "test"}, mockHandlerDeploymentService{}, &config.Config{})
 	err := h.Execute(context.Background())
-	if err == nil || !strings.Contains(err.Error(), "failed to create changeset") {
-		t.Fatalf("unexpected error: %v", err)
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	fe, ok := err.(ferr.FogError)
+	if !ok || fe.Code() != ferr.ErrChangesetFailed {
+		t.Fatalf("unexpected error: %#v", err)
 	}
 }
