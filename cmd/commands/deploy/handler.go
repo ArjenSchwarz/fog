@@ -2,10 +2,11 @@ package deploy
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
+	"github.com/ArjenSchwarz/fog/cmd/errors"
 	"github.com/ArjenSchwarz/fog/cmd/services"
+	"github.com/ArjenSchwarz/fog/cmd/validation"
 	"github.com/ArjenSchwarz/fog/config"
 )
 
@@ -27,6 +28,13 @@ func NewHandler(flags *Flags, deploymentService services.DeploymentService, conf
 
 // Execute runs the deploy command using the deployment service.
 func (h *Handler) Execute(ctx context.Context) error {
+	errorCtx := errors.NewErrorContext("deploy", "command").WithStackName(h.flags.StackName)
+	ctx = errors.WithErrorContext(ctx, errorCtx)
+
+	if err := h.ValidateFlags(); err != nil {
+		return err
+	}
+
 	opts := services.DeploymentOptions{
 		StackName:      h.flags.StackName,
 		TemplateSource: h.flags.Template,
@@ -44,16 +52,16 @@ func (h *Handler) Execute(ctx context.Context) error {
 
 	plan, err := h.deploymentService.PrepareDeployment(ctx, opts)
 	if err != nil {
-		return fmt.Errorf("failed to prepare deployment: %w", err)
+		return errors.WrapError(errorCtx, err, errors.ErrInternal, "failed to prepare deployment")
 	}
 
 	if err := h.deploymentService.ValidateDeployment(ctx, plan); err != nil {
-		return fmt.Errorf("deployment validation failed: %w", err)
+		return errors.WrapError(errorCtx, err, errors.ErrInternal, "deployment validation failed")
 	}
 
 	changeset, err := h.deploymentService.CreateChangeset(ctx, plan)
 	if err != nil {
-		return fmt.Errorf("failed to create changeset: %w", err)
+		return errors.WrapError(errorCtx, err, errors.ErrChangesetFailed, "failed to create changeset")
 	}
 
 	if opts.DryRun {
@@ -66,21 +74,46 @@ func (h *Handler) Execute(ctx context.Context) error {
 
 	result, err := h.deploymentService.ExecuteDeployment(ctx, plan, changeset)
 	if err != nil {
-		return fmt.Errorf("deployment failed: %w", err)
+		return errors.WrapError(errorCtx, err, errors.ErrDeploymentFailed, "deployment failed")
 	}
 
 	if result.Success {
 		return nil
 	}
-	return fmt.Errorf("deployment completed with errors: %s", result.ErrorMessage)
+	return errors.ContextualError(errorCtx, errors.ErrDeploymentFailed, "deployment completed with errors")
 }
 
 // ValidateFlags validates the command flags using the Flags struct.
 func (h *Handler) ValidateFlags() error {
 	if h.flags == nil {
-		return fmt.Errorf("no flags provided")
+		return errors.ContextualError(
+			errors.NewErrorContext("deploy", "validation"),
+			errors.ErrInternal,
+			"no flags provided",
+		)
 	}
-	return h.flags.Validate()
+
+	vb := validation.NewValidationErrorBuilder("deploy-flags")
+
+	if h.flags.StackName == "" {
+		vb.RequiredField("stackname")
+	}
+
+	if h.flags.DeploymentFile != "" && (h.flags.Template != "" || h.flags.Parameters != "" || h.flags.Tags != "") {
+		flags := []string{"deployment-file"}
+		if h.flags.Template != "" {
+			flags = append(flags, "template")
+		}
+		if h.flags.Parameters != "" {
+			flags = append(flags, "parameters")
+		}
+		if h.flags.Tags != "" {
+			flags = append(flags, "tags")
+		}
+		vb.ConflictingFlags(flags)
+	}
+
+	return vb.Build()
 }
 
 // parseCommaSeparated splits a comma-separated string and trims whitespace.
