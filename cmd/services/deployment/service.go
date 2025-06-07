@@ -34,8 +34,9 @@ func NewService(tmpl services.TemplateService, params services.ParameterService,
 // This placeholder only fills a few fields and performs no AWS calls.
 func (s *Service) PrepareDeployment(ctx context.Context, opts services.DeploymentOptions) (*services.DeploymentPlan, error) {
 	plan := &services.DeploymentPlan{
-		StackName: opts.StackName,
-		Options:   opts,
+		StackName:     opts.StackName,
+		Options:       opts,
+		ChangesetName: opts.ChangesetName,
 	}
 
 	tmpl, err := s.templateService.LoadTemplate(ctx, opts.TemplateSource)
