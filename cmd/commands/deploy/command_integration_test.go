@@ -2,10 +2,10 @@ package deploy
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"testing"
 
+	ferr "github.com/ArjenSchwarz/fog/cmd/errors"
 	"github.com/ArjenSchwarz/fog/cmd/services"
 	"github.com/ArjenSchwarz/fog/config"
 	"github.com/spf13/cobra"
@@ -13,16 +13,16 @@ import (
 
 type integrationDeploymentService struct{}
 
-func (m integrationDeploymentService) PrepareDeployment(ctx context.Context, opts services.DeploymentOptions) (*services.DeploymentPlan, error) {
+func (m integrationDeploymentService) PrepareDeployment(ctx context.Context, opts services.DeploymentOptions) (*services.DeploymentPlan, ferr.FogError) {
 	return &services.DeploymentPlan{}, nil
 }
-func (m integrationDeploymentService) ValidateDeployment(ctx context.Context, plan *services.DeploymentPlan) error {
+func (m integrationDeploymentService) ValidateDeployment(ctx context.Context, plan *services.DeploymentPlan) ferr.FogError {
 	return nil
 }
-func (m integrationDeploymentService) CreateChangeset(ctx context.Context, plan *services.DeploymentPlan) (*services.ChangesetResult, error) {
-	return nil, fmt.Errorf("changeset logic not implemented")
+func (m integrationDeploymentService) CreateChangeset(ctx context.Context, plan *services.DeploymentPlan) (*services.ChangesetResult, ferr.FogError) {
+	return nil, ferr.NewError(ferr.ErrNotImplemented, "changeset logic not implemented")
 }
-func (m integrationDeploymentService) ExecuteDeployment(ctx context.Context, plan *services.DeploymentPlan, cs *services.ChangesetResult) (*services.DeploymentResult, error) {
+func (m integrationDeploymentService) ExecuteDeployment(ctx context.Context, plan *services.DeploymentPlan, cs *services.ChangesetResult) (*services.DeploymentResult, ferr.FogError) {
 	return &services.DeploymentResult{Success: true}, nil
 }
 

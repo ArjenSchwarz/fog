@@ -3,6 +3,7 @@ package deployment
 import (
 	"context"
 
+	ferr "github.com/ArjenSchwarz/fog/cmd/errors"
 	cfnTypes "github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
 )
 
@@ -13,7 +14,7 @@ type TagService struct{}
 func NewTagService() *TagService { return &TagService{} }
 
 // LoadTags loads tags from files. Placeholder implementation.
-func (t *TagService) LoadTags(ctx context.Context, tagFiles []string, defaults map[string]string) ([]cfnTypes.Tag, error) {
+func (t *TagService) LoadTags(ctx context.Context, tagFiles []string, defaults map[string]string) ([]cfnTypes.Tag, ferr.FogError) {
 	_ = ctx
 	_ = tagFiles
 	// Real implementation would merge defaults and file contents
@@ -28,7 +29,7 @@ func (t *TagService) LoadTags(ctx context.Context, tagFiles []string, defaults m
 }
 
 // ValidateTags validates the provided tags. Placeholder implementation.
-func (t *TagService) ValidateTags(ctx context.Context, tags []cfnTypes.Tag) error {
+func (t *TagService) ValidateTags(ctx context.Context, tags []cfnTypes.Tag) ferr.FogError {
 	_ = ctx
 	_ = tags
 	return nil
