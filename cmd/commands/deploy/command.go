@@ -15,7 +15,7 @@ type CommandBuilder struct {
 
 // NewCommandBuilder creates a new deploy command builder.
 // NewCommandBuilder creates a new deploy command builder with injected services.
-func NewCommandBuilder(factory services.ServiceFactory) *CommandBuilder {
+func NewCommandBuilder(factory services.ServiceFactory, middlewares ...registry.Middleware) *CommandBuilder {
 	flags := &Flags{}
 	builder := registry.NewBaseCommandBuilder(
 		"deploy",
@@ -35,8 +35,13 @@ When providing tag and/or parameter files, you can add multiple files for each. 
 	}
 	handler := NewHandler(flags, factory.CreateDeploymentService(), cfg)
 
+	base := builder.WithHandler(handler).WithValidator(flags)
+	for _, mw := range middlewares {
+		base = base.WithMiddleware(mw)
+	}
+
 	return &CommandBuilder{
-		BaseCommandBuilder: builder.WithHandler(handler).WithValidator(flags),
+		BaseCommandBuilder: base,
 		flags:              flags,
 	}
 }
