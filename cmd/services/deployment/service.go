@@ -2,8 +2,8 @@ package deployment
 
 import (
 	"context"
-	"fmt"
 
+	ferr "github.com/ArjenSchwarz/fog/cmd/errors"
 	"github.com/ArjenSchwarz/fog/cmd/services"
 	"github.com/ArjenSchwarz/fog/config"
 )
@@ -32,7 +32,7 @@ func NewService(tmpl services.TemplateService, params services.ParameterService,
 
 // PrepareDeployment builds a DeploymentPlan from the given options.
 // This placeholder only fills a few fields and performs no AWS calls.
-func (s *Service) PrepareDeployment(ctx context.Context, opts services.DeploymentOptions) (*services.DeploymentPlan, error) {
+func (s *Service) PrepareDeployment(ctx context.Context, opts services.DeploymentOptions) (*services.DeploymentPlan, ferr.FogError) {
 	plan := &services.DeploymentPlan{
 		StackName:     opts.StackName,
 		Options:       opts,
@@ -65,7 +65,7 @@ func (s *Service) PrepareDeployment(ctx context.Context, opts services.Deploymen
 }
 
 // ValidateDeployment performs basic validation of the deployment plan.
-func (s *Service) ValidateDeployment(ctx context.Context, plan *services.DeploymentPlan) error {
+func (s *Service) ValidateDeployment(ctx context.Context, plan *services.DeploymentPlan) ferr.FogError {
 	if err := s.templateService.ValidateTemplate(ctx, plan.Template); err != nil {
 		return err
 	}
@@ -83,12 +83,13 @@ func (s *Service) ValidateDeployment(ctx context.Context, plan *services.Deploym
 
 // CreateChangeset creates a CloudFormation changeset.
 // Placeholder implementation returning a not implemented error.
-func (s *Service) CreateChangeset(ctx context.Context, plan *services.DeploymentPlan) (*services.ChangesetResult, error) {
+func (s *Service) CreateChangeset(ctx context.Context, plan *services.DeploymentPlan) (*services.ChangesetResult, ferr.FogError) {
 	return s.createChangeSet(ctx, plan)
 }
 
 // ExecuteDeployment executes the previously created changeset.
 // Placeholder implementation returning a not implemented error.
-func (s *Service) ExecuteDeployment(ctx context.Context, plan *services.DeploymentPlan, changeset *services.ChangesetResult) (*services.DeploymentResult, error) {
-	return nil, fmt.Errorf("deployment execution not implemented")
+func (s *Service) ExecuteDeployment(ctx context.Context, plan *services.DeploymentPlan, changeset *services.ChangesetResult) (*services.DeploymentResult, ferr.FogError) {
+	errorCtx := ferr.GetErrorContext(ctx)
+	return nil, ferr.ContextualError(errorCtx, ferr.ErrNotImplemented, "deployment execution not implemented")
 }

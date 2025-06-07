@@ -2,7 +2,6 @@ package deploy
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
 	ferr "github.com/ArjenSchwarz/fog/cmd/errors"
@@ -12,16 +11,16 @@ import (
 
 type mockHandlerDeploymentService struct{}
 
-func (m mockHandlerDeploymentService) PrepareDeployment(ctx context.Context, opts services.DeploymentOptions) (*services.DeploymentPlan, error) {
+func (m mockHandlerDeploymentService) PrepareDeployment(ctx context.Context, opts services.DeploymentOptions) (*services.DeploymentPlan, ferr.FogError) {
 	return &services.DeploymentPlan{}, nil
 }
-func (m mockHandlerDeploymentService) ValidateDeployment(ctx context.Context, plan *services.DeploymentPlan) error {
+func (m mockHandlerDeploymentService) ValidateDeployment(ctx context.Context, plan *services.DeploymentPlan) ferr.FogError {
 	return nil
 }
-func (m mockHandlerDeploymentService) CreateChangeset(ctx context.Context, plan *services.DeploymentPlan) (*services.ChangesetResult, error) {
-	return nil, fmt.Errorf("changeset logic not implemented")
+func (m mockHandlerDeploymentService) CreateChangeset(ctx context.Context, plan *services.DeploymentPlan) (*services.ChangesetResult, ferr.FogError) {
+	return nil, ferr.NewError(ferr.ErrNotImplemented, "changeset logic not implemented")
 }
-func (m mockHandlerDeploymentService) ExecuteDeployment(ctx context.Context, plan *services.DeploymentPlan, cs *services.ChangesetResult) (*services.DeploymentResult, error) {
+func (m mockHandlerDeploymentService) ExecuteDeployment(ctx context.Context, plan *services.DeploymentPlan, cs *services.ChangesetResult) (*services.DeploymentResult, ferr.FogError) {
 	return &services.DeploymentResult{Success: true}, nil
 }
 
