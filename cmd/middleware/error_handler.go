@@ -12,15 +12,13 @@ import (
 type ErrorHandlingMiddleware struct {
 	formatter errors.ErrorFormatter
 	ui        ui.OutputHandler
-	verbose   bool
 }
 
 // NewErrorHandlingMiddleware creates a new error handling middleware.
-func NewErrorHandlingMiddleware(formatter errors.ErrorFormatter, ui ui.OutputHandler, verbose bool) *ErrorHandlingMiddleware {
+func NewErrorHandlingMiddleware(formatter errors.ErrorFormatter, ui ui.OutputHandler) *ErrorHandlingMiddleware {
 	return &ErrorHandlingMiddleware{
 		formatter: formatter,
 		ui:        ui,
-		verbose:   verbose,
 	}
 }
 
@@ -67,7 +65,7 @@ func (m *ErrorHandlingMiddleware) displayError(err errors.FogError) {
 		m.ui.Error(formatted)
 	}
 
-	if m.verbose && err.StackTrace() != nil {
+	if m.ui.GetVerbose() && err.StackTrace() != nil {
 		m.ui.Debug("Stack trace:")
 		for _, frame := range err.StackTrace() {
 			m.ui.Debug("  " + frame)

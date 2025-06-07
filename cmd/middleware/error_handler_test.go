@@ -64,7 +64,7 @@ func (s *stubUI) GetVerbose() bool                          { return s.verbose }
 func TestErrorHandlingMiddleware_ConvertsGenericError(t *testing.T) {
 	formatter := &stubFormatter{}
 	ui := &stubUI{}
-	mw := NewErrorHandlingMiddleware(formatter, ui, false)
+	mw := NewErrorHandlingMiddleware(formatter, ui)
 
 	next := func(context.Context) error {
 		return errors.New("boom")
@@ -107,7 +107,7 @@ func TestRecoveryMiddleware_RecoversPanic(t *testing.T) {
 func TestErrorHandlingMiddleware_FormatterIntegration(t *testing.T) {
 	formatter := &stubFormatter{}
 	ui := &stubUI{}
-	mw := NewErrorHandlingMiddleware(formatter, ui, false)
+	mw := NewErrorHandlingMiddleware(formatter, ui)
 
 	// multi error should use FormatMultiError
 	e1 := ferr.NewError(ferr.ErrUnknown, "one")
