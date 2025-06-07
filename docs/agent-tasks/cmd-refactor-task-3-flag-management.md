@@ -86,14 +86,14 @@ import (
 
 // FlagValidator defines the interface for flag validation
 type FlagValidator interface {
-    Validate(ctx context.Context) error
+    Validate(ctx context.Context, vCtx *ValidationContext) error
     RegisterFlags(cmd *cobra.Command)
     GetValidationRules() []ValidationRule
 }
 
 // ValidationRule defines a single validation rule
 type ValidationRule interface {
-    Validate(ctx context.Context, flags FlagValidator) error
+    Validate(ctx context.Context, flags FlagValidator, vCtx *ValidationContext) error
     GetDescription() string
     GetSeverity() ValidationSeverity
 }
@@ -149,7 +149,7 @@ type ValidationContext struct {
 
 // FlagPreprocessor handles flag preprocessing
 type FlagPreprocessor interface {
-    Process(ctx context.Context, flags FlagValidator) error
+    Process(ctx context.Context, flags FlagValidator, vCtx *ValidationContext) error
 }
 ```
 
@@ -202,10 +202,10 @@ func (b *BaseFlagValidator) AddPreprocessor(preprocessor FlagPreprocessor) {
 }
 
 // Validate validates all flags and rules
-func (b *BaseFlagValidator) Validate(ctx context.Context) error {
+func (b *BaseFlagValidator) Validate(ctx context.Context, vCtx *ValidationContext) error {
     // Run preprocessors first
     for _, preprocessor := range b.preprocessors {
-        if err := preprocessor.Process(ctx, b); err != nil {
+        if err := preprocessor.Process(ctx, b, vCtx); err != nil {
             return fmt.Errorf("flag preprocessing failed: %w", err)
         }
     }
@@ -213,30 +213,24 @@ func (b *BaseFlagValidator) Validate(ctx context.Context) error {
     // Collect all validation errors
     var errors []error
     var warnings []string
+    var infos []string
 
     // Run all validation rules
     for _, rule := range b.rules {
-        if err := rule.Validate(ctx, b); err != nil {
+        if err := rule.Validate(ctx, b, vCtx); err != nil {
             switch rule.GetSeverity() {
             case SeverityError:
                 errors = append(errors, err)
             case SeverityWarning:
                 warnings = append(warnings, err.Error())
             case SeverityInfo:
-                // Log info messages
-                fmt.Printf("Info: %s\n", err.Error())
+                infos = append(infos, err.Error())
             }
         }
     }
 
-    // Display warnings
-    for _, warning := range warnings {
-        fmt.Printf("Warning: %s\n", warning)
-    }
-
-    // Return first error if any
-    if len(errors) > 0 {
-        return fmt.Errorf("flag validation failed: %w", errors[0])
+    if vErr := NewValidationError(errors, warnings, infos); vErr != nil {
+        return vErr
     }
 
     return nil
@@ -286,7 +280,7 @@ func NewRequiredFieldRule(fieldName string, getValue func(flags.FlagValidator) i
 }
 
 // Validate checks if the field has a value
-func (r *RequiredFieldRule) Validate(ctx context.Context, flags flags.FlagValidator) error {
+func (r *RequiredFieldRule) Validate(ctx context.Context, flags flags.FlagValidator, vCtx *flags.ValidationContext) error {
     value := r.GetValue(flags)
 
     if isEmpty(value) {
@@ -365,7 +359,7 @@ func NewDependencyRule(
 }
 
 // Validate checks dependencies
-func (d *DependencyRule) Validate(ctx context.Context, flags flags.FlagValidator) error {
+func (d *DependencyRule) Validate(ctx context.Context, flags flags.FlagValidator, vCtx *flags.ValidationContext) error {
     triggerValue := d.GetTrigger(flags)
 
     // If trigger field is not set, no validation needed
@@ -427,7 +421,7 @@ func NewConflictRule(
 }
 
 // Validate checks for conflicts
-func (c *ConflictRule) Validate(ctx context.Context, flags flags.FlagValidator) error {
+func (c *ConflictRule) Validate(ctx context.Context, flags flags.FlagValidator, vCtx *flags.ValidationContext) error {
     setFields := make([]string, 0)
 
     // Check which fields are set
@@ -491,7 +485,7 @@ func NewFileExistsRule(fieldName string, getValue func(flags.FlagValidator) stri
 }
 
 // Validate checks if the file exists
-func (f *FileExistsRule) Validate(ctx context.Context, flags flags.FlagValidator) error {
+func (f *FileExistsRule) Validate(ctx context.Context, flags flags.FlagValidator, vCtx *flags.ValidationContext) error {
     value := f.GetValue(flags)
 
     if value == "" {
@@ -537,7 +531,7 @@ func NewFileExtensionRule(fieldName string, getValue func(flags.FlagValidator) s
 }
 
 // Validate checks the file extension
-func (f *FileExtensionRule) Validate(ctx context.Context, flags flags.FlagValidator) error {
+func (f *FileExtensionRule) Validate(ctx context.Context, flags flags.FlagValidator, vCtx *flags.ValidationContext) error {
     value := f.GetValue(flags)
 
     if value == "" {
@@ -591,7 +585,7 @@ func NewRegexRule(fieldName string, getValue func(flags.FlagValidator) string, p
 }
 
 // Validate checks the regex pattern
-func (r *RegexRule) Validate(ctx context.Context, flags flags.FlagValidator) error {
+func (r *RegexRule) Validate(ctx context.Context, flags flags.FlagValidator, vCtx *flags.ValidationContext) error {
     value := r.GetValue(flags)
 
     if value == "" {
@@ -796,7 +790,7 @@ type TemplateRequiredRule struct {
     flags *DeploymentFlags
 }
 
-func (t *TemplateRequiredRule) Validate(ctx context.Context, flags flags.FlagValidator) error {
+func (t *TemplateRequiredRule) Validate(ctx context.Context, flags flags.FlagValidator, vCtx *flags.ValidationContext) error {
     if t.flags.DeploymentFile == "" && t.flags.Template == "" {
         return fmt.Errorf("either --template or --deployment-file must be specified")
     }
@@ -816,7 +810,7 @@ type ChangesetModeRule struct {
     flags *DeploymentFlags
 }
 
-func (c *ChangesetModeRule) Validate(ctx context.Context, flags flags.FlagValidator) error {
+func (c *ChangesetModeRule) Validate(ctx context.Context, flags flags.FlagValidator, vCtx *flags.ValidationContext) error {
     if c.flags.CreateChangeset && c.flags.DeployChangeset {
         return fmt.Errorf("--create-changeset and --deploy-changeset cannot be used together")
     }
