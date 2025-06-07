@@ -26,6 +26,7 @@ import (
 
 	"github.com/ArjenSchwarz/fog/cmd/commands/deploy"
 	"github.com/ArjenSchwarz/fog/cmd/registry"
+	servicesfactory "github.com/ArjenSchwarz/fog/cmd/services/factory"
 	"github.com/ArjenSchwarz/fog/config"
 	format "github.com/ArjenSchwarz/go-output"
 	"github.com/spf13/cobra"
@@ -62,8 +63,12 @@ func init() {
 	// Create command registry
 	commandRegistry := registry.NewCommandRegistry(rootCmd)
 
+	// Instantiate service factory
+	awsCfg := config.AWSConfig{}
+	factory := servicesfactory.NewServiceFactory(settings, &awsCfg)
+
 	// Register commands
-	if err := commandRegistry.Register("deploy", deploy.NewCommandBuilder()); err != nil {
+	if err := commandRegistry.Register("deploy", deploy.NewCommandBuilder(factory)); err != nil {
 		log.Fatal(err)
 	}
 

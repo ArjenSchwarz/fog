@@ -1,16 +1,46 @@
 package deploy
 
 import (
+	"context"
+	"fmt"
 	"strings"
 	"testing"
 
+	"github.com/ArjenSchwarz/fog/cmd/services"
+	"github.com/ArjenSchwarz/fog/config"
 	"github.com/spf13/cobra"
 )
+
+type integrationDeploymentService struct{}
+
+func (m integrationDeploymentService) PrepareDeployment(ctx context.Context, opts services.DeploymentOptions) (*services.DeploymentPlan, error) {
+	return &services.DeploymentPlan{}, nil
+}
+func (m integrationDeploymentService) ValidateDeployment(ctx context.Context, plan *services.DeploymentPlan) error {
+	return nil
+}
+func (m integrationDeploymentService) CreateChangeset(ctx context.Context, plan *services.DeploymentPlan) (*services.ChangesetResult, error) {
+	return nil, fmt.Errorf("changeset logic not implemented")
+}
+func (m integrationDeploymentService) ExecuteDeployment(ctx context.Context, plan *services.DeploymentPlan, cs *services.ChangesetResult) (*services.DeploymentResult, error) {
+	return &services.DeploymentResult{Success: true}, nil
+}
+
+type stubFactory struct{ cfg *config.Config }
+
+func (f stubFactory) CreateDeploymentService() services.DeploymentService {
+	return integrationDeploymentService{}
+}
+func (f stubFactory) CreateDriftService() services.DriftService { return nil }
+func (f stubFactory) CreateStackService() services.StackService { return nil }
+func (f stubFactory) AppConfig() *config.Config                 { return f.cfg }
+func (f stubFactory) AWSConfig() *config.AWSConfig              { return &config.AWSConfig{} }
 
 // buildRoot creates a root command with the deploy command registered.
 func buildRoot() *cobra.Command {
 	root := &cobra.Command{Use: "root"}
-	builder := NewCommandBuilder()
+	factory := stubFactory{cfg: &config.Config{}}
+	builder := NewCommandBuilder(factory)
 	root.AddCommand(builder.BuildCommand())
 	return root
 }
@@ -19,7 +49,7 @@ func TestDeployCommandExecuteValid(t *testing.T) {
 	root := buildRoot()
 	root.SetArgs([]string{"deploy", "--stackname", "test"})
 	err := root.Execute()
-	if err == nil || !strings.Contains(err.Error(), "not yet implemented") {
+	if err == nil || !strings.Contains(err.Error(), "failed to create changeset") {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
