@@ -75,7 +75,9 @@ func TestRegistryBuildAllMultiple(t *testing.T) {
 		t.Fatalf("expected two commands to be registered")
 	}
 	uses := []string{root.Commands()[0].Use, root.Commands()[1].Use}
-	if !(uses[0] == "one" && uses[1] == "two" || uses[0] == "two" && uses[1] == "one") {
+	condA := uses[0] == "one" && uses[1] == "two"
+	condB := uses[0] == "two" && uses[1] == "one"
+	if !condA && !condB {
 		t.Errorf("commands not registered correctly: %v", uses)
 	}
 }
