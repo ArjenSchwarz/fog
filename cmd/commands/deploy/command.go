@@ -2,6 +2,8 @@ package deploy
 
 import (
 	"github.com/ArjenSchwarz/fog/cmd/registry"
+	services "github.com/ArjenSchwarz/fog/cmd/services"
+	"github.com/ArjenSchwarz/fog/config"
 	"github.com/spf13/cobra"
 )
 
@@ -12,7 +14,8 @@ type CommandBuilder struct {
 }
 
 // NewCommandBuilder creates a new deploy command builder.
-func NewCommandBuilder() *CommandBuilder {
+// NewCommandBuilder creates a new deploy command builder with injected services.
+func NewCommandBuilder(factory services.ServiceFactory) *CommandBuilder {
 	flags := &Flags{}
 	builder := registry.NewBaseCommandBuilder(
 		"deploy",
@@ -26,8 +29,11 @@ A name for the changeset will automatically be generated based on your preferred
 When providing tag and/or parameter files, you can add multiple files for each. These are parsed in the order provided and later values will override earlier ones.
 `,
 	)
-
-	handler := NewHandler(flags)
+	var cfg *config.Config
+	if cp, ok := factory.(services.ConfigProvider); ok {
+		cfg = cp.AppConfig()
+	}
+	handler := NewHandler(flags, factory.CreateDeploymentService(), cfg)
 
 	return &CommandBuilder{
 		BaseCommandBuilder: builder.WithHandler(handler).WithValidator(flags),
