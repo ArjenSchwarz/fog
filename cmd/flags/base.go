@@ -2,6 +2,7 @@ package flags
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -42,35 +43,32 @@ func (b *BaseFlagValidator) AddPreprocessor(preprocessor FlagPreprocessor) {
 }
 
 // Validate validates all flags and rules.
-func (b *BaseFlagValidator) Validate(ctx context.Context) error {
+func (b *BaseFlagValidator) Validate(ctx context.Context, vCtx *ValidationContext) error {
 	for _, preprocessor := range b.preprocessors {
-		if err := preprocessor.Process(ctx, b); err != nil {
+		if err := preprocessor.Process(ctx, b, vCtx); err != nil {
 			return fmt.Errorf("flag preprocessing failed: %w", err)
 		}
 	}
 
-	var errors []error
+	var errs []error
 	var warnings []string
+	var infos []string
 
 	for _, rule := range b.rules {
-		if err := rule.Validate(ctx, b); err != nil {
+		if err := rule.Validate(ctx, b, vCtx); err != nil {
 			switch rule.GetSeverity() {
 			case SeverityError:
-				errors = append(errors, err)
+				errs = append(errs, err)
 			case SeverityWarning:
 				warnings = append(warnings, err.Error())
 			case SeverityInfo:
-				fmt.Printf("Info: %s\n", err.Error())
+				infos = append(infos, err.Error())
 			}
 		}
 	}
 
-	for _, warning := range warnings {
-		fmt.Printf("Warning: %s\n", warning)
-	}
-
-	if len(errors) > 0 {
-		return fmt.Errorf("flag validation failed: %w", errors[0])
+	if vErr := NewValidationError(errs, warnings, infos); vErr != nil {
+		return vErr
 	}
 
 	return nil
@@ -86,4 +84,19 @@ func (b *BaseFlagValidator) RegisterFlags(cmd *cobra.Command) {
 // GetValidationRules returns all validation rules.
 func (b *BaseFlagValidator) GetValidationRules() []ValidationRule {
 	return b.rules
+}
+
+// NewValidationError constructs a ValidationError from the collected errors,
+// warnings, and informational messages. It returns nil if no messages are
+// provided.
+func NewValidationError(errs []error, warnings, infos []string) *ValidationError {
+	if len(errs) == 0 && len(warnings) == 0 && len(infos) == 0 {
+		return nil
+	}
+
+	return &ValidationError{
+		Err:      errors.Join(errs...),
+		Warnings: warnings,
+		Infos:    infos,
+	}
 }

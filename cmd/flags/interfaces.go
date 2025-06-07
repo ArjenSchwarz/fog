@@ -2,6 +2,7 @@ package flags
 
 import (
 	"context"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -10,7 +11,7 @@ import (
 // Validate should process all registered validation rules and return an error
 // if any rules of severity Error fail.
 type FlagValidator interface {
-	Validate(ctx context.Context) error
+	Validate(ctx context.Context, vCtx *ValidationContext) error
 	RegisterFlags(cmd *cobra.Command)
 	GetValidationRules() []ValidationRule
 }
@@ -18,7 +19,7 @@ type FlagValidator interface {
 // ValidationRule defines a single validation rule used by a FlagValidator
 // implementation.
 type ValidationRule interface {
-	Validate(ctx context.Context, flags FlagValidator) error
+	Validate(ctx context.Context, flags FlagValidator, vCtx *ValidationContext) error
 	GetDescription() string
 	GetSeverity() ValidationSeverity
 }
@@ -74,5 +75,37 @@ type ValidationContext struct {
 
 // FlagPreprocessor handles flag preprocessing before validation occurs.
 type FlagPreprocessor interface {
-	Process(ctx context.Context, flags FlagValidator) error
+	Process(ctx context.Context, flags FlagValidator, vCtx *ValidationContext) error
+}
+
+// ValidationError aggregates all validation errors, warnings, and informational
+// messages encountered during flag validation.
+type ValidationError struct {
+	Err      error
+	Warnings []string
+	Infos    []string
+}
+
+// Error implements the error interface.
+func (v *ValidationError) Error() string {
+	messages := make([]string, 0)
+	if v.Err != nil {
+		messages = append(messages, v.Err.Error())
+	}
+	for _, w := range v.Warnings {
+		messages = append(messages, "warning: "+w)
+	}
+	for _, i := range v.Infos {
+		messages = append(messages, "info: "+i)
+	}
+	if len(messages) == 0 {
+		return ""
+	}
+	return strings.Join(messages, "; ")
+}
+
+// Unwrap returns the underlying aggregated error, enabling errors.Is/As
+// behaviour.
+func (v *ValidationError) Unwrap() error {
+	return v.Err
 }
