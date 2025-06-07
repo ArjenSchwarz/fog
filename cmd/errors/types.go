@@ -6,27 +6,108 @@ import (
 	"time"
 )
 
-// ErrorCode identifies a particular error condition.
+// ErrorCode represents a specific error condition.
 type ErrorCode string
 
-// Default error codes used in this package.
-const (
-	ErrUnknown        ErrorCode = "UNKNOWN"
-	ErrMultipleErrors ErrorCode = "MULTIPLE_ERRORS"
-)
-
-// ErrorCategory classifies the source of an error.
+// ErrorCategory defines the broad category an error belongs to.
 type ErrorCategory int
 
 const (
 	CategoryUnknown ErrorCategory = iota
+	CategoryValidation
+	CategoryConfiguration
+	CategoryNetwork
+	CategoryAWS
+	CategoryFileSystem
+	CategoryTemplate
+	CategoryPermission
+	CategoryResource
+	CategoryInternal
 )
 
-// ErrorSeverity indicates how severe an error is.
+// ErrorSeverity indicates how severe an error is considered.
 type ErrorSeverity int
 
 const (
 	SeverityLow ErrorSeverity = iota
+	SeverityMedium
+	SeverityHigh
+	SeverityCritical
+)
+
+// General error codes.
+const (
+	ErrUnknown        ErrorCode = "UNKNOWN"
+	ErrInternal       ErrorCode = "INTERNAL"
+	ErrNotImplemented ErrorCode = "NOT_IMPLEMENTED"
+	ErrMultipleErrors ErrorCode = "MULTIPLE_ERRORS"
+)
+
+// Validation error codes.
+const (
+	ErrValidationFailed  ErrorCode = "VALIDATION_FAILED"
+	ErrRequiredField     ErrorCode = "REQUIRED_FIELD"
+	ErrInvalidValue      ErrorCode = "INVALID_VALUE"
+	ErrInvalidFormat     ErrorCode = "INVALID_FORMAT"
+	ErrConflictingFlags  ErrorCode = "CONFLICTING_FLAGS"
+	ErrDependencyMissing ErrorCode = "DEPENDENCY_MISSING"
+)
+
+// Configuration error codes.
+const (
+	ErrConfigNotFound     ErrorCode = "CONFIG_NOT_FOUND"
+	ErrConfigInvalid      ErrorCode = "CONFIG_INVALID"
+	ErrConfigPermission   ErrorCode = "CONFIG_PERMISSION"
+	ErrMissingCredentials ErrorCode = "MISSING_CREDENTIALS"
+	ErrInvalidCredentials ErrorCode = "INVALID_CREDENTIALS"
+)
+
+// File system error codes.
+const (
+	ErrFileNotFound        ErrorCode = "FILE_NOT_FOUND"
+	ErrFilePermission      ErrorCode = "FILE_PERMISSION"
+	ErrFileInvalid         ErrorCode = "FILE_INVALID"
+	ErrDirectoryNotFound   ErrorCode = "DIRECTORY_NOT_FOUND"
+	ErrDirectoryPermission ErrorCode = "DIRECTORY_PERMISSION"
+)
+
+// Template error codes.
+const (
+	ErrTemplateNotFound     ErrorCode = "TEMPLATE_NOT_FOUND"
+	ErrTemplateInvalid      ErrorCode = "TEMPLATE_INVALID"
+	ErrTemplateTooLarge     ErrorCode = "TEMPLATE_TOO_LARGE"
+	ErrTemplateUploadFailed ErrorCode = "TEMPLATE_UPLOAD_FAILED"
+	ErrParameterInvalid     ErrorCode = "PARAMETER_INVALID"
+	ErrParameterMissing     ErrorCode = "PARAMETER_MISSING"
+)
+
+// AWS error codes.
+const (
+	ErrAWSAuthentication    ErrorCode = "AWS_AUTHENTICATION"
+	ErrAWSPermission        ErrorCode = "AWS_PERMISSION"
+	ErrAWSRateLimit         ErrorCode = "AWS_RATE_LIMIT"
+	ErrAWSServiceError      ErrorCode = "AWS_SERVICE_ERROR"
+	ErrAWSRegionInvalid     ErrorCode = "AWS_REGION_INVALID"
+	ErrStackNotFound        ErrorCode = "STACK_NOT_FOUND"
+	ErrStackInvalidState    ErrorCode = "STACK_INVALID_STATE"
+	ErrChangesetFailed      ErrorCode = "CHANGESET_FAILED"
+	ErrDeploymentFailed     ErrorCode = "DEPLOYMENT_FAILED"
+	ErrDriftDetectionFailed ErrorCode = "DRIFT_DETECTION_FAILED"
+)
+
+// Network error codes.
+const (
+	ErrNetworkTimeout     ErrorCode = "NETWORK_TIMEOUT"
+	ErrNetworkConnection  ErrorCode = "NETWORK_CONNECTION"
+	ErrNetworkUnreachable ErrorCode = "NETWORK_UNREACHABLE"
+)
+
+// Resource error codes.
+const (
+	ErrResourceNotFound ErrorCode = "RESOURCE_NOT_FOUND"
+	ErrResourceConflict ErrorCode = "RESOURCE_CONFLICT"
+	ErrResourceLimit    ErrorCode = "RESOURCE_LIMIT"
+	ErrResourceLocked   ErrorCode = "RESOURCE_LOCKED"
 )
 
 // FogError represents a structured error with context.
@@ -309,12 +390,3 @@ func captureStackTrace() []string {
 	}
 	return stack
 }
-
-// GetErrorCategory returns the category for an error code.
-func GetErrorCategory(code ErrorCode) ErrorCategory { return CategoryUnknown }
-
-// GetErrorSeverity returns the severity for an error code.
-func GetErrorSeverity(code ErrorCode) ErrorSeverity { return SeverityLow }
-
-// IsRetryable returns whether the code is retryable.
-func IsRetryable(code ErrorCode) bool { return false }
