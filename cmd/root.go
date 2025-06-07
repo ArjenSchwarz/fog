@@ -25,8 +25,11 @@ import (
 	"log"
 
 	"github.com/ArjenSchwarz/fog/cmd/commands/deploy"
+	"github.com/ArjenSchwarz/fog/cmd/errors"
+	"github.com/ArjenSchwarz/fog/cmd/middleware"
 	"github.com/ArjenSchwarz/fog/cmd/registry"
 	servicesfactory "github.com/ArjenSchwarz/fog/cmd/services/factory"
+	"github.com/ArjenSchwarz/fog/cmd/ui"
 	"github.com/ArjenSchwarz/fog/config"
 	format "github.com/ArjenSchwarz/go-output"
 	"github.com/spf13/cobra"
@@ -38,6 +41,7 @@ import (
 var cfgFile string
 var settings = new(config.Config)
 var outputsettings *format.OutputSettings
+var uiHandler ui.OutputHandler
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -67,8 +71,20 @@ func init() {
 	awsCfg := config.AWSConfig{}
 	factory := servicesfactory.NewServiceFactory(settings, &awsCfg)
 
+	verbose := viper.GetBool("verbose")
+	uiHandler = ui.NewConsoleUI(verbose)
+	var formatter errors.ErrorFormatter
+	if settings.GetLCString("output") == "json" {
+		formatter = errors.NewJSONErrorFormatter()
+	} else {
+		formatter = errors.NewConsoleErrorFormatter(true, verbose)
+	}
+	errMw := middleware.NewErrorHandlingMiddleware(formatter, uiHandler)
+	recMw := middleware.NewRecoveryMiddleware(uiHandler)
+
 	// Register commands
-	if err := commandRegistry.Register("deploy", deploy.NewCommandBuilder(factory)); err != nil {
+	deployBuilder := deploy.NewCommandBuilder(factory, errMw, recMw)
+	if err := commandRegistry.Register("deploy", deployBuilder); err != nil {
 		log.Fatal(err)
 	}
 
