@@ -351,6 +351,14 @@ drift:
 
 There is a lot more planned for the application, and a roadmap etc. will soon show up on GitHub.
 
+## Error Handling
+
+Fog commands report problems using the structured `FogError` type. Errors are
+classified with codes and categories so they can be formatted consistently. See
+[docs/error-handling.md](docs/error-handling.md) for an overview of the error
+system, how to add new codes and how to enable verbose output with the
+`--verbose` flag.
+
 ## Contributions
 
 If you wish to contribute in any way (reporting bugs, requesting features, writing code), feel free to do so either by opening Issues or Pull Requests. For Pull Requests, just follow the standard pattern.
