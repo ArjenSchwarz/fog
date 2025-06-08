@@ -351,6 +351,16 @@ drift:
 
 There is a lot more planned for the application, and a roadmap etc. will soon show up on GitHub.
 
+## Flag system
+
+Fog commands use a modular flag system built around **flag groups**. Groups live
+under `cmd/flags` and provide shared validation rules that are automatically
+applied when a command registers the group. The validator aggregates all rules
+so each command only needs to call `Validate` once before running.
+
+The legacy implementation in `cmd/flaggroups.go` will be removed when all
+commands have migrated to the new groups, so treat it as deprecated.
+
 ## Error Handling
 
 Fog commands report problems using the structured `FogError` type. Errors are
