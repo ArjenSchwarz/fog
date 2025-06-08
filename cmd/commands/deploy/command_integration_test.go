@@ -2,8 +2,11 @@ package deploy
 
 import (
 	"context"
+	"os"
 	"strings"
 	"testing"
+
+	"github.com/spf13/viper"
 
 	ferr "github.com/ArjenSchwarz/fog/cmd/errors"
 	"github.com/ArjenSchwarz/fog/cmd/services"
@@ -40,6 +43,8 @@ func (f stubFactory) AWSConfig() *config.AWSConfig              { return &config
 func buildRoot() *cobra.Command {
 	root := &cobra.Command{Use: "root"}
 	factory := stubFactory{cfg: &config.Config{}}
+	viper.Set("templates.extensions", []string{".yaml"})
+	viper.Set("deployments.extensions", []string{".yaml"})
 	builder := NewCommandBuilder(factory)
 	root.AddCommand(builder.BuildCommand())
 	return root
@@ -47,7 +52,9 @@ func buildRoot() *cobra.Command {
 
 func TestDeployCommandExecuteValid(t *testing.T) {
 	root := buildRoot()
-	root.SetArgs([]string{"deploy", "--stackname", "test"})
+	tmp := t.TempDir() + "/tmpl.yaml"
+	_ = os.WriteFile(tmp, []byte("x"), 0o644)
+	root.SetArgs([]string{"deploy", "--stackname", "test", "--template", tmp})
 	err := root.Execute()
 	if err == nil || !strings.Contains(err.Error(), "failed to create changeset") {
 		t.Fatalf("unexpected error: %v", err)
@@ -56,18 +63,25 @@ func TestDeployCommandExecuteValid(t *testing.T) {
 
 func TestDeployCommandExecuteMissingStack(t *testing.T) {
 	root := buildRoot()
-	root.SetArgs([]string{"deploy"})
+	tmp := t.TempDir() + "/tmpl.yaml"
+	_ = os.WriteFile(tmp, []byte("x"), 0o644)
+	root.SetArgs([]string{"deploy", "--template", tmp})
 	err := root.Execute()
-	if err == nil || !strings.Contains(err.Error(), "stack name is required") {
+	if err == nil || !strings.Contains(err.Error(), "stackname") {
 		t.Fatalf("expected validation error, got: %v", err)
 	}
 }
 
 func TestDeployCommandExecuteConflictingFlags(t *testing.T) {
 	root := buildRoot()
-	root.SetArgs([]string{"deploy", "--stackname", "s", "--deployment-file", "f", "--template", "t"})
+	dir := t.TempDir()
+	tf := dir + "/tmpl.yaml"
+	df := dir + "/deploy.yaml"
+	_ = os.WriteFile(tf, []byte("x"), 0o644)
+	_ = os.WriteFile(df, []byte("x"), 0o644)
+	root.SetArgs([]string{"deploy", "--stackname", "s", "--deployment-file", df, "--template", tf})
 	err := root.Execute()
-	if err == nil || !strings.Contains(err.Error(), "deployment file") {
+	if err == nil || !strings.Contains(err.Error(), "conflicting flags") {
 		t.Fatalf("expected conflict error, got: %v", err)
 	}
 }

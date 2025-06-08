@@ -1,16 +1,54 @@
 package deploy
 
-import "testing"
+import (
+	"os"
+	"testing"
+
+	"github.com/spf13/viper"
+)
 
 func TestFlagsValidate(t *testing.T) {
+	originalTemplatesExtensions := viper.Get("templates.extensions")
+	originalDeploymentsExtensions := viper.Get("deployments.extensions")
+	viper.Set("templates.extensions", []string{".yaml"})
+	viper.Set("deployments.extensions", []string{".yaml"})
+	t.Cleanup(func() {
+		viper.Set("templates.extensions", originalTemplatesExtensions)
+		viper.Set("deployments.extensions", originalDeploymentsExtensions)
+	})
 	cases := []struct {
 		name    string
-		flags   Flags
+		flags   *Flags
 		wantErr bool
 	}{
-		{"missing stack name", Flags{}, true},
-		{"deployment file conflict", Flags{StackName: "s", DeploymentFile: "f", Template: "t"}, true},
-		{"valid", Flags{StackName: "s"}, false},
+		{
+			name:    "missing stack name",
+			flags:   NewFlags(),
+			wantErr: true,
+		},
+		{
+			name: "deployment file conflict",
+			flags: func() *Flags {
+				f := NewFlags()
+				f.StackName = "s"
+				f.DeploymentFile = "f"
+				f.Template = "t"
+				return f
+			}(),
+			wantErr: true,
+		},
+		{
+			name: "valid",
+			flags: func() *Flags {
+				f := NewFlags()
+				f.StackName = "s"
+				tmp := t.TempDir() + "/tmpl.yaml"
+				_ = os.WriteFile(tmp, []byte("x"), 0o644)
+				f.Template = tmp
+				return f
+			}(),
+			wantErr: false,
+		},
 	}
 
 	for _, tc := range cases {
