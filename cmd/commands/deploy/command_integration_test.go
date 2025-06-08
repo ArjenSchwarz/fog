@@ -14,25 +14,29 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type integrationDeploymentService struct{}
+type integrationDeploymentService struct{ called bool }
 
-func (m integrationDeploymentService) PrepareDeployment(ctx context.Context, opts services.DeploymentOptions) (*services.DeploymentPlan, ferr.FogError) {
+func (m *integrationDeploymentService) PrepareDeployment(ctx context.Context, opts services.DeploymentOptions) (*services.DeploymentPlan, ferr.FogError) {
+	m.called = true
 	return &services.DeploymentPlan{}, nil
 }
-func (m integrationDeploymentService) ValidateDeployment(ctx context.Context, plan *services.DeploymentPlan) ferr.FogError {
+func (m *integrationDeploymentService) ValidateDeployment(ctx context.Context, plan *services.DeploymentPlan) ferr.FogError {
 	return nil
 }
-func (m integrationDeploymentService) CreateChangeset(ctx context.Context, plan *services.DeploymentPlan) (*services.ChangesetResult, ferr.FogError) {
+func (m *integrationDeploymentService) CreateChangeset(ctx context.Context, plan *services.DeploymentPlan) (*services.ChangesetResult, ferr.FogError) {
 	return nil, ferr.NewError(ferr.ErrNotImplemented, "changeset logic not implemented")
 }
-func (m integrationDeploymentService) ExecuteDeployment(ctx context.Context, plan *services.DeploymentPlan, cs *services.ChangesetResult) (*services.DeploymentResult, ferr.FogError) {
+func (m *integrationDeploymentService) ExecuteDeployment(ctx context.Context, plan *services.DeploymentPlan, cs *services.ChangesetResult) (*services.DeploymentResult, ferr.FogError) {
 	return &services.DeploymentResult{Success: true}, nil
 }
 
-type stubFactory struct{ cfg *config.Config }
+type stubFactory struct {
+	cfg *config.Config
+	svc *integrationDeploymentService
+}
 
 func (f stubFactory) CreateDeploymentService() services.DeploymentService {
-	return integrationDeploymentService{}
+	return f.svc
 }
 func (f stubFactory) CreateDriftService() services.DriftService { return nil }
 func (f stubFactory) CreateStackService() services.StackService { return nil }
@@ -40,9 +44,9 @@ func (f stubFactory) AppConfig() *config.Config                 { return f.cfg }
 func (f stubFactory) AWSConfig() *config.AWSConfig              { return &config.AWSConfig{} }
 
 // buildRoot creates a root command with the deploy command registered.
-func buildRoot() *cobra.Command {
+func buildRoot(svc *integrationDeploymentService) *cobra.Command {
 	root := &cobra.Command{Use: "root"}
-	factory := stubFactory{cfg: &config.Config{}}
+	factory := stubFactory{cfg: &config.Config{}, svc: svc}
 	viper.Set("templates.extensions", []string{".yaml"})
 	viper.Set("deployments.extensions", []string{".yaml"})
 	builder := NewCommandBuilder(factory)
@@ -51,7 +55,8 @@ func buildRoot() *cobra.Command {
 }
 
 func TestDeployCommandExecuteValid(t *testing.T) {
-	root := buildRoot()
+	svc := &integrationDeploymentService{}
+	root := buildRoot(svc)
 	tmp := t.TempDir() + "/tmpl.yaml"
 	_ = os.WriteFile(tmp, []byte("x"), 0o644)
 	root.SetArgs([]string{"deploy", "--stackname", "test", "--template", tmp})
@@ -59,10 +64,14 @@ func TestDeployCommandExecuteValid(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "failed to create changeset") {
 		t.Fatalf("unexpected error: %v", err)
 	}
+	if !svc.called {
+		t.Errorf("service not invoked")
+	}
 }
 
 func TestDeployCommandExecuteMissingStack(t *testing.T) {
-	root := buildRoot()
+	svc := &integrationDeploymentService{}
+	root := buildRoot(svc)
 	tmp := t.TempDir() + "/tmpl.yaml"
 	_ = os.WriteFile(tmp, []byte("x"), 0o644)
 	root.SetArgs([]string{"deploy", "--template", tmp})
@@ -70,10 +79,14 @@ func TestDeployCommandExecuteMissingStack(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "stackname") {
 		t.Fatalf("expected validation error, got: %v", err)
 	}
+	if svc.called {
+		t.Errorf("service should not be called on validation failure")
+	}
 }
 
 func TestDeployCommandExecuteConflictingFlags(t *testing.T) {
-	root := buildRoot()
+	svc := &integrationDeploymentService{}
+	root := buildRoot(svc)
 	dir := t.TempDir()
 	tf := dir + "/tmpl.yaml"
 	df := dir + "/deploy.yaml"
@@ -83,5 +96,8 @@ func TestDeployCommandExecuteConflictingFlags(t *testing.T) {
 	err := root.Execute()
 	if err == nil || !strings.Contains(err.Error(), "conflicting flags") {
 		t.Fatalf("expected conflict error, got: %v", err)
+	}
+	if svc.called {
+		t.Errorf("service should not be called on validation failure")
 	}
 }

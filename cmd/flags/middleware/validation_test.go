@@ -57,3 +57,20 @@ func TestFlagValidationMiddlewareExecuteError(t *testing.T) {
 		t.Errorf("next should not run on validation failure")
 	}
 }
+
+func TestFlagValidationMiddlewareBlocksInvalid(t *testing.T) {
+	vErr := &flags.ValidationError{Err: errors.New("bad")}
+	mv := &mockValidator{err: vErr}
+	mw := NewFlagValidationMiddleware(mv)
+
+	called := false
+	next := func(ctx context.Context) error { called = true; return nil }
+
+	err := mw.Execute(context.Background(), next)
+	if err == nil || err != vErr {
+		t.Fatalf("expected returned validation error")
+	}
+	if called {
+		t.Errorf("next should not run")
+	}
+}
