@@ -1,6 +1,8 @@
 package deploy
 
 import (
+	"github.com/ArjenSchwarz/fog/cmd/flags/groups"
+	middleware "github.com/ArjenSchwarz/fog/cmd/flags/middleware"
 	"github.com/ArjenSchwarz/fog/cmd/registry"
 	services "github.com/ArjenSchwarz/fog/cmd/services"
 	"github.com/ArjenSchwarz/fog/config"
@@ -10,13 +12,13 @@ import (
 // CommandBuilder constructs the deploy command using the BaseCommandBuilder.
 type CommandBuilder struct {
 	*registry.BaseCommandBuilder
-	flags *Flags
+	flags *groups.DeploymentFlags
 }
 
 // NewCommandBuilder creates a new deploy command builder.
 // NewCommandBuilder creates a new deploy command builder with injected services.
 func NewCommandBuilder(factory services.ServiceFactory, middlewares ...registry.Middleware) *CommandBuilder {
-	flags := &Flags{}
+	flagGroup := NewFlags()
 	builder := registry.NewBaseCommandBuilder(
 		"deploy",
 		"Deploy a CloudFormation stack",
@@ -33,16 +35,19 @@ When providing tag and/or parameter files, you can add multiple files for each. 
 	if cp, ok := factory.(services.ConfigProvider); ok {
 		cfg = cp.AppConfig()
 	}
-	handler := NewHandler(flags, factory.CreateDeploymentService(), cfg)
+	handler := NewHandler(flagGroup.DeploymentFlags, factory.CreateDeploymentService(), cfg)
+	flagValidationMiddleware := middleware.NewFlagValidationMiddleware(flagGroup.DeploymentFlags)
 
-	base := builder.WithHandler(handler).WithValidator(flags)
+	base := builder.WithHandler(handler).
+		WithValidator(flagGroup).
+		WithMiddleware(flagValidationMiddleware)
 	for _, mw := range middlewares {
 		base = base.WithMiddleware(mw)
 	}
 
 	return &CommandBuilder{
 		BaseCommandBuilder: base,
-		flags:              flags,
+		flags:              flagGroup.DeploymentFlags,
 	}
 }
 

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	ferr "github.com/ArjenSchwarz/fog/cmd/errors"
+	"github.com/ArjenSchwarz/fog/cmd/flags/groups"
 	"github.com/ArjenSchwarz/fog/cmd/services"
 	"github.com/ArjenSchwarz/fog/config"
 )
@@ -27,12 +28,12 @@ func (m mockHandlerDeploymentService) ExecuteDeployment(ctx context.Context, pla
 // TestValidateFlags verifies that ValidateFlags returns any errors from the Flags
 // validation logic.
 func TestValidateFlags(t *testing.T) {
-	h := NewHandler(&Flags{StackName: "test"}, mockHandlerDeploymentService{}, &config.Config{})
+	h := NewHandler(&groups.DeploymentFlags{StackName: "test"}, mockHandlerDeploymentService{}, &config.Config{})
 	if err := h.ValidateFlags(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	h = NewHandler(&Flags{}, mockHandlerDeploymentService{}, &config.Config{})
+	h = NewHandler(&groups.DeploymentFlags{}, mockHandlerDeploymentService{}, &config.Config{})
 	err := h.ValidateFlags()
 	if err == nil {
 		t.Fatalf("expected validation error when stack name missing")
@@ -45,7 +46,7 @@ func TestValidateFlags(t *testing.T) {
 
 // TestExecute verifies that Execute currently returns the not implemented error.
 func TestExecute(t *testing.T) {
-	h := NewHandler(&Flags{StackName: "test"}, mockHandlerDeploymentService{}, &config.Config{})
+	h := NewHandler(&groups.DeploymentFlags{StackName: "test"}, mockHandlerDeploymentService{}, &config.Config{})
 	err := h.Execute(context.Background())
 	if err == nil {
 		t.Fatalf("expected error")

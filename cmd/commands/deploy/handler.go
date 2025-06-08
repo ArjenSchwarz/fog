@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/ArjenSchwarz/fog/cmd/errors"
+	"github.com/ArjenSchwarz/fog/cmd/flags/groups"
 	"github.com/ArjenSchwarz/fog/cmd/services"
 	"github.com/ArjenSchwarz/fog/cmd/validation"
 	"github.com/ArjenSchwarz/fog/config"
@@ -12,13 +13,13 @@ import (
 
 // Handler implements the deploy command logic.
 type Handler struct {
-	flags             *Flags
+	flags             *groups.DeploymentFlags
 	deploymentService services.DeploymentService
 	config            *config.Config
 }
 
 // NewHandler creates a new deploy command handler.
-func NewHandler(flags *Flags, deploymentService services.DeploymentService, config *config.Config) *Handler {
+func NewHandler(flags *groups.DeploymentFlags, deploymentService services.DeploymentService, config *config.Config) *Handler {
 	return &Handler{
 		flags:             flags,
 		deploymentService: deploymentService,

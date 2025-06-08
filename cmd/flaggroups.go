@@ -21,6 +21,9 @@ THE SOFTWARE.
 */
 package cmd
 
+// Deprecated: this file will be removed after migration to the new flag groups
+// system.
+
 import (
 	"fmt"
 
