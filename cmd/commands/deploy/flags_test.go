@@ -8,8 +8,14 @@ import (
 )
 
 func TestFlagsValidate(t *testing.T) {
+	originalTemplatesExtensions := viper.Get("templates.extensions")
+	originalDeploymentsExtensions := viper.Get("deployments.extensions")
 	viper.Set("templates.extensions", []string{".yaml"})
 	viper.Set("deployments.extensions", []string{".yaml"})
+	t.Cleanup(func() {
+		viper.Set("templates.extensions", originalTemplatesExtensions)
+		viper.Set("deployments.extensions", originalDeploymentsExtensions)
+	})
 	cases := []struct {
 		name    string
 		flags   *Flags
