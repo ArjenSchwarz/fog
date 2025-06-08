@@ -73,6 +73,10 @@ The tasks must be implemented in a specific order due to dependencies:
 6. Testing Infrastructure
 ```
 
+Once all commands use the new flag groups in `cmd/flags`, the legacy
+`cmd/flaggroups.go` implementation will be removed. Treat that file as
+deprecated during the migration phase.
+
 ### Key Benefits
 
 **For Developers:**
