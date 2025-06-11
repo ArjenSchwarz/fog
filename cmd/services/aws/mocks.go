@@ -13,6 +13,7 @@ type MockCloudFormationClient struct {
 	CreateChangeSetFunc   func(context.Context, *cloudformation.CreateChangeSetInput) (*cloudformation.CreateChangeSetOutput, error)
 	ExecuteChangeSetFunc  func(context.Context, *cloudformation.ExecuteChangeSetInput) (*cloudformation.ExecuteChangeSetOutput, error)
 	DescribeChangeSetFunc func(context.Context, *cloudformation.DescribeChangeSetInput) (*cloudformation.DescribeChangeSetOutput, error)
+	ValidateTemplateFunc  func(context.Context, *cloudformation.ValidateTemplateInput) (*cloudformation.ValidateTemplateOutput, error)
 }
 
 func (m *MockCloudFormationClient) DescribeStacks(ctx context.Context, in *cloudformation.DescribeStacksInput) (*cloudformation.DescribeStacksOutput, error) {
@@ -41,6 +42,13 @@ func (m *MockCloudFormationClient) DescribeChangeSet(ctx context.Context, in *cl
 		return m.DescribeChangeSetFunc(ctx, in)
 	}
 	return &cloudformation.DescribeChangeSetOutput{}, nil
+}
+
+func (m *MockCloudFormationClient) ValidateTemplate(ctx context.Context, in *cloudformation.ValidateTemplateInput) (*cloudformation.ValidateTemplateOutput, error) {
+	if m.ValidateTemplateFunc != nil {
+		return m.ValidateTemplateFunc(ctx, in)
+	}
+	return &cloudformation.ValidateTemplateOutput{}, nil
 }
 
 // MockS3Client is a simple mock implementing services.S3Client.

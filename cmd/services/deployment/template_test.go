@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/ArjenSchwarz/fog/cmd/services"
+	"github.com/ArjenSchwarz/fog/cmd/services/aws"
 	"github.com/spf13/viper"
 )
 
@@ -22,7 +23,10 @@ func TestTemplateServiceLoadAndValidate(t *testing.T) {
 	viper.Set("templates.directory", dir)
 	viper.Set("templates.extensions", []string{".yaml"})
 
-	ts := NewTemplateService(nil)
+	// Create mock clients for testing
+	mockS3 := &aws.MockS3Client{}
+	mockCfn := &aws.MockCloudFormationClient{}
+	ts := NewTemplateService(mockS3, mockCfn)
 	ctx := context.Background()
 
 	tmpl, err := ts.LoadTemplate(ctx, "tmpl")

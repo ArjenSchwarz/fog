@@ -30,7 +30,7 @@ func (f *ServiceFactory) CreateDeploymentService() services.DeploymentService {
 	cfnClient := aws.NewCloudFormationClient(*f.awsConfig)
 	s3Client := aws.NewS3Client(*f.awsConfig)
 
-	templateService := deployment.NewTemplateService(s3Client)
+	templateService := deployment.NewTemplateService(s3Client, cfnClient)
 	parameterService := deployment.NewParameterService()
 	tagService := deployment.NewTagService()
 

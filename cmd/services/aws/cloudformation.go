@@ -27,3 +27,7 @@ func (c *CloudFormation) ExecuteChangeSet(ctx context.Context, input *cloudforma
 func (c *CloudFormation) DescribeChangeSet(ctx context.Context, input *cloudformation.DescribeChangeSetInput) (*cloudformation.DescribeChangeSetOutput, error) {
 	return c.client.DescribeChangeSet(ctx, input)
 }
+
+func (c *CloudFormation) ValidateTemplate(ctx context.Context, input *cloudformation.ValidateTemplateInput) (*cloudformation.ValidateTemplateOutput, error) {
+	return c.client.ValidateTemplate(ctx, input)
+}
