@@ -14,13 +14,14 @@ import (
 // failingValidator returns a validation.MultiError when Validate is called.
 type failingValidator struct{}
 
-func (failingValidator) Validate() error {
+func (failingValidator) Validate(ctx context.Context, vCtx *registry.ValidationContext) error {
 	vb := validation.NewValidationErrorBuilder("test")
 	vb.RequiredField("name")
 	vb.InvalidValue("region", "", "invalid")
 	return vb.Build()
 }
-func (failingValidator) RegisterFlags(cmd *cobra.Command) {}
+func (failingValidator) RegisterFlags(cmd *cobra.Command)              {}
+func (failingValidator) GetValidationRules() []registry.ValidationRule { return nil }
 
 // recordingHandler records whether Execute was called and if the config was present.
 type recordingHandler struct {
@@ -39,8 +40,11 @@ func (h *recordingHandler) ValidateFlags() error { return nil }
 // passValidator does nothing and always succeeds.
 type passValidator struct{}
 
-func (passValidator) Validate() error                  { return nil }
-func (passValidator) RegisterFlags(cmd *cobra.Command) {}
+func (passValidator) Validate(ctx context.Context, vCtx *registry.ValidationContext) error {
+	return nil
+}
+func (passValidator) RegisterFlags(cmd *cobra.Command)              {}
+func (passValidator) GetValidationRules() []registry.ValidationRule { return nil }
 
 func buildTestRoot(builder registry.CommandBuilder) *cobra.Command {
 	root := &cobra.Command{Use: "root"}

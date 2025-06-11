@@ -21,7 +21,7 @@ type testValidator struct {
 	calls      *[]string
 }
 
-func (v *testValidator) Validate() error {
+func (v *testValidator) Validate(ctx context.Context, vCtx *ValidationContext) error {
 	*v.calls = append(*v.calls, "validate")
 	return nil
 }
@@ -29,6 +29,7 @@ func (v *testValidator) RegisterFlags(cmd *cobra.Command) {
 	v.registered = true
 	cmd.Flags().Bool("x", false, "")
 }
+func (v *testValidator) GetValidationRules() []ValidationRule { return nil }
 
 type testMiddleware struct {
 	id    string
@@ -41,6 +42,7 @@ func (m testMiddleware) Execute(ctx context.Context, next func(context.Context) 
 	*m.calls = append(*m.calls, m.id+" after")
 	return err
 }
+func (m testMiddleware) GetName() string { return m.id }
 
 func TestBaseCommandBuilder_Run(t *testing.T) {
 	executionOrder := []string{}

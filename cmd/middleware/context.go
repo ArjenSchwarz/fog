@@ -31,3 +31,8 @@ func (m *ContextMiddleware) Execute(ctx context.Context, next func(context.Conte
 	ctx = context.WithValue(ctx, configKey, cfg)
 	return next(ctx)
 }
+
+// GetName returns the name of the middleware.
+func (m *ContextMiddleware) GetName() string {
+	return "context"
+}

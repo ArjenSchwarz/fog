@@ -48,4 +48,9 @@ func (m *RecoveryMiddleware) Execute(ctx context.Context, next func(context.Cont
 	return next(ctx)
 }
 
+// GetName returns the name of the middleware.
+func (m *RecoveryMiddleware) GetName() string {
+	return "recovery"
+}
+
 var _ registry.Middleware = (*RecoveryMiddleware)(nil)

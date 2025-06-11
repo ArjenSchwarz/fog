@@ -15,11 +15,6 @@ const (
 	argsCtxKey    contextKey = "args"
 )
 
-// Middleware defines a command middleware.
-type Middleware interface {
-	Execute(ctx context.Context, next func(context.Context) error) error
-}
-
 // BaseCommandBuilder provides common logic for command builders.
 type BaseCommandBuilder struct {
 	name        string
@@ -84,7 +79,15 @@ func (b *BaseCommandBuilder) createRunFunc() func(*cobra.Command, []string) erro
 
 		handler := func(ctx context.Context) error {
 			if b.validator != nil {
-				if err := b.validator.Validate(); err != nil {
+				// Create validation context from current context
+				vCtx := &ValidationContext{
+					Command:    cmd,
+					Args:       args,
+					AWSRegion:  "",    // TODO: Extract from flags or context
+					ConfigPath: "",    // TODO: Extract from flags or context
+					Verbose:    false, // TODO: Extract from flags or context
+				}
+				if err := b.validator.Validate(ctx, vCtx); err != nil {
 					return err
 				}
 			}

@@ -1,9 +1,11 @@
 package deploy
 
 import (
+	"context"
 	"os"
 	"testing"
 
+	"github.com/ArjenSchwarz/fog/cmd/registry"
 	"github.com/spf13/viper"
 )
 
@@ -54,7 +56,15 @@ func TestFlagsValidate(t *testing.T) {
 	for _, tc := range cases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			err := tc.flags.Validate()
+			ctx := context.Background()
+			vCtx := &registry.ValidationContext{
+				Command:    nil,
+				Args:       []string{},
+				AWSRegion:  "",
+				ConfigPath: "",
+				Verbose:    false,
+			}
+			err := tc.flags.Validate(ctx, vCtx)
 			if tc.wantErr && err == nil {
 				t.Errorf("expected error")
 			}

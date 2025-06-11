@@ -18,4 +18,9 @@ func (m *PreprocessingMiddleware) Execute(ctx context.Context, next func(context
 	return next(ctx)
 }
 
+// GetName returns the name of the middleware.
+func (m *PreprocessingMiddleware) GetName() string {
+	return "preprocessing"
+}
+
 var _ registry.Middleware = (*PreprocessingMiddleware)(nil)

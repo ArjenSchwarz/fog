@@ -45,6 +45,11 @@ func (m *ErrorHandlingMiddleware) Execute(ctx context.Context, next func(context
 	return err
 }
 
+// GetName returns the name of the middleware.
+func (m *ErrorHandlingMiddleware) GetName() string {
+	return "error_handler"
+}
+
 // displayError formats and displays an error.
 func (m *ErrorHandlingMiddleware) displayError(err errors.FogError) {
 	if multiErr, ok := err.(*errors.MultiError); ok {

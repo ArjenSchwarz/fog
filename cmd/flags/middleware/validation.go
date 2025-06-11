@@ -25,4 +25,9 @@ func (m *FlagValidationMiddleware) Execute(ctx context.Context, next func(contex
 	return next(ctx)
 }
 
+// GetName returns the name of the middleware.
+func (m *FlagValidationMiddleware) GetName() string {
+	return "flag_validation"
+}
+
 var _ registry.Middleware = (*FlagValidationMiddleware)(nil)
