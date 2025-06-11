@@ -88,8 +88,6 @@ func (s *Service) CreateChangeset(ctx context.Context, plan *services.Deployment
 }
 
 // ExecuteDeployment executes the previously created changeset.
-// Placeholder implementation returning a not implemented error.
 func (s *Service) ExecuteDeployment(ctx context.Context, plan *services.DeploymentPlan, changeset *services.ChangesetResult) (*services.DeploymentResult, ferr.FogError) {
-	errorCtx := ferr.GetErrorContext(ctx)
-	return nil, ferr.ContextualError(errorCtx, ferr.ErrNotImplemented, "deployment execution not implemented")
+	return s.executeChangeset(ctx, plan, changeset)
 }
