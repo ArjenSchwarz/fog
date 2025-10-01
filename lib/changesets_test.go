@@ -13,15 +13,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
 )
 
-// Define interfaces for the CloudFormation client methods we use in changesets tests
-type CloudFormationDeleteChangeSetAPI interface {
-	DeleteChangeSet(ctx context.Context, params *cloudformation.DeleteChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DeleteChangeSetOutput, error)
-}
-
-type CloudFormationExecuteChangeSetAPI interface {
-	ExecuteChangeSet(ctx context.Context, params *cloudformation.ExecuteChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.ExecuteChangeSetOutput, error)
-}
-
 // Mock implementation of the CloudFormation client for changesets testing
 type MockChangesetCloudFormationClient struct {
 	deleteChangeSetError  error
@@ -43,43 +34,6 @@ func (m *MockChangesetCloudFormationClient) ExecuteChangeSet(ctx context.Context
 // Implement the CloudFormationDescribeStacksAPI interface
 func (m *MockChangesetCloudFormationClient) DescribeStacks(ctx context.Context, params *cloudformation.DescribeStacksInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStacksOutput, error) {
 	return &m.describeStacksOutput, m.describeStacksError
-}
-
-// Test-specific versions of the methods that accept our interfaces instead of concrete client types
-func deleteChangesetTest(changeset *ChangesetInfo, svc CloudFormationDeleteChangeSetAPI) bool {
-	input := &cloudformation.DeleteChangeSetInput{
-		StackName:     &changeset.StackName,
-		ChangeSetName: &changeset.Name,
-	}
-	_, err := svc.DeleteChangeSet(context.TODO(), input)
-	return err == nil
-}
-
-func deployChangesetTest(changeset *ChangesetInfo, svc CloudFormationExecuteChangeSetAPI) error {
-	input := &cloudformation.ExecuteChangeSetInput{
-		ChangeSetName: &changeset.Name,
-		StackName:     &changeset.StackName,
-	}
-	_, err := svc.ExecuteChangeSet(context.TODO(), input)
-	return err
-}
-
-func getStackTest(stackID *string, svc CloudFormationDescribeStacksAPI) (types.Stack, error) {
-	input := &cloudformation.DescribeStacksInput{
-		StackName: stackID,
-	}
-	result, err := svc.DescribeStacks(context.TODO(), input)
-	if err != nil {
-		return types.Stack{}, err
-	}
-	if len(result.Stacks) == 0 {
-		return types.Stack{}, errors.New("stack not found")
-	}
-	return result.Stacks[0], nil
-}
-
-func getChangesetStackTest(changeset *ChangesetInfo, svc CloudFormationDescribeStacksAPI) (types.Stack, error) {
-	return getStackTest(&changeset.StackID, svc)
 }
 
 func TestChangesetInfo_DeleteChangeset(t *testing.T) {
@@ -140,7 +94,7 @@ func TestChangesetInfo_DeleteChangeset(t *testing.T) {
 				StackName:    tt.fields.StackName,
 			}
 
-			if got := deleteChangesetTest(changeset, mockClient); got != tt.want {
+			if got := changeset.DeleteChangeset(mockClient); got != tt.want {
 				t.Errorf("ChangesetInfo.DeleteChangeset() = %v, want %v", got, tt.want)
 			}
 		})
@@ -205,7 +159,7 @@ func TestChangesetInfo_DeployChangeset(t *testing.T) {
 				StackName:    tt.fields.StackName,
 			}
 
-			if err := deployChangesetTest(changeset, mockClient); (err != nil) != tt.wantErr {
+			if err := changeset.DeployChangeset(mockClient); (err != nil) != tt.wantErr {
 				t.Errorf("ChangesetInfo.DeployChangeset() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
@@ -421,7 +375,7 @@ func TestChangesetInfo_GetStack(t *testing.T) {
 				StackName:    tt.fields.StackName,
 			}
 
-			got, err := getChangesetStackTest(changeset, mockClient)
+			got, err := changeset.GetStack(mockClient)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ChangesetInfo.GetStack() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -615,6 +569,43 @@ func TestChangesetChanges_GetDangerDetails(t *testing.T) {
 			got := changes.GetDangerDetails()
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("ChangesetChanges.GetDangerDetails() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestGetStackAndChangesetFromURL tests parsing of stack and changeset IDs from console URLs
+func TestGetStackAndChangesetFromURL(t *testing.T) {
+	tests := []struct {
+		name          string
+		changeseturl  string
+		region        string
+		wantStack     string
+		wantChangeset string
+	}{
+		{
+			name:          "Valid URL with escaped characters",
+			changeseturl:  "https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/changesets/changes?stackId=arn:aws:cloudformation:us-east-1:123456789012:stack/test-stack/abc123&changeSetId=arn:aws:cloudformation:us-east-1:123456789012:changeSet/test-changeset/xyz789",
+			region:        "us-east-1",
+			wantStack:     "arn:aws:cloudformation:us-east-1:123456789012:stack/test-stack/abc123",
+			wantChangeset: "arn:aws:cloudformation:us-east-1:123456789012:changeSet/test-changeset/xyz789",
+		},
+		{
+			name:          "Valid URL with URL encoding",
+			changeseturl:  "https://console.aws.amazon.com/cloudformation/home?region=ap-southeast-2#/stacks/changesets/changes?stackId=arn%3Aaws%3Acloudformation%3Aap-southeast-2%3A123456789012%3Astack%2Fmy-stack%2F12345&changeSetId=arn%3Aaws%3Acloudformation%3Aap-southeast-2%3A123456789012%3AchangeSet%2Fmy-cs%2F67890",
+			region:        "ap-southeast-2",
+			wantStack:     "arn:aws:cloudformation:ap-southeast-2:123456789012:stack/my-stack/12345",
+			wantChangeset: "arn:aws:cloudformation:ap-southeast-2:123456789012:changeSet/my-cs/67890",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotStack, gotChangeset := GetStackAndChangesetFromURL(tt.changeseturl, tt.region)
+			if gotStack != tt.wantStack {
+				t.Errorf("GetStackAndChangesetFromURL() gotStack = %v, want %v", gotStack, tt.wantStack)
+			}
+			if gotChangeset != tt.wantChangeset {
+				t.Errorf("GetStackAndChangesetFromURL() gotChangeset = %v, want %v", gotChangeset, tt.wantChangeset)
 			}
 		})
 	}

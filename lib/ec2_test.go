@@ -23,11 +23,12 @@ func (m mockEC2DescribeManagedPrefixListsAPI) DescribeManagedPrefixLists(ctx con
 	return m(ctx, params, optFns...)
 }
 
-// type mockEC2DescribeRouteTablesAPI func(ctx context.Context, params *ec2.DescribeRouteTablesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeRouteTablesOutput, error)
+type mockEC2DescribeRouteTablesAPI func(ctx context.Context, params *ec2.DescribeRouteTablesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeRouteTablesOutput, error)
 
-// func (m mockEC2DescribeRouteTablesAPI) DescribeRouteTables(ctx context.Context, params *ec2.DescribeRouteTablesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeRouteTablesOutput, error) {
-// 	return m(ctx, params, optFns...)
-// }
+func (m mockEC2DescribeRouteTablesAPI) DescribeRouteTables(ctx context.Context, params *ec2.DescribeRouteTablesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeRouteTablesOutput, error) {
+	return m(ctx, params, optFns...)
+}
+
 
 func TestGetNacl(t *testing.T) {
 	type args struct {
@@ -435,6 +436,117 @@ func TestGetRouteTarget(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := GetRouteTarget(tt.args.route); got != tt.want {
 				t.Errorf("GetRouteTarget() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// TestGetRouteTable tests the GetRouteTable function which retrieves a route table by ID
+func TestGetRouteTable(t *testing.T) {
+	type args struct {
+		routetableId string
+		svc          EC2DescribeRouteTablesAPI
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    types.RouteTable
+		wantErr bool
+	}{
+		{
+			name: "Success - route table found",
+			args: args{
+				routetableId: "rtb-12345",
+				svc: mockEC2DescribeRouteTablesAPI(func(ctx context.Context, params *ec2.DescribeRouteTablesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeRouteTablesOutput, error) {
+					return &ec2.DescribeRouteTablesOutput{
+						RouteTables: []types.RouteTable{
+							{
+								RouteTableId: aws.String("rtb-12345"),
+								VpcId:        aws.String("vpc-12345"),
+								Routes: []types.Route{
+									{
+										DestinationCidrBlock: aws.String("0.0.0.0/0"),
+										GatewayId:            aws.String("igw-12345"),
+									},
+								},
+							},
+						},
+					}, nil
+				}),
+			},
+			want: types.RouteTable{
+				RouteTableId: aws.String("rtb-12345"),
+				VpcId:        aws.String("vpc-12345"),
+				Routes: []types.Route{
+					{
+						DestinationCidrBlock: aws.String("0.0.0.0/0"),
+						GatewayId:            aws.String("igw-12345"),
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "Error - API call fails",
+			args: args{
+				routetableId: "rtb-error",
+				svc: mockEC2DescribeRouteTablesAPI(func(ctx context.Context, params *ec2.DescribeRouteTablesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeRouteTablesOutput, error) {
+					return nil, errors.New("route table not found")
+				}),
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := GetRouteTable(tt.args.routetableId, tt.args.svc)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetRouteTable() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr && !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GetRouteTable() = %v, want %v", got, tt.want)
 			}
 		})
 	}

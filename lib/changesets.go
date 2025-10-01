@@ -36,7 +36,7 @@ type ChangesetChanges struct {
 	Details     []types.ResourceChangeDetail
 }
 
-func (changeset *ChangesetInfo) DeleteChangeset(svc *cloudformation.Client) bool {
+func (changeset *ChangesetInfo) DeleteChangeset(svc CloudFormationDeleteChangeSetAPI) bool {
 	input := &cloudformation.DeleteChangeSetInput{
 		StackName:     &changeset.StackName,
 		ChangeSetName: &changeset.Name,
@@ -46,7 +46,7 @@ func (changeset *ChangesetInfo) DeleteChangeset(svc *cloudformation.Client) bool
 	return err == nil
 }
 
-func (changeset *ChangesetInfo) DeployChangeset(svc *cloudformation.Client) error {
+func (changeset *ChangesetInfo) DeployChangeset(svc CloudFormationExecuteChangeSetAPI) error {
 	input := &cloudformation.ExecuteChangeSetInput{
 		ChangeSetName: &changeset.Name,
 		StackName:     &changeset.StackName,
@@ -67,7 +67,7 @@ func (changeset *ChangesetInfo) AddChange(changes ChangesetChanges) {
 	}
 }
 
-func (changeset *ChangesetInfo) GetStack(svc *cloudformation.Client) (types.Stack, error) {
+func (changeset *ChangesetInfo) GetStack(svc CloudFormationDescribeStacksAPI) (types.Stack, error) {
 	return GetStack(&changeset.StackID, svc)
 }
 

@@ -441,3 +441,113 @@ parameters:
 		})
 	}
 }
+
+// TestGetParametersMap tests converting CloudFormation parameters to a map
+func TestGetParametersMap(t *testing.T) {
+	tests := []struct {
+		name   string
+		params []types.Parameter
+		want   map[string]interface{}
+	}{
+		{
+			name:   "empty parameters",
+			params: []types.Parameter{},
+			want:   map[string]interface{}{},
+		},
+		{
+			name: "single parameter",
+			params: []types.Parameter{
+				{ParameterKey: strPtr("Key1"), ParameterValue: strPtr("Value1")},
+			},
+			want: map[string]interface{}{
+				"Key1": "Value1",
+			},
+		},
+		{
+			name: "multiple parameters",
+			params: []types.Parameter{
+				{ParameterKey: strPtr("Key1"), ParameterValue: strPtr("Value1")},
+				{ParameterKey: strPtr("Key2"), ParameterValue: strPtr("Value2")},
+				{ParameterKey: strPtr("Key3"), ParameterValue: strPtr("Value3")},
+			},
+			want: map[string]interface{}{
+				"Key1": "Value1",
+				"Key2": "Value2",
+				"Key3": "Value3",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := GetParametersMap(tt.params)
+			if !reflect.DeepEqual(*got, tt.want) {
+				t.Errorf("GetParametersMap() = %v, want %v", *got, tt.want)
+			}
+		})
+	}
+}
+
+// TestReverseEvents tests the sorting interface for stack events
+func TestReverseEvents(t *testing.T) {
+	time1 := time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC)
+	time2 := time.Date(2023, 1, 2, 12, 0, 0, 0, time.UTC)
+	time3 := time.Date(2023, 1, 3, 12, 0, 0, 0, time.UTC)
+
+	events := ReverseEvents{
+		{Timestamp: &time2},
+		{Timestamp: &time1},
+		{Timestamp: &time3},
+	}
+
+	// Test Len
+	if events.Len() != 3 {
+		t.Errorf("ReverseEvents.Len() = %d, want 3", events.Len())
+	}
+
+	// Test Less - should sort by timestamp (earlier is "less")
+	if !events.Less(1, 0) { // time1 < time2
+		t.Errorf("ReverseEvents.Less(1, 0) should be true (time1 < time2)")
+	}
+	if events.Less(0, 1) { // time2 > time1
+		t.Errorf("ReverseEvents.Less(0, 1) should be false (time2 > time1)")
+	}
+
+	// Test Swap
+	events.Swap(0, 1)
+	if events[0].Timestamp != &time1 || events[1].Timestamp != &time2 {
+		t.Errorf("ReverseEvents.Swap() did not swap correctly")
+	}
+}
+
+// TestSortStacks tests the sorting interface for CfnStack
+func TestSortStacks(t *testing.T) {
+	stacks := SortStacks{
+		{Name: "zebra-stack"},
+		{Name: "alpha-stack"},
+		{Name: "middle-stack"},
+	}
+
+	// Test Len
+	if stacks.Len() != 3 {
+		t.Errorf("SortStacks.Len() = %d, want 3", stacks.Len())
+	}
+
+	// Test Less - should sort alphabetically
+	if !stacks.Less(1, 0) { // "alpha" < "zebra"
+		t.Errorf("SortStacks.Less(1, 0) should be true (alpha < zebra)")
+	}
+	if stacks.Less(0, 1) { // "zebra" > "alpha"
+		t.Errorf("SortStacks.Less(0, 1) should be false (zebra > alpha)")
+	}
+	if !stacks.Less(1, 2) { // "alpha" < "middle"
+		t.Errorf("SortStacks.Less(1, 2) should be true (alpha < middle)")
+	}
+
+	// Test Swap
+	stacks.Swap(0, 1)
+	if stacks[0].Name != "alpha-stack" || stacks[1].Name != "zebra-stack" {
+		t.Errorf("SortStacks.Swap() did not swap correctly")
+	}
+}
+
