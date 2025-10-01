@@ -223,3 +223,221 @@ func TestDeployInfo_StatusChecks(t *testing.T) {
 		t.Errorf("IsNewStack should be false for existing completed stack")
 	}
 }
+
+// TestDeployInfo_ChangesetType verifies that the correct changeset type is
+// returned based on whether the stack is new or existing.
+func TestDeployInfo_ChangesetType(t *testing.T) {
+	tests := []struct {
+		name  string
+		isNew bool
+		want  types.ChangeSetType
+	}{
+		{
+			name:  "New stack",
+			isNew: true,
+			want:  types.ChangeSetTypeCreate,
+		},
+		{
+			name:  "Existing stack",
+			isNew: false,
+			want:  types.ChangeSetTypeUpdate,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dep := &DeployInfo{IsNew: tt.isNew}
+			if got := dep.ChangesetType(); got != tt.want {
+				t.Errorf("ChangesetType() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestGetStack verifies that GetStack correctly retrieves stack information
+// using the mocked CloudFormation client.
+func TestGetStack(t *testing.T) {
+	stackName := "test-stack"
+	expectedStack := types.Stack{
+		StackName: strPtr(stackName),
+		StackId:   strPtr("arn:aws:cloudformation:us-east-1:123456789012:stack/test-stack/abc123"),
+	}
+
+	tests := []struct {
+		name    string
+		client  mockDescribeStacksClient
+		want    types.Stack
+		wantErr bool
+	}{
+		{
+			name: "Success",
+			client: mockDescribeStacksClient{
+				output: cloudformation.DescribeStacksOutput{Stacks: []types.Stack{expectedStack}},
+			},
+			want:    expectedStack,
+			wantErr: false,
+		},
+		{
+			name: "Error",
+			client: mockDescribeStacksClient{
+				err: errors.New("stack not found"),
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := GetStack(&stackName, tt.client)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetStack() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr && !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GetStack() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestParseParameterString verifies that JSON parameter strings are correctly
+// parsed into CloudFormation parameter structures.
+func TestParseParameterString(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		want    []types.Parameter
+		wantErr bool
+	}{
+		{
+			name:  "Valid parameters",
+			input: `[{"ParameterKey":"Key1","ParameterValue":"Value1"},{"ParameterKey":"Key2","ParameterValue":"Value2"}]`,
+			want: []types.Parameter{
+				{ParameterKey: strPtr("Key1"), ParameterValue: strPtr("Value1")},
+				{ParameterKey: strPtr("Key2"), ParameterValue: strPtr("Value2")},
+			},
+			wantErr: false,
+		},
+		{
+			name:    "Empty array",
+			input:   `[]`,
+			want:    []types.Parameter{},
+			wantErr: false,
+		},
+		{
+			name:    "Invalid JSON",
+			input:   `{invalid}`,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ParseParameterString(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ParseParameterString() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr && !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ParseParameterString() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestParseTagString verifies that JSON tag strings are correctly parsed
+// into CloudFormation tag structures.
+func TestParseTagString(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		want    []types.Tag
+		wantErr bool
+	}{
+		{
+			name:  "Valid tags",
+			input: `[{"Key":"Environment","Value":"Production"},{"Key":"Owner","Value":"TeamA"}]`,
+			want: []types.Tag{
+				{Key: strPtr("Environment"), Value: strPtr("Production")},
+				{Key: strPtr("Owner"), Value: strPtr("TeamA")},
+			},
+			wantErr: false,
+		},
+		{
+			name:    "Empty array",
+			input:   `[]`,
+			want:    []types.Tag{},
+			wantErr: false,
+		},
+		{
+			name:    "Invalid JSON",
+			input:   `{invalid}`,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ParseTagString(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ParseTagString() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr && !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ParseTagString() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestParseDeploymentFile verifies that deployment files in both JSON and YAML
+// formats are correctly parsed.
+func TestParseDeploymentFile(t *testing.T) {
+	jsonInput := `{"template-file-path":"templates/test-stack.yaml","parameters":{"Key1":"Value1"}}`
+	yamlInput := `template-file-path: templates/test-stack.yaml
+parameters:
+  Key1: Value1`
+
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+	}{
+		{
+			name:    "Valid JSON",
+			input:   jsonInput,
+			wantErr: false,
+		},
+		{
+			name:    "Valid YAML",
+			input:   yamlInput,
+			wantErr: false,
+		},
+		{
+			name:    "Invalid JSON",
+			input:   `{invalid`,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ParseDeploymentFile(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ParseDeploymentFile() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr {
+				if got.TemplateFilePath != "templates/test-stack.yaml" {
+					t.Errorf("ParseDeploymentFile() TemplateFilePath = %v, want templates/test-stack.yaml", got.TemplateFilePath)
+				}
+				if len(got.Parameters) != 1 {
+					t.Errorf("ParseDeploymentFile() Parameters length = %v, want 1", len(got.Parameters))
+				}
+				if val, ok := got.Parameters["Key1"]; !ok || val != "Value1" {
+					t.Errorf("ParseDeploymentFile() Parameters[Key1] = %v, want Value1", val)
+				}
+			}
+		})
+	}
+}
