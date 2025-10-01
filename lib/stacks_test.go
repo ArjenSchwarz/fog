@@ -550,4 +550,3 @@ func TestSortStacks(t *testing.T) {
 		t.Errorf("SortStacks.Swap() did not swap correctly")
 	}
 }
-

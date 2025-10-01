@@ -3,8 +3,9 @@
 The following tasks outline additional tests required to improve coverage for the library. Each task should include success and failure scenarios and use mocks where needed.
 
 ## Coverage Summary
-- **Current coverage**: 61.9% (improved from 55.1%)
-- **Recent improvements**: +6.8 percentage points
+- **Current coverage**: 66.6% (improved from 55.1%)
+- **Recent improvements**: +11.5 percentage points (from initial 55.1% to 66.6%)
+- **Latest session**: +4.7 percentage points (from 61.9% to 66.6%)
 
 ## Identity Center (`lib/identitycenter.go`)
 - [x] Add unit tests for `GetPermissionSetArns` - ✅ Complete
@@ -45,16 +46,10 @@ The following tasks outline additional tests required to improve coverage for th
 - [x] Add tests for `ParseParameterString` - ✅ New (100% coverage)
 - [x] Add tests for `ParseTagString` - ✅ New (100% coverage)
 - [x] Add tests for `ParseDeploymentFile` - ✅ New (90.9% coverage)
-- [ ] Add tests for `GetCfnStacks` - coverage: 0%
-  - Mock paginated CloudFormation DescribeStacks responses
-  - Test wildcard stack name filtering
-  - Test single stack retrieval
-  - Test output imports handling
-- [ ] Add tests for `GetParametersMap` - coverage: 0%
-  - Test converting CloudFormation parameters to map
-- [ ] Add tests for sorting helpers (ReverseEvents, SortStacks) - coverage: 0%
-  - Test Len, Less, Swap methods for both types
+- [x] Add tests for `GetParametersMap` - ✅ New (100% coverage)
+- [x] Add tests for sorting helpers (ReverseEvents, SortStacks) - ✅ New (100% coverage)
 - [ ] Add tests for remaining uncovered functions:
+  - `GetCfnStacks` (0%)
   - `LoadDeploymentFile` (0%)
   - `CreateChangeSet` (0%)
   - `WaitUntilChangesetDone` (0%)
@@ -69,17 +64,17 @@ The following tasks outline additional tests required to improve coverage for th
 - [x] Add tests for `AddChange` - ✅ Complete (100% coverage)
 - [x] Add tests for `GenerateChangesetUrl` - ✅ Complete (100% coverage)
 - [x] Add tests for `GetDangerDetails` - ✅ Complete (100% coverage)
-- [ ] Add tests for `DeleteChangeset` - coverage: 0%
-  - Mock CloudFormation DeleteChangeSet API
-  - Test success and failure scenarios
-- [ ] Add tests for `DeployChangeset` - coverage: 0%
-  - Mock CloudFormation ExecuteChangeSet API
-  - Test success and error handling
-- [ ] Add tests for `GetStack` - coverage: 0%
-  - Test calling GetStack with changeset's StackID
-- [ ] Add tests for `GetStackAndChangesetFromURL` - coverage: 0%
-  - Test URL parsing for stack and changeset IDs
-  - Test URL decoding and query parameter extraction
+- [x] Add tests for `DeleteChangeset` - ✅ New (100% coverage)
+  - Refactored to use interfaces for testability
+  - Added CloudFormationDeleteChangeSetAPI interface
+- [x] Add tests for `DeployChangeset` - ✅ New (100% coverage)
+  - Refactored to use interfaces for testability
+  - Added CloudFormationExecuteChangeSetAPI interface
+- [x] Add tests for `GetStack` - ✅ New (100% coverage)
+  - Refactored to use CloudFormationDescribeStacksAPI interface
+- [x] Add tests for `GetStackAndChangesetFromURL` - ✅ New (100% coverage)
+  - Tests URL parsing for stack and changeset IDs
+  - Tests URL decoding and query parameter extraction
 
 ## Drift Detection (`lib/drift.go`)
 - [ ] Add tests for `StartDriftDetection` - coverage: 0%
@@ -110,7 +105,7 @@ The following tasks outline additional tests required to improve coverage for th
 - [x] Add tests for `CompareNaclEntries` - ✅ Complete (100% coverage)
 - [x] Add tests for `CompareRoutes` - ✅ Complete (97.1% coverage)
 - [x] Add tests for helper functions - ✅ Complete (100% coverage)
-- [ ] Add tests for `GetRouteTable` - coverage: 0%
+- [x] Add tests for `GetRouteTable` - ✅ New (100% coverage)
   - Mock EC2 DescribeRouteTables API
   - Test successful route table retrieval
   - Test error handling
@@ -144,13 +139,14 @@ The following tasks outline additional tests required to improve coverage for th
 - [x] Add tests for `CfnTemplateTransform.Value()` - ✅ Complete (100% coverage)
 - [x] Add tests for `CfnTemplateTransform.UnmarshalJSON()` - ✅ Complete (91.7% coverage)
 - [ ] Add tests for `GetTemplateBody` - coverage: 0%
+  - Requires refactoring to accept interface instead of concrete CloudFormation client
   - Mock CloudFormation GetTemplate API
   - Test successful template retrieval and parsing
   - Test error handling
-- [ ] Improve coverage for `customRefHandler` from 56.2% to >80%
-  - Test more pseudo-parameter cases
-  - Test parameter default resolution
-  - Test nested template lookups
+- [x] Improve coverage for `customRefHandler` - ✅ Improved to 100% (from 56.2%)
+  - Added tests for pseudo-parameter cases (AWS::AccountId, AWS::Region, etc.)
+  - Added tests for parameter default resolution
+  - Added tests for unknown references
 
 ## Interfaces (`lib/interfaces.go`)
 - Interface definitions only - no tests needed (interfaces don't have executable code)

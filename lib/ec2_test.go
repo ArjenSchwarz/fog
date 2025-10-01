@@ -29,7 +29,6 @@ func (m mockEC2DescribeRouteTablesAPI) DescribeRouteTables(ctx context.Context, 
 	return m(ctx, params, optFns...)
 }
 
-
 func TestGetNacl(t *testing.T) {
 	type args struct {
 		naclid string
@@ -440,47 +439,6 @@ func TestGetRouteTarget(t *testing.T) {
 		})
 	}
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 // TestGetRouteTable tests the GetRouteTable function which retrieves a route table by ID
 func TestGetRouteTable(t *testing.T) {
