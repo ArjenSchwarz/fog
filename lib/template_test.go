@@ -188,3 +188,248 @@ func TestCfnTemplateBody_ShouldHaveResource(t *testing.T) {
 		})
 	}
 }
+
+// TestFilterNaclEntriesByLogicalId verifies that NACL entries are correctly
+// filtered by logical ID and converted to NetworkAclEntry structures.
+func TestFilterNaclEntriesByLogicalId(t *testing.T) {
+	params := []cfntypes.Parameter{
+		{ParameterKey: aws.String("CIDR"), ParameterValue: aws.String("10.0.0.0/24")},
+	}
+
+	template := CfnTemplateBody{
+		Resources: map[string]CfnTemplateResource{
+			"IngressRule": {
+				Type: "AWS::EC2::NetworkAclEntry",
+				Properties: map[string]interface{}{
+					"NetworkAclId": "REF: TestNacl",
+					"Protocol":     6.0,
+					"RuleNumber":   100.0,
+					"CidrBlock":    map[string]interface{}{"Ref": "CIDR"},
+					"RuleAction":   "allow",
+					"Egress":       false,
+				},
+			},
+			"EgressRule": {
+				Type: "AWS::EC2::NetworkAclEntry",
+				Properties: map[string]interface{}{
+					"NetworkAclId": "REF: TestNacl",
+					"Protocol":     "17",
+					"RuleNumber":   110.0,
+					"CidrBlock":    "0.0.0.0/0",
+					"RuleAction":   "deny",
+					"Egress":       true,
+				},
+			},
+			"OtherNacl": {
+				Type: "AWS::EC2::NetworkAclEntry",
+				Properties: map[string]interface{}{
+					"NetworkAclId": "REF: OtherNacl",
+					"Protocol":     "6",
+					"RuleNumber":   200.0,
+					"CidrBlock":    "192.168.0.0/16",
+					"RuleAction":   "allow",
+					"Egress":       false,
+				},
+			},
+		},
+		Conditions: map[string]bool{},
+	}
+
+	results := FilterNaclEntriesByLogicalId("TestNacl", template, params)
+
+	if len(results) != 2 {
+		t.Errorf("Expected 2 entries, got %d", len(results))
+	}
+
+	// Check ingress rule (rule number 100)
+	if entry, ok := results["I100"]; ok {
+		if *entry.Egress {
+			t.Errorf("Expected ingress rule, got egress")
+		}
+		if *entry.RuleNumber != 100 {
+			t.Errorf("Expected rule number 100, got %d", *entry.RuleNumber)
+		}
+		if *entry.CidrBlock != "10.0.0.0/24" {
+			t.Errorf("Expected CIDR 10.0.0.0/24, got %s", *entry.CidrBlock)
+		}
+	} else {
+		t.Errorf("Expected ingress rule I100 not found")
+	}
+
+	// Check egress rule (rule number 110)
+	if entry, ok := results["E110"]; ok {
+		if !*entry.Egress {
+			t.Errorf("Expected egress rule, got ingress")
+		}
+		if *entry.RuleNumber != 110 {
+			t.Errorf("Expected rule number 110, got %d", *entry.RuleNumber)
+		}
+	} else {
+		t.Errorf("Expected egress rule E110 not found")
+	}
+
+	// Ensure the OtherNacl entry is not included
+	if _, ok := results["I200"]; ok {
+		t.Errorf("Expected OtherNacl entry not to be included")
+	}
+}
+
+// TestFilterRoutesByLogicalId verifies that routes are correctly filtered by
+// logical route table ID and converted to Route structures.
+func TestFilterRoutesByLogicalId(t *testing.T) {
+	params := []cfntypes.Parameter{
+		{ParameterKey: aws.String("GW"), ParameterValue: aws.String("igw-123")},
+	}
+	logicalToPhysical := map[string]string{
+		"MyNATGateway": "nat-456",
+	}
+
+	template := CfnTemplateBody{
+		Resources: map[string]CfnTemplateResource{
+			"Route1": {
+				Type: "AWS::EC2::Route",
+				Properties: map[string]interface{}{
+					"RouteTableId":         "REF: TestRouteTable",
+					"DestinationCidrBlock": "0.0.0.0/0",
+					"GatewayId":            map[string]interface{}{"Ref": "GW"},
+				},
+			},
+			"Route2": {
+				Type: "AWS::EC2::Route",
+				Properties: map[string]interface{}{
+					"RouteTableId":         "REF: TestRouteTable",
+					"DestinationCidrBlock": "10.0.0.0/8",
+					"NatGatewayId":         "REF: MyNATGateway",
+				},
+			},
+			"OtherRoute": {
+				Type: "AWS::EC2::Route",
+				Properties: map[string]interface{}{
+					"RouteTableId":         "REF: OtherRouteTable",
+					"DestinationCidrBlock": "192.168.0.0/16",
+					"GatewayId":            "local",
+				},
+			},
+		},
+		Conditions: map[string]bool{},
+	}
+
+	results := FilterRoutesByLogicalId("TestRouteTable", template, params, logicalToPhysical)
+
+	if len(results) != 2 {
+		t.Errorf("Expected 2 routes, got %d", len(results))
+	}
+
+	// Check that the default route exists with the correct gateway
+	if route, ok := results["0.0.0.0/0"]; ok {
+		if *route.DestinationCidrBlock != "0.0.0.0/0" {
+			t.Errorf("Expected destination 0.0.0.0/0, got %s", *route.DestinationCidrBlock)
+		}
+		if *route.GatewayId != "igw-123" {
+			t.Errorf("Expected gateway igw-123, got %s", *route.GatewayId)
+		}
+	} else {
+		t.Errorf("Expected default route not found")
+	}
+
+	// Check that the NAT gateway route exists
+	if route, ok := results["10.0.0.0/8"]; ok {
+		if *route.NatGatewayId != "nat-456" {
+			t.Errorf("Expected NAT gateway nat-456, got %s", *route.NatGatewayId)
+		}
+	} else {
+		t.Errorf("Expected NAT gateway route not found")
+	}
+
+	// Ensure the other route table's route is not included
+	if _, ok := results["192.168.0.0/16"]; ok {
+		t.Errorf("Expected OtherRouteTable route not to be included")
+	}
+}
+
+// TestCfnTemplateTransform_Value ensures that the Value method returns the
+// correct type based on which field is populated.
+func TestCfnTemplateTransform_Value(t *testing.T) {
+	tests := []struct {
+		name      string
+		transform CfnTemplateTransform
+		want      interface{}
+	}{
+		{
+			name:      "String value",
+			transform: CfnTemplateTransform{String: aws.String("test-string")},
+			want:      "test-string",
+		},
+		{
+			name:      "StringArray value",
+			transform: CfnTemplateTransform{StringArray: &[]string{"item1", "item2"}},
+			want:      []string{"item1", "item2"},
+		},
+		{
+			name:      "Nil value",
+			transform: CfnTemplateTransform{},
+			want:      nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.transform.Value()
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Value() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestCfnTemplateTransform_UnmarshalJSON validates JSON unmarshaling for
+// CfnTemplateTransform, which can be either a string or an array of strings.
+func TestCfnTemplateTransform_UnmarshalJSON(t *testing.T) {
+	tests := []struct {
+		name    string
+		json    string
+		want    CfnTemplateTransform
+		wantErr bool
+	}{
+		{
+			name: "String value",
+			json: `"AWS::Serverless-2016-10-31"`,
+			want: CfnTemplateTransform{String: aws.String("AWS::Serverless-2016-10-31")},
+		},
+		{
+			name: "String array",
+			json: `["AWS::Serverless-2016-10-31", "AWS::Include"]`,
+			want: CfnTemplateTransform{StringArray: &[]string{"AWS::Serverless-2016-10-31", "AWS::Include"}},
+		},
+		{
+			name: "Mixed interface array",
+			json: `["Transform1", "Transform2"]`,
+			want: CfnTemplateTransform{StringArray: &[]string{"Transform1", "Transform2"}},
+		},
+		{
+			name:    "Invalid JSON",
+			json:    `{invalid}`,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var got CfnTemplateTransform
+			err := got.UnmarshalJSON([]byte(tt.json))
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("UnmarshalJSON() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if !tt.wantErr {
+				gotVal := got.Value()
+				wantVal := tt.want.Value()
+				if !reflect.DeepEqual(gotVal, wantVal) {
+					t.Errorf("UnmarshalJSON() got = %v, want %v", gotVal, wantVal)
+				}
+			}
+		})
+	}
+}
