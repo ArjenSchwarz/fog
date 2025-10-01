@@ -433,3 +433,98 @@ func TestCfnTemplateTransform_UnmarshalJSON(t *testing.T) {
 		})
 	}
 }
+
+// TestParseTemplateString_PseudoParameters tests that pseudo-parameters like
+// AWS::AccountId, AWS::Region, etc. are resolved correctly via customRefHandler
+func TestParseTemplateString_PseudoParameters(t *testing.T) {
+	template := `{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Resources": {
+    "TestResource": {
+      "Type": "AWS::S3::Bucket",
+      "Properties": {
+        "AccountId": {"Ref": "AWS::AccountId"},
+        "Region": {"Ref": "AWS::Region"},
+        "StackName": {"Ref": "AWS::StackName"},
+        "StackId": {"Ref": "AWS::StackId"},
+        "NotificationARNs": {"Ref": "AWS::NotificationARNs"},
+        "NoValue": {"Ref": "AWS::NoValue"},
+        "UnknownRef": {"Ref": "SomeUnknownRef"}
+      }
+    }
+  }
+}`
+
+	body := ParseTemplateString(template, nil)
+	props := body.Resources["TestResource"].Properties
+
+	// Test that pseudo-parameters are resolved correctly
+	if accountId, ok := props["AccountId"].(string); !ok || accountId != "123456789012" {
+		t.Errorf("AccountId = %v, want 123456789012", props["AccountId"])
+	}
+
+	if region, ok := props["Region"].(string); !ok || region != "ap-southeast-2" {
+		t.Errorf("Region = %v, want ap-southeast-2", props["Region"])
+	}
+
+	if stackName, ok := props["StackName"].(string); !ok || stackName != "YOUR_STACK_NAME" {
+		t.Errorf("StackName = %v, want YOUR_STACK_NAME", props["StackName"])
+	}
+
+	if stackId, ok := props["StackId"].(string); !ok || stackId == "" {
+		t.Errorf("StackId = %v, want non-empty ARN", props["StackId"])
+	}
+
+	if notificationARNs, ok := props["NotificationARNs"].([]interface{}); !ok || len(notificationARNs) == 0 {
+		t.Errorf("NotificationARNs = %v, want non-empty array", props["NotificationARNs"])
+	}
+
+	// NoValue should be nil
+	if props["NoValue"] != nil {
+		t.Errorf("NoValue = %v, want nil", props["NoValue"])
+	}
+
+	// Unknown references should get a "REF: " prefix
+	if unknownRef, ok := props["UnknownRef"].(string); !ok || unknownRef != "REF: SomeUnknownRef" {
+		t.Errorf("UnknownRef = %v, want REF: SomeUnknownRef", props["UnknownRef"])
+	}
+}
+
+// TestParseTemplateString_ParameterDefaults tests that parameter defaults
+// are resolved correctly when referenced in the template
+func TestParseTemplateString_ParameterDefaults(t *testing.T) {
+	template := `{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Parameters": {
+    "ParamWithDefault": {
+      "Type": "String",
+      "Default": "MyDefaultValue"
+    },
+    "ParamNoDefault": {
+      "Type": "String"
+    }
+  },
+  "Resources": {
+    "TestResource": {
+      "Type": "AWS::S3::Bucket",
+      "Properties": {
+        "WithDefault": {"Ref": "ParamWithDefault"},
+        "WithoutDefault": {"Ref": "ParamNoDefault"}
+      }
+    }
+  }
+}`
+
+	body := ParseTemplateString(template, nil)
+	props := body.Resources["TestResource"].Properties
+
+	// Parameter with default should resolve to the default value
+	if withDefault, ok := props["WithDefault"].(string); !ok || withDefault != "MyDefaultValue" {
+		t.Errorf("WithDefault = %v, want MyDefaultValue", props["WithDefault"])
+	}
+
+	// Parameter without default should get "REF: " prefix
+	if withoutDefault, ok := props["WithoutDefault"].(string); !ok || withoutDefault != "REF: ParamNoDefault" {
+		t.Errorf("WithoutDefault = %v, want REF: ParamNoDefault", props["WithoutDefault"])
+	}
+}
