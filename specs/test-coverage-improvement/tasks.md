@@ -6,18 +6,18 @@ references:
 ---
 # Test Coverage Improvement Tasks
 
-- [ ] 1. Set up test infrastructure foundation
+- [x] 1. Set up test infrastructure foundation
   - Create lib/testutil package structure with builders.go, fixtures.go, assertions.go, golden.go, and helpers.go files
   - Implement golden file testing utilities with Assert method and update flag support
   - Add github.com/google/go-cmp/cmp dependency to go.mod
   - Set up testdata directory structure with templates/, config/, golden/, and fixtures/ subdirectories
-  - [ ] 1.1. Write unit tests for golden file utilities
+  - [x] 1.1. Write unit tests for golden file utilities
     - Create testutil/golden_test.go with test cases for golden file creation
     - Test Assert method with both matching and non-matching content
     - Test update flag functionality for regenerating golden files
     - Verify proper error handling for missing golden files
     - References: Requirements 6.5, 6.6
-  - [ ] 1.2. Implement golden file utilities
+  - [x] 1.2. Implement golden file utilities
     - Create GoldenFile struct with Assert method in testutil/golden.go
     - Implement update flag checking using flag.Lookup
     - Add file read/write operations with proper error handling

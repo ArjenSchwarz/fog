@@ -1,0 +1,11 @@
+region: us-west-2
+profile: default
+templates:
+  directory: ./templates
+  validate: true
+parameters:
+  Environment: Dev
+  Application: TestApp
+tags:
+  Team: Platform
+  CostCenter: Engineering

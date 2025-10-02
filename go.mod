@@ -64,6 +64,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.7.2 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.30.1 // indirect
 	github.com/go-viper/mapstructure/v2 v2.3.0 // indirect
+	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/gosimple/unidecode v1.0.1 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/sagikazarmark/locafero v0.9.0 // indirect
