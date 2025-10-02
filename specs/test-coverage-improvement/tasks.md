@@ -1,0 +1,271 @@
+---
+references:
+    - specs/test-coverage-improvement/requirements.md
+    - specs/test-coverage-improvement/design.md
+    - specs/test-coverage-improvement/decision_log.md
+---
+# Test Coverage Improvement Tasks
+
+- [ ] 1. Set up test infrastructure foundation
+  - Create lib/testutil package structure with builders.go, fixtures.go, assertions.go, golden.go, and helpers.go files
+  - Implement golden file testing utilities with Assert method and update flag support
+  - Add github.com/google/go-cmp/cmp dependency to go.mod
+  - Set up testdata directory structure with templates/, config/, golden/, and fixtures/ subdirectories
+  - [ ] 1.1. Write unit tests for golden file utilities
+    - Create testutil/golden_test.go with test cases for golden file creation
+    - Test Assert method with both matching and non-matching content
+    - Test update flag functionality for regenerating golden files
+    - Verify proper error handling for missing golden files
+    - References: Requirements 6.5, 6.6
+  - [ ] 1.2. Implement golden file utilities
+    - Create GoldenFile struct with Assert method in testutil/golden.go
+    - Implement update flag checking using flag.Lookup
+    - Add file read/write operations with proper error handling
+    - Integrate cmp.Diff for content comparison
+    - References: Requirements 6.5, 6.6, Design golden.go example
+
+- [ ] 2. Create mock client builders and test data builders
+  - Implement mock AWS client builders in testutil/builders.go
+  - Create test data builders with sensible defaults in testutil/fixtures.go
+  - Add builder pattern methods for configuring mock responses
+  - Implement error injection capabilities for failure testing
+  - [ ] 2.1. Write unit tests for mock client builders
+    - Create testutil/builders_test.go with test cases for NewMockCFNClient
+    - Test WithStack, WithError, and other builder methods
+    - Verify mock responses match configured behavior
+    - Test error injection and failure scenarios
+    - References: Requirements 5.1, 5.2, 5.6
+  - [ ] 2.2. Implement mock CloudFormation client builder
+    - Create MockCFNClient struct with function fields in testutil/builders.go
+    - Implement NewMockCFNClient constructor with default behavior
+    - Add WithStack and WithError builder methods
+    - Implement DescribeStacks method delegating to function fields
+    - References: Requirements 5.1, 5.2, 5.5, 5.6
+  - [ ] 2.3. Write unit tests for test data builders
+    - Create testutil/fixtures_test.go with test cases for StackBuilder
+    - Test NewStackBuilder with default values
+    - Test WithStatus and other configuration methods
+    - Verify Build method returns properly configured stacks
+    - References: Requirements 6.2
+  - [ ] 2.4. Implement StackBuilder and other test data builders
+    - Create StackBuilder struct with builder pattern in testutil/fixtures.go
+    - Implement NewStackBuilder with sensible defaults
+    - Add WithStatus, WithParameters, WithTags configuration methods
+    - Implement Build method returning configured stack
+    - References: Requirements 6.2, Design fixtures.go example
+
+- [ ] 3. Extract and define focused interfaces for AWS services
+  - Extend existing interfaces in lib/interfaces.go
+  - Create new S3 interfaces (S3UploadAPI, S3HeadAPI)
+  - Add CloudFormation operation interfaces (CFNStackOperationsAPI)
+  - Create config/interfaces.go with AWSConfigLoader and ConfigReader
+  - [ ] 3.1. Write tests for interface implementations
+    - Create lib/interfaces_test.go to verify interface compliance
+    - Test that AWS SDK clients satisfy defined interfaces
+    - Test that mock implementations satisfy interfaces
+    - Verify interface composition works correctly
+    - References: Requirements 2.1, 2.2, 2.3
+  - [ ] 3.2. Define S3 and additional CloudFormation interfaces
+    - Add S3UploadAPI and S3HeadAPI interfaces to lib/interfaces.go
+    - Define CFNStackOperationsAPI composed interface
+    - Add CreateStack, UpdateStack, DeleteStack to interfaces
+    - Document interface usage patterns
+    - References: Requirements 2.2, 2.3, 2.4, Design interfaces section
+  - [ ] 3.3. Create config package interfaces
+    - Create config/interfaces.go file
+    - Define AWSConfigLoader interface for AWS config loading
+    - Define ConfigReader interface for file operations
+    - Add documentation for interface usage
+    - References: Requirements 2.1, 2.3, Design config interfaces
+
+- [ ] 4. Refactor lib package functions to use dependency injection
+  - Update function signatures to accept interface parameters
+  - Replace concrete AWS SDK client parameters with interfaces
+  - Maintain backward compatibility where possible
+  - Document breaking changes if any
+  - [ ] 4.1. Write tests for refactored lib/stacks.go functions
+    - Create comprehensive tests for GetStackInfo with mock clients
+    - Test success paths, error paths, and edge cases
+    - Use map-based table-driven tests with t.Run
+    - Implement proper error assertion and validation
+    - References: Requirements 3.2, 3.3, 9.4
+  - [ ] 4.2. Refactor lib/stacks.go to use dependency injection
+    - Update GetStackInfo to accept CloudFormationDescribeStacksAPI interface
+    - Replace global function variables with interface parameters
+    - Update all functions in stacks.go to use interfaces
+    - Ensure proper error handling throughout
+    - References: Requirements 2.5, 9.2
+  - [ ] 4.3. Write tests for refactored lib/changesets.go
+    - Create comprehensive tests for changeset operations
+    - Test CreateChangeset with mock CloudFormation client
+    - Add golden file tests for changeset output formatting
+    - Test error scenarios and edge cases
+    - References: Requirements 9.4, 9.5
+  - [ ] 4.4. Refactor lib/changesets.go to use dependency injection
+    - Update changeset functions to accept interface parameters
+    - Replace concrete AWS SDK types with interfaces
+    - Maintain existing functionality while improving testability
+    - Document any API changes
+    - References: Requirements 2.5, 9.2
+
+- [ ] 5. Uplift existing tests to modern Go patterns
+  - Convert slice-based table tests to map-based
+  - Replace reflect.DeepEqual with cmp.Diff
+  - Add t.Helper() to helper functions
+  - Update to got/want naming convention
+  - [ ] 5.1. Write tests verifying uplifted test patterns
+    - Create meta-tests to verify map-based table structure
+    - Test that t.Helper() is called in helper functions
+    - Verify got/want naming convention is used
+    - Ensure cmp.Diff is used for comparisons
+    - References: Requirements 3.2, 4.3, 4.4
+  - [ ] 5.2. Uplift lib/stacks_test.go to modern patterns
+    - Convert slice-based tables to map[string]struct
+    - Replace reflect.DeepEqual with cmp.Diff
+    - Add t.Run for each test case
+    - Update variable names to got/want convention
+    - References: Requirements 3.2, 3.3, 4.3, 4.4
+  - [ ] 5.3. Uplift remaining lib test files
+    - Update changesets_test.go, drift_test.go, ec2_test.go
+    - Convert all to map-based table tests
+    - Add t.Parallel() where safe
+    - Ensure proper variable capture in loops
+    - References: Requirements 3.2, 4.5, 4.6
+
+- [ ] 6. Implement config package testing
+  - Create comprehensive tests for AWS configuration loading
+  - Test configuration file parsing for all formats
+  - Mock AWS SDK configuration to avoid authentication
+  - Achieve 80% coverage target
+  - [ ] 6.1. Write unit tests for config/awsconfig.go
+    - Create config/awsconfig_test.go file
+    - Test LoadAWSConfig with mock AWSConfigLoader
+    - Test profile and region configuration
+    - Verify error handling for invalid configurations
+    - References: Requirements 8.1, 8.4, 8.6
+  - [ ] 6.2. Implement mock AWS config loader
+    - Create mockConfigLoader struct in awsconfig_test.go
+    - Implement LoadDefaultConfig method
+    - Add error injection capabilities
+    - Support different configuration scenarios
+    - References: Requirements 8.4, 12.2
+  - [ ] 6.3. Write unit tests for config/config.go
+    - Create config/config_test.go file
+    - Test LoadConfig for YAML, JSON, and TOML formats
+    - Use test fixtures from testdata/config/
+    - Test validation and error handling
+    - References: Requirements 8.2, 8.3, 8.5, 8.6
+  - [ ] 6.4. Create config test fixtures
+    - Add valid-config.yaml, valid-config.json, valid-config.toml to testdata/config/
+    - Create invalid configuration files for error testing
+    - Add edge case configurations
+    - Document fixture purpose and usage
+    - References: Requirements 8.3, 6.4
+
+- [ ] 7. Test cmd package helper functions
+  - Extract testable logic from large orchestration functions
+  - Create comprehensive tests for helper functions
+  - Implement golden file tests for output formatting
+  - Focus on achieving 75% coverage for helpers
+  - [ ] 7.1. Write unit tests for cmd/deploy_helpers.go
+    - Create comprehensive tests for deployment helper functions
+    - Test validation logic with various input scenarios
+    - Test preparation and formatting functions
+    - Use map-based table-driven tests
+    - References: Requirements 7.2, 7.3
+  - [ ] 7.2. Extract testable functions from cmd/deploy.go
+    - Identify validation and preparation logic in deploy.go
+    - Extract validateDeploymentFlags function
+    - Extract prepareDeploymentInfo function
+    - Move extracted functions to deploy_helpers.go
+    - References: Requirements 7.3, 14.2
+  - [ ] 7.3. Write golden file tests for cmd output
+    - Create golden file tests for table formatting
+    - Test changeset output formatting
+    - Test drift report formatting
+    - Add golden files to testdata/golden/
+    - References: Requirements 7.5, 6.5
+  - [ ] 7.4. Document excluded cmd functions
+    - Create documentation listing excluded functions
+    - Document deploy.go (409 lines) exclusion with justification
+    - Document report.go (360 lines) exclusion with justification
+    - Add refactoring recommendations for each
+    - References: Requirements 7.1, 7.7
+
+- [ ] 8. Expand lib package test coverage
+  - Add missing tests to reach 80% coverage
+  - Focus on complex CloudFormation operations
+  - Test helper functions to 90% coverage
+  - Cover edge cases and error paths
+  - [ ] 8.1. Write comprehensive tests for lib/drift.go
+    - Expand existing drift detection tests
+    - Test all drift detection scenarios
+    - Add tests for drift report generation
+    - Mock CloudFormation drift APIs
+    - References: Requirements 9.4, 9.5
+  - [ ] 8.2. Implement drift detection with dependency injection
+    - Update drift.go functions to accept interfaces
+    - Replace concrete AWS clients with interfaces
+    - Ensure proper error handling
+    - Maintain existing functionality
+    - References: Requirements 9.2
+  - [ ] 8.3. Write comprehensive tests for lib/template.go
+    - Add tests for template parsing and validation
+    - Test template preprocessing with placeholders
+    - Test S3 upload for large templates
+    - Mock S3 client for upload testing
+    - References: Requirements 9.6
+  - [ ] 8.4. Implement template handling with dependency injection
+    - Update template.go to accept S3UploadAPI interface
+    - Replace concrete S3 client with interface
+    - Add proper error handling for S3 operations
+    - Document template size limits
+    - References: Requirements 9.2
+
+- [ ] 9. Create integration tests with build tags
+  - Implement integration tests for complex workflows
+  - Use build tags and INTEGRATION environment variable
+  - Test end-to-end deployment scenarios
+  - Ensure tests are excluded from default runs
+  - [ ] 9.1. Write integration tests for deployment workflow
+    - Create cmd/deploy_integration_test.go with build tag
+    - Test full deployment workflow with mocked AWS
+    - Test changeset creation and execution
+    - Verify rollback scenarios
+    - References: Requirements 7.4, 12.3
+  - [ ] 9.2. Implement integration test infrastructure
+    - Add //go:build integration tag to integration tests
+    - Check INTEGRATION environment variable
+    - Create test helpers for complex scenarios
+    - Document how to run integration tests
+    - References: Requirements 7.4, 12.3
+
+- [ ] 10. Validate test quality and coverage
+  - Run all tests and verify they pass
+  - Measure coverage and ensure targets are met
+  - Run race detection and fix any issues
+  - Generate coverage report with exclusions
+  - [ ] 10.1. Create test validation script
+    - Write script to run go test ./... with coverage
+    - Add race detection with go test -race ./...
+    - Run go fmt and golangci-lint checks
+    - Generate coverage HTML report
+    - References: Requirements 13.1, 13.2, 13.3, 13.4
+  - [ ] 10.2. Implement coverage reporting
+    - Generate per-package coverage reports
+    - Calculate weighted overall coverage
+    - Create exclusion list with justifications
+    - Document gaps and improvement opportunities
+    - References: Requirements 1.5, 13.6
+  - [ ] 10.3. Fix any test failures or race conditions
+    - Run full test suite and identify failures
+    - Fix any race conditions detected
+    - Ensure all tests pass consistently
+    - Verify no flaky tests remain
+    - References: Requirements 13.5, 14.1
+  - [ ] 10.4. Create test documentation
+    - Document testing strategy and patterns
+    - Create README with test running instructions
+    - Document coverage metrics and exclusions
+    - Add inline comments for complex test scenarios
+    - References: Requirements 11.1, 11.2, 11.4, 11.5

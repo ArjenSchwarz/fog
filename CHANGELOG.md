@@ -1,6 +1,9 @@
 Unreleased
 ===========
 
+  * Add test coverage improvement specification with comprehensive requirements, design, and implementation plan for achieving 80% test coverage across the codebase
+  * Add Claude Code configuration files for AI-assisted development with approved tool permissions and project-specific guidance
+  * Configure gitignore to exclude Claude scripts directory
   * Document deploy workflow
   * Add stack utility tests
   * Expand design for refactoring deploy command

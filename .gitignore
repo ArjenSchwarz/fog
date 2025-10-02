@@ -18,3 +18,4 @@ fog
 rpdk.log
 
 deployments.log
+.claude/scripts
