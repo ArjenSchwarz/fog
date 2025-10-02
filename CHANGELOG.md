@@ -1,6 +1,8 @@
 Unreleased
 ===========
 
+  * Added comprehensive unit tests for mock client builders in lib/testutil/builders_test.go covering MockCFNClient, MockEC2Client, MockS3Client, StackBuilder, and StackEventBuilder with error injection and builder pattern validation
+  * Added comprehensive unit tests for test data fixtures in lib/testutil/fixtures_test.go covering sample templates, configurations, stack responses, changesets, events, and helper functions with fixture consistency validation
   * Added comprehensive test utilities package (lib/testutil) with assertion helpers, test builders, fixtures, golden file testing, and test helpers to improve test maintainability and coverage
   * Added golden file testing framework for validating complex output with automatic update capabilities
   * Added test assertion utilities for common patterns including AWS error handling, stack operations, and changeset validations

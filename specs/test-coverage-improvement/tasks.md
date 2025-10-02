@@ -24,30 +24,30 @@ references:
     - Integrate cmp.Diff for content comparison
     - References: Requirements 6.5, 6.6, Design golden.go example
 
-- [ ] 2. Create mock client builders and test data builders
+- [x] 2. Create mock client builders and test data builders
   - Implement mock AWS client builders in testutil/builders.go
   - Create test data builders with sensible defaults in testutil/fixtures.go
   - Add builder pattern methods for configuring mock responses
   - Implement error injection capabilities for failure testing
-  - [ ] 2.1. Write unit tests for mock client builders
+  - [x] 2.1. Write unit tests for mock client builders
     - Create testutil/builders_test.go with test cases for NewMockCFNClient
     - Test WithStack, WithError, and other builder methods
     - Verify mock responses match configured behavior
     - Test error injection and failure scenarios
     - References: Requirements 5.1, 5.2, 5.6
-  - [ ] 2.2. Implement mock CloudFormation client builder
+  - [x] 2.2. Implement mock CloudFormation client builder
     - Create MockCFNClient struct with function fields in testutil/builders.go
     - Implement NewMockCFNClient constructor with default behavior
     - Add WithStack and WithError builder methods
     - Implement DescribeStacks method delegating to function fields
     - References: Requirements 5.1, 5.2, 5.5, 5.6
-  - [ ] 2.3. Write unit tests for test data builders
+  - [x] 2.3. Write unit tests for test data builders
     - Create testutil/fixtures_test.go with test cases for StackBuilder
     - Test NewStackBuilder with default values
     - Test WithStatus and other configuration methods
     - Verify Build method returns properly configured stacks
     - References: Requirements 6.2
-  - [ ] 2.4. Implement StackBuilder and other test data builders
+  - [x] 2.4. Implement StackBuilder and other test data builders
     - Create StackBuilder struct with builder pattern in testutil/fixtures.go
     - Implement NewStackBuilder with sensible defaults
     - Add WithStatus, WithParameters, WithTags configuration methods
