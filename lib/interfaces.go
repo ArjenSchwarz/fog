@@ -6,6 +6,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/organizations"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/ssoadmin"
 )
 
@@ -69,4 +70,37 @@ type CFNListImportsAPI interface {
 type CFNExportsAPI interface {
 	CFNDescribeStacksAPI
 	CFNListImportsAPI
+}
+
+// S3UploadAPI defines the S3 operations for uploading objects
+type S3UploadAPI interface {
+	PutObject(ctx context.Context, params *s3.PutObjectInput, optFns ...func(*s3.Options)) (*s3.PutObjectOutput, error)
+}
+
+// S3HeadAPI defines the S3 operations for retrieving object metadata
+type S3HeadAPI interface {
+	HeadObject(ctx context.Context, params *s3.HeadObjectInput, optFns ...func(*s3.Options)) (*s3.HeadObjectOutput, error)
+}
+
+// CloudFormationCreateStackAPI defines the CloudFormation CreateStack operation
+type CloudFormationCreateStackAPI interface {
+	CreateStack(ctx context.Context, params *cloudformation.CreateStackInput, optFns ...func(*cloudformation.Options)) (*cloudformation.CreateStackOutput, error)
+}
+
+// CloudFormationUpdateStackAPI defines the CloudFormation UpdateStack operation
+type CloudFormationUpdateStackAPI interface {
+	UpdateStack(ctx context.Context, params *cloudformation.UpdateStackInput, optFns ...func(*cloudformation.Options)) (*cloudformation.UpdateStackOutput, error)
+}
+
+// CloudFormationDeleteStackAPI defines the CloudFormation DeleteStack operation
+type CloudFormationDeleteStackAPI interface {
+	DeleteStack(ctx context.Context, params *cloudformation.DeleteStackInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DeleteStackOutput, error)
+}
+
+// CFNStackOperationsAPI combines CloudFormation operations for stack lifecycle management
+type CFNStackOperationsAPI interface {
+	CloudFormationDescribeStacksAPI
+	CloudFormationCreateStackAPI
+	CloudFormationUpdateStackAPI
+	CloudFormationDeleteStackAPI
 }

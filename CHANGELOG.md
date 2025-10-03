@@ -1,6 +1,10 @@
 Unreleased
 ===========
 
+  * Added interface definitions for improved testability:
+    - Added AWS service interfaces in lib/interfaces.go for S3Upload and S3Head operations
+    - Added comprehensive config package interfaces in config/interfaces.go including AWSConfigLoader, STSGetCallerIdentityAPI, IAMListAccountAliasesAPI, ConfigReader, and ViperConfigAPI
+    - Added extensive unit tests for both lib and config interface implementations with mock clients and error handling scenarios
   * Added comprehensive unit tests for mock client builders in lib/testutil/builders_test.go covering MockCFNClient, MockEC2Client, MockS3Client, StackBuilder, and StackEventBuilder with error injection and builder pattern validation
   * Added comprehensive unit tests for test data fixtures in lib/testutil/fixtures_test.go covering sample templates, configurations, stack responses, changesets, events, and helper functions with fixture consistency validation
   * Added comprehensive test utilities package (lib/testutil) with assertion helpers, test builders, fixtures, golden file testing, and test helpers to improve test maintainability and coverage
