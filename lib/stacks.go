@@ -226,7 +226,7 @@ func stringInSlice(a string, list []string) bool {
 	return false
 }
 
-func (deployment *DeployInfo) CreateChangeSet(svc *cloudformation.Client) (string, error) {
+func (deployment *DeployInfo) CreateChangeSet(svc CloudFormationCreateChangeSetAPI) (string, error) {
 	input := &cloudformation.CreateChangeSetInput{
 		StackName:     &deployment.StackName,
 		ChangeSetType: deployment.ChangesetType(),
@@ -292,7 +292,7 @@ func ParseTagString(tags string) ([]types.Tag, error) {
 	return result, nil
 }
 
-func (deployment *DeployInfo) WaitUntilChangesetDone(svc *cloudformation.Client) (*ChangesetInfo, error) {
+func (deployment *DeployInfo) WaitUntilChangesetDone(svc CloudFormationDescribeChangeSetAPI) (*ChangesetInfo, error) {
 	time.Sleep(5 * time.Second)
 	changeset := ChangesetInfo{}
 	availableStatuses := []string{
@@ -350,7 +350,7 @@ func (deployment *DeployInfo) AddChangeset(resp []cloudformation.DescribeChangeS
 	return changeset
 }
 
-func (deployment *DeployInfo) GetChangeset(svc *cloudformation.Client) ([]cloudformation.DescribeChangeSetOutput, error) {
+func (deployment *DeployInfo) GetChangeset(svc CloudFormationDescribeChangeSetAPI) ([]cloudformation.DescribeChangeSetOutput, error) {
 	results := []cloudformation.DescribeChangeSetOutput{}
 	input := &cloudformation.DescribeChangeSetInput{
 		ChangeSetName: &deployment.ChangesetName,
@@ -358,10 +358,10 @@ func (deployment *DeployInfo) GetChangeset(svc *cloudformation.Client) ([]cloudf
 		StackName:     &deployment.StackName,
 	}
 	resp, err := svc.DescribeChangeSet(context.TODO(), input)
-	results = append(results, *resp)
 	if err != nil {
 		return results, err
 	}
+	results = append(results, *resp)
 	// write a for loop to get all the changesets
 	for resp.NextToken != nil {
 		input = &cloudformation.DescribeChangeSetInput{
@@ -370,10 +370,10 @@ func (deployment *DeployInfo) GetChangeset(svc *cloudformation.Client) ([]cloudf
 			StackName:     &deployment.StackName,
 		}
 		resp, err = svc.DescribeChangeSet(context.TODO(), input)
-		results = append(results, *resp)
 		if err != nil {
 			return results, err
 		}
+		results = append(results, *resp)
 	}
 	return results, nil
 }
@@ -398,8 +398,10 @@ func (deployment *DeployInfo) GetEvents(svc CloudFormationDescribeStackEventsAPI
 		StackName: &deployment.StackName,
 	}
 	resp, err := svc.DescribeStackEvents(context.TODO(), input)
-	return resp.StackEvents, err
-
+	if err != nil {
+		return nil, err
+	}
+	return resp.StackEvents, nil
 }
 
 func (deployment *DeployInfo) GetCleanedStackName() string {
@@ -562,7 +564,7 @@ func (stack *CfnStack) GetEventSummaries(svc *cloudformation.Client) ([]types.St
 
 }
 
-func (deployment *DeployInfo) DeleteStack(svc *cloudformation.Client) bool {
+func (deployment *DeployInfo) DeleteStack(svc CloudFormationDeleteStackAPI) bool {
 	input := &cloudformation.DeleteStackInput{
 		StackName: &deployment.StackName,
 	}

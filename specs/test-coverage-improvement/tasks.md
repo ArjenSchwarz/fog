@@ -78,30 +78,30 @@ references:
     - Add documentation for interface usage
     - References: Requirements 2.1, 2.3, Design config interfaces
 
-- [ ] 4. Refactor lib package functions to use dependency injection
+- [x] 4. Refactor lib package functions to use dependency injection
   - Update function signatures to accept interface parameters
   - Replace concrete AWS SDK client parameters with interfaces
   - Maintain backward compatibility where possible
   - Document breaking changes if any
-  - [ ] 4.1. Write tests for refactored lib/stacks.go functions
+  - [x] 4.1. Write tests for refactored lib/stacks.go functions
     - Create comprehensive tests for GetStackInfo with mock clients
     - Test success paths, error paths, and edge cases
     - Use map-based table-driven tests with t.Run
     - Implement proper error assertion and validation
     - References: Requirements 3.2, 3.3, 9.4
-  - [ ] 4.2. Refactor lib/stacks.go to use dependency injection
+  - [x] 4.2. Refactor lib/stacks.go to use dependency injection
     - Update GetStackInfo to accept CloudFormationDescribeStacksAPI interface
     - Replace global function variables with interface parameters
     - Update all functions in stacks.go to use interfaces
     - Ensure proper error handling throughout
     - References: Requirements 2.5, 9.2
-  - [ ] 4.3. Write tests for refactored lib/changesets.go
+  - [x] 4.3. Write tests for refactored lib/changesets.go
     - Create comprehensive tests for changeset operations
     - Test CreateChangeset with mock CloudFormation client
     - Add golden file tests for changeset output formatting
     - Test error scenarios and edge cases
     - References: Requirements 9.4, 9.5
-  - [ ] 4.4. Refactor lib/changesets.go to use dependency injection
+  - [x] 4.4. Refactor lib/changesets.go to use dependency injection
     - Update changeset functions to accept interface parameters
     - Replace concrete AWS SDK types with interfaces
     - Maintain existing functionality while improving testability

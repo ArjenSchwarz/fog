@@ -31,6 +31,9 @@ type MockCFNClient struct {
 	ListStacksFn             func(context.Context, *cloudformation.ListStacksInput, ...func(*cloudformation.Options)) (*cloudformation.ListStacksOutput, error)
 	GetTemplateFn            func(context.Context, *cloudformation.GetTemplateInput, ...func(*cloudformation.Options)) (*cloudformation.GetTemplateOutput, error)
 	ValidateTemplateFn       func(context.Context, *cloudformation.ValidateTemplateInput, ...func(*cloudformation.Options)) (*cloudformation.ValidateTemplateOutput, error)
+	DeleteChangeSetFn        func(context.Context, *cloudformation.DeleteChangeSetInput, ...func(*cloudformation.Options)) (*cloudformation.DeleteChangeSetOutput, error)
+	ExecuteChangeSetFn       func(context.Context, *cloudformation.ExecuteChangeSetInput, ...func(*cloudformation.Options)) (*cloudformation.ExecuteChangeSetOutput, error)
+	ListImportsFn            func(context.Context, *cloudformation.ListImportsInput, ...func(*cloudformation.Options)) (*cloudformation.ListImportsOutput, error)
 }
 
 // NewMockCFNClient creates a new mock CloudFormation client with sensible defaults
@@ -130,6 +133,147 @@ func (m *MockCFNClient) DescribeStackResources(ctx context.Context, params *clou
 
 	return &cloudformation.DescribeStackResourcesOutput{
 		StackResources: m.StackResources,
+	}, nil
+}
+
+// CreateStack implements the CloudFormationCreateStackAPI interface
+func (m *MockCFNClient) CreateStack(ctx context.Context, params *cloudformation.CreateStackInput, optFns ...func(*cloudformation.Options)) (*cloudformation.CreateStackOutput, error) {
+	if m.CreateStackFn != nil {
+		return m.CreateStackFn(ctx, params, optFns...)
+	}
+
+	if m.Error != nil {
+		return nil, m.Error
+	}
+
+	stackId := aws.String("arn:aws:cloudformation:us-west-2:123456789012:stack/" + *params.StackName + "/12345678-1234-1234-1234-123456789012")
+	return &cloudformation.CreateStackOutput{
+		StackId: stackId,
+	}, nil
+}
+
+// UpdateStack implements the CloudFormationUpdateStackAPI interface
+func (m *MockCFNClient) UpdateStack(ctx context.Context, params *cloudformation.UpdateStackInput, optFns ...func(*cloudformation.Options)) (*cloudformation.UpdateStackOutput, error) {
+	if m.UpdateStackFn != nil {
+		return m.UpdateStackFn(ctx, params, optFns...)
+	}
+
+	if m.Error != nil {
+		return nil, m.Error
+	}
+
+	stackId := aws.String("arn:aws:cloudformation:us-west-2:123456789012:stack/" + *params.StackName + "/12345678-1234-1234-1234-123456789012")
+	return &cloudformation.UpdateStackOutput{
+		StackId: stackId,
+	}, nil
+}
+
+// DeleteStack implements the CloudFormationDeleteStackAPI interface
+func (m *MockCFNClient) DeleteStack(ctx context.Context, params *cloudformation.DeleteStackInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DeleteStackOutput, error) {
+	if m.DeleteStackFn != nil {
+		return m.DeleteStackFn(ctx, params, optFns...)
+	}
+
+	if m.Error != nil {
+		return nil, m.Error
+	}
+
+	// Remove the stack from our mock storage
+	if params.StackName != nil {
+		delete(m.Stacks, *params.StackName)
+	}
+
+	return &cloudformation.DeleteStackOutput{}, nil
+}
+
+// CreateChangeSet implements the CloudFormationCreateChangeSetAPI interface
+func (m *MockCFNClient) CreateChangeSet(ctx context.Context, params *cloudformation.CreateChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.CreateChangeSetOutput, error) {
+	if m.CreateChangeSetFn != nil {
+		return m.CreateChangeSetFn(ctx, params, optFns...)
+	}
+
+	if m.Error != nil {
+		return nil, m.Error
+	}
+
+	changeSetId := aws.String("arn:aws:cloudformation:us-west-2:123456789012:changeSet/" + *params.ChangeSetName + "/12345678-1234-1234-1234-123456789012")
+	return &cloudformation.CreateChangeSetOutput{
+		Id:      changeSetId,
+		StackId: aws.String("arn:aws:cloudformation:us-west-2:123456789012:stack/" + *params.StackName + "/12345678-1234-1234-1234-123456789012"),
+	}, nil
+}
+
+// DescribeChangeSet implements the CloudFormationDescribeChangeSetAPI interface
+func (m *MockCFNClient) DescribeChangeSet(ctx context.Context, params *cloudformation.DescribeChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeChangeSetOutput, error) {
+	if m.DescribeChangeSetFn != nil {
+		return m.DescribeChangeSetFn(ctx, params, optFns...)
+	}
+
+	if m.Error != nil {
+		return nil, m.Error
+	}
+
+	if params.ChangeSetName != nil {
+		if changeset, ok := m.Changesets[*params.ChangeSetName]; ok {
+			return changeset, nil
+		}
+	}
+
+	// Return a default changeset if not found
+	return &cloudformation.DescribeChangeSetOutput{
+		ChangeSetId:   aws.String("arn:aws:cloudformation:us-west-2:123456789012:changeSet/test-changeset/12345678-1234-1234-1234-123456789012"),
+		ChangeSetName: params.ChangeSetName,
+		StackId:       aws.String("arn:aws:cloudformation:us-west-2:123456789012:stack/" + *params.StackName + "/12345678-1234-1234-1234-123456789012"),
+		StackName:     params.StackName,
+		Status:        types.ChangeSetStatusCreateComplete,
+		CreationTime:  aws.Time(time.Now()),
+	}, nil
+}
+
+// DeleteChangeSet implements the CloudFormationDeleteChangeSetAPI interface
+func (m *MockCFNClient) DeleteChangeSet(ctx context.Context, params *cloudformation.DeleteChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DeleteChangeSetOutput, error) {
+	if m.DeleteChangeSetFn != nil {
+		return m.DeleteChangeSetFn(ctx, params, optFns...)
+	}
+
+	if m.Error != nil {
+		return nil, m.Error
+	}
+
+	// Remove the changeset from our mock storage
+	if params.ChangeSetName != nil {
+		delete(m.Changesets, *params.ChangeSetName)
+	}
+
+	return &cloudformation.DeleteChangeSetOutput{}, nil
+}
+
+// ExecuteChangeSet implements the CloudFormationExecuteChangeSetAPI interface
+func (m *MockCFNClient) ExecuteChangeSet(ctx context.Context, params *cloudformation.ExecuteChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.ExecuteChangeSetOutput, error) {
+	if m.ExecuteChangeSetFn != nil {
+		return m.ExecuteChangeSetFn(ctx, params, optFns...)
+	}
+
+	if m.Error != nil {
+		return nil, m.Error
+	}
+
+	return &cloudformation.ExecuteChangeSetOutput{}, nil
+}
+
+// ListImports implements the CFNListImportsAPI interface
+func (m *MockCFNClient) ListImports(ctx context.Context, params *cloudformation.ListImportsInput, optFns ...func(*cloudformation.Options)) (*cloudformation.ListImportsOutput, error) {
+	if m.ListImportsFn != nil {
+		return m.ListImportsFn(ctx, params, optFns...)
+	}
+
+	if m.Error != nil {
+		return nil, m.Error
+	}
+
+	// Return empty imports list by default
+	return &cloudformation.ListImportsOutput{
+		Imports: []string{},
 	}, nil
 }
 

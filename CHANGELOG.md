@@ -1,6 +1,11 @@
 Unreleased
 ===========
 
+  * Added comprehensive refactored unit tests for changesets with modern Go testing patterns including table-driven tests, parallel execution, and dependency injection for DeleteChangeset, DeployChangeset, AddChange, GetStack, GenerateChangesetUrl, and GetDangerDetails functions
+  * Added comprehensive refactored unit tests for stacks with modern patterns covering GetStack, StackExists, CreateChangeSet, WaitUntilChangesetDone, GetChangeset, GetEvents, DeleteStack, and other stack operations with mock implementations
+  * Added CloudFormationCreateChangeSetAPI and CloudFormationDescribeChangeSetAPI interfaces to lib/interfaces.go for improved testability
+  * Refactored stack operation functions to use interface-based dependencies (CreateChangeSet, WaitUntilChangesetDone, GetChangeset, DeleteStack, GetEvents) enabling better unit testing with mock implementations
+  * Enhanced testutil package with additional builder methods for creating test stacks and mock clients with comprehensive error handling
   * Added interface definitions for improved testability:
     - Added AWS service interfaces in lib/interfaces.go for S3Upload and S3Head operations
     - Added comprehensive config package interfaces in config/interfaces.go including AWSConfigLoader, STSGetCallerIdentityAPI, IAMListAccountAliasesAPI, ConfigReader, and ViperConfigAPI

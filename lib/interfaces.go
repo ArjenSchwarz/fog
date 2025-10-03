@@ -104,3 +104,13 @@ type CFNStackOperationsAPI interface {
 	CloudFormationUpdateStackAPI
 	CloudFormationDeleteStackAPI
 }
+
+// CloudFormationCreateChangeSetAPI defines the CloudFormation CreateChangeSet operation
+type CloudFormationCreateChangeSetAPI interface {
+	CreateChangeSet(ctx context.Context, params *cloudformation.CreateChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.CreateChangeSetOutput, error)
+}
+
+// CloudFormationDescribeChangeSetAPI defines the CloudFormation DescribeChangeSet operation
+type CloudFormationDescribeChangeSetAPI interface {
+	DescribeChangeSet(ctx context.Context, params *cloudformation.DescribeChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeChangeSetOutput, error)
+}
