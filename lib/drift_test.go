@@ -2,13 +2,16 @@ package lib
 
 import (
 	"context"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // Define interfaces for the CloudFormation client methods we use
@@ -73,6 +76,8 @@ func StartDriftDetectionTest(stackName *string, svc CloudFormationDetectStackDri
 }
 
 func TestStartDriftDetection(t *testing.T) {
+	t.Helper()
+
 	// Setup test data
 	stackName := "test-stack"
 	driftDetectionId := "drift-detection-id-123"
@@ -88,9 +93,7 @@ func TestStartDriftDetection(t *testing.T) {
 	result := StartDriftDetectionTest(&stackName, mockClient)
 
 	// Verify result
-	if *result != driftDetectionId {
-		t.Errorf("StartDriftDetection() = %v, want %v", *result, driftDetectionId)
-	}
+	assert.Equal(t, driftDetectionId, *result)
 }
 
 // Modify the WaitForDriftDetectionToFinish function to accept an interface
@@ -110,65 +113,69 @@ func WaitForDriftDetectionToFinishTest(driftDetectionId *string, svc CloudFormat
 }
 
 func TestWaitForDriftDetectionToFinish(t *testing.T) {
+	t.Helper()
+
 	// Setup test data
 	driftDetectionId := "drift-detection-id-123"
 
-	t.Run("Completes immediately", func(t *testing.T) {
-		// Create mock client with completed status
-		mockClient := &MockCloudFormationClient{
-			DescribeStackDriftDetectionStatusOutput: cloudformation.DescribeStackDriftDetectionStatusOutput{
-				DetectionStatus: types.StackDriftDetectionStatusDetectionComplete,
+	tests := map[string]struct {
+		setupMock         func() *MockCloudFormationClient
+		wantStatus        types.StackDriftDetectionStatus
+		wantMinAPICalls   int
+		wantExactAPICalls int
+	}{
+		"completes immediately": {
+			setupMock: func() *MockCloudFormationClient {
+				return &MockCloudFormationClient{
+					DescribeStackDriftDetectionStatusOutput: cloudformation.DescribeStackDriftDetectionStatusOutput{
+						DetectionStatus: types.StackDriftDetectionStatusDetectionComplete,
+					},
+				}
 			},
-		}
+			wantStatus:        types.StackDriftDetectionStatusDetectionComplete,
+			wantExactAPICalls: 1,
+		},
+		"completes after in-progress status": {
+			setupMock: func() *MockCloudFormationClient {
+				mockClient := &MockCloudFormationClient{}
+				mockClient.DescribeStackDriftDetectionStatusOutput = cloudformation.DescribeStackDriftDetectionStatusOutput{
+					DetectionStatus: types.StackDriftDetectionStatusDetectionInProgress,
+				}
 
-		// Test WaitForDriftDetectionToFinish using our test wrapper
-		result := WaitForDriftDetectionToFinishTest(&driftDetectionId, mockClient)
+				// Use a goroutine to change the mock response after a delay
+				go func() {
+					time.Sleep(10 * time.Millisecond)
+					mockClient.DescribeStackDriftDetectionStatusOutput = cloudformation.DescribeStackDriftDetectionStatusOutput{
+						DetectionStatus: types.StackDriftDetectionStatusDetectionComplete,
+					}
+				}()
 
-		// Verify result
-		if result != types.StackDriftDetectionStatusDetectionComplete {
-			t.Errorf("WaitForDriftDetectionToFinish() = %v, want %v", result, types.StackDriftDetectionStatusDetectionComplete)
-		}
+				return mockClient
+			},
+			wantStatus:      types.StackDriftDetectionStatusDetectionComplete,
+			wantMinAPICalls: 2,
+		},
+	}
 
-		// Verify number of API calls
-		if mockClient.DescribeStackDriftDetectionStatusCalls != 1 {
-			t.Errorf("Expected 1 API call, got %d", mockClient.DescribeStackDriftDetectionStatusCalls)
-		}
-	})
+	for name, tc := range tests {
+		tc := tc
+		t.Run(name, func(t *testing.T) {
+			mockClient := tc.setupMock()
 
-	t.Run("Completes after in-progress status", func(t *testing.T) {
-		// Create mock client that returns in-progress first, then complete
-		mockClient := &MockCloudFormationClient{}
+			got := WaitForDriftDetectionToFinishTest(&driftDetectionId, mockClient)
 
-		// Set up the mock to return different responses on subsequent calls
-		mockClient.DescribeStackDriftDetectionStatusOutput = cloudformation.DescribeStackDriftDetectionStatusOutput{
-			DetectionStatus: types.StackDriftDetectionStatusDetectionInProgress,
-		}
+			assert.Equal(t, tc.wantStatus, got)
 
-		// Use a goroutine to change the mock response after a delay
-		go func() {
-			// Wait for the first call to complete
-			time.Sleep(10 * time.Millisecond)
-
-			// Update the mock to return complete status on next call
-			mockClient.DescribeStackDriftDetectionStatusOutput = cloudformation.DescribeStackDriftDetectionStatusOutput{
-				DetectionStatus: types.StackDriftDetectionStatusDetectionComplete,
+			if tc.wantExactAPICalls > 0 {
+				assert.Equal(t, tc.wantExactAPICalls, mockClient.DescribeStackDriftDetectionStatusCalls)
 			}
-		}()
 
-		// Test WaitForDriftDetectionToFinish using our test wrapper
-		result := WaitForDriftDetectionToFinishTest(&driftDetectionId, mockClient)
-
-		// Verify result
-		if result != types.StackDriftDetectionStatusDetectionComplete {
-			t.Errorf("WaitForDriftDetectionToFinish() = %v, want %v", result, types.StackDriftDetectionStatusDetectionComplete)
-		}
-
-		// Verify that we made at least 2 API calls (one for in-progress, one for complete)
-		// The exact number may vary due to timing, but we need at least 2
-		if mockClient.DescribeStackDriftDetectionStatusCalls < 2 {
-			t.Errorf("Expected at least 2 API calls, got %d", mockClient.DescribeStackDriftDetectionStatusCalls)
-		}
-	})
+			if tc.wantMinAPICalls > 0 {
+				assert.GreaterOrEqual(t, mockClient.DescribeStackDriftDetectionStatusCalls, tc.wantMinAPICalls,
+					"Expected at least %d API calls", tc.wantMinAPICalls)
+			}
+		})
+	}
 }
 
 // Modify the GetDefaultStackDrift function to accept an interface
@@ -184,7 +191,8 @@ func GetDefaultStackDriftTest(stackName *string, svc CloudFormationDescribeStack
 }
 
 func TestGetDefaultStackDrift(t *testing.T) {
-	// Setup test data
+	t.Helper()
+
 	stackName := "test-stack"
 	drifts := []types.StackResourceDrift{
 		{
@@ -197,7 +205,7 @@ func TestGetDefaultStackDrift(t *testing.T) {
 			LogicalResourceId:        stringPtr("Resource2"),
 			PhysicalResourceId:       stringPtr("physical-id-2"),
 			ResourceType:             stringPtr("AWS::IAM::Role"),
-			StackResourceDriftStatus: types.StackResourceDriftStatusInSync, // Using InSync instead of NotModified
+			StackResourceDriftStatus: types.StackResourceDriftStatusInSync,
 		},
 	}
 
@@ -209,11 +217,15 @@ func TestGetDefaultStackDrift(t *testing.T) {
 	}
 
 	// Test GetDefaultStackDrift using our test wrapper
-	result := GetDefaultStackDriftTest(&stackName, mockClient)
+	got := GetDefaultStackDriftTest(&stackName, mockClient)
 
-	// Verify result
-	if !reflect.DeepEqual(result, drifts) {
-		t.Errorf("GetDefaultStackDrift() = %v, want %v", result, drifts)
+	// Verify result using cmp.Diff
+	opts := []cmp.Option{
+		cmpopts.IgnoreUnexported(types.StackResourceDrift{}),
+	}
+
+	if diff := cmp.Diff(drifts, got, opts...); diff != "" {
+		t.Errorf("GetDefaultStackDrift() mismatch (-want +got):\n%s", diff)
 	}
 }
 
@@ -269,11 +281,12 @@ func GetUncheckedStackResourcesTest(stackName *string, checkedResources []string
 }
 
 func TestGetUncheckedStackResources(t *testing.T) {
-	// Setup test data
+	t.Helper()
+
 	stackName := "test-stack"
 	checkedResources := []string{"Resource1", "Resource3"}
 
-	expectedUncheckedResources := []CfnResource{
+	want := []CfnResource{
 		{
 			LogicalID:  "Resource2",
 			ResourceID: "physical-id-2",
@@ -294,23 +307,14 @@ func TestGetUncheckedStackResources(t *testing.T) {
 	}
 
 	// Test GetUncheckedStackResources using our test wrapper
-	result := GetUncheckedStackResourcesTest(&stackName, checkedResources, mockClient)
+	got := GetUncheckedStackResourcesTest(&stackName, checkedResources, mockClient)
 
-	// Verify result
-	if len(result) != len(expectedUncheckedResources) {
-		t.Errorf("GetUncheckedStackResources() returned %d resources, want %d", len(result), len(expectedUncheckedResources))
-	}
+	require.Len(t, got, len(want), "Expected %d unchecked resources", len(want))
 
-	for i, res := range result {
-		if res.LogicalID != expectedUncheckedResources[i].LogicalID {
-			t.Errorf("Resource[%d].LogicalID = %v, want %v", i, res.LogicalID, expectedUncheckedResources[i].LogicalID)
-		}
-		if res.ResourceID != expectedUncheckedResources[i].ResourceID {
-			t.Errorf("Resource[%d].ResourceID = %v, want %v", i, res.ResourceID, expectedUncheckedResources[i].ResourceID)
-		}
-		if res.Type != expectedUncheckedResources[i].Type {
-			t.Errorf("Resource[%d].Type = %v, want %v", i, res.Type, expectedUncheckedResources[i].Type)
-		}
+	for i := range got {
+		assert.Equal(t, want[i].LogicalID, got[i].LogicalID, "Resource[%d].LogicalID", i)
+		assert.Equal(t, want[i].ResourceID, got[i].ResourceID, "Resource[%d].ResourceID", i)
+		assert.Equal(t, want[i].Type, got[i].Type, "Resource[%d].Type", i)
 	}
 }
 

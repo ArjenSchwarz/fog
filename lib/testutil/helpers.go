@@ -147,6 +147,7 @@ func LoadFixture(t *testing.T, path string) []byte {
 
 // LoadFixtureString loads a fixture file as a string
 func LoadFixtureString(t *testing.T, path string) string {
+	t.Helper()
 	return string(LoadFixture(t, path))
 }
 

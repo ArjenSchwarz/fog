@@ -3,12 +3,13 @@ package lib
 import (
 	"context"
 	"errors"
-	"reflect"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
 type mockEC2DescribeNaclsAPI func(ctx context.Context, params *ec2.DescribeNetworkAclsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeNetworkAclsOutput, error)
@@ -122,8 +123,13 @@ func TestGetNacl(t *testing.T) {
 				t.Errorf("GetNacl() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetNacl() = %v, want %v", got, tt.want)
+
+			opts := []cmp.Option{
+				cmpopts.IgnoreUnexported(types.NetworkAcl{}, types.NetworkAclAssociation{}, types.NetworkAclEntry{}, types.IcmpTypeCode{}, types.PortRange{}, types.Tag{}),
+			}
+
+			if diff := cmp.Diff(tt.want, got, opts...); diff != "" {
+				t.Errorf("GetNacl() mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}
@@ -404,8 +410,14 @@ func TestGetManagedPrefixLists(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := GetManagedPrefixLists(tt.args.svc); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetManagedPrefixLists() = %v, want %v", got, tt.want)
+			got := GetManagedPrefixLists(tt.args.svc)
+
+			opts := []cmp.Option{
+				cmpopts.IgnoreUnexported(types.ManagedPrefixList{}),
+			}
+
+			if diff := cmp.Diff(tt.want, got, opts...); diff != "" {
+				t.Errorf("GetManagedPrefixLists() mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}
@@ -503,8 +515,15 @@ func TestGetRouteTable(t *testing.T) {
 				t.Errorf("GetRouteTable() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !tt.wantErr && !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetRouteTable() = %v, want %v", got, tt.want)
+
+			if !tt.wantErr {
+				opts := []cmp.Option{
+					cmpopts.IgnoreUnexported(types.RouteTable{}, types.Route{}),
+				}
+
+				if diff := cmp.Diff(tt.want, got, opts...); diff != "" {
+					t.Errorf("GetRouteTable() mismatch (-want +got):\n%s", diff)
+				}
 			}
 		})
 	}

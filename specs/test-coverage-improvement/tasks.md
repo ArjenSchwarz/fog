@@ -108,24 +108,24 @@ references:
     - Document any API changes
     - References: Requirements 2.5, 9.2
 
-- [ ] 5. Uplift existing tests to modern Go patterns
+- [x] 5. Uplift existing tests to modern Go patterns
   - Convert slice-based table tests to map-based
   - Replace reflect.DeepEqual with cmp.Diff
   - Add t.Helper() to helper functions
   - Update to got/want naming convention
-  - [ ] 5.1. Write tests verifying uplifted test patterns
+  - [x] 5.1. Write tests verifying uplifted test patterns
     - Create meta-tests to verify map-based table structure
     - Test that t.Helper() is called in helper functions
     - Verify got/want naming convention is used
     - Ensure cmp.Diff is used for comparisons
     - References: Requirements 3.2, 4.3, 4.4
-  - [ ] 5.2. Uplift lib/stacks_test.go to modern patterns
+  - [x] 5.2. Uplift lib/stacks_test.go to modern patterns
     - Convert slice-based tables to map[string]struct
     - Replace reflect.DeepEqual with cmp.Diff
     - Add t.Run for each test case
     - Update variable names to got/want convention
     - References: Requirements 3.2, 3.3, 4.3, 4.4
-  - [ ] 5.3. Uplift remaining lib test files
+  - [x] 5.3. Uplift remaining lib test files
     - Update changesets_test.go, drift_test.go, ec2_test.go
     - Convert all to map-based table tests
     - Add t.Parallel() where safe

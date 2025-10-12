@@ -1,6 +1,7 @@
 Unreleased
 ===========
 
+  * Added test pattern validator utility to verify test files follow modern Go patterns including table-driven tests, parallel execution, assertion libraries, and proper test helper usage
   * Added comprehensive refactored unit tests for changesets with modern Go testing patterns including table-driven tests, parallel execution, and dependency injection for DeleteChangeset, DeployChangeset, AddChange, GetStack, GenerateChangesetUrl, and GetDangerDetails functions
   * Added comprehensive refactored unit tests for stacks with modern patterns covering GetStack, StackExists, CreateChangeSet, WaitUntilChangesetDone, GetChangeset, GetEvents, DeleteStack, and other stack operations with mock implementations
   * Added CloudFormationCreateChangeSetAPI and CloudFormationDescribeChangeSetAPI interfaces to lib/interfaces.go for improved testability
