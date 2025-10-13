@@ -1,0 +1,15 @@
+Timestamp: 2024-01-15T10:30:00Z
+LogicalResourceId: test-stack
+ResourceType: AWS::CloudFormation::Stack
+ResourceStatus: CREATE_IN_PROGRESS
+
+Timestamp: 2024-01-15T10:30:05Z
+LogicalResourceId: MyBucket
+ResourceType: AWS::S3::Bucket
+ResourceStatus: CREATE_IN_PROGRESS
+
+Timestamp: 2024-01-15T10:30:10Z
+LogicalResourceId: MyBucket
+ResourceType: AWS::S3::Bucket
+ResourceStatus: CREATE_COMPLETE
+

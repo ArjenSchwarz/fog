@@ -1,0 +1,15 @@
+Action: Add
+LogicalResourceId: NewBucket
+ResourceType: AWS::S3::Bucket
+Replacement: False
+
+Action: Modify
+LogicalResourceId: ExistingQueue
+ResourceType: AWS::SQS::Queue
+Replacement: False
+
+Action: Remove
+LogicalResourceId: OldTopic
+ResourceType: AWS::SNS::Topic
+Replacement: False
+

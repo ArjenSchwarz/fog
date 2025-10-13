@@ -1,0 +1,11 @@
+Action: Add
+LogicalResourceId: WebServerInstance
+ResourceType: AWS::EC2::Instance
+Replacement: False
+PhysicalResourceId: i-1234567890abcdef0
+
+Action: Add
+LogicalResourceId: WebServerSecurityGroup
+ResourceType: AWS::EC2::SecurityGroup
+Replacement: False
+

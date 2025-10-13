@@ -83,6 +83,26 @@ test-performance:
 test-memory:
 	go test -run=TestMemoryUsage ./lib/plan/
 
+# Run golden file tests
+test-golden:
+	go test ./cmd/... -run Golden
+
+# Update golden files (use when output format changes intentionally)
+test-golden-update:
+	go test ./cmd/... -run Golden -update
+	@echo "Golden files updated in cmd/testdata/golden/cmd/"
+
+# Run golden file tests with verbose output
+test-golden-verbose:
+	go test ./cmd/... -run Golden -v
+
+# Verify golden files exist and tests pass
+test-golden-check: test-golden
+	@echo "Verifying golden files exist..."
+	@test -d cmd/testdata/golden/cmd || (echo "Error: Golden file directory not found" && exit 1)
+	@test -n "$$(ls -A cmd/testdata/golden/cmd 2>/dev/null)" || (echo "Error: No golden files found" && exit 1)
+	@echo "✓ Golden files verified"
+
 # Compare benchmark results (requires BASELINE and CURRENT files)
 benchmarks-compare:
 	@if [ -z "$(BASELINE)" ] || [ -z "$(CURRENT)" ]; then \
@@ -163,6 +183,10 @@ help:
 	@echo "  test-coverage         - Generate test coverage report (HTML)"
 	@echo "  test-performance      - Run performance validation tests"
 	@echo "  test-memory           - Run memory usage tests"
+	@echo "  test-golden           - Run golden file tests for output validation"
+	@echo "  test-golden-update    - Update golden files (use when output format changes)"
+	@echo "  test-golden-verbose   - Run golden file tests with verbose output"
+	@echo "  test-golden-check     - Verify golden files exist and tests pass"
 	@echo ""
 	@echo "Benchmark targets:"
 	@echo "  benchmarks            - Run benchmark tests"
@@ -194,4 +218,4 @@ help:
 	@echo "  make build VERSION=1.2.3     - Build with specific version"
 	@echo "  make build-release VERSION=1.2.3 - Build release version"
 
-.PHONY: build build-release test test-verbose test-integration test-integration-verbose test-all test-coverage test-performance test-memory benchmarks benchmarks-mem benchmarks-stats benchmarks-analysis benchmarks-formatting benchmarks-property benchmarks-compare test-action-unit test-action-foundation test-action-integration test-action-comprehensive test-action run-sample run-sample-details list-samples run-all-samples fmt vet lint check clean install deps-tidy deps-update security-scan go-functions update-v1-tag help
+.PHONY: build build-release test test-verbose test-integration test-integration-verbose test-all test-coverage test-performance test-memory test-golden test-golden-update test-golden-verbose test-golden-check benchmarks benchmarks-mem benchmarks-stats benchmarks-analysis benchmarks-formatting benchmarks-property benchmarks-compare test-action-unit test-action-foundation test-action-integration test-action-comprehensive test-action run-sample run-sample-details list-samples run-all-samples fmt vet lint check clean install deps-tidy deps-update security-scan go-functions update-v1-tag help

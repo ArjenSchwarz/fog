@@ -85,7 +85,7 @@ func deployTemplate(cmd *cobra.Command, args []string) {
 
 	deploymentLog := lib.NewDeploymentLog(awsConfig, deployment)
 
-	precheckOutput := runPrechecks(&deployment, awsConfig, &deploymentLog)
+	precheckOutput := runPrechecks(&deployment, &deploymentLog)
 	fmt.Print(precheckOutput)
 
 	changeset := createAndShowChangeset(&deployment, awsConfig, &deploymentLog)
@@ -97,21 +97,12 @@ func deployTemplate(cmd *cobra.Command, args []string) {
 // showDeploymentInfo shows what kind of deployment this (New/Update) and where it's happening
 func showDeploymentInfo(deployment lib.DeployInfo, awsConfig config.AWSConfig) {
 	bold := color.New(color.Bold).SprintFunc()
+	method := determineDeploymentMethod(deployment.IsNew, deployFlags.Dryrun)
+	account := formatAccountDisplay(awsConfig.AccountID, awsConfig.AccountAlias)
+
 	if deployment.IsNew {
-		method := "Deploying"
-		if deployFlags.Dryrun {
-			method = fmt.Sprintf("Doing a %v for", bold("dry run"))
-		}
-		account := awsConfig.AccountID
-		if awsConfig.AccountAlias != "" {
-			account = fmt.Sprintf("%v (%v)", awsConfig.AccountAlias, awsConfig.AccountID)
-		}
 		fmt.Printf("%v new stack '%v' to region %v of account %v\n", method, bold(deployFlags.StackName), awsConfig.Region, account)
 	} else {
-		method := "Updating"
-		if deployFlags.Dryrun {
-			method = fmt.Sprintf("Doing a %v for updating", bold("dry run"))
-		}
 		fmt.Printf("%v stack '%v' in region %v of account %v\n", method, bold(deployFlags.StackName), awsConfig.Region, awsConfig.AccountID)
 	}
 	printBasicStackInfo(deployment, true, awsConfig)
@@ -176,7 +167,7 @@ func setDeployTags(deployment *lib.DeployInfo) {
 			tagresult = append(tagresult, tag)
 		}
 	} else if deployFlags.Tags != "" {
-		for _, tagfile := range strings.Split(deployFlags.Tags, ",") {
+		for tagfile := range strings.SplitSeq(deployFlags.Tags, ",") {
 			tags, _, err := lib.ReadTagsfile(tagfile)
 			if err != nil {
 				message := fmt.Sprintf("%v '%v'", texts.FileTagsReadFailure, tagfile)
@@ -215,7 +206,7 @@ func setDeployParameters(deployment *lib.DeployInfo) {
 			parameterresult = append(parameterresult, parameter)
 		}
 	} else if deployFlags.Parameters != "" {
-		for _, parameterfile := range strings.Split(deployFlags.Parameters, ",") {
+		for parameterfile := range strings.SplitSeq(deployFlags.Parameters, ",") {
 			parameters, _, err := lib.ReadParametersfile(parameterfile)
 			if err != nil {
 				message := fmt.Sprintf("%v '%v'", texts.FileParametersReadFailure, parameterfile)
@@ -371,7 +362,7 @@ func showEvents(deployment lib.DeployInfo, latest time.Time, awsConfig config.AW
 	return latest
 }
 
-func showFailedEvents(deployment lib.DeployInfo, awsConfig config.AWSConfig) []map[string]interface{} {
+func showFailedEvents(deployment lib.DeployInfo, awsConfig config.AWSConfig) []map[string]any {
 	events, err := deployment.GetEvents(awsConfig.CloudformationClient())
 	if err != nil {
 		fmt.Print(outputsettings.StringFailure("Something went wrong trying to get the events of the stack"))
@@ -382,12 +373,12 @@ func showFailedEvents(deployment lib.DeployInfo, awsConfig config.AWSConfig) []m
 	output := format.OutputArray{Keys: changesetkeys, Settings: outputsettings}
 	output.Settings.Title = changesettitle
 	sort.Sort(ReverseEvents(events))
-	result := make([]map[string]interface{}, 0)
+	result := make([]map[string]any, 0)
 	for _, event := range events {
 		if event.Timestamp.After(deployment.Changeset.CreationTime) {
 			switch event.ResourceStatus {
 			case types.ResourceStatusCreateFailed, types.ResourceStatusImportFailed, types.ResourceStatusDeleteFailed, types.ResourceStatusUpdateFailed:
-				content := make(map[string]interface{})
+				content := make(map[string]any)
 				content["CfnName"] = *event.LogicalResourceId
 				content["Type"] = *event.ResourceType
 				content["Status"] = string(event.ResourceStatus)

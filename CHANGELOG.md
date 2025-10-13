@@ -2,6 +2,20 @@ Unreleased
 ===========
 
 ### Added
+- Golden file testing framework with Makefile targets for validating and updating output fixtures
+- Golden test files for deployment output validation including changesets, events, and stack outputs
+- Comprehensive unit tests for deploy helper functions with mock implementations and table-driven patterns
+- Test coverage for deployment output formatting including `formatAccountDisplay` and `determineDeploymentMethod`
+- Test data directory structure (`cmd/testdata/golden/cmd/`) for maintaining golden file test fixtures
+
+### Changed
+- Refactored `showDeploymentInfo` to use extracted helper functions for better testability
+- Refactored `runPrechecks` signature to remove unused `cfg` parameter
+- Updated `showFailedEvents` to use modern `any` type instead of `interface{}`
+- Modernized string operations using `strings.SplitSeq` in `setDeployTags` and `setDeployParameters`
+- Enhanced deploy helper functions with extracted utilities: `validateStackReadiness`, `formatAccountDisplay`, `determineDeploymentMethod`
+
+### Added (Previous Unreleased)
 - golangci-lint configuration with modern linters (govet, staticcheck, revive, gocritic)
 - Unit tests for config package covering GetLCString, GetString, LoadConfigFile, and GetOutputSettings functions
 - Unit tests for AWS config operations including GetAWSConfig, GetAccountDetails, GetCallerIdentity, and GetAccountAliases

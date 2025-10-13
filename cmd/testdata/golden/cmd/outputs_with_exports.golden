@@ -1,0 +1,10 @@
+Key: VpcId
+Value: vpc-12345678
+Description: The VPC ID for the network
+ExportName: MyVpcId
+
+Key: SecurityGroup
+Value: sg-87654321
+Description: Security group for web servers
+ExportName: MySecurityGroup
+

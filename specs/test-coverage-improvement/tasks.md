@@ -162,30 +162,30 @@ references:
     - Document fixture purpose and usage
     - References: Requirements 8.3, 6.4
 
-- [ ] 7. Test cmd package helper functions
+- [x] 7. Test cmd package helper functions
   - Extract testable logic from large orchestration functions
   - Create comprehensive tests for helper functions
   - Implement golden file tests for output formatting
   - Focus on achieving 75% coverage for helpers
-  - [ ] 7.1. Write unit tests for cmd/deploy_helpers.go
+  - [x] 7.1. Write unit tests for cmd/deploy_helpers.go
     - Create comprehensive tests for deployment helper functions
     - Test validation logic with various input scenarios
     - Test preparation and formatting functions
     - Use map-based table-driven tests
     - References: Requirements 7.2, 7.3
-  - [ ] 7.2. Extract testable functions from cmd/deploy.go
+  - [x] 7.2. Extract testable functions from cmd/deploy.go
     - Identify validation and preparation logic in deploy.go
     - Extract validateDeploymentFlags function
     - Extract prepareDeploymentInfo function
     - Move extracted functions to deploy_helpers.go
     - References: Requirements 7.3, 14.2
-  - [ ] 7.3. Write golden file tests for cmd output
+  - [x] 7.3. Write golden file tests for cmd output
     - Create golden file tests for table formatting
     - Test changeset output formatting
     - Test drift report formatting
     - Add golden files to testdata/golden/
     - References: Requirements 7.5, 6.5
-  - [ ] 7.4. Document excluded cmd functions
+  - [x] 7.4. Document excluded cmd functions
     - Create documentation listing excluded functions
     - Document deploy.go (409 lines) exclusion with justification
     - Document report.go (360 lines) exclusion with justification

@@ -1,0 +1,4 @@
+Key: ApiEndpoint
+Value: https://api.example.com
+Description: The API endpoint URL
+
