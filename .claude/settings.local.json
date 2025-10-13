@@ -82,7 +82,8 @@
       "Bash(./test/test_strata_execution.sh:*)",
       "Bash(./test/test_github_features.sh:*)",
       "mcp__devtools__codex-agent",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(golangci-lint run:*)"
     ],
     "deny": []
   }

@@ -1,6 +1,14 @@
 Unreleased
 ===========
 
+### Added
+- golangci-lint configuration with modern linters (govet, staticcheck, revive, gocritic)
+- Unit tests for config package covering GetLCString, GetString, LoadConfigFile, and GetOutputSettings functions
+- Unit tests for AWS config operations including GetAWSConfig, GetAccountDetails, GetCallerIdentity, and GetAccountAliases
+- Test fixtures for config package in testdata/config/ with valid configurations in YAML, JSON, and TOML formats
+- Test fixtures for invalid and minimal configuration scenarios
+- Mock implementations for Config, STSClient, and IAMClient interfaces to enable isolated unit testing
+
   * Added test pattern validator utility to verify test files follow modern Go patterns including table-driven tests, parallel execution, assertion libraries, and proper test helper usage
   * Added comprehensive refactored unit tests for changesets with modern Go testing patterns including table-driven tests, parallel execution, and dependency injection for DeleteChangeset, DeployChangeset, AddChange, GetStack, GenerateChangesetUrl, and GetDangerDetails functions
   * Added comprehensive refactored unit tests for stacks with modern patterns covering GetStack, StackExists, CreateChangeSet, WaitUntilChangesetDone, GetChangeset, GetEvents, DeleteStack, and other stack operations with mock implementations

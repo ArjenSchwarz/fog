@@ -1,0 +1,40 @@
+version: "2"
+
+run:
+  timeout: 5m
+  tests: false
+
+linters:
+  enable:
+    - govet
+    - ineffassign
+    - misspell
+    - staticcheck
+    - revive
+    - goconst
+    - gocritic
+    - unconvert
+  disable:
+    - errcheck  # Fluent API methods intentionally discard return values
+    - unused    # Some methods may be used via reflection/interfaces
+  settings:
+    revive:
+      rules:
+        - name: exported
+          disabled: false
+          arguments:
+            - "disableStutteringCheck"
+
+formatters:
+  enable:
+    - gofmt
+  settings:
+    gofmt:
+      simplify: false
+      rewrite-rules:
+        - pattern: interface{}
+          replacement: any
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
