@@ -48,41 +48,6 @@ test-coverage:
 	go tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report generated at coverage.html"
 
-# Run benchmark tests
-benchmarks:
-	go test -bench=. ./...
-
-# Run benchmarks with memory profiling
-benchmarks-mem:
-	go test -bench=. -benchmem ./...
-
-# Run benchmarks multiple times for statistical analysis
-benchmarks-stats:
-	@echo "Running benchmarks 10 times for statistical analysis..."
-	go test -bench=. -benchmem -count=10 ./lib/plan/ > bench_results.txt
-	@echo "Results saved to bench_results.txt"
-	@echo "Use 'benchstat bench_results.txt' for statistical analysis"
-
-# Run only analysis benchmarks
-benchmarks-analysis:
-	go test -bench=BenchmarkAnalysis -benchmem ./lib/plan/
-
-# Run only formatting benchmarks
-benchmarks-formatting:
-	go test -bench=BenchmarkFormatting -benchmem ./lib/plan/
-
-# Run only property analysis benchmarks
-benchmarks-property:
-	go test -bench=BenchmarkPropertyAnalysis -benchmem ./lib/plan/
-
-# Run performance validation tests
-test-performance:
-	go test -run=TestPerformanceTargets ./lib/plan/
-
-# Run memory usage tests
-test-memory:
-	go test -run=TestMemoryUsage ./lib/plan/
-
 # Run golden file tests
 test-golden:
 	go test ./cmd/... -run Golden
@@ -103,18 +68,6 @@ test-golden-check: test-golden
 	@test -n "$$(ls -A cmd/testdata/golden/cmd 2>/dev/null)" || (echo "Error: No golden files found" && exit 1)
 	@echo "✓ Golden files verified"
 
-# Compare benchmark results (requires BASELINE and CURRENT files)
-benchmarks-compare:
-	@if [ -z "$(BASELINE)" ] || [ -z "$(CURRENT)" ]; then \
-		echo "Error: Both BASELINE and CURRENT parameters required."; \
-		echo "Usage: make benchmarks-compare BASELINE=bench_before.txt CURRENT=bench_after.txt"; \
-		exit 1; \
-	fi
-	@if [ ! -f "$(BASELINE)" ] || [ ! -f "$(CURRENT)" ]; then \
-		echo "Error: Benchmark files not found"; \
-		exit 1; \
-	fi
-	benchstat $(BASELINE) $(CURRENT)
 
 # Format Go code
 fmt:
@@ -186,21 +139,10 @@ help:
 	@echo "  test-integration-verbose - Run integration tests with verbose output"
 	@echo "  test-all              - Run both unit and integration tests"
 	@echo "  test-coverage         - Generate test coverage report (HTML)"
-	@echo "  test-performance      - Run performance validation tests"
-	@echo "  test-memory           - Run memory usage tests"
 	@echo "  test-golden           - Run golden file tests for output validation"
 	@echo "  test-golden-update    - Update golden files (use when output format changes)"
 	@echo "  test-golden-verbose   - Run golden file tests with verbose output"
 	@echo "  test-golden-check     - Verify golden files exist and tests pass"
-	@echo ""
-	@echo "Benchmark targets:"
-	@echo "  benchmarks            - Run benchmark tests"
-	@echo "  benchmarks-mem        - Run benchmarks with memory profiling"
-	@echo "  benchmarks-stats      - Run benchmarks 10 times for statistical analysis"
-	@echo "  benchmarks-analysis   - Run only analysis benchmarks"
-	@echo "  benchmarks-formatting - Run only formatting benchmarks"
-	@echo "  benchmarks-property   - Run only property analysis benchmarks"
-	@echo "  benchmarks-compare    - Compare benchmark results (requires BASELINE and CURRENT files)"
 	@echo ""
 	@echo "Code quality targets:"
 	@echo "  fmt                   - Format Go code"
@@ -226,8 +168,6 @@ help:
 
 # Declare all targets as phony (not real files)
 .PHONY: $(MAKECMDGOALS) build build-release test test-verbose test-integration \
-	test-integration-verbose test-all test-coverage test-performance test-memory \
-	test-golden test-golden-update test-golden-verbose test-golden-check benchmarks \
-	benchmarks-mem benchmarks-stats benchmarks-analysis benchmarks-formatting \
-	benchmarks-property benchmarks-compare fmt vet lint modernize check clean install \
+	test-integration-verbose test-all test-coverage test-golden test-golden-update \
+	test-golden-verbose test-golden-check fmt vet lint modernize check clean install \
 	deps-tidy deps-update security-scan go-functions update-v1-tag help
