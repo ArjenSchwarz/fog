@@ -34,7 +34,7 @@ Unreleased
 - Updated CLAUDE.md with integration test documentation including build tags, environment variables, and usage examples
 - Updated README.md with development section covering building, testing, linting, and project structure
 - Disabled parallel execution for tests using global state (viper configuration and deployFlags)
-- Updated `.claude/settings.local.json` to allow execution of coverage reporting script
+- Updated `.claude/settings.local.json` to allow execution of coverage reporting script and git rev-parse command
 
 ### Added
 - Comprehensive unit tests for template body processing with mock S3 clients testing body-only, URL-only, and S3 URL handling

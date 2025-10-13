@@ -85,7 +85,8 @@
       "Bash(rm:*)",
       "Bash(golangci-lint run:*)",
       "Bash(./test/coverage_report.sh:*)",
-      "Bash(git diff:*)"
+      "Bash(git diff:*)",
+      "Bash(git rev-parse:*)"
     ],
     "deny": []
   }
