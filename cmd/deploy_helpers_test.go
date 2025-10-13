@@ -262,7 +262,8 @@ func TestRunPrechecks(t *testing.T) {
 
 // TestPrepareDeployment tests the prepareDeployment helper function
 func TestPrepareDeployment(t *testing.T) {
-	t.Parallel()
+	// Don't run in parallel due to global state (viper, deployFlags, outputsettings)
+	// t.Parallel()
 
 	tests := map[string]struct {
 		stackName     string
@@ -395,7 +396,8 @@ func TestPrepareDeployment(t *testing.T) {
 
 // TestCreateAndShowChangeset tests the createAndShowChangeset helper function
 func TestCreateAndShowChangeset(t *testing.T) {
-	t.Parallel()
+	// Don't run in parallel due to global state (deployFlags, outputsettings)
+	// t.Parallel()
 
 	tests := map[string]struct {
 		isDryRun           bool

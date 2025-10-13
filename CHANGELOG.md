@@ -2,6 +2,21 @@ Unreleased
 ===========
 
 ### Added
+- Integration tests for deployment workflows including creation, updates, dry runs, changeset validation, and rollback scenarios
+- Integration tests for precheck execution with pass, fail, and stop-on-fail behavior validation
+- Integration tests for changeset creation, execution, and handling of empty changesets
+- Integration tests for rollback scenarios including new stack failures and update rollbacks
+- Test validation script (`test/validate_tests.sh`) for running format checks, unit tests, race detection, and linting
+- Test coverage reporting script (`test/coverage_report.sh`) with per-package and weighted coverage analysis
+- Test documentation (`test/README.md`) covering testing strategy, patterns, coverage targets, and troubleshooting
+
+### Changed
+- Updated CLAUDE.md with integration test documentation including build tags, environment variables, and usage examples
+- Updated README.md with development section covering building, testing, linting, and project structure
+- Disabled parallel execution for tests using global state (viper configuration and deployFlags)
+- Updated `.claude/settings.local.json` to allow execution of coverage reporting script
+
+### Added
 - Comprehensive unit tests for template body processing with mock S3 clients testing body-only, URL-only, and S3 URL handling
 - Unit tests for GetTemplateContents, GetRawTemplateBody, and IsFilePathURI functions covering various input scenarios
 

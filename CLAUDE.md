@@ -8,7 +8,36 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `go test ./...` - Run all tests in the project
 - `go test ./... -v` - Run all tests with verbose output
 - `go test ./... -cover` - Run tests with coverage report
+- `INTEGRATION=1 go test ./...` - Run integration tests (includes unit tests)
+- `INTEGRATION=1 go test ./... -v` - Run integration tests with verbose output
 - After updating .go files, always run `go fmt` followed by `go test ./...`
+
+#### Integration Tests
+Integration tests are excluded from default test runs and require the `INTEGRATION=1` environment variable to execute. These tests use the `//go:build integration` build tag and are located alongside their corresponding source files.
+
+Integration tests validate complex workflows and end-to-end scenarios using mocked AWS clients. They do not require AWS credentials or network access.
+
+**Running integration tests:**
+```bash
+# Run all tests including integration tests
+INTEGRATION=1 go test ./...
+
+# Run only integration tests with verbose output
+INTEGRATION=1 go test ./... -v
+
+# Run integration tests for a specific package
+INTEGRATION=1 go test ./cmd -v
+
+# Run integration tests with coverage
+INTEGRATION=1 go test ./... -cover
+```
+
+**Writing integration tests:**
+- Add `//go:build integration` as the first line of the test file
+- Add `// +build integration` as the second line for backward compatibility
+- Use `testutil.SkipIfIntegration(t)` to skip tests when INTEGRATION is not set
+- Use mock clients from `lib/testutil` for AWS service interactions
+- Focus on testing workflows and interactions between components
 
 ### Build and Run
 - `go build` - Build the fog binary
