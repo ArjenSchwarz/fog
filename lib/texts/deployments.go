@@ -1,7 +1,9 @@
 package texts
 
+// DeployChangesetMessage represents deployment changeset message types
 type DeployChangesetMessage string
 
+// Deployment changeset message constants
 const (
 	DeployChangesetMessageAutoDelete        DeployChangesetMessage = "Non-interactive mode: Automatically deleting the change set for you."
 	DeployChangesetMessageAutoDeploy        DeployChangesetMessage = "Non-interactive mode: Automatically deploying the change set for you."
@@ -21,8 +23,10 @@ const (
 	DeployChangesetMessageWillDelete        DeployChangesetMessage = "OK. I will now delete this change set for you."
 )
 
+// DeployStackMessage represents deployment stack message types
 type DeployStackMessage string
 
+// Deployment stack message constants
 const (
 	DeployStackMessageNewStackDryrunDelete  DeployStackMessage = "Dry run: Automatically deleting the empty stack for you."
 	DeployStackMessageNewStackAutoDelete    DeployStackMessage = "Non-interactive mode: Automatically deleting the empty stack for you."
@@ -33,8 +37,10 @@ const (
 	DeployStackMessageRetrievePostFailed    DeployStackMessage = "Something went wrong when I tried to fetch the stack after the deployment."
 )
 
+// FileMessage represents file operation message types
 type FileMessage string
 
+// File operation message constants
 const (
 	FileTemplateReadFailure     FileMessage = "Something went wrong trying to read the template file"
 	FileTagsReadFailure         FileMessage = "Something went wrong trying to read the tags file"
@@ -47,8 +53,10 @@ const (
 	FilePrecheckFailureContinue FileMessage = "Issues detected during prechecks, continuing regardless"
 )
 
+// DeployReceivedErrorMessage represents deployment error message types
 type DeployReceivedErrorMessage string
 
+// Deployment error message constants
 const (
 	DeployReceivedErrorMessagesNoChanges DeployReceivedErrorMessage = "The submitted information didn't contain changes. Submit different information to create a change set."
 	DeployReceivedErrorMessagesNoUpdates DeployReceivedErrorMessage = "No updates are to be performed."

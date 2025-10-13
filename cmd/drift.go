@@ -421,11 +421,8 @@ func shouldTagBeHandled(tag string, drift types.StackResourceDrift) bool {
 					return false
 				}
 				// it's a logicalID
-			} else {
-				if separate[0] == *drift.LogicalResourceId && strings.Join(separate[1:], ":") == tag {
-					return false
-				}
-
+			} else if separate[0] == *drift.LogicalResourceId && strings.Join(separate[1:], ":") == tag {
+				return false
 			}
 
 		}
@@ -474,7 +471,7 @@ func tagDifferences(property types.PropertyDifference, handledtags []string, tag
 	default:
 		tagKey := ""
 		tags := map[string]string{}
-		//loop over the tags in the tagMap and see if the "Expected" value matches *property.ExpectedValue
+		// loop over the tags in the tagMap and see if the "Expected" value matches *property.ExpectedValue
 		for key, values := range tagMap {
 			if values["Expected"] == *property.ExpectedValue && values["Actual"] == *property.ActualValue {
 				tagKey = key

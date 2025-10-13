@@ -13,28 +13,39 @@ import (
 	"github.com/spf13/viper"
 )
 
+// DeploymentType represents the type of CloudFormation deployment operation.
 type DeploymentType string
 
 const (
+	// DeploymentTypeCreateStack indicates a new stack creation.
 	DeploymentTypeCreateStack DeploymentType = "CREATE"
+	// DeploymentTypeUpdateStack indicates an existing stack update.
 	DeploymentTypeUpdateStack DeploymentType = "UPDATE"
 )
 
+// DeploymentLogStatus represents the final status of a deployment operation.
 type DeploymentLogStatus string
 
 const (
+	// DeploymentLogStatusSuccess indicates the deployment completed successfully.
 	DeploymentLogStatusSuccess DeploymentLogStatus = "SUCCESS"
-	DeploymentLogStatusFailed  DeploymentLogStatus = "FAILED"
+	// DeploymentLogStatusFailed indicates the deployment failed.
+	DeploymentLogStatusFailed DeploymentLogStatus = "FAILED"
 )
 
+// DeploymentLogPreChecks represents the result of pre-deployment validation checks.
 type DeploymentLogPreChecks string
 
 const (
-	DeploymentLogPreChecksNone   DeploymentLogPreChecks = "NONE"
+	// DeploymentLogPreChecksNone indicates no pre-checks were run.
+	DeploymentLogPreChecksNone DeploymentLogPreChecks = "NONE"
+	// DeploymentLogPreChecksPassed indicates pre-checks completed successfully.
 	DeploymentLogPreChecksPassed DeploymentLogPreChecks = "PASSED"
+	// DeploymentLogPreChecksFailed indicates pre-checks failed.
 	DeploymentLogPreChecksFailed DeploymentLogPreChecks = "FAILED"
 )
 
+// DeploymentLog represents a log entry for a CloudFormation deployment
 type DeploymentLog struct {
 	// The AWS Account
 	Account string
@@ -64,6 +75,7 @@ type DeploymentLog struct {
 	UpdatedAt time.Time
 }
 
+// NewDeploymentLog creates a new deployment log entry from AWS config and deployment info
 func NewDeploymentLog(awsConfig config.AWSConfig, deployment DeployInfo) DeploymentLog {
 	deploylog := DeploymentLog{
 		Account:        awsConfig.AccountID,
@@ -82,6 +94,7 @@ func NewDeploymentLog(awsConfig config.AWSConfig, deployment DeployInfo) Deploym
 	return deploylog
 }
 
+// Write writes the deployment log to the configured log file if logging is enabled
 func (deploymentlog *DeploymentLog) Write() {
 	if viper.GetBool("logging.enabled") {
 		deploymentlog.UpdatedAt = time.Now().UTC()
@@ -120,21 +133,25 @@ func writeLogToFile(contents []byte, outputFile string) error {
 	return nil
 }
 
+// AddChangeSet adds the changeset information to the deployment log
 func (deploymentlog *DeploymentLog) AddChangeSet(changeset *ChangesetInfo) {
 	deploymentlog.Changes = changeset.Changes
 }
 
+// Success marks the deployment as successful and writes the log
 func (deploymentlog *DeploymentLog) Success() {
 	deploymentlog.Status = DeploymentLogStatusSuccess
 	deploymentlog.Write()
 }
 
+// Failed marks the deployment as failed with the provided failure details and writes the log
 func (deploymentlog *DeploymentLog) Failed(failures []map[string]any) {
 	deploymentlog.Status = DeploymentLogStatusFailed
 	deploymentlog.Failures = failures
 	deploymentlog.Write()
 }
 
+// ReadAllLogs reads all deployment logs from the configured log file
 func ReadAllLogs() []DeploymentLog {
 	result := make([]DeploymentLog, 0)
 	filename := viper.GetString("logging.filename")
@@ -161,13 +178,15 @@ func ReadAllLogs() []DeploymentLog {
 	}
 
 	if err := scanner.Err(); err != nil {
-		log.Fatal(err)
+		log.Printf("Error scanning file: %v", err)
+		return result
 	}
 
 	sort.Sort(ReverseLogs(result))
 	return result
 }
 
+// GetLatestSuccessFulLogByDeploymentName retrieves the most recent successful deployment log for the given deployment name
 func GetLatestSuccessFulLogByDeploymentName(deploymentName string) DeploymentLog {
 	logs := ReadAllLogs()
 	for _, log := range logs {
@@ -178,12 +197,19 @@ func GetLatestSuccessFulLogByDeploymentName(deploymentName string) DeploymentLog
 	return DeploymentLog{}
 }
 
+// GenerateDeploymentName generates a unique deployment name from account, region, and stack name
 func GenerateDeploymentName(awsConfig config.AWSConfig, stackName string) string {
 	return fmt.Sprintf("CFN-%v-%v-%v", awsConfig.AccountID, awsConfig.Region, stackName)
 }
 
+// ReverseLogs implements sort.Interface for sorting deployment logs in reverse chronological order
 type ReverseLogs []DeploymentLog
 
-func (a ReverseLogs) Len() int           { return len(a) }
+// Len returns the length of the slice
+func (a ReverseLogs) Len() int { return len(a) }
+
+// Less compares two logs by start time in reverse order
 func (a ReverseLogs) Less(i, j int) bool { return a[i].StartedAt.After(a[j].StartedAt) }
-func (a ReverseLogs) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+
+// Swap swaps two elements in the slice
+func (a ReverseLogs) Swap(i, j int) { a[i], a[j] = a[j], a[i] }

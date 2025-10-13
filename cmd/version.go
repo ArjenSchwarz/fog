@@ -27,6 +27,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Version is the application version string, set during build
 var Version = "dev"
 
 // versionCmd represents the version command

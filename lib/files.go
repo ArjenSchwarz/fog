@@ -17,7 +17,7 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-// Readfile locates and reads the file. Either it's an actual file name in which case
+// ReadFile locates and reads the file. Either it's an actual file name in which case
 // we'll read it right away, or if not we'll try to locate it in the appropriate
 // directory with one of the configured extensions.
 func ReadFile(fileName *string, fileType string) (string, string, error) {
@@ -45,22 +45,27 @@ func ReadFile(fileName *string, fileType string) (string, string, error) {
 	return string(dat), filePath, nil
 }
 
+// ReadTemplate reads a template file using the configured templates directory and extensions.
 func ReadTemplate(templateName *string) (string, string, error) {
 	return ReadFile(templateName, "templates")
 }
 
+// ReadTagsfile reads a tags file using the configured tags directory and extensions.
 func ReadTagsfile(tagsName string) (string, string, error) {
 	return ReadFile(&tagsName, "tags")
 }
 
+// ReadParametersfile reads a parameters file using the configured parameters directory and extensions.
 func ReadParametersfile(parametersName string) (string, string, error) {
 	return ReadFile(&parametersName, "parameters")
 }
 
+// ReadDeploymentFile reads a deployment file using the configured deployments directory and extensions.
 func ReadDeploymentFile(deploymentmentFileName string) (string, string, error) {
 	return ReadFile(&deploymentmentFileName, "deployments")
 }
 
+// UploadTemplate uploads a CloudFormation template to S3 with a timestamped name and returns the generated key.
 func UploadTemplate(templateName *string, template string, bucketName *string, svc S3UploadAPI) (string, error) {
 	// use the template name with a timestamp that should be unique
 	// prefix with fog to make it easier to set up specific lifecycle rules
@@ -77,6 +82,7 @@ func UploadTemplate(templateName *string, template string, bucketName *string, s
 	return generatedname, nil
 }
 
+// RunPrechecks executes configured template validation commands and returns results for each check.
 func RunPrechecks(deployment *DeployInfo) (map[string]string, error) {
 	results := make(map[string]string)
 	for _, precheck := range viper.GetStringSlice("templates.prechecks") {

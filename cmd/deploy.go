@@ -73,9 +73,9 @@ func init() {
 }
 
 func deployTemplate(cmd *cobra.Command, args []string) {
-	viper.Set("output", "table") //Enforce table output for deployments
+	viper.Set("output", "table") // Enforce table output for deployments
 	outputsettings = settings.NewOutputSettings()
-	outputsettings.SeparateTables = true //Make table output stand out more
+	outputsettings.SeparateTables = true // Make table output stand out more
 
 	deployment, awsConfig, err := prepareDeployment()
 	if err != nil {
@@ -190,7 +190,7 @@ func placeholderParser(value string, deployment *lib.DeployInfo) string {
 	if deployment != nil {
 		value = strings.ReplaceAll(value, "$TEMPLATEPATH", deployment.TemplateLocalPath)
 	}
-	//value = strings.Replace(value, "$CURRENTDIR", os.Di)
+	// value = strings.Replace(value, "$CURRENTDIR", os.Di)
 	value = strings.ReplaceAll(value, "$TIMESTAMP", time.Now().In(settings.GetTimezoneLocation()).Format("2006-01-02T15-04-05"))
 	return value
 }
@@ -266,11 +266,12 @@ func createChangeset(deployment *lib.DeployInfo, awsConfig config.AWSConfig) *li
 }
 
 func deleteChangeset(deployment lib.DeployInfo, awsConfig config.AWSConfig) {
-	if deployFlags.Dryrun {
+	switch {
+	case deployFlags.Dryrun:
 		fmt.Print(outputsettings.StringInfo(texts.DeployChangesetMessageDryrunDelete))
-	} else if deployFlags.NonInteractive {
+	case deployFlags.NonInteractive:
 		fmt.Print(outputsettings.StringInfo(texts.DeployChangesetMessageAutoDelete))
-	} else {
+	default:
 		fmt.Print(outputsettings.StringSuccess(texts.DeployChangesetMessageWillDelete))
 	}
 	deleteAttempt := deployment.Changeset.DeleteChangeset(awsConfig.CloudformationClient())
@@ -301,11 +302,12 @@ func deleteStackIfNew(deployment lib.DeployInfo, awsConfig config.AWSConfig) {
 		if !deployment.DeleteStack(awsConfig.CloudformationClient()) {
 			fmt.Print(outputsettings.StringFailure("Something went wrong while trying to delete the stack. Please check manually."))
 		} else {
-			if deployFlags.Dryrun {
+			switch {
+			case deployFlags.Dryrun:
 				fmt.Print(outputsettings.StringInfo(texts.DeployStackMessageNewStackDryrunDelete))
-			} else if deployFlags.NonInteractive {
+			case deployFlags.NonInteractive:
 				fmt.Print(outputsettings.StringInfo(texts.DeployStackMessageNewStackAutoDelete))
-			} else {
+			default:
 				fmt.Print(outputsettings.StringSuccess(texts.DeployStackMessageNewStackDeleteSuccess))
 			}
 		}
@@ -393,6 +395,7 @@ func showFailedEvents(deployment lib.DeployInfo, awsConfig config.AWSConfig) []m
 	return result
 }
 
+// ReverseEvents implements sort.Interface for reverse-chronological sorting of stack events
 type ReverseEvents []types.StackEvent
 
 func (a ReverseEvents) Len() int           { return len(a) }

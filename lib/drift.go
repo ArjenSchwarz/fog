@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ssoadmin"
 )
 
+// StartDriftDetection initiates drift detection for a stack and returns the detection ID
 func StartDriftDetection(stackName *string, svc CloudFormationDetectStackDriftAPI) *string {
 	input := &cloudformation.DetectStackDriftInput{
 		StackName: stackName,
@@ -23,6 +24,7 @@ func StartDriftDetection(stackName *string, svc CloudFormationDetectStackDriftAP
 	return result.StackDriftDetectionId
 }
 
+// WaitForDriftDetectionToFinish polls until drift detection completes and returns the final status
 func WaitForDriftDetectionToFinish(driftDetectionId *string, svc CloudFormationDescribeStackDriftDetectionStatusAPI) types.StackDriftDetectionStatus {
 	input := &cloudformation.DescribeStackDriftDetectionStatusInput{
 		StackDriftDetectionId: driftDetectionId,
@@ -38,6 +40,7 @@ func WaitForDriftDetectionToFinish(driftDetectionId *string, svc CloudFormationD
 	return result.DetectionStatus
 }
 
+// GetDefaultStackDrift retrieves all resource drift information for a stack
 func GetDefaultStackDrift(stackName *string, svc CloudFormationDescribeStackResourceDriftsAPI) []types.StackResourceDrift {
 	input := &cloudformation.DescribeStackResourceDriftsInput{
 		StackName: stackName,
@@ -67,6 +70,7 @@ func GetDefaultStackDrift(stackName *string, svc CloudFormationDescribeStackReso
 	return allDrifts
 }
 
+// GetUncheckedStackResources returns stack resources that have not been checked for drift
 func GetUncheckedStackResources(stackName *string, checkedResources []string, svc interface {
 	CloudFormationDescribeStacksAPI
 	CloudFormationDescribeStackResourcesAPI
@@ -82,6 +86,7 @@ func GetUncheckedStackResources(stackName *string, checkedResources []string, sv
 	return uncheckedresources
 }
 
+// GetResource retrieves a specific resource using Cloud Control API
 func GetResource(client *cloudcontrol.Client, typeName string, identifier string) (*cloudcontrol.GetResourceOutput, error) {
 	input := &cloudcontrol.GetResourceInput{
 		TypeName:   &typeName,
@@ -96,6 +101,7 @@ func GetResource(client *cloudcontrol.Client, typeName string, identifier string
 	return result, nil
 }
 
+// ListAllResources lists all resources of a given type using Cloud Control API or service-specific APIs
 func ListAllResources(typeName string, client *cloudcontrol.Client, ssoClient *ssoadmin.Client, organizationsClient *organizations.Client) (map[string]string, error) {
 	if typeName == "AWS::SSO::PermissionSet" {
 		return GetPermissionSetArns(ssoClient)

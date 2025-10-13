@@ -84,7 +84,7 @@ func history(cmd *cobra.Command, args []string) {
 func printLog(log lib.DeploymentLog) {
 	header := fmt.Sprintf("%v - %v", log.StartedAt.In(settings.GetTimezoneLocation()).Format(time.RFC3339), log.StackName)
 
-	//print log entry info
+	// print log entry info
 	logkeys := []string{"Account", "Region", "Deployer", "Type", "Prechecks", "Started At", "Duration"}
 	logtitle := "Details about the deployment"
 	output := format.OutputArray{Keys: logkeys, Settings: settings.NewOutputSettings()}
@@ -106,7 +106,7 @@ func printLog(log lib.DeploymentLog) {
 	output.AddHolder(holder)
 	output.AddToBuffer()
 
-	//print change set info
+	// print change set info
 	changesettitle := "Deployed change set"
 	summaryTitle := "Summary of changes"
 	hasModule := false
@@ -119,7 +119,7 @@ func printLog(log lib.DeploymentLog) {
 	printChangeset(changesettitle, summaryTitle, log.Changes, hasModule)
 
 	if log.Status == lib.DeploymentLogStatusFailed {
-		//print error info
+		// print error info
 		output.AddHeader(outputsettings.StringWarning("Failed with below errors"))
 		eventskeys := []string{"CfnName", "Type", "Status", "Reason"}
 		eventstitle := "Failed events in deployment of change set "

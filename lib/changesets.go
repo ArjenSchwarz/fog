@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
 )
 
+// ChangesetInfo represents information about a CloudFormation changeset
 type ChangesetInfo struct {
 	Changes      []ChangesetChanges
 	CreationTime time.Time
@@ -26,6 +27,7 @@ type ChangesetInfo struct {
 	StackName    string
 }
 
+// ChangesetChanges represents a single resource change within a changeset
 type ChangesetChanges struct {
 	Action      string
 	LogicalID   string
@@ -36,6 +38,7 @@ type ChangesetChanges struct {
 	Details     []types.ResourceChangeDetail
 }
 
+// DeleteChangeset deletes the changeset and returns true if successful
 func (changeset *ChangesetInfo) DeleteChangeset(svc CloudFormationDeleteChangeSetAPI) bool {
 	input := &cloudformation.DeleteChangeSetInput{
 		StackName:     &changeset.StackName,
@@ -46,6 +49,7 @@ func (changeset *ChangesetInfo) DeleteChangeset(svc CloudFormationDeleteChangeSe
 	return err == nil
 }
 
+// DeployChangeset executes the changeset to deploy the changes
 func (changeset *ChangesetInfo) DeployChangeset(svc CloudFormationExecuteChangeSetAPI) error {
 	input := &cloudformation.ExecuteChangeSetInput{
 		ChangeSetName: &changeset.Name,
@@ -55,6 +59,7 @@ func (changeset *ChangesetInfo) DeployChangeset(svc CloudFormationExecuteChangeS
 	return err
 }
 
+// AddChange adds a change to the changeset's list of changes
 func (changeset *ChangesetInfo) AddChange(changes ChangesetChanges) {
 	var contents []ChangesetChanges
 	if changeset.Changes != nil {
@@ -67,15 +72,18 @@ func (changeset *ChangesetInfo) AddChange(changes ChangesetChanges) {
 	}
 }
 
+// GetStack retrieves the stack associated with this changeset
 func (changeset *ChangesetInfo) GetStack(svc CloudFormationDescribeStacksAPI) (types.Stack, error) {
 	return GetStack(&changeset.StackID, svc)
 }
 
+// GenerateChangesetUrl generates the AWS console URL for viewing the changeset
 func (changeset *ChangesetInfo) GenerateChangesetUrl(settings config.AWSConfig) string {
 	return fmt.Sprintf("https://console.aws.amazon.com/cloudformation/home?region=%v#/stacks/changesets/changes?stackId=%v&changeSetId=%v",
 		settings.Region, changeset.StackID, changeset.ID)
 }
 
+// GetStackAndChangesetFromURL extracts the stack ID and changeset ID from an AWS console changeset URL
 func GetStackAndChangesetFromURL(changeseturl string, region string) (string, string) {
 	decodedValue, err := url.QueryUnescape(changeseturl)
 	if err != nil {
@@ -98,6 +106,7 @@ func GetStackAndChangesetFromURL(changeseturl string, region string) (string, st
 	return stackid, changesetid
 }
 
+// GetDangerDetails returns details of dangerous changes that require resource recreation
 func (changes *ChangesetChanges) GetDangerDetails() []string {
 	details := []string{}
 	for _, detail := range changes.Details {

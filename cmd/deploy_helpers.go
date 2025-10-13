@@ -200,7 +200,7 @@ func printDeploymentResults(info *lib.DeployInfo, cfg config.AWSConfig, logObj *
 		failures := showFailedEventsFunc(*info, cfg)
 		logObj.Failed(failures)
 		if info.IsNew {
-			//double verify that the stack can be deleted
+			// double verify that the stack can be deleted
 			deleteStackIfNewFunc(*info, cfg)
 		}
 	}
@@ -211,7 +211,7 @@ func printDeploymentResults(info *lib.DeployInfo, cfg config.AWSConfig, logObj *
 func validateStackReadiness(stackName string, client lib.CloudFormationDescribeStacksAPI) error {
 	deployment := lib.DeployInfo{StackName: stackName}
 	if ready, status := deployment.IsReadyForUpdate(client); !ready {
-		return fmt.Errorf("The stack '%v' is currently in status %v and can't be updated", stackName, status)
+		return fmt.Errorf("the stack '%v' is currently in status %v and can't be updated", stackName, status)
 	}
 	return nil
 }

@@ -52,9 +52,9 @@ func init() {
 }
 
 func describeChangeset(cmd *cobra.Command, args []string) {
-	viper.Set("output", "table") //Enforce table output for deployments
+	viper.Set("output", "table") // Enforce table output for deployments
 	outputsettings = settings.NewOutputSettings()
-	outputsettings.SeparateTables = true //Make table output stand out more
+	outputsettings.SeparateTables = true // Make table output stand out more
 	awsConfig, err := config.DefaultAwsConfig(*settings)
 	if err != nil {
 		failWithError(err)
@@ -136,7 +136,7 @@ func printChangeset(title string, summaryTitle string, changes []lib.ChangesetCh
 		for _, change := range changes {
 			content := make(map[string]any)
 			action := change.Action
-			if action == "Remove" {
+			if action == eventTypeRemove {
 				action = bold(action)
 			}
 			content["Action"] = action
@@ -204,7 +204,7 @@ func printDangerTable(title string, changes []lib.ChangesetChanges, hasModule bo
 			if change.Action == "Remove" || change.Replacement == "Conditional" || change.Replacement == "True" {
 				content := make(map[string]any)
 				action := change.Action
-				if action == "Remove" {
+				if action == eventTypeRemove {
 					action = bold(action)
 				}
 				content["Action"] = action

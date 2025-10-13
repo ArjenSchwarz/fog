@@ -1,6 +1,16 @@
 Unreleased
 ===========
 
+### Added
+- Documentation comments for all exported types and functions across cmd, lib, and config packages
+- Godoc-compliant comments for DeployInfo, CfnStack, StackEvent, and ResourceEvent types
+- Function documentation for stack operations, changeset management, and configuration utilities
+
+### Changed
+- Improved code formatting with consistent comment spacing throughout codebase
+- Refactored conditional logic in deploy commands using switch statements for better readability
+- Enhanced code maintainability with proper documentation following Go best practices
+
 ### Changed
 - Modernized codebase to use Go 1.25 built-in functions and types across all packages
 - Replaced `interface{}` with `any` type throughout codebase for improved readability

@@ -288,7 +288,7 @@ func NormalizeWhitespace(s string) string {
 	return strings.Join(normalized, "\n")
 }
 
-// CreateMockFile creates a mock file interface for testing
+// MockFile creates a mock file interface for testing
 type MockFile struct {
 	Content []byte
 	Error   error

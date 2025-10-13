@@ -213,7 +213,7 @@ func TestMockCFNClient_DescribeStacks(t *testing.T) {
 				StackName: aws.String("non-existent"),
 			},
 			wantErr: true,
-			errMsg:  "Stack with name non-existent does not exist",
+			errMsg:  "stack with name non-existent does not exist",
 		},
 		"return configured error": {
 			setup: func() *MockCFNClient {

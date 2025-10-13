@@ -13,6 +13,7 @@ import (
 	"github.com/aws/smithy-go"
 )
 
+// CfnOutput represents a CloudFormation stack output value
 type CfnOutput struct {
 	StackName   string
 	OutputKey   string
@@ -58,7 +59,7 @@ func GetExports(stackname *string, exportname *string, svc CFNExportsAPI) []CfnO
 				context.TODO(),
 				&cloudformation.ListImportsInput{ExportName: &export.ExportName})
 			if err != nil {
-				//TODO limit this to only not found errors: "Export 'stackname' is not imported by any stack."
+				// TODO limit this to only not found errors: "Export 'stackname' is not imported by any stack."
 				resexport.Imported = false
 			} else {
 				resexport.Imported = true
@@ -105,6 +106,7 @@ func getOutputsForStack(stack types.Stack, stackfilter string, exportfilter stri
 	return result
 }
 
+// FillImports populates the import information for an exported output
 func (output *CfnOutput) FillImports(svc CFNListImportsAPI) {
 	if output.ExportName == "" {
 		return
@@ -113,7 +115,7 @@ func (output *CfnOutput) FillImports(svc CFNListImportsAPI) {
 		context.TODO(),
 		&cloudformation.ListImportsInput{ExportName: &output.ExportName})
 	if err != nil {
-		//TODO limit this to only not found errors: "Export 'stackname' is not imported by any stack."
+		// TODO limit this to only not found errors: "Export 'stackname' is not imported by any stack."
 		output.Imported = false
 	} else {
 		output.Imported = true

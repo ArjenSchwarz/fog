@@ -84,7 +84,8 @@
       "mcp__devtools__codex-agent",
       "Bash(rm:*)",
       "Bash(golangci-lint run:*)",
-      "Bash(./test/coverage_report.sh:*)"
+      "Bash(./test/coverage_report.sh:*)",
+      "Bash(git diff:*)"
     ],
     "deny": []
   }

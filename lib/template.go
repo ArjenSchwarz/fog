@@ -13,12 +13,14 @@ import (
 	"github.com/awslabs/goformation/v7/intrinsics"
 )
 
+// StackDeploymentFile represents a CloudFormation stack deployment configuration file
 type StackDeploymentFile struct {
 	TemplateFilePath string            `json:"template-file-path"`
 	Parameters       map[string]string `json:"parameters"`
 	Tags             map[string]string `json:"tags"`
 }
 
+// CfnTemplateBody represents the structure of a CloudFormation template
 type CfnTemplateBody struct {
 	AWSTemplateFormatVersion string                          `json:"AWSTemplateFormatVersion"`
 	Description              string                          `json:"Description"`
@@ -32,6 +34,7 @@ type CfnTemplateBody struct {
 	Outputs                  map[string]CfnTemplateOutput    `json:"Outputs"`
 }
 
+// CfnTemplateParameter represents a CloudFormation template parameter definition
 type CfnTemplateParameter struct {
 	Type                  string  `json:"Type"`
 	Description           string  `json:"Description,omitempty"`
@@ -46,6 +49,7 @@ type CfnTemplateParameter struct {
 	NoEcho                bool    `json:"NoEcho,omitempty"`
 }
 
+// CfnTemplateResource represents a resource definition in a CloudFormation template
 type CfnTemplateResource struct {
 	Type       string         `json:"Type"`
 	Condition  string         `json:"Condition"`
@@ -53,11 +57,13 @@ type CfnTemplateResource struct {
 	Metadata   map[string]any `json:"Metadata"`
 }
 
+// CfnTemplateCondition represents a condition in a CloudFormation template
 type CfnTemplateCondition struct {
 	Not    []any `json:"Fn::Not"`
 	Equals []any `json:"Fn::Equals"`
 }
 
+// CfnTemplateOutput represents an output definition in a CloudFormation template
 type CfnTemplateOutput struct {
 	Value       string `json:"Value"`
 	Description string `json:"Description"`
@@ -66,22 +72,26 @@ type CfnTemplateOutput struct {
 	} `json:"Export"`
 }
 
+// CfnTemplateRule represents a rule definition in a CloudFormation template
 type CfnTemplateRule struct {
 	RuleCondition string                     `json:"Condition"`
 	Assertions    []CfnTemplateRuleAssertion `json:"Assertions"`
 }
 
+// CfnTemplateRuleAssertion represents a rule assertion in a CloudFormation template
 type CfnTemplateRuleAssertion struct {
 	Assert            any    `json:"Assert"`
 	AssertDescription string `json:"AssertDescription"`
 }
 
+// CfnTemplateTransform represents a transform in a CloudFormation template
 type CfnTemplateTransform struct {
 	String *string
 
 	StringArray *[]string
 }
 
+// Value returns the underlying value of the transform (either a string or string array)
 func (t CfnTemplateTransform) Value() any {
 	if t.String != nil {
 		return *t.String
@@ -94,6 +104,7 @@ func (t CfnTemplateTransform) Value() any {
 	return nil
 }
 
+// UnmarshalJSON implements custom JSON unmarshalling for CfnTemplateTransform
 func (t *CfnTemplateTransform) UnmarshalJSON(b []byte) error {
 	var typecheck any
 	if err := json.Unmarshal(b, &typecheck); err != nil {
@@ -111,8 +122,7 @@ func (t *CfnTemplateTransform) UnmarshalJSON(b []byte) error {
 	case []any:
 		var strslice []string
 		for _, i := range val {
-			switch str := i.(type) {
-			case string:
+			if str, ok := i.(string); ok {
 				strslice = append(strslice, str)
 			}
 		}
@@ -122,6 +132,7 @@ func (t *CfnTemplateTransform) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
+// GetTemplateBody retrieves and parses a CloudFormation template from a stack
 func GetTemplateBody(stackname *string, parameters *map[string]any, svc CloudFormationGetTemplateAPI) CfnTemplateBody {
 	input := cloudformation.GetTemplateInput{
 		StackName: stackname,
@@ -188,6 +199,7 @@ func customRefHandler(name string, input any, template any) any {
 	return fmt.Sprintf("REF: %s", input)
 }
 
+// ParseTemplateString parses a CloudFormation template string into a CfnTemplateBody
 func ParseTemplateString(template string, parameters *map[string]any) CfnTemplateBody {
 	parsedTemplate := CfnTemplateBody{}
 	override := map[string]intrinsics.IntrinsicHandler{}
@@ -209,12 +221,13 @@ func ParseTemplateString(template string, parameters *map[string]any) CfnTemplat
 	if err != nil {
 		panic(err)
 	}
-	if err := json.Unmarshal([]byte(intrinsified), &parsedTemplate); err != nil {
+	if err := json.Unmarshal(intrinsified, &parsedTemplate); err != nil {
 		panic(err)
 	}
 	return parsedTemplate
 }
 
+// FilterNaclEntriesByLogicalId filters Network ACL entries from a template by logical ID
 func FilterNaclEntriesByLogicalId(logicalId string, template CfnTemplateBody, params []cfntypes.Parameter) map[string]types.NetworkAclEntry {
 	result := make(map[string]types.NetworkAclEntry)
 	for _, resource := range template.Resources {
@@ -234,6 +247,7 @@ func FilterNaclEntriesByLogicalId(logicalId string, template CfnTemplateBody, pa
 	return result
 }
 
+// FilterRoutesByLogicalId filters routes from a template by logical ID
 func FilterRoutesByLogicalId(logicalId string, template CfnTemplateBody, params []cfntypes.Parameter, logicalToPhysical map[string]string) map[string]types.Route {
 	result := make(map[string]types.Route)
 	for _, resource := range template.Resources {
@@ -248,6 +262,7 @@ func FilterRoutesByLogicalId(logicalId string, template CfnTemplateBody, params 
 	return result
 }
 
+// NaclResourceToNaclEntry converts a CloudFormation NACL resource to an EC2 NetworkAclEntry
 func NaclResourceToNaclEntry(resource CfnTemplateResource, params []cfntypes.Parameter) types.NetworkAclEntry {
 	protocol := ""
 	switch value := resource.Properties["Protocol"].(type) {
@@ -360,6 +375,7 @@ func NaclResourceToNaclEntry(resource CfnTemplateResource, params []cfntypes.Par
 	return result
 }
 
+// RouteResourceToRoute converts a CloudFormation route resource to an EC2 Route
 func RouteResourceToRoute(resource CfnTemplateResource, params []cfntypes.Parameter, logicalToPhysical map[string]string) types.Route {
 	prop := resource.Properties
 	result := types.Route{
@@ -375,8 +391,8 @@ func RouteResourceToRoute(resource CfnTemplateResource, params []cfntypes.Parame
 		LocalGatewayId:              stringPointer(prop, params, logicalToPhysical, "LocalGatewayId"),
 		NatGatewayId:                stringPointer(prop, params, logicalToPhysical, "NatGatewayId"),
 		NetworkInterfaceId:          stringPointer(prop, params, logicalToPhysical, "NetworkInterfaceId"),
-		Origin:                      types.RouteOriginCreateRoute, //Always expect it to be created
-		State:                       types.RouteStateActive,       //Always expect it to be active
+		Origin:                      types.RouteOriginCreateRoute, // Always expect it to be created
+		State:                       types.RouteStateActive,       // Always expect it to be active
 		TransitGatewayId:            stringPointer(prop, params, logicalToPhysical, "TransitGatewayId"),
 		VpcPeeringConnectionId:      stringPointer(prop, params, logicalToPhysical, "VpcPeeringConnectionId"),
 	}
@@ -417,6 +433,7 @@ func stringPointer(array map[string]any, params []cfntypes.Parameter, logicalToP
 	return &result
 }
 
+// ShouldHaveResource checks if a resource should exist based on its condition
 func (body *CfnTemplateBody) ShouldHaveResource(resource CfnTemplateResource) bool {
 	if resource.Condition != "" {
 		return body.Conditions[resource.Condition]

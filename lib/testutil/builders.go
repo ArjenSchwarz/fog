@@ -92,7 +92,7 @@ func (m *MockCFNClient) DescribeStacks(ctx context.Context, params *cloudformati
 				Stacks: []types.Stack{*stack},
 			}, nil
 		}
-		return nil, fmt.Errorf("Stack with name %s does not exist", *params.StackName)
+		return nil, fmt.Errorf("stack with name %s does not exist", *params.StackName)
 	}
 
 	// Return all stacks if no specific stack name is provided
@@ -407,7 +407,7 @@ func (m *MockS3Client) HeadObject(ctx context.Context, params *s3.HeadObjectInpu
 		}, nil
 	}
 
-	return nil, fmt.Errorf("The specified key does not exist")
+	return nil, fmt.Errorf("the specified key does not exist")
 }
 
 // StackBuilder builds test stacks with sensible defaults

@@ -79,7 +79,7 @@ func (config *AWSConfig) IAMClient() *iam.Client {
 	return iam.NewFromConfig(config.Config)
 }
 
-// IAMClient returns an EC2 Client
+// EC2Client returns an EC2 Client
 func (config *AWSConfig) EC2Client() *ec2.Client {
 	return ec2.NewFromConfig(config.Config)
 }
@@ -94,6 +94,7 @@ func (config *AWSConfig) SSOAdminClient() *ssoadmin.Client {
 	return ssoadmin.NewFromConfig(config.Config)
 }
 
+// OrganizationsClient returns an Organizations Client
 func (config *AWSConfig) OrganizationsClient() *organizations.Client {
 	return organizations.NewFromConfig(config.Config)
 }
@@ -119,6 +120,7 @@ func (config *AWSConfig) setAlias() {
 	config.AccountAlias = result.AccountAliases[0]
 }
 
+// GetAccountAliasID returns the account alias with ID in parentheses if alias exists, otherwise just the ID
 func (config *AWSConfig) GetAccountAliasID() string {
 	if config.AccountAlias != "" {
 		return fmt.Sprintf("%s (%s)", config.AccountAlias, config.AccountID)
