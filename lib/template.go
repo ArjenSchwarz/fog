@@ -122,7 +122,7 @@ func (t *CfnTemplateTransform) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-func GetTemplateBody(stackname *string, parameters *map[string]interface{}, svc *cloudformation.Client) CfnTemplateBody {
+func GetTemplateBody(stackname *string, parameters *map[string]interface{}, svc CloudFormationGetTemplateAPI) CfnTemplateBody {
 	input := cloudformation.GetTemplateInput{
 		StackName: stackname,
 	}

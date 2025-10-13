@@ -2,6 +2,16 @@ Unreleased
 ===========
 
 ### Added
+- Comprehensive unit tests for template body processing with mock S3 clients testing body-only, URL-only, and S3 URL handling
+- Unit tests for GetTemplateContents, GetRawTemplateBody, and IsFilePathURI functions covering various input scenarios
+
+### Changed
+- Refactored drift detection functions to use interface-based dependency injection for improved testability
+- Updated GetDefaultStackDrift to use manual pagination instead of AWS paginator for better test control
+- Enhanced drift detection tests with modern Go patterns including map-based table tests, parallel execution, and dedicated mock implementations
+- Improved test coverage for drift detection functions including StartDriftDetection, WaitForDriftDetectionToFinish, GetDefaultStackDrift, and GetUncheckedStackResources
+
+### Added (Previous Unreleased)
 - Golden file testing framework with Makefile targets for validating and updating output fixtures
 - Golden test files for deployment output validation including changesets, events, and stack outputs
 - Comprehensive unit tests for deploy helper functions with mock implementations and table-driven patterns

@@ -192,30 +192,30 @@ references:
     - Add refactoring recommendations for each
     - References: Requirements 7.1, 7.7
 
-- [ ] 8. Expand lib package test coverage
+- [x] 8. Expand lib package test coverage
   - Add missing tests to reach 80% coverage
   - Focus on complex CloudFormation operations
   - Test helper functions to 90% coverage
   - Cover edge cases and error paths
-  - [ ] 8.1. Write comprehensive tests for lib/drift.go
+  - [x] 8.1. Write comprehensive tests for lib/drift.go
     - Expand existing drift detection tests
     - Test all drift detection scenarios
     - Add tests for drift report generation
     - Mock CloudFormation drift APIs
     - References: Requirements 9.4, 9.5
-  - [ ] 8.2. Implement drift detection with dependency injection
+  - [x] 8.2. Implement drift detection with dependency injection
     - Update drift.go functions to accept interfaces
     - Replace concrete AWS clients with interfaces
     - Ensure proper error handling
     - Maintain existing functionality
     - References: Requirements 9.2
-  - [ ] 8.3. Write comprehensive tests for lib/template.go
+  - [x] 8.3. Write comprehensive tests for lib/template.go
     - Add tests for template parsing and validation
     - Test template preprocessing with placeholders
     - Test S3 upload for large templates
     - Mock S3 client for upload testing
     - References: Requirements 9.6
-  - [ ] 8.4. Implement template handling with dependency injection
+  - [x] 8.4. Implement template handling with dependency injection
     - Update template.go to accept S3UploadAPI interface
     - Replace concrete S3 client with interface
     - Add proper error handling for S3 operations

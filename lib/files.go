@@ -61,7 +61,7 @@ func ReadDeploymentFile(deploymentmentFileName string) (string, string, error) {
 	return ReadFile(&deploymentmentFileName, "deployments")
 }
 
-func UploadTemplate(templateName *string, template string, bucketName *string, svc *s3.Client) (string, error) {
+func UploadTemplate(templateName *string, template string, bucketName *string, svc S3UploadAPI) (string, error) {
 	// use the template name with a timestamp that should be unique
 	// prefix with fog to make it easier to set up specific lifecycle rules
 	generatedname := fmt.Sprintf("fog/%v-%v", *templateName, time.Now().UnixNano())

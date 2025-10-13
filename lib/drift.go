@@ -12,7 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ssoadmin"
 )
 
-func StartDriftDetection(stackName *string, svc *cloudformation.Client) *string {
+func StartDriftDetection(stackName *string, svc CloudFormationDetectStackDriftAPI) *string {
 	input := &cloudformation.DetectStackDriftInput{
 		StackName: stackName,
 	}
@@ -23,7 +23,7 @@ func StartDriftDetection(stackName *string, svc *cloudformation.Client) *string 
 	return result.StackDriftDetectionId
 }
 
-func WaitForDriftDetectionToFinish(driftDetectionId *string, svc *cloudformation.Client) types.StackDriftDetectionStatus {
+func WaitForDriftDetectionToFinish(driftDetectionId *string, svc CloudFormationDescribeStackDriftDetectionStatusAPI) types.StackDriftDetectionStatus {
 	input := &cloudformation.DescribeStackDriftDetectionStatusInput{
 		StackDriftDetectionId: driftDetectionId,
 	}
@@ -38,21 +38,30 @@ func WaitForDriftDetectionToFinish(driftDetectionId *string, svc *cloudformation
 	return result.DetectionStatus
 }
 
-func GetDefaultStackDrift(stackName *string, svc *cloudformation.Client) []types.StackResourceDrift {
+func GetDefaultStackDrift(stackName *string, svc CloudFormationDescribeStackResourceDriftsAPI) []types.StackResourceDrift {
 	input := &cloudformation.DescribeStackResourceDriftsInput{
 		StackName: stackName,
 	}
 
 	var allDrifts []types.StackResourceDrift
-	paginator := cloudformation.NewDescribeStackResourceDriftsPaginator(svc, input)
+	var nextToken *string
 
-	for paginator.HasMorePages() {
-		output, err := paginator.NextPage(context.TODO())
+	for {
+		if nextToken != nil {
+			input.NextToken = nextToken
+		}
+
+		output, err := svc.DescribeStackResourceDrifts(context.TODO(), input)
 		if err != nil {
 			panic(err)
 		}
 
 		allDrifts = append(allDrifts, output.StackResourceDrifts...)
+
+		if output.NextToken == nil {
+			break
+		}
+		nextToken = output.NextToken
 	}
 
 	return allDrifts

@@ -114,3 +114,23 @@ type CloudFormationCreateChangeSetAPI interface {
 type CloudFormationDescribeChangeSetAPI interface {
 	DescribeChangeSet(ctx context.Context, params *cloudformation.DescribeChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeChangeSetOutput, error)
 }
+
+// CloudFormationDetectStackDriftAPI defines the CloudFormation DetectStackDrift operation
+type CloudFormationDetectStackDriftAPI interface {
+	DetectStackDrift(ctx context.Context, params *cloudformation.DetectStackDriftInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DetectStackDriftOutput, error)
+}
+
+// CloudFormationDescribeStackDriftDetectionStatusAPI defines the CloudFormation DescribeStackDriftDetectionStatus operation
+type CloudFormationDescribeStackDriftDetectionStatusAPI interface {
+	DescribeStackDriftDetectionStatus(ctx context.Context, params *cloudformation.DescribeStackDriftDetectionStatusInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStackDriftDetectionStatusOutput, error)
+}
+
+// CloudFormationDescribeStackResourceDriftsAPI defines the CloudFormation DescribeStackResourceDrifts operation
+type CloudFormationDescribeStackResourceDriftsAPI interface {
+	DescribeStackResourceDrifts(ctx context.Context, params *cloudformation.DescribeStackResourceDriftsInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStackResourceDriftsOutput, error)
+}
+
+// CloudFormationGetTemplateAPI defines the CloudFormation GetTemplate operation
+type CloudFormationGetTemplateAPI interface {
+	GetTemplate(ctx context.Context, params *cloudformation.GetTemplateInput, optFns ...func(*cloudformation.Options)) (*cloudformation.GetTemplateOutput, error)
+}
