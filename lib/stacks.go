@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -218,12 +219,7 @@ func (deployment *DeployInfo) LoadDeploymentFile(filelocation string) error {
 
 // stringInSlice checks if a string exists in a slice
 func stringInSlice(a string, list []string) bool {
-	for _, b := range list {
-		if b == a {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(list, a)
 }
 
 func (deployment *DeployInfo) CreateChangeSet(svc CloudFormationCreateChangeSetAPI) (string, error) {
@@ -591,8 +587,8 @@ func (deployment *DeployInfo) GetExecutionTimes(svc CloudFormationDescribeStackE
 	return result, nil
 }
 
-func GetParametersMap(params []types.Parameter) *map[string]interface{} {
-	result := make(map[string]interface{})
+func GetParametersMap(params []types.Parameter) *map[string]any {
+	result := make(map[string]any)
 	for _, param := range params {
 		result[*param.ParameterKey] = *param.ParameterValue
 	}

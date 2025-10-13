@@ -31,7 +31,7 @@ func TestGetTemplateBody(t *testing.T) {
 
 	tests := map[string]struct {
 		stackName  string
-		parameters *map[string]interface{}
+		parameters *map[string]any
 		setupMock  func() *mockGetTemplateClient
 		want       CfnTemplateBody
 		wantPanic  bool
@@ -66,7 +66,7 @@ func TestGetTemplateBody(t *testing.T) {
 				Resources: map[string]CfnTemplateResource{
 					"MyBucket": {
 						Type: "AWS::S3::Bucket",
-						Properties: map[string]interface{}{
+						Properties: map[string]any{
 							"BucketName": "test-bucket",
 						},
 					},
@@ -98,7 +98,7 @@ Resources:
 				Resources: map[string]CfnTemplateResource{
 					"MyBucket": {
 						Type: "AWS::S3::Bucket",
-						Properties: map[string]interface{}{
+						Properties: map[string]any{
 							"BucketName": "yaml-test-bucket",
 						},
 					},
@@ -107,7 +107,7 @@ Resources:
 		},
 		"template with parameters": {
 			stackName: "param-stack",
-			parameters: &map[string]interface{}{
+			parameters: &map[string]any{
 				"BucketNameParam": "overridden-bucket",
 			},
 			setupMock: func() *mockGetTemplateClient {
@@ -147,7 +147,7 @@ Resources:
 				Resources: map[string]CfnTemplateResource{
 					"MyBucket": {
 						Type: "AWS::S3::Bucket",
-						Properties: map[string]interface{}{
+						Properties: map[string]any{
 							"BucketName": "overridden-bucket",
 						},
 					},
@@ -169,7 +169,6 @@ Resources:
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -224,47 +223,47 @@ func TestStringPointer(t *testing.T) {
 	}
 
 	tests := map[string]struct {
-		array map[string]interface{}
+		array map[string]any
 		value string
 		want  *string
 	}{
 		"string value": {
-			array: map[string]interface{}{
+			array: map[string]any{
 				"TestKey": "direct-value",
 			},
 			value: "TestKey",
 			want:  aws.String("direct-value"),
 		},
 		"ref with logical to physical mapping": {
-			array: map[string]interface{}{
+			array: map[string]any{
 				"TestKey": "REF: LogicalResource",
 			},
 			value: "TestKey",
 			want:  aws.String("physical-resource-id"),
 		},
 		"ref without logical to physical mapping": {
-			array: map[string]interface{}{
+			array: map[string]any{
 				"TestKey": "REF: UnknownResource",
 			},
 			value: "TestKey",
 			want:  aws.String("REF: UnknownResource"),
 		},
 		"map ref with parameter value": {
-			array: map[string]interface{}{
-				"TestKey": map[string]interface{}{"Ref": "TestParam"},
+			array: map[string]any{
+				"TestKey": map[string]any{"Ref": "TestParam"},
 			},
 			value: "TestKey",
 			want:  aws.String("param-value"),
 		},
 		"map ref with resolved value": {
-			array: map[string]interface{}{
-				"TestKey": map[string]interface{}{"Ref": "ResolvedParam"},
+			array: map[string]any{
+				"TestKey": map[string]any{"Ref": "ResolvedParam"},
 			},
 			value: "TestKey",
 			want:  aws.String("resolved-value"),
 		},
 		"missing key": {
-			array: map[string]interface{}{
+			array: map[string]any{
 				"OtherKey": "value",
 			},
 			value: "TestKey",
@@ -273,7 +272,6 @@ func TestStringPointer(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -308,13 +306,12 @@ func TestCfnTemplateTransform_MarshalJSON(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
 			// Unmarshal the expected JSON to compare structures
-			var want interface{}
-			var got interface{}
+			var want any
+			var got any
 
 			err := json.Unmarshal([]byte(tc.wantJSON), &want)
 			require.NoError(t, err)
@@ -342,7 +339,7 @@ func TestParseTemplateString_ComplexScenarios(t *testing.T) {
 
 	tests := map[string]struct {
 		template   string
-		parameters *map[string]interface{}
+		parameters *map[string]any
 		wantError  bool
 	}{
 		"template with conditions": {
@@ -363,7 +360,7 @@ func TestParseTemplateString_ComplexScenarios(t *testing.T) {
 					}
 				}
 			}`,
-			parameters: &map[string]interface{}{
+			parameters: &map[string]any{
 				"EnvType": "prod",
 			},
 		},
@@ -406,7 +403,6 @@ func TestParseTemplateString_ComplexScenarios(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 

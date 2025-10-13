@@ -60,7 +60,6 @@ func TestShowDeploymentInfo_GoldenFiles(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			// Build the expected output string
 			var buf bytes.Buffer
@@ -130,7 +129,6 @@ func TestStackOutputFormatting_GoldenFiles(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			var buf bytes.Buffer
 
@@ -221,7 +219,6 @@ func TestChangesetChangeFormatting_GoldenFiles(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			var buf bytes.Buffer
 
@@ -289,7 +286,6 @@ func TestEventFormatting_GoldenFiles(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			var buf bytes.Buffer
 
@@ -365,7 +361,6 @@ func TestChangesetInfo_GoldenFiles(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			var buf bytes.Buffer
 

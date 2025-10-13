@@ -107,7 +107,7 @@ func TestMockCFNClient_WithStack(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc // capture range variable
+		// capture range variable
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -253,7 +253,7 @@ func TestMockCFNClient_DescribeStacks(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc // capture range variable
+		// capture range variable
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -356,7 +356,7 @@ func TestMockCFNClient_DescribeStackEvents(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc // capture range variable
+		// capture range variable
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -460,7 +460,7 @@ func TestMockEC2Client(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		tc := tc // capture range variable
+		// capture range variable
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			tc.test(t)
@@ -558,7 +558,7 @@ func TestMockS3Client(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		tc := tc // capture range variable
+		// capture range variable
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			tc.test(t)
@@ -713,7 +713,7 @@ func TestStackBuilder(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc // capture range variable
+		// capture range variable
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -812,7 +812,7 @@ func TestStackEventBuilder(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc // capture range variable
+		// capture range variable
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -865,7 +865,7 @@ func TestMockCFNClient_ErrorInjection(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc // capture range variable
+		// capture range variable
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -885,7 +885,7 @@ func TestMockCFNClient_ConcurrentAccess(t *testing.T) {
 	client := NewMockCFNClient()
 
 	// Add initial stacks
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		stack := &types.Stack{
 			StackName:   aws.String(string(rune('A' + i))),
 			StackStatus: types.StackStatusCreateComplete,
@@ -895,7 +895,7 @@ func TestMockCFNClient_ConcurrentAccess(t *testing.T) {
 
 	// Concurrent reads should not cause race conditions
 	t.Run("concurrent reads", func(t *testing.T) {
-		for i := 0; i < 100; i++ {
+		for range 100 {
 			go func() {
 				_, _ = client.DescribeStacks(context.Background(), &cloudformation.DescribeStacksInput{})
 			}()

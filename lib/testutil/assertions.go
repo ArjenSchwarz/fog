@@ -1,6 +1,7 @@
 package testutil
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -245,10 +246,8 @@ func AssertNotContains(t *testing.T, s, substr string) {
 func AssertSliceContains(t *testing.T, slice []string, element string) {
 	t.Helper()
 
-	for _, item := range slice {
-		if item == element {
-			return
-		}
+	if slices.Contains(slice, element) {
+		return
 	}
 
 	t.Errorf("Slice does not contain element %s\nSlice: %v", element, slice)
@@ -258,11 +257,9 @@ func AssertSliceContains(t *testing.T, slice []string, element string) {
 func AssertSliceNotContains(t *testing.T, slice []string, element string) {
 	t.Helper()
 
-	for _, item := range slice {
-		if item == element {
-			t.Errorf("Slice should not contain element %s\nSlice: %v", element, slice)
-			return
-		}
+	if slices.Contains(slice, element) {
+		t.Errorf("Slice should not contain element %s\nSlice: %v", element, slice)
+		return
 	}
 }
 

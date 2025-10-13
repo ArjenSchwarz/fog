@@ -250,7 +250,7 @@ func TestYamlToJson(t *testing.T) {
 			}
 			if !tt.wantErr {
 				// Compare JSON by unmarshaling to ensure equivalent structure
-				var gotObj, wantObj interface{}
+				var gotObj, wantObj any
 				if err := json.Unmarshal(got, &gotObj); err != nil {
 					t.Errorf("Failed to unmarshal result: %v", err)
 				}
@@ -267,29 +267,29 @@ func TestYamlToJson(t *testing.T) {
 
 func TestConvertMapInterfaceToMapString(t *testing.T) {
 	// Test with a map[interface{}]interface{}
-	input := map[interface{}]interface{}{
+	input := map[any]any{
 		"key1": "value1",
 		"key2": 123,
-		"key3": map[interface{}]interface{}{
+		"key3": map[any]any{
 			"nested": "value",
 			"num":    456,
 		},
-		"key4": []interface{}{
+		"key4": []any{
 			"item1",
-			map[interface{}]interface{}{"arrayItem": "value"},
+			map[any]any{"arrayItem": "value"},
 		},
 	}
 
-	expected := map[string]interface{}{
+	expected := map[string]any{
 		"key1": "value1",
 		"key2": 123,
-		"key3": map[string]interface{}{
+		"key3": map[string]any{
 			"nested": "value",
 			"num":    456,
 		},
-		"key4": []interface{}{
+		"key4": []any{
 			"item1",
-			map[string]interface{}{"arrayItem": "value"},
+			map[string]any{"arrayItem": "value"},
 		},
 	}
 

@@ -73,7 +73,7 @@ func listResources(cmd *cobra.Command, args []string) {
 	output.Settings.Title = title
 	output.Settings.SortKey = "Type"
 	for _, resource := range resources {
-		content := make(map[string]interface{})
+		content := make(map[string]any)
 		content["Type"] = resource.Type
 		content["ID"] = resource.ResourceID
 		content["Stack"] = resource.StackName

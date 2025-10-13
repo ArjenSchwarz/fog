@@ -107,7 +107,7 @@ func RunPrechecks(deployment *DeployInfo) (map[string]string, error) {
 
 // YamlToJson converts a YAML byte array to a JSON byte array
 func YamlToJson(input []byte) ([]byte, error) {
-	var unmarshalled interface{}
+	var unmarshalled any
 	if err := yaml.Unmarshal(input, &unmarshalled); err != nil {
 		return nil, fmt.Errorf("invalid YAML: %s", err)
 	}
@@ -121,15 +121,15 @@ func YamlToJson(input []byte) ([]byte, error) {
 
 // convertMapInterfaceToMapString converts a map[interface{}]interface{} to a map[string]interface{}
 // This is required for the YAML to JSON conversion as the JSON library does not support interface{} keys
-func convertMapInterfaceToMapString(i interface{}) interface{} {
+func convertMapInterfaceToMapString(i any) any {
 	switch x := i.(type) {
-	case map[interface{}]interface{}:
-		m2 := map[string]interface{}{}
+	case map[any]any:
+		m2 := map[string]any{}
 		for key, value := range x {
 			m2[fmt.Sprint(key)] = convertMapInterfaceToMapString(value)
 		}
 		return m2
-	case []interface{}:
+	case []any:
 		for i, v := range x {
 			x[i] = convertMapInterfaceToMapString(v)
 		}

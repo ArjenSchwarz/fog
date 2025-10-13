@@ -117,7 +117,7 @@ func TestAWSClientsSatisfyInterfaces(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc // capture range variable
+		// capture range variable
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			tc.verifyFunc(t)
@@ -282,7 +282,7 @@ func TestMockImplementations(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc // capture range variable
+		// capture range variable
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			tc.verifyFunc(t)
@@ -442,7 +442,7 @@ func TestEC2MockImplementations(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc // capture range variable
+		// capture range variable
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			tc.verifyFunc(t)

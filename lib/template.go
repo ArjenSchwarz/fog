@@ -22,9 +22,9 @@ type StackDeploymentFile struct {
 type CfnTemplateBody struct {
 	AWSTemplateFormatVersion string                          `json:"AWSTemplateFormatVersion"`
 	Description              string                          `json:"Description"`
-	Metadata                 map[string]interface{}          `json:"Metadata"`
+	Metadata                 map[string]any                  `json:"Metadata"`
 	Transform                *CfnTemplateTransform           `json:"Transform"`
-	Mappings                 map[string]interface{}          `json:"Mappings"`
+	Mappings                 map[string]any                  `json:"Mappings"`
 	Rules                    map[string]CfnTemplateRule      `json:"Rules"`
 	Parameters               map[string]CfnTemplateParameter `json:"Parameters"`
 	Resources                map[string]CfnTemplateResource  `json:"Resources"`
@@ -33,29 +33,29 @@ type CfnTemplateBody struct {
 }
 
 type CfnTemplateParameter struct {
-	Type                  string        `json:"Type"`
-	Description           string        `json:"Description,omitempty"`
-	Default               interface{}   `json:"Default,omitempty"`
-	AllowedPattern        string        `json:"AllowedPattern,omitempty"`
-	AllowedValues         []interface{} `json:"AllowedValues,omitempty"`
-	ConstraintDescription string        `json:"ConstraintDescription,omitempty"`
-	MaxLength             int           `json:"MaxLength,omitempty"`
-	MinLength             int           `json:"MinLength,omitempty"`
-	MaxValue              float64       `json:"MaxValue,omitempty"`
-	MinValue              float64       `json:"MinValue,omitempty"`
-	NoEcho                bool          `json:"NoEcho,omitempty"`
+	Type                  string  `json:"Type"`
+	Description           string  `json:"Description,omitempty"`
+	Default               any     `json:"Default,omitempty"`
+	AllowedPattern        string  `json:"AllowedPattern,omitempty"`
+	AllowedValues         []any   `json:"AllowedValues,omitempty"`
+	ConstraintDescription string  `json:"ConstraintDescription,omitempty"`
+	MaxLength             int     `json:"MaxLength,omitempty"`
+	MinLength             int     `json:"MinLength,omitempty"`
+	MaxValue              float64 `json:"MaxValue,omitempty"`
+	MinValue              float64 `json:"MinValue,omitempty"`
+	NoEcho                bool    `json:"NoEcho,omitempty"`
 }
 
 type CfnTemplateResource struct {
-	Type       string                 `json:"Type"`
-	Condition  string                 `json:"Condition"`
-	Properties map[string]interface{} `json:"Properties"`
-	Metadata   map[string]interface{} `json:"Metadata"`
+	Type       string         `json:"Type"`
+	Condition  string         `json:"Condition"`
+	Properties map[string]any `json:"Properties"`
+	Metadata   map[string]any `json:"Metadata"`
 }
 
 type CfnTemplateCondition struct {
-	Not    []interface{} `json:"Fn::Not"`
-	Equals []interface{} `json:"Fn::Equals"`
+	Not    []any `json:"Fn::Not"`
+	Equals []any `json:"Fn::Equals"`
 }
 
 type CfnTemplateOutput struct {
@@ -72,8 +72,8 @@ type CfnTemplateRule struct {
 }
 
 type CfnTemplateRuleAssertion struct {
-	Assert            interface{} `json:"Assert"`
-	AssertDescription string      `json:"AssertDescription"`
+	Assert            any    `json:"Assert"`
+	AssertDescription string `json:"AssertDescription"`
 }
 
 type CfnTemplateTransform struct {
@@ -82,7 +82,7 @@ type CfnTemplateTransform struct {
 	StringArray *[]string
 }
 
-func (t CfnTemplateTransform) Value() interface{} {
+func (t CfnTemplateTransform) Value() any {
 	if t.String != nil {
 		return *t.String
 	}
@@ -95,7 +95,7 @@ func (t CfnTemplateTransform) Value() interface{} {
 }
 
 func (t *CfnTemplateTransform) UnmarshalJSON(b []byte) error {
-	var typecheck interface{}
+	var typecheck any
 	if err := json.Unmarshal(b, &typecheck); err != nil {
 		return err
 	}
@@ -108,7 +108,7 @@ func (t *CfnTemplateTransform) UnmarshalJSON(b []byte) error {
 	case []string:
 		t.StringArray = &val
 
-	case []interface{}:
+	case []any:
 		var strslice []string
 		for _, i := range val {
 			switch str := i.(type) {
@@ -122,7 +122,7 @@ func (t *CfnTemplateTransform) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-func GetTemplateBody(stackname *string, parameters *map[string]interface{}, svc CloudFormationGetTemplateAPI) CfnTemplateBody {
+func GetTemplateBody(stackname *string, parameters *map[string]any, svc CloudFormationGetTemplateAPI) CfnTemplateBody {
 	input := cloudformation.GetTemplateInput{
 		StackName: stackname,
 	}
@@ -136,7 +136,7 @@ func GetTemplateBody(stackname *string, parameters *map[string]interface{}, svc 
 
 // customRefHandler is a simple example of an intrinsic function handler function
 // that refuses to resolve any intrinsic functions, and just returns a basic string.
-func customRefHandler(name string, input interface{}, template interface{}) interface{} {
+func customRefHandler(name string, input any, template any) any {
 
 	// Dang son, this has got more nest than a bald eagle
 	// Check the input is a string
@@ -164,15 +164,15 @@ func customRefHandler(name string, input interface{}, template interface{}) inte
 			// to see if there is a parameter matching the name, and if so, return the default value.
 
 			// Check the template is a map
-			if template, ok := template.(map[string]interface{}); ok {
+			if template, ok := template.(map[string]any); ok {
 				// Check there is a parameters section
 				if uparameters, ok := template["Parameters"]; ok {
 					// Check the parameters section is a map
-					if parameters, ok := uparameters.(map[string]interface{}); ok {
+					if parameters, ok := uparameters.(map[string]any); ok {
 						// Check there is a parameter with the same name as the Ref
 						if uparameter, ok := parameters[name]; ok {
 							// Check the parameter is a map
-							if parameter, ok := uparameter.(map[string]interface{}); ok {
+							if parameter, ok := uparameter.(map[string]any); ok {
 								// Check the parameter has a default
 								if def, ok := parameter["Default"]; ok {
 									return def
@@ -188,7 +188,7 @@ func customRefHandler(name string, input interface{}, template interface{}) inte
 	return fmt.Sprintf("REF: %s", input)
 }
 
-func ParseTemplateString(template string, parameters *map[string]interface{}) CfnTemplateBody {
+func ParseTemplateString(template string, parameters *map[string]any) CfnTemplateBody {
 	parsedTemplate := CfnTemplateBody{}
 	override := map[string]intrinsics.IntrinsicHandler{}
 	override["Ref"] = customRefHandler
@@ -262,7 +262,7 @@ func NaclResourceToNaclEntry(resource CfnTemplateResource, params []cfntypes.Par
 	switch value := resource.Properties["CidrBlock"].(type) {
 	case string:
 		cidrblock = value
-	case map[string]interface{}:
+	case map[string]any:
 		refname := value["Ref"].(string)
 		for _, parameter := range params {
 			if *parameter.ParameterKey == refname {
@@ -279,7 +279,7 @@ func NaclResourceToNaclEntry(resource CfnTemplateResource, params []cfntypes.Par
 		switch value := resource.Properties["Ipv6CidrBlock"].(type) {
 		case string:
 			ipv6cidrblock = value
-		case map[string]interface{}:
+		case map[string]any:
 			refname := value["Ref"].(string)
 			for _, parameter := range params {
 				if *parameter.ParameterKey == refname {
@@ -311,7 +311,7 @@ func NaclResourceToNaclEntry(resource CfnTemplateResource, params []cfntypes.Par
 		result.Ipv6CidrBlock = &ipv6cidrblock
 	}
 	if resource.Properties["PortRange"] != nil {
-		ports := resource.Properties["PortRange"].(map[string]interface{})
+		ports := resource.Properties["PortRange"].(map[string]any)
 		var fromport, toport int32
 		switch value := ports["From"].(type) {
 		case float64:
@@ -335,7 +335,7 @@ func NaclResourceToNaclEntry(resource CfnTemplateResource, params []cfntypes.Par
 	}
 	// In CloudFormation the IcmpTypeCode is just called Icmp
 	if resource.Properties["Icmp"] != nil {
-		icmptypecodedata := resource.Properties["Icmp"].(map[string]interface{})
+		icmptypecodedata := resource.Properties["Icmp"].(map[string]any)
 		var icmptype, icmpcode int32
 		switch value := icmptypecodedata["Code"].(type) {
 		case float64:
@@ -383,7 +383,7 @@ func RouteResourceToRoute(resource CfnTemplateResource, params []cfntypes.Parame
 	return result
 }
 
-func stringPointer(array map[string]interface{}, params []cfntypes.Parameter, logicalToPhysical map[string]string, value string) *string {
+func stringPointer(array map[string]any, params []cfntypes.Parameter, logicalToPhysical map[string]string, value string) *string {
 	if _, ok := array[value]; !ok {
 		return nil
 	}
@@ -397,7 +397,7 @@ func stringPointer(array map[string]interface{}, params []cfntypes.Parameter, lo
 			result = value
 		}
 		// break statement removed as it's redundant at the end of a case
-	case map[string]interface{}:
+	case map[string]any:
 		refname := value["Ref"].(string)
 		if _, ok := logicalToPhysical[refname]; ok {
 			result = logicalToPhysical[refname]

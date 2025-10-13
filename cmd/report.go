@@ -281,7 +281,7 @@ func createMermaidOutput(stack lib.CfnStack, event lib.StackEvent) format.Output
 	mermaidoutput.Settings.SortKey = "Sorttime"
 	// Add milestones for stack events
 	for moment, status := range event.Milestones {
-		mermaidcontent := make(map[string]interface{})
+		mermaidcontent := make(map[string]any)
 		mermaidcontent["Label"] = fmt.Sprintf("Stack %s", status)
 		mermaidcontent["Start time"] = moment.In(settings.GetTimezoneLocation()).Format("15:04:05")
 		mermaidcontent["Duration"] = "0s"
@@ -300,7 +300,7 @@ func createMetadataTable(stack lib.CfnStack, event lib.StackEvent, awsConfig con
 	if usetitle {
 		output.Settings.Title = title
 	}
-	contents := make(map[string]interface{})
+	contents := make(map[string]any)
 	contents["Stack"] = stack.Name
 	contents["Account"] = awsConfig.GetAccountAliasID()
 	contents["Region"] = awsConfig.Region
@@ -315,7 +315,7 @@ func createMetadataTable(stack lib.CfnStack, event lib.StackEvent, awsConfig con
 
 func createTableResourceHolder(resource lib.ResourceEvent, event lib.StackEvent) format.OutputHolder {
 	// Add row to table OutputArray
-	content := make(map[string]interface{})
+	content := make(map[string]any)
 	content["Action"] = resource.EventType
 	content["CfnName"] = resource.Resource.LogicalID
 	content["Type"] = resource.Resource.Type
@@ -331,7 +331,7 @@ func createTableResourceHolder(resource lib.ResourceEvent, event lib.StackEvent)
 
 func createMermaidResourceHolder(resource lib.ResourceEvent) format.OutputHolder {
 	// Add row to mermaid OutputArray
-	mermaidcontent := make(map[string]interface{})
+	mermaidcontent := make(map[string]any)
 	mermaidcontent["Label"] = resource.Resource.LogicalID
 	mermaidcontent["Start time"] = resource.StartDate.In(settings.GetTimezoneLocation()).Format("15:04:05")
 	mermaidcontent["Duration"] = resource.GetDuration().Round(time.Second).String()

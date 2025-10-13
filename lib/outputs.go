@@ -67,7 +67,7 @@ func GetExports(stackname *string, exportname *string, svc CFNExportsAPI) []CfnO
 			c <- resexport
 		}(export)
 	}
-	for i := 0; i < len(results); i++ {
+	for i := range results {
 		results[i] = <-c
 	}
 	return results

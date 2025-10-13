@@ -36,7 +36,6 @@ func TestModernTestPatterns_MapBasedTables(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -127,7 +126,6 @@ func TestModernTestPatterns_THelperUsage(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -223,7 +221,6 @@ func TestModernTestPatterns_GotWantNaming(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -297,7 +294,6 @@ func TestModernTestPatterns_CmpDiffUsage(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -343,7 +339,6 @@ func TestModernTestPatterns_TRunUsage(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -406,7 +401,6 @@ func TestModernTestPatterns_TParallelUsage(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -440,7 +434,6 @@ func TestModernTestPatterns_VariableCapture(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -481,7 +474,6 @@ func TestModernTestPatterns_TestStructure(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -512,7 +504,6 @@ func TestModernTestPatterns_NoSliceBasedTables(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 

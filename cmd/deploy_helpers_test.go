@@ -71,7 +71,6 @@ func TestValidateStackReadiness(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -129,7 +128,6 @@ func TestFormatAccountDisplay(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -174,7 +172,6 @@ func TestDetermineDeploymentMethod(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -227,7 +224,6 @@ func TestRunPrechecks(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			// Don't run in parallel due to global viper state
 			// t.Parallel()
@@ -330,7 +326,6 @@ func TestPrepareDeployment(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			// Don't run in parallel due to global state (viper, deployFlags)
 			// t.Parallel()
@@ -414,7 +409,6 @@ func TestCreateAndShowChangeset(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			// Don't run in parallel due to global outputsettings state
 			// t.Parallel()
@@ -526,7 +520,6 @@ func TestConfirmAndDeployChangeset(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			// Don't run in parallel due to global deployFlags state
 			// t.Parallel()
@@ -622,7 +615,6 @@ func TestPrintDeploymentResults(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			// Don't run in parallel due to global getCfnClient state
 			// t.Parallel()
@@ -804,7 +796,6 @@ func TestMockClientInteraction(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -883,7 +874,6 @@ func TestAssertEqualStructs(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 

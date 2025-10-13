@@ -203,7 +203,7 @@ Resources:
 // generateLargeTemplate creates a template with many resources for testing size limits
 func generateLargeTemplate(resourceCount int) string {
 	resources := make(map[string]any)
-	for i := 0; i < resourceCount; i++ {
+	for i := range resourceCount {
 		resourceName := fmt.Sprintf("Bucket%d", i)
 		resources[resourceName] = map[string]any{
 			"Type": "AWS::S3::Bucket",

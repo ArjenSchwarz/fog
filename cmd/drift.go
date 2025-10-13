@@ -26,6 +26,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"maps"
 	"sort"
 	"strconv"
 	"strings"
@@ -98,19 +99,19 @@ func detectDrift(cmd *cobra.Command, args []string) {
 		if drift.StackResourceDriftStatus == types.StackResourceDriftStatusInSync {
 			continue
 		}
-		actualProperties := make(map[string]interface{})
+		actualProperties := make(map[string]any)
 		if drift.ActualProperties != nil {
 			if err := json.Unmarshal([]byte(*drift.ActualProperties), &actualProperties); err != nil {
 				failWithError(err)
 			}
 		}
-		expectedProperties := make(map[string]interface{})
+		expectedProperties := make(map[string]any)
 		if drift.ExpectedProperties != nil {
 			if err := json.Unmarshal([]byte(*drift.ExpectedProperties), &expectedProperties); err != nil {
 				failWithError(err)
 			}
 		}
-		content := make(map[string]interface{})
+		content := make(map[string]any)
 		content["LogicalId"] = *drift.LogicalResourceId
 		content["Type"] = *drift.ResourceType
 		changetype := string(drift.StackResourceDriftStatus)
@@ -155,10 +156,8 @@ func detectDrift(cmd *cobra.Command, args []string) {
 			sort.Strings(properties)
 			if driftFlags.SeparateProperties {
 				for _, property := range properties {
-					separateContent := make(map[string]interface{})
-					for k, v := range content {
-						separateContent[k] = v
-					}
+					separateContent := make(map[string]any)
+					maps.Copy(separateContent, content)
 					separateContent["Details"] = property
 					output.AddContents(separateContent)
 				}
@@ -207,7 +206,7 @@ func checkIfResourcesAreManaged(allresources map[string]string, logicalToPhysica
 			if stringInSlice(resource, toIgnore) {
 				continue
 			}
-			content := make(map[string]interface{})
+			content := make(map[string]any)
 			content["LogicalId"] = resource
 			content["Type"] = resourcetype
 			content["ChangeType"] = "UNMANAGED"
@@ -259,7 +258,7 @@ func checkNaclEntries(naclResources map[string]string, template lib.CfnTemplateB
 		if len(rulechanges) != 0 {
 			if driftFlags.SeparateProperties {
 				for _, change := range rulechanges {
-					content := make(map[string]interface{})
+					content := make(map[string]any)
 					content["LogicalId"] = fmt.Sprintf("Entry for NACL %s", logicalId)
 					content["Type"] = "AWS::EC2::NetworkACLEntry"
 					content["ChangeType"] = string(types.StackResourceDriftStatusModified)
@@ -267,7 +266,7 @@ func checkNaclEntries(naclResources map[string]string, template lib.CfnTemplateB
 					output.AddContents(content)
 				}
 			} else {
-				content := make(map[string]interface{})
+				content := make(map[string]any)
 				content["LogicalId"] = fmt.Sprintf("Entries for NACL %s", logicalId)
 				content["Type"] = "AWS::EC2::NetworkACLEntry"
 				content["ChangeType"] = string(types.StackResourceDriftStatusModified)
@@ -330,7 +329,7 @@ func checkRouteTableRoutes(routetableResources map[string]string, template lib.C
 		if len(rulechanges) != 0 {
 			if driftFlags.SeparateProperties {
 				for _, change := range rulechanges {
-					content := make(map[string]interface{})
+					content := make(map[string]any)
 					content["LogicalId"] = fmt.Sprintf("Route for RouteTable %s", logicalId)
 					content["Type"] = "AWS::EC2::Route"
 					content["ChangeType"] = string(types.StackResourceDriftStatusModified)
@@ -338,7 +337,7 @@ func checkRouteTableRoutes(routetableResources map[string]string, template lib.C
 					output.AddContents(content)
 				}
 			} else {
-				content := make(map[string]interface{})
+				content := make(map[string]any)
 				content["LogicalId"] = fmt.Sprintf("Routes for RouteTable %s", logicalId)
 				content["Type"] = "AWS::EC2::Route"
 				content["ChangeType"] = string(types.StackResourceDriftStatusModified)
@@ -380,20 +379,20 @@ func checkRouteTableRoutes(routetableResources map[string]string, template lib.C
 // 	return expectedmap, actualmap
 // }
 
-func getExpectedAndActualTags(expectedResources map[string]interface{}, actualResources map[string]interface{}) map[string]map[string]string {
+func getExpectedAndActualTags(expectedResources map[string]any, actualResources map[string]any) map[string]map[string]string {
 	// if Tags exists in expectedResources, compare the list of tags with those in actualResources
 	tags := make(map[string]map[string]string)
 	// go through expectedResources["Tags"] and add each item in expectedTags
 	if expectedResources["Tags"] != nil {
-		for _, tag := range expectedResources["Tags"].([]interface{}) {
-			tagMap := tag.(map[string]interface{})
+		for _, tag := range expectedResources["Tags"].([]any) {
+			tagMap := tag.(map[string]any)
 			tags[tagMap["Key"].(string)] = map[string]string{"Expected": tagMap["Value"].(string)}
 		}
 	}
 	// go through actualResources["Tags"] and add each item in actualTags
 	if actualResources["Tags"] != nil {
-		for _, tag := range actualResources["Tags"].([]interface{}) {
-			tagMap := tag.(map[string]interface{})
+		for _, tag := range actualResources["Tags"].([]any) {
+			tagMap := tag.(map[string]any)
 			if tags[tagMap["Key"].(string)] == nil {
 				tags[tagMap["Key"].(string)] = map[string]string{"Expected": "", "Actual": tagMap["Value"].(string)}
 			}

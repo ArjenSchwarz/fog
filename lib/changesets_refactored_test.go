@@ -58,7 +58,6 @@ func TestChangesetInfo_DeleteChangesetRefactored(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -140,7 +139,6 @@ func TestChangesetInfo_DeployChangesetRefactored(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -266,7 +264,6 @@ func TestChangesetInfo_AddChangeRefactored(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -370,7 +367,6 @@ func TestChangesetInfo_GetStackRefactored(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -451,7 +447,6 @@ func TestChangesetInfo_GenerateChangesetUrlRefactored(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -593,7 +588,6 @@ func TestChangesetChanges_GetDangerDetailsRefactored(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -637,7 +631,6 @@ func TestGetStackAndChangesetFromURLRefactored(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			// Note: Not running in parallel because GetStackAndChangesetFromURL uses log.Fatal
 

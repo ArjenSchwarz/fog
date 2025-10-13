@@ -1,6 +1,16 @@
 Unreleased
 ===========
 
+### Changed
+- Modernized codebase to use Go 1.25 built-in functions and types across all packages
+- Replaced `interface{}` with `any` type throughout codebase for improved readability
+- Updated drift detection to use `maps.Copy()` instead of manual map copying loops
+- Updated stack operations to use `slices.Contains()` instead of manual slice iteration
+- Simplified file conversion functions using modern type aliases
+- Cleaned up test files by removing redundant blank imports
+- Updated test utilities and assertions to use `any` type
+- Modernized template processing functions with cleaner type handling
+
 ### Added
 - Integration tests for deployment workflows including creation, updates, dry runs, changeset validation, and rollback scenarios
 - Integration tests for precheck execution with pass, fail, and stop-on-fail behavior validation

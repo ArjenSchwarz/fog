@@ -112,7 +112,6 @@ func TestStartDriftDetection(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -202,7 +201,6 @@ func TestWaitForDriftDetectionToFinish(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			// Cannot run in parallel due to sleep timing dependencies
 			mockClient := tc.setupMock()
@@ -353,7 +351,6 @@ func TestGetDefaultStackDrift(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -522,7 +519,6 @@ func TestGetUncheckedStackResources(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 

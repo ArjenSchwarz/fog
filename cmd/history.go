@@ -94,7 +94,7 @@ func printLog(log lib.DeploymentLog) {
 	} else {
 		output.AddHeader(outputsettings.StringWarning("📋 " + header))
 	}
-	contents := make(map[string]interface{})
+	contents := make(map[string]any)
 	contents["Account"] = log.Account
 	contents["Region"] = log.Region
 	contents["Deployer"] = log.Deployer

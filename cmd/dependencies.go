@@ -86,7 +86,7 @@ func showDependencies(cmd *cobra.Command, args []string) {
 		if dependenciesFlags.StackName != "" && !stringInSlice(stackname, stackfilter) {
 			continue
 		}
-		content := make(map[string]interface{})
+		content := make(map[string]any)
 		content["Stack"] = stack.Name
 		content["Description"] = stack.Description
 		content["Imported By"] = strings.Join(unique(stack.ImportedBy), settings.GetSeparator())

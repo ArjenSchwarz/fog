@@ -41,7 +41,6 @@ func TestConfig_GetLCString(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			tc.setup()
 			t.Cleanup(func() {
@@ -87,7 +86,6 @@ func TestConfig_GetString(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			tc.setup()
 			t.Cleanup(func() {
@@ -133,7 +131,6 @@ func TestConfig_GetStringSlice(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			tc.setup()
 			t.Cleanup(func() {
@@ -179,7 +176,6 @@ func TestConfig_GetBool(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			tc.setup()
 			t.Cleanup(func() {
@@ -233,7 +229,6 @@ func TestConfig_GetInt(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			tc.setup()
 			t.Cleanup(func() {
@@ -289,7 +284,6 @@ func TestConfig_GetSeparator(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			tc.setup()
 			t.Cleanup(func() {
@@ -359,7 +353,6 @@ func TestConfig_GetFieldOrEmptyValue(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			tc.setup()
 			t.Cleanup(func() {
@@ -413,7 +406,6 @@ func TestConfig_GetTimezoneLocation(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			tc.setup()
 			t.Cleanup(func() {
@@ -533,7 +525,6 @@ func TestConfig_NewOutputSettings(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			tc.setup()
 			t.Cleanup(func() {

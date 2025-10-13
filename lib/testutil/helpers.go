@@ -355,7 +355,7 @@ type TableTestCase struct {
 // RunTableTests runs a set of table-driven tests
 func RunTableTests(t *testing.T, tests map[string]TableTestCase, testFunc func(*TestContext, TableTestCase)) {
 	for name, tc := range tests {
-		tc := tc // Capture range variable
+		// Capture range variable
 		t.Run(name, func(t *testing.T) {
 			if tc.Skip != "" {
 				t.Skip(tc.Skip)
