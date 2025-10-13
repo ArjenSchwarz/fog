@@ -128,6 +128,11 @@ vet:
 lint:
 	golangci-lint run
 
+# Run modernize to update code to modern Go patterns (requires modernize)
+modernize:
+	@which modernize > /dev/null || (echo "modernize not installed. Run: go install github.com/gaissmai/modernize@latest" && exit 1)
+	modernize -fix -test ./...
+
 # Run full validation suite
 check: fmt vet lint test
 
@@ -201,6 +206,7 @@ help:
 	@echo "  fmt                   - Format Go code"
 	@echo "  vet                   - Run go vet for static analysis"
 	@echo "  lint                  - Run linter (requires golangci-lint)"
+	@echo "  modernize             - Update code to modern Go patterns (requires modernize)"
 	@echo "  check                 - Run full validation suite (fmt, vet, lint, test)"
 	@echo "  security-scan         - Run security analysis (requires gosec)"
 	@echo ""
@@ -218,4 +224,10 @@ help:
 	@echo "  make build VERSION=1.2.3     - Build with specific version"
 	@echo "  make build-release VERSION=1.2.3 - Build release version"
 
-.PHONY: build build-release test test-verbose test-integration test-integration-verbose test-all test-coverage test-performance test-memory test-golden test-golden-update test-golden-verbose test-golden-check benchmarks benchmarks-mem benchmarks-stats benchmarks-analysis benchmarks-formatting benchmarks-property benchmarks-compare test-action-unit test-action-foundation test-action-integration test-action-comprehensive test-action run-sample run-sample-details list-samples run-all-samples fmt vet lint check clean install deps-tidy deps-update security-scan go-functions update-v1-tag help
+# Declare all targets as phony (not real files)
+.PHONY: $(MAKECMDGOALS) build build-release test test-verbose test-integration \
+	test-integration-verbose test-all test-coverage test-performance test-memory \
+	test-golden test-golden-update test-golden-verbose test-golden-check benchmarks \
+	benchmarks-mem benchmarks-stats benchmarks-analysis benchmarks-formatting \
+	benchmarks-property benchmarks-compare fmt vet lint modernize check clean install \
+	deps-tidy deps-update security-scan go-functions update-v1-tag help
