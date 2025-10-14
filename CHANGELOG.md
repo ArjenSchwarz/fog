@@ -2,6 +2,13 @@ Unreleased
 ===========
 
 ### Added
+- Transit Gateway drift detection specification including requirements, design, tasks, and decision log
+- Requirements document defining 11 requirement categories covering Transit Gateway route table detection, template parsing, AWS API integration, route comparison, output formatting, and error handling
+- Design document specifying technical architecture, component interfaces, data models, testing strategy, performance considerations, and known limitations for Transit Gateway drift detection
+- Implementation tasks document with 28 numbered tasks organized into foundation setup, core functions, template parsing, route comparison, command integration, testing, and validation phases
+- Decision log documenting 16 key architectural and implementation decisions including VPC route pattern reuse, propagated route exclusion, API choice, error handling strategy, and ECMP limitations
+
+### Added
 - Documentation comments for all exported types and functions across cmd, lib, and config packages
 - Godoc-compliant comments for DeployInfo, CfnStack, StackEvent, and ResourceEvent types
 - Function documentation for stack operations, changeset management, and configuration utilities
