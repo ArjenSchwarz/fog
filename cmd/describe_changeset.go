@@ -52,9 +52,9 @@ func init() {
 }
 
 func describeChangeset(cmd *cobra.Command, args []string) {
-	viper.Set("output", "table") //Enforce table output for deployments
+	viper.Set("output", "table") // Enforce table output for deployments
 	outputsettings = settings.NewOutputSettings()
-	outputsettings.SeparateTables = true //Make table output stand out more
+	outputsettings.SeparateTables = true // Make table output stand out more
 	awsConfig, err := config.DefaultAwsConfig(*settings)
 	if err != nil {
 		failWithError(err)
@@ -94,7 +94,7 @@ func printBasicStackInfo(deployment lib.DeployInfo, showDryRunInfo bool, awsConf
 	// , "StackStatus", "StackStatusReason", "CreationTime", "StackDescription"
 	output := format.OutputArray{Keys: keys, Settings: outputsettings}
 	output.Settings.Title = stacktitle
-	content := make(map[string]interface{})
+	content := make(map[string]any)
 	content["StackName"] = deployment.GetCleanedStackName()
 	content["Account"] = awsConfig.GetAccountAliasID()
 	content["Region"] = awsConfig.Region
@@ -134,9 +134,9 @@ func printChangeset(title string, summaryTitle string, changes []lib.ChangesetCh
 		fmt.Println(texts.DeployChangesetMessageNoResourceChanges)
 	} else {
 		for _, change := range changes {
-			content := make(map[string]interface{})
+			content := make(map[string]any)
 			action := change.Action
-			if action == "Remove" {
+			if action == eventTypeRemove {
 				action = bold(action)
 			}
 			content["Action"] = action
@@ -161,7 +161,7 @@ func printChangeset(title string, summaryTitle string, changes []lib.ChangesetCh
 	}
 }
 
-func addToChangesetSummary(summaryContent *map[string]interface{}, change lib.ChangesetChanges) {
+func addToChangesetSummary(summaryContent *map[string]any, change lib.ChangesetChanges) {
 	addToField(summaryContent, "Total", 1)
 	switch change.Action {
 	case "Add":
@@ -179,9 +179,9 @@ func addToChangesetSummary(summaryContent *map[string]interface{}, change lib.Ch
 	}
 }
 
-func getChangesetSummaryTable() ([]string, map[string]interface{}) {
+func getChangesetSummaryTable() ([]string, map[string]any) {
 	summarykeys := []string{"Total", "Added", "Removed", "Modified", "Replacements", "Conditionals"}
-	summaryContent := make(map[string]interface{})
+	summaryContent := make(map[string]any)
 	for _, key := range summarykeys {
 		summaryContent[key] = 0
 	}
@@ -202,9 +202,9 @@ func printDangerTable(title string, changes []lib.ChangesetChanges, hasModule bo
 	} else {
 		for _, change := range changes {
 			if change.Action == "Remove" || change.Replacement == "Conditional" || change.Replacement == "True" {
-				content := make(map[string]interface{})
+				content := make(map[string]any)
 				action := change.Action
-				if action == "Remove" {
+				if action == eventTypeRemove {
 					action = bold(action)
 				}
 				content["Action"] = action

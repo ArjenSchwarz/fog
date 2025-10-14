@@ -76,7 +76,7 @@ func listExports(cmd *cobra.Command, args []string) {
 	output.Settings.Title = title
 	output.Settings.SortKey = "Export"
 	for _, resource := range exports {
-		content := make(map[string]interface{})
+		content := make(map[string]any)
 		content["Export"] = resource.ExportName
 		content["Value"] = resource.OutputValue
 		content["Description"] = resource.Description

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -15,6 +16,7 @@ import (
 	"github.com/gosimple/slug"
 )
 
+// DeployInfo represents all the information required to deploy a CloudFormation stack.
 type DeployInfo struct {
 	// Changeset contains the ChangesetInfo object with the change set information
 	Changeset *ChangesetInfo
@@ -50,6 +52,7 @@ type DeployInfo struct {
 	TemplateUrl string
 }
 
+// CfnStack represents a CloudFormation stack with its associated resources and metadata
 type CfnStack struct {
 	Name        string
 	Id          string
@@ -61,6 +64,7 @@ type CfnStack struct {
 	Events      []StackEvent
 }
 
+// StackEvent represents a CloudFormation stack-level event (create, update, delete)
 type StackEvent struct {
 	EndDate        time.Time
 	ResourceEvents []ResourceEvent
@@ -70,6 +74,7 @@ type StackEvent struct {
 	Milestones     map[time.Time]string
 }
 
+// ResourceEvent represents events for a single resource within a stack event
 type ResourceEvent struct {
 	Resource          CfnResource
 	RawInfo           []types.StackEvent
@@ -82,6 +87,7 @@ type ResourceEvent struct {
 	ExpectedEndStatus string
 }
 
+// ChangesetType returns the appropriate changeset type (CREATE or UPDATE) based on whether this is a new stack
 func (deployment *DeployInfo) ChangesetType() types.ChangeSetType {
 	if deployment.IsNew {
 		return types.ChangeSetTypeCreate
@@ -89,6 +95,7 @@ func (deployment *DeployInfo) ChangesetType() types.ChangeSetType {
 	return types.ChangeSetTypeUpdate
 }
 
+// GetStack retrieves a single stack by name or ARN
 func GetStack(stackname *string, svc CloudFormationDescribeStacksAPI) (types.Stack, error) {
 	input := &cloudformation.DescribeStacksInput{}
 	if *stackname != "" && !strings.Contains(*stackname, "*") {
@@ -101,6 +108,7 @@ func GetStack(stackname *string, svc CloudFormationDescribeStacksAPI) (types.Sta
 	return resp.Stacks[0], err
 }
 
+// GetCfnStacks retrieves stacks matching the given name pattern with their outputs and import information
 func GetCfnStacks(stackname *string, svc *cloudformation.Client) (map[string]CfnStack, error) {
 	result := make(map[string]CfnStack)
 	input := &cloudformation.DescribeStacksInput{}
@@ -148,6 +156,7 @@ func GetCfnStacks(stackname *string, svc *cloudformation.Client) (map[string]Cfn
 	return result, nil
 }
 
+// StackExists checks whether the stack in the deployment exists
 func StackExists(deployment *DeployInfo, svc CloudFormationDescribeStacksAPI) bool {
 	stack, err := GetStack(&deployment.StackName, svc)
 	if err != nil {
@@ -156,6 +165,7 @@ func StackExists(deployment *DeployInfo, svc CloudFormationDescribeStacksAPI) bo
 	return err == nil
 }
 
+// IsReadyForUpdate checks if the stack is in a state that allows updates
 func (deployment DeployInfo) IsReadyForUpdate(svc CloudFormationDescribeStacksAPI) (bool, string) {
 	stack, err := deployment.GetStack(svc)
 	if err != nil {
@@ -171,6 +181,7 @@ func (deployment DeployInfo) IsReadyForUpdate(svc CloudFormationDescribeStacksAP
 	return stringInSlice(string(stack.StackStatus), availableStatuses), string(stack.StackStatus)
 }
 
+// IsOngoing checks if there is an ongoing operation on the stack
 func (deployment DeployInfo) IsOngoing(svc CloudFormationDescribeStacksAPI) bool {
 	stack, err := deployment.GetFreshStack(svc)
 	if err != nil {
@@ -218,26 +229,23 @@ func (deployment *DeployInfo) LoadDeploymentFile(filelocation string) error {
 
 // stringInSlice checks if a string exists in a slice
 func stringInSlice(a string, list []string) bool {
-	for _, b := range list {
-		if b == a {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(list, a)
 }
 
-func (deployment *DeployInfo) CreateChangeSet(svc *cloudformation.Client) (string, error) {
+// CreateChangeSet creates a changeset for the deployment and returns its ID
+func (deployment *DeployInfo) CreateChangeSet(svc CloudFormationCreateChangeSetAPI) (string, error) {
 	input := &cloudformation.CreateChangeSetInput{
 		StackName:     &deployment.StackName,
 		ChangeSetType: deployment.ChangesetType(),
 		ChangeSetName: &deployment.ChangesetName,
 		Capabilities:  types.CapabilityCapabilityAutoExpand.Values(),
 	}
-	if deployment.TemplateUrl != "" {
+	switch {
+	case deployment.TemplateUrl != "":
 		input.TemplateURL = &deployment.TemplateUrl
-	} else if deployment.Template != "" {
+	case deployment.Template != "":
 		input.TemplateBody = &deployment.Template
-	} else {
+	default:
 		input.UsePreviousTemplate = aws.Bool(true)
 	}
 	if len(deployment.Parameters) != 0 {
@@ -253,6 +261,7 @@ func (deployment *DeployInfo) CreateChangeSet(svc *cloudformation.Client) (strin
 	return *resp.Id, nil
 }
 
+// ParseParameterString parses a JSON string into CloudFormation parameters
 func ParseParameterString(parameters string) ([]types.Parameter, error) {
 	result := make([]types.Parameter, 0)
 	err := json.Unmarshal([]byte(parameters), &result)
@@ -283,6 +292,7 @@ func ParseDeploymentFile(deploymentFile string) (StackDeploymentFile, error) {
 	return result, nil
 }
 
+// ParseTagString parses a JSON string into CloudFormation tags
 func ParseTagString(tags string) ([]types.Tag, error) {
 	result := make([]types.Tag, 0)
 	err := json.Unmarshal([]byte(tags), &result)
@@ -292,7 +302,8 @@ func ParseTagString(tags string) ([]types.Tag, error) {
 	return result, nil
 }
 
-func (deployment *DeployInfo) WaitUntilChangesetDone(svc *cloudformation.Client) (*ChangesetInfo, error) {
+// WaitUntilChangesetDone polls until the changeset creation completes and returns the changeset info
+func (deployment *DeployInfo) WaitUntilChangesetDone(svc CloudFormationDescribeChangeSetAPI) (*ChangesetInfo, error) {
 	time.Sleep(5 * time.Second)
 	changeset := ChangesetInfo{}
 	availableStatuses := []string{
@@ -316,6 +327,7 @@ func (deployment *DeployInfo) WaitUntilChangesetDone(svc *cloudformation.Client)
 	return &changeset, err
 }
 
+// AddChangeset processes the changeset response and adds it to the deployment
 func (deployment *DeployInfo) AddChangeset(resp []cloudformation.DescribeChangeSetOutput) ChangesetInfo {
 	changeset := ChangesetInfo{}
 	for _, changesets := range resp {
@@ -350,7 +362,8 @@ func (deployment *DeployInfo) AddChangeset(resp []cloudformation.DescribeChangeS
 	return changeset
 }
 
-func (deployment *DeployInfo) GetChangeset(svc *cloudformation.Client) ([]cloudformation.DescribeChangeSetOutput, error) {
+// GetChangeset retrieves the changeset details for the deployment
+func (deployment *DeployInfo) GetChangeset(svc CloudFormationDescribeChangeSetAPI) ([]cloudformation.DescribeChangeSetOutput, error) {
 	results := []cloudformation.DescribeChangeSetOutput{}
 	input := &cloudformation.DescribeChangeSetInput{
 		ChangeSetName: &deployment.ChangesetName,
@@ -358,10 +371,10 @@ func (deployment *DeployInfo) GetChangeset(svc *cloudformation.Client) ([]cloudf
 		StackName:     &deployment.StackName,
 	}
 	resp, err := svc.DescribeChangeSet(context.TODO(), input)
-	results = append(results, *resp)
 	if err != nil {
 		return results, err
 	}
+	results = append(results, *resp)
 	// write a for loop to get all the changesets
 	for resp.NextToken != nil {
 		input = &cloudformation.DescribeChangeSetInput{
@@ -370,18 +383,20 @@ func (deployment *DeployInfo) GetChangeset(svc *cloudformation.Client) ([]cloudf
 			StackName:     &deployment.StackName,
 		}
 		resp, err = svc.DescribeChangeSet(context.TODO(), input)
-		results = append(results, *resp)
 		if err != nil {
 			return results, err
 		}
+		results = append(results, *resp)
 	}
 	return results, nil
 }
 
+// GetFreshStack retrieves the latest stack information from AWS
 func (deployment *DeployInfo) GetFreshStack(svc CloudFormationDescribeStacksAPI) (types.Stack, error) {
 	return GetStack(&deployment.StackArn, svc)
 }
 
+// GetStack retrieves the stack information, using cached data if available
 func (deployment *DeployInfo) GetStack(svc CloudFormationDescribeStacksAPI) (types.Stack, error) {
 	if deployment.RawStack == nil {
 		stack, err := GetStack(&deployment.StackName, svc)
@@ -393,15 +408,19 @@ func (deployment *DeployInfo) GetStack(svc CloudFormationDescribeStacksAPI) (typ
 	return *deployment.RawStack, nil
 }
 
+// GetEvents retrieves all events for the deployment's stack
 func (deployment *DeployInfo) GetEvents(svc CloudFormationDescribeStackEventsAPI) ([]types.StackEvent, error) {
 	input := &cloudformation.DescribeStackEventsInput{
 		StackName: &deployment.StackName,
 	}
 	resp, err := svc.DescribeStackEvents(context.TODO(), input)
-	return resp.StackEvents, err
-
+	if err != nil {
+		return nil, err
+	}
+	return resp.StackEvents, nil
 }
 
+// GetCleanedStackName extracts the stack name from an ARN or returns the name as-is
 func (deployment *DeployInfo) GetCleanedStackName() string {
 	// if deployment.StackName starts with arn, get the name otherwise return deployment.StackName
 	if strings.HasPrefix(deployment.StackName, "arn:") {
@@ -411,6 +430,7 @@ func (deployment *DeployInfo) GetCleanedStackName() string {
 	return deployment.StackName
 }
 
+// GetEvents retrieves and processes all events for the stack, organizing them by stack-level events
 func (stack *CfnStack) GetEvents(svc *cloudformation.Client) ([]StackEvent, error) {
 	if len(stack.Events) != 0 {
 		return stack.Events, nil
@@ -496,13 +516,14 @@ func (stack *CfnStack) GetEvents(svc *cloudformation.Client) ([]StackEvent, erro
 					EndStatus:   string(event.ResourceStatus),
 					RawInfo:     []types.StackEvent{event},
 				}
-				if strings.Contains(string(event.ResourceStatus), "CREATE") {
+				switch {
+				case strings.Contains(string(event.ResourceStatus), "CREATE"):
 					resource.EventType = "Add"
 					resource.ExpectedEndStatus = string(types.ResourceStatusCreateComplete)
-				} else if strings.Contains(string(event.ResourceStatus), "UPDATE") {
+				case strings.Contains(string(event.ResourceStatus), "UPDATE"):
 					resource.EventType = "Modify"
 					resource.ExpectedEndStatus = string(types.ResourceStatusUpdateComplete)
-				} else if strings.Contains(string(event.ResourceStatus), "DELETE") {
+				case strings.Contains(string(event.ResourceStatus), "DELETE"):
 					if strings.HasSuffix(name, "-replacement") || strings.HasSuffix(name, "-cleanup") {
 						resource.EventType = "Cleanup"
 					} else {
@@ -534,6 +555,7 @@ func (stack *CfnStack) GetEvents(svc *cloudformation.Client) ([]StackEvent, erro
 	return stack.Events, nil
 }
 
+// GetSuccessStates returns a list of CloudFormation stack statuses that indicate successful completion
 func GetSuccessStates() []string {
 	return []string{
 		string(types.StackStatusCreateComplete),
@@ -553,6 +575,7 @@ func (event *StackEvent) GetDuration() time.Duration {
 	return event.EndDate.Sub(event.StartDate)
 }
 
+// GetEventSummaries retrieves basic event information for the stack
 func (stack *CfnStack) GetEventSummaries(svc *cloudformation.Client) ([]types.StackEvent, error) {
 	input := &cloudformation.DescribeStackEventsInput{
 		StackName: &stack.Id,
@@ -562,7 +585,8 @@ func (stack *CfnStack) GetEventSummaries(svc *cloudformation.Client) ([]types.St
 
 }
 
-func (deployment *DeployInfo) DeleteStack(svc *cloudformation.Client) bool {
+// DeleteStack deletes the stack and returns true if successful
+func (deployment *DeployInfo) DeleteStack(svc CloudFormationDeleteStackAPI) bool {
 	input := &cloudformation.DeleteStackInput{
 		StackName: &deployment.StackName,
 	}
@@ -571,6 +595,7 @@ func (deployment *DeployInfo) DeleteStack(svc *cloudformation.Client) bool {
 	return err == nil
 }
 
+// GetExecutionTimes retrieves timing information for each resource in the deployment
 func (deployment *DeployInfo) GetExecutionTimes(svc CloudFormationDescribeStackEventsAPI) (map[string]map[string]time.Time, error) {
 	result := make(map[string]map[string]time.Time)
 	events, err := deployment.GetEvents(svc)
@@ -589,22 +614,35 @@ func (deployment *DeployInfo) GetExecutionTimes(svc CloudFormationDescribeStackE
 	return result, nil
 }
 
-func GetParametersMap(params []types.Parameter) *map[string]interface{} {
-	result := make(map[string]interface{})
+// GetParametersMap converts a slice of parameters into a map of key-value pairs
+func GetParametersMap(params []types.Parameter) *map[string]any {
+	result := make(map[string]any)
 	for _, param := range params {
 		result[*param.ParameterKey] = *param.ParameterValue
 	}
 	return &result
 }
 
+// ReverseEvents implements sort.Interface for sorting stack events in chronological order
 type ReverseEvents []types.StackEvent
 
-func (a ReverseEvents) Len() int           { return len(a) }
-func (a ReverseEvents) Less(i, j int) bool { return a[i].Timestamp.Before(*a[j].Timestamp) }
-func (a ReverseEvents) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+// Len returns the length of the slice
+func (a ReverseEvents) Len() int { return len(a) }
 
+// Less compares two events by timestamp
+func (a ReverseEvents) Less(i, j int) bool { return a[i].Timestamp.Before(*a[j].Timestamp) }
+
+// Swap swaps two elements in the slice
+func (a ReverseEvents) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+
+// SortStacks implements sort.Interface for sorting stacks by name
 type SortStacks []CfnStack
 
-func (a SortStacks) Len() int           { return len(a) }
+// Len returns the length of the slice
+func (a SortStacks) Len() int { return len(a) }
+
+// Less compares two stacks by name
 func (a SortStacks) Less(i, j int) bool { return strings.Compare(a[i].Name, a[j].Name) == -1 }
-func (a SortStacks) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+
+// Swap swaps two elements in the slice
+func (a SortStacks) Swap(i, j int) { a[i], a[j] = a[j], a[i] }

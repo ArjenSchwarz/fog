@@ -1,0 +1,11 @@
+Timestamp: 2024-01-15T10:30:00Z
+LogicalResourceId: MyBucket
+ResourceType: AWS::S3::Bucket
+ResourceStatus: UPDATE_IN_PROGRESS
+
+Timestamp: 2024-01-15T10:30:05Z
+LogicalResourceId: MyBucket
+ResourceType: AWS::S3::Bucket
+ResourceStatus: UPDATE_FAILED
+StatusReason: Properties validation failed
+

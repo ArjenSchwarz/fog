@@ -74,7 +74,9 @@ func NewCommandAlias(name, target, short string) *cobra.Command {
 			targetParts := strings.Split(target, " ")
 
 			// Reconstruct the command line with the target command and original args
-			newArgs := append(targetParts[1:], args...)
+			newArgs := make([]string, 0, len(targetParts[1:])+len(args))
+			newArgs = append(newArgs, targetParts[1:]...)
+			newArgs = append(newArgs, args...)
 			rootCmd.SetArgs(append([]string{targetParts[0]}, newArgs...))
 
 			// Execute the target command

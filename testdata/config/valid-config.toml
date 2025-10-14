@@ -1,0 +1,15 @@
+# Valid Fog configuration file in TOML format
+region = "eu-west-1"
+profile = "staging"
+output = "csv"
+output-file = "results.csv"
+output-file-format = "csv"
+timezone = "Europe/London"
+
+[table]
+style = "rounded"
+max-column-width = 120
+
+[templates]
+directory = "./templates"
+validate = false

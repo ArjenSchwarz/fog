@@ -2,319 +2,537 @@ package lib
 
 import (
 	"context"
-	"reflect"
-	"strings"
+	"errors"
 	"testing"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-// Define interfaces for the CloudFormation client methods we use
-type CloudFormationDetectStackDriftAPI interface {
-	DetectStackDrift(ctx context.Context, params *cloudformation.DetectStackDriftInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DetectStackDriftOutput, error)
+// mockDriftDetectionClient implements CloudFormationDetectStackDriftAPI
+type mockDriftDetectionClient struct {
+	detectStackDriftFn func(context.Context, *cloudformation.DetectStackDriftInput, ...func(*cloudformation.Options)) (*cloudformation.DetectStackDriftOutput, error)
 }
 
-type CloudFormationDescribeStackDriftDetectionStatusAPI interface {
-	DescribeStackDriftDetectionStatus(ctx context.Context, params *cloudformation.DescribeStackDriftDetectionStatusInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStackDriftDetectionStatusOutput, error)
-}
-
-type CloudFormationDescribeStackResourceDriftsAPI interface {
-	DescribeStackResourceDrifts(ctx context.Context, params *cloudformation.DescribeStackResourceDriftsInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStackResourceDriftsOutput, error)
-}
-
-// MockCloudFormationClient is a mock implementation of the CloudFormation client
-type MockCloudFormationClient struct {
-	DetectStackDriftOutput                  cloudformation.DetectStackDriftOutput
-	DetectStackDriftError                   error
-	DescribeStackDriftDetectionStatusOutput cloudformation.DescribeStackDriftDetectionStatusOutput
-	DescribeStackDriftDetectionStatusError  error
-	DescribeStackDriftDetectionStatusCalls  int
-	DescribeStackResourceDriftsOutput       cloudformation.DescribeStackResourceDriftsOutput
-	DescribeStackResourceDriftsError        error
-	DescribeStacksOutput                    cloudformation.DescribeStacksOutput
-	DescribeStacksError                     error
-	DescribeStackResourcesOutput            cloudformation.DescribeStackResourcesOutput
-	DescribeStackResourcesError             error
-}
-
-func (m *MockCloudFormationClient) DetectStackDrift(ctx context.Context, params *cloudformation.DetectStackDriftInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DetectStackDriftOutput, error) {
-	return &m.DetectStackDriftOutput, m.DetectStackDriftError
-}
-
-func (m *MockCloudFormationClient) DescribeStackDriftDetectionStatus(ctx context.Context, params *cloudformation.DescribeStackDriftDetectionStatusInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStackDriftDetectionStatusOutput, error) {
-	m.DescribeStackDriftDetectionStatusCalls++
-	return &m.DescribeStackDriftDetectionStatusOutput, m.DescribeStackDriftDetectionStatusError
-}
-
-func (m *MockCloudFormationClient) DescribeStackResourceDrifts(ctx context.Context, params *cloudformation.DescribeStackResourceDriftsInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStackResourceDriftsOutput, error) {
-	return &m.DescribeStackResourceDriftsOutput, m.DescribeStackResourceDriftsError
-}
-
-func (m *MockCloudFormationClient) DescribeStacks(ctx context.Context, params *cloudformation.DescribeStacksInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStacksOutput, error) {
-	return &m.DescribeStacksOutput, m.DescribeStacksError
-}
-
-func (m *MockCloudFormationClient) DescribeStackResources(ctx context.Context, params *cloudformation.DescribeStackResourcesInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStackResourcesOutput, error) {
-	return &m.DescribeStackResourcesOutput, m.DescribeStackResourcesError
-}
-
-// Modify the StartDriftDetection function to accept an interface
-func StartDriftDetectionTest(stackName *string, svc CloudFormationDetectStackDriftAPI) *string {
-	input := &cloudformation.DetectStackDriftInput{
-		StackName: stackName,
+func (m *mockDriftDetectionClient) DetectStackDrift(ctx context.Context, params *cloudformation.DetectStackDriftInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DetectStackDriftOutput, error) {
+	if m.detectStackDriftFn != nil {
+		return m.detectStackDriftFn(ctx, params, optFns...)
 	}
-	result, err := svc.DetectStackDrift(context.TODO(), input)
-	if err != nil {
-		panic(err)
+	return &cloudformation.DetectStackDriftOutput{}, nil
+}
+
+// mockDriftStatusClient implements CloudFormationDescribeStackDriftDetectionStatusAPI
+type mockDriftStatusClient struct {
+	describeStatusFn func(context.Context, *cloudformation.DescribeStackDriftDetectionStatusInput, ...func(*cloudformation.Options)) (*cloudformation.DescribeStackDriftDetectionStatusOutput, error)
+	callCount        int
+}
+
+func (m *mockDriftStatusClient) DescribeStackDriftDetectionStatus(ctx context.Context, params *cloudformation.DescribeStackDriftDetectionStatusInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStackDriftDetectionStatusOutput, error) {
+	m.callCount++
+	if m.describeStatusFn != nil {
+		return m.describeStatusFn(ctx, params, optFns...)
 	}
-	return result.StackDriftDetectionId
+	return &cloudformation.DescribeStackDriftDetectionStatusOutput{}, nil
+}
+
+// mockResourceDriftsClient implements CloudFormationDescribeStackResourceDriftsAPI
+type mockResourceDriftsClient struct {
+	describeResourceDriftsFn func(context.Context, *cloudformation.DescribeStackResourceDriftsInput, ...func(*cloudformation.Options)) (*cloudformation.DescribeStackResourceDriftsOutput, error)
+	callCount                int
+}
+
+func (m *mockResourceDriftsClient) DescribeStackResourceDrifts(ctx context.Context, params *cloudformation.DescribeStackResourceDriftsInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStackResourceDriftsOutput, error) {
+	m.callCount++
+	if m.describeResourceDriftsFn != nil {
+		return m.describeResourceDriftsFn(ctx, params, optFns...)
+	}
+	return &cloudformation.DescribeStackResourceDriftsOutput{}, nil
+}
+
+// mockStacksAndResourcesClient implements both CloudFormationDescribeStacksAPI and CloudFormationDescribeStackResourcesAPI
+type mockStacksAndResourcesClient struct {
+	describeStacksFn         func(context.Context, *cloudformation.DescribeStacksInput, ...func(*cloudformation.Options)) (*cloudformation.DescribeStacksOutput, error)
+	describeStackResourcesFn func(context.Context, *cloudformation.DescribeStackResourcesInput, ...func(*cloudformation.Options)) (*cloudformation.DescribeStackResourcesOutput, error)
+}
+
+func (m *mockStacksAndResourcesClient) DescribeStacks(ctx context.Context, params *cloudformation.DescribeStacksInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStacksOutput, error) {
+	if m.describeStacksFn != nil {
+		return m.describeStacksFn(ctx, params, optFns...)
+	}
+	return &cloudformation.DescribeStacksOutput{}, nil
+}
+
+func (m *mockStacksAndResourcesClient) DescribeStackResources(ctx context.Context, params *cloudformation.DescribeStackResourcesInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStackResourcesOutput, error) {
+	if m.describeStackResourcesFn != nil {
+		return m.describeStackResourcesFn(ctx, params, optFns...)
+	}
+	return &cloudformation.DescribeStackResourcesOutput{}, nil
 }
 
 func TestStartDriftDetection(t *testing.T) {
-	// Setup test data
-	stackName := "test-stack"
-	driftDetectionId := "drift-detection-id-123"
+	t.Helper()
 
-	// Create mock client
-	mockClient := &MockCloudFormationClient{
-		DetectStackDriftOutput: cloudformation.DetectStackDriftOutput{
-			StackDriftDetectionId: &driftDetectionId,
+	tests := map[string]struct {
+		stackName string
+		setupMock func() *mockDriftDetectionClient
+		want      string
+		wantPanic bool
+	}{
+		"successful drift detection": {
+			stackName: "test-stack",
+			setupMock: func() *mockDriftDetectionClient {
+				driftID := "drift-detection-id-123"
+				return &mockDriftDetectionClient{
+					detectStackDriftFn: func(ctx context.Context, params *cloudformation.DetectStackDriftInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DetectStackDriftOutput, error) {
+						return &cloudformation.DetectStackDriftOutput{
+							StackDriftDetectionId: &driftID,
+						}, nil
+					},
+				}
+			},
+			want: "drift-detection-id-123",
+		},
+		"API error triggers panic": {
+			stackName: "test-stack",
+			setupMock: func() *mockDriftDetectionClient {
+				return &mockDriftDetectionClient{
+					detectStackDriftFn: func(ctx context.Context, params *cloudformation.DetectStackDriftInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DetectStackDriftOutput, error) {
+						return nil, errors.New("API error")
+					},
+				}
+			},
+			wantPanic: true,
 		},
 	}
 
-	// Test StartDriftDetection using our test wrapper
-	result := StartDriftDetectionTest(&stackName, mockClient)
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	// Verify result
-	if *result != driftDetectionId {
-		t.Errorf("StartDriftDetection() = %v, want %v", *result, driftDetectionId)
-	}
-}
+			mockClient := tc.setupMock()
 
-// Modify the WaitForDriftDetectionToFinish function to accept an interface
-func WaitForDriftDetectionToFinishTest(driftDetectionId *string, svc CloudFormationDescribeStackDriftDetectionStatusAPI) types.StackDriftDetectionStatus {
-	input := &cloudformation.DescribeStackDriftDetectionStatusInput{
-		StackDriftDetectionId: driftDetectionId,
+			if tc.wantPanic {
+				assert.Panics(t, func() {
+					StartDriftDetection(&tc.stackName, mockClient)
+				}, "Expected StartDriftDetection to panic on API error")
+				return
+			}
+
+			got := StartDriftDetection(&tc.stackName, mockClient)
+			assert.Equal(t, tc.want, *got)
+		})
 	}
-	result, err := svc.DescribeStackDriftDetectionStatus(context.TODO(), input)
-	if err != nil {
-		panic(err)
-	}
-	if result.DetectionStatus == types.StackDriftDetectionStatusDetectionInProgress {
-		time.Sleep(5 * time.Millisecond) // Use a shorter sleep time for tests
-		return WaitForDriftDetectionToFinishTest(driftDetectionId, svc)
-	}
-	return result.DetectionStatus
 }
 
 func TestWaitForDriftDetectionToFinish(t *testing.T) {
-	// Setup test data
-	driftDetectionId := "drift-detection-id-123"
+	t.Helper()
 
-	t.Run("Completes immediately", func(t *testing.T) {
-		// Create mock client with completed status
-		mockClient := &MockCloudFormationClient{
-			DescribeStackDriftDetectionStatusOutput: cloudformation.DescribeStackDriftDetectionStatusOutput{
-				DetectionStatus: types.StackDriftDetectionStatusDetectionComplete,
+	tests := map[string]struct {
+		driftDetectionID string
+		setupMock        func() *mockDriftStatusClient
+		want             types.StackDriftDetectionStatus
+		wantMinCalls     int
+		wantPanic        bool
+	}{
+		"completes immediately": {
+			driftDetectionID: "drift-id-123",
+			setupMock: func() *mockDriftStatusClient {
+				return &mockDriftStatusClient{
+					describeStatusFn: func(ctx context.Context, params *cloudformation.DescribeStackDriftDetectionStatusInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStackDriftDetectionStatusOutput, error) {
+						return &cloudformation.DescribeStackDriftDetectionStatusOutput{
+							DetectionStatus: types.StackDriftDetectionStatusDetectionComplete,
+						}, nil
+					},
+				}
 			},
-		}
+			want:         types.StackDriftDetectionStatusDetectionComplete,
+			wantMinCalls: 1,
+		},
+		"completes after one in-progress status": {
+			driftDetectionID: "drift-id-456",
+			setupMock: func() *mockDriftStatusClient {
+				mock := &mockDriftStatusClient{}
+				mock.describeStatusFn = func(ctx context.Context, params *cloudformation.DescribeStackDriftDetectionStatusInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStackDriftDetectionStatusOutput, error) {
+					if mock.callCount == 1 {
+						return &cloudformation.DescribeStackDriftDetectionStatusOutput{
+							DetectionStatus: types.StackDriftDetectionStatusDetectionInProgress,
+						}, nil
+					}
+					return &cloudformation.DescribeStackDriftDetectionStatusOutput{
+						DetectionStatus: types.StackDriftDetectionStatusDetectionComplete,
+					}, nil
+				}
+				return mock
+			},
+			want:         types.StackDriftDetectionStatusDetectionComplete,
+			wantMinCalls: 2,
+		},
+		"detection failed status": {
+			driftDetectionID: "drift-id-789",
+			setupMock: func() *mockDriftStatusClient {
+				return &mockDriftStatusClient{
+					describeStatusFn: func(ctx context.Context, params *cloudformation.DescribeStackDriftDetectionStatusInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStackDriftDetectionStatusOutput, error) {
+						return &cloudformation.DescribeStackDriftDetectionStatusOutput{
+							DetectionStatus: types.StackDriftDetectionStatusDetectionFailed,
+						}, nil
+					},
+				}
+			},
+			want:         types.StackDriftDetectionStatusDetectionFailed,
+			wantMinCalls: 1,
+		},
+		"API error triggers panic": {
+			driftDetectionID: "drift-id-error",
+			setupMock: func() *mockDriftStatusClient {
+				return &mockDriftStatusClient{
+					describeStatusFn: func(ctx context.Context, params *cloudformation.DescribeStackDriftDetectionStatusInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStackDriftDetectionStatusOutput, error) {
+						return nil, errors.New("API error")
+					},
+				}
+			},
+			wantPanic: true,
+		},
+	}
 
-		// Test WaitForDriftDetectionToFinish using our test wrapper
-		result := WaitForDriftDetectionToFinishTest(&driftDetectionId, mockClient)
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			// Cannot run in parallel due to sleep timing dependencies
+			mockClient := tc.setupMock()
 
-		// Verify result
-		if result != types.StackDriftDetectionStatusDetectionComplete {
-			t.Errorf("WaitForDriftDetectionToFinish() = %v, want %v", result, types.StackDriftDetectionStatusDetectionComplete)
-		}
-
-		// Verify number of API calls
-		if mockClient.DescribeStackDriftDetectionStatusCalls != 1 {
-			t.Errorf("Expected 1 API call, got %d", mockClient.DescribeStackDriftDetectionStatusCalls)
-		}
-	})
-
-	t.Run("Completes after in-progress status", func(t *testing.T) {
-		// Create mock client that returns in-progress first, then complete
-		mockClient := &MockCloudFormationClient{}
-
-		// Set up the mock to return different responses on subsequent calls
-		mockClient.DescribeStackDriftDetectionStatusOutput = cloudformation.DescribeStackDriftDetectionStatusOutput{
-			DetectionStatus: types.StackDriftDetectionStatusDetectionInProgress,
-		}
-
-		// Use a goroutine to change the mock response after a delay
-		go func() {
-			// Wait for the first call to complete
-			time.Sleep(10 * time.Millisecond)
-
-			// Update the mock to return complete status on next call
-			mockClient.DescribeStackDriftDetectionStatusOutput = cloudformation.DescribeStackDriftDetectionStatusOutput{
-				DetectionStatus: types.StackDriftDetectionStatusDetectionComplete,
+			if tc.wantPanic {
+				assert.Panics(t, func() {
+					WaitForDriftDetectionToFinish(&tc.driftDetectionID, mockClient)
+				}, "Expected WaitForDriftDetectionToFinish to panic on API error")
+				return
 			}
-		}()
 
-		// Test WaitForDriftDetectionToFinish using our test wrapper
-		result := WaitForDriftDetectionToFinishTest(&driftDetectionId, mockClient)
+			got := WaitForDriftDetectionToFinish(&tc.driftDetectionID, mockClient)
 
-		// Verify result
-		if result != types.StackDriftDetectionStatusDetectionComplete {
-			t.Errorf("WaitForDriftDetectionToFinish() = %v, want %v", result, types.StackDriftDetectionStatusDetectionComplete)
-		}
-
-		// Verify that we made at least 2 API calls (one for in-progress, one for complete)
-		// The exact number may vary due to timing, but we need at least 2
-		if mockClient.DescribeStackDriftDetectionStatusCalls < 2 {
-			t.Errorf("Expected at least 2 API calls, got %d", mockClient.DescribeStackDriftDetectionStatusCalls)
-		}
-	})
-}
-
-// Modify the GetDefaultStackDrift function to accept an interface
-func GetDefaultStackDriftTest(stackName *string, svc CloudFormationDescribeStackResourceDriftsAPI) []types.StackResourceDrift {
-	input := &cloudformation.DescribeStackResourceDriftsInput{
-		StackName: stackName,
+			assert.Equal(t, tc.want, got)
+			assert.GreaterOrEqual(t, mockClient.callCount, tc.wantMinCalls,
+				"Expected at least %d API calls, got %d", tc.wantMinCalls, mockClient.callCount)
+		})
 	}
-	result, err := svc.DescribeStackResourceDrifts(context.TODO(), input)
-	if err != nil {
-		panic(err)
-	}
-	return result.StackResourceDrifts
 }
 
 func TestGetDefaultStackDrift(t *testing.T) {
-	// Setup test data
-	stackName := "test-stack"
-	drifts := []types.StackResourceDrift{
-		{
-			LogicalResourceId:        stringPtr("Resource1"),
-			PhysicalResourceId:       stringPtr("physical-id-1"),
-			ResourceType:             stringPtr("AWS::S3::Bucket"),
-			StackResourceDriftStatus: types.StackResourceDriftStatusModified,
+	t.Helper()
+
+	tests := map[string]struct {
+		stackName string
+		setupMock func() *mockResourceDriftsClient
+		want      []types.StackResourceDrift
+		wantPanic bool
+	}{
+		"no drifts": {
+			stackName: "test-stack",
+			setupMock: func() *mockResourceDriftsClient {
+				return &mockResourceDriftsClient{
+					describeResourceDriftsFn: func(ctx context.Context, params *cloudformation.DescribeStackResourceDriftsInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStackResourceDriftsOutput, error) {
+						return &cloudformation.DescribeStackResourceDriftsOutput{
+							StackResourceDrifts: []types.StackResourceDrift{},
+						}, nil
+					},
+				}
+			},
+			want: nil,
 		},
-		{
-			LogicalResourceId:        stringPtr("Resource2"),
-			PhysicalResourceId:       stringPtr("physical-id-2"),
-			ResourceType:             stringPtr("AWS::IAM::Role"),
-			StackResourceDriftStatus: types.StackResourceDriftStatusInSync, // Using InSync instead of NotModified
-		},
-	}
-
-	// Create mock client
-	mockClient := &MockCloudFormationClient{
-		DescribeStackResourceDriftsOutput: cloudformation.DescribeStackResourceDriftsOutput{
-			StackResourceDrifts: drifts,
-		},
-	}
-
-	// Test GetDefaultStackDrift using our test wrapper
-	result := GetDefaultStackDriftTest(&stackName, mockClient)
-
-	// Verify result
-	if !reflect.DeepEqual(result, drifts) {
-		t.Errorf("GetDefaultStackDrift() = %v, want %v", result, drifts)
-	}
-}
-
-// Modify the GetResources function to accept interfaces
-func GetResourcesTest(stackname *string, svc CloudFormationDescribeStacksAPI) []CfnResource {
-	input := &cloudformation.DescribeStacksInput{}
-	if *stackname != "" && !strings.Contains(*stackname, "*") {
-		input.StackName = stackname
-	}
-	resp, err := svc.DescribeStacks(context.TODO(), input)
-	if err != nil {
-		panic(err)
-	}
-
-	resourcelist := make([]CfnResource, 0)
-	for _, stack := range resp.Stacks {
-		if *stack.StackName == *stackname {
-			// For testing, we'll just return a predefined list
-			resourcelist = append(resourcelist, CfnResource{
-				StackName:  *stack.StackName,
-				Type:       "AWS::S3::Bucket",
-				ResourceID: "physical-id-1",
-				LogicalID:  "Resource1",
-			})
-			resourcelist = append(resourcelist, CfnResource{
-				StackName:  *stack.StackName,
-				Type:       "AWS::IAM::Role",
-				ResourceID: "physical-id-2",
-				LogicalID:  "Resource2",
-			})
-			resourcelist = append(resourcelist, CfnResource{
-				StackName:  *stack.StackName,
-				Type:       "AWS::Lambda::Function",
-				ResourceID: "physical-id-3",
-				LogicalID:  "Resource3",
-			})
-		}
-	}
-	return resourcelist
-}
-
-// Modify the GetUncheckedStackResources function to use our test wrapper
-func GetUncheckedStackResourcesTest(stackName *string, checkedResources []string, svc CloudFormationDescribeStacksAPI) []CfnResource {
-	resources := GetResourcesTest(stackName, svc)
-	uncheckedresources := []CfnResource{}
-	for _, resource := range resources {
-		if stringInSlice(resource.LogicalID, checkedResources) {
-			continue
-		}
-		uncheckedresources = append(uncheckedresources, resource)
-	}
-	return uncheckedresources
-}
-
-func TestGetUncheckedStackResources(t *testing.T) {
-	// Setup test data
-	stackName := "test-stack"
-	checkedResources := []string{"Resource1", "Resource3"}
-
-	expectedUncheckedResources := []CfnResource{
-		{
-			LogicalID:  "Resource2",
-			ResourceID: "physical-id-2",
-			Type:       "AWS::IAM::Role",
-			StackName:  "test-stack",
-		},
-	}
-
-	// Create mock client
-	mockClient := &MockCloudFormationClient{
-		DescribeStacksOutput: cloudformation.DescribeStacksOutput{
-			Stacks: []types.Stack{
+		"single page of drifts": {
+			stackName: "test-stack",
+			setupMock: func() *mockResourceDriftsClient {
+				return &mockResourceDriftsClient{
+					describeResourceDriftsFn: func(ctx context.Context, params *cloudformation.DescribeStackResourceDriftsInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStackResourceDriftsOutput, error) {
+						return &cloudformation.DescribeStackResourceDriftsOutput{
+							StackResourceDrifts: []types.StackResourceDrift{
+								{
+									LogicalResourceId:        aws.String("Resource1"),
+									PhysicalResourceId:       aws.String("physical-id-1"),
+									ResourceType:             aws.String("AWS::S3::Bucket"),
+									StackResourceDriftStatus: types.StackResourceDriftStatusModified,
+									Timestamp:                aws.Time(time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)),
+								},
+								{
+									LogicalResourceId:        aws.String("Resource2"),
+									PhysicalResourceId:       aws.String("physical-id-2"),
+									ResourceType:             aws.String("AWS::IAM::Role"),
+									StackResourceDriftStatus: types.StackResourceDriftStatusInSync,
+									Timestamp:                aws.Time(time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)),
+								},
+							},
+						}, nil
+					},
+				}
+			},
+			want: []types.StackResourceDrift{
 				{
-					StackName: stringPtr("test-stack"),
+					LogicalResourceId:        aws.String("Resource1"),
+					PhysicalResourceId:       aws.String("physical-id-1"),
+					ResourceType:             aws.String("AWS::S3::Bucket"),
+					StackResourceDriftStatus: types.StackResourceDriftStatusModified,
+					Timestamp:                aws.Time(time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)),
+				},
+				{
+					LogicalResourceId:        aws.String("Resource2"),
+					PhysicalResourceId:       aws.String("physical-id-2"),
+					ResourceType:             aws.String("AWS::IAM::Role"),
+					StackResourceDriftStatus: types.StackResourceDriftStatusInSync,
+					Timestamp:                aws.Time(time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)),
 				},
 			},
 		},
+		"multiple pages of drifts": {
+			stackName: "test-stack",
+			setupMock: func() *mockResourceDriftsClient {
+				mock := &mockResourceDriftsClient{}
+				mock.describeResourceDriftsFn = func(ctx context.Context, params *cloudformation.DescribeStackResourceDriftsInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStackResourceDriftsOutput, error) {
+					if mock.callCount == 1 {
+						nextToken := "token-1"
+						return &cloudformation.DescribeStackResourceDriftsOutput{
+							StackResourceDrifts: []types.StackResourceDrift{
+								{
+									LogicalResourceId:        aws.String("Resource1"),
+									PhysicalResourceId:       aws.String("physical-id-1"),
+									ResourceType:             aws.String("AWS::S3::Bucket"),
+									StackResourceDriftStatus: types.StackResourceDriftStatusModified,
+									Timestamp:                aws.Time(time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)),
+								},
+							},
+							NextToken: &nextToken,
+						}, nil
+					}
+					return &cloudformation.DescribeStackResourceDriftsOutput{
+						StackResourceDrifts: []types.StackResourceDrift{
+							{
+								LogicalResourceId:        aws.String("Resource2"),
+								PhysicalResourceId:       aws.String("physical-id-2"),
+								ResourceType:             aws.String("AWS::IAM::Role"),
+								StackResourceDriftStatus: types.StackResourceDriftStatusInSync,
+								Timestamp:                aws.Time(time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)),
+							},
+						},
+					}, nil
+				}
+				return mock
+			},
+			want: []types.StackResourceDrift{
+				{
+					LogicalResourceId:        aws.String("Resource1"),
+					PhysicalResourceId:       aws.String("physical-id-1"),
+					ResourceType:             aws.String("AWS::S3::Bucket"),
+					StackResourceDriftStatus: types.StackResourceDriftStatusModified,
+					Timestamp:                aws.Time(time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)),
+				},
+				{
+					LogicalResourceId:        aws.String("Resource2"),
+					PhysicalResourceId:       aws.String("physical-id-2"),
+					ResourceType:             aws.String("AWS::IAM::Role"),
+					StackResourceDriftStatus: types.StackResourceDriftStatusInSync,
+					Timestamp:                aws.Time(time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)),
+				},
+			},
+		},
+		"API error triggers panic": {
+			stackName: "test-stack",
+			setupMock: func() *mockResourceDriftsClient {
+				return &mockResourceDriftsClient{
+					describeResourceDriftsFn: func(ctx context.Context, params *cloudformation.DescribeStackResourceDriftsInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStackResourceDriftsOutput, error) {
+						return nil, errors.New("API error")
+					},
+				}
+			},
+			wantPanic: true,
+		},
 	}
 
-	// Test GetUncheckedStackResources using our test wrapper
-	result := GetUncheckedStackResourcesTest(&stackName, checkedResources, mockClient)
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	// Verify result
-	if len(result) != len(expectedUncheckedResources) {
-		t.Errorf("GetUncheckedStackResources() returned %d resources, want %d", len(result), len(expectedUncheckedResources))
-	}
+			mockClient := tc.setupMock()
 
-	for i, res := range result {
-		if res.LogicalID != expectedUncheckedResources[i].LogicalID {
-			t.Errorf("Resource[%d].LogicalID = %v, want %v", i, res.LogicalID, expectedUncheckedResources[i].LogicalID)
-		}
-		if res.ResourceID != expectedUncheckedResources[i].ResourceID {
-			t.Errorf("Resource[%d].ResourceID = %v, want %v", i, res.ResourceID, expectedUncheckedResources[i].ResourceID)
-		}
-		if res.Type != expectedUncheckedResources[i].Type {
-			t.Errorf("Resource[%d].Type = %v, want %v", i, res.Type, expectedUncheckedResources[i].Type)
-		}
+			if tc.wantPanic {
+				assert.Panics(t, func() {
+					GetDefaultStackDrift(&tc.stackName, mockClient)
+				}, "Expected GetDefaultStackDrift to panic on API error")
+				return
+			}
+
+			got := GetDefaultStackDrift(&tc.stackName, mockClient)
+
+			opts := []cmp.Option{
+				cmpopts.IgnoreUnexported(types.StackResourceDrift{}),
+			}
+
+			if diff := cmp.Diff(tc.want, got, opts...); diff != "" {
+				t.Errorf("GetDefaultStackDrift() mismatch (-want +got):\n%s", diff)
+			}
+		})
 	}
 }
 
-// Helper function to create string pointers
-func stringPtr(s string) *string {
-	return &s
+func TestGetUncheckedStackResources(t *testing.T) {
+	t.Helper()
+
+	tests := map[string]struct {
+		stackName        string
+		checkedResources []string
+		setupMock        func() *mockStacksAndResourcesClient
+		want             []CfnResource
+	}{
+		"no checked resources": {
+			stackName:        "test-stack",
+			checkedResources: []string{},
+			setupMock: func() *mockStacksAndResourcesClient {
+				return &mockStacksAndResourcesClient{
+					describeStacksFn: func(ctx context.Context, params *cloudformation.DescribeStacksInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStacksOutput, error) {
+						return &cloudformation.DescribeStacksOutput{
+							Stacks: []types.Stack{
+								{
+									StackName: aws.String("test-stack"),
+									StackId:   aws.String("arn:aws:cloudformation:us-west-2:123456789012:stack/test-stack/abc"),
+								},
+							},
+						}, nil
+					},
+					describeStackResourcesFn: func(ctx context.Context, params *cloudformation.DescribeStackResourcesInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStackResourcesOutput, error) {
+						return &cloudformation.DescribeStackResourcesOutput{
+							StackResources: []types.StackResource{
+								{
+									LogicalResourceId:  aws.String("Resource1"),
+									PhysicalResourceId: aws.String("physical-id-1"),
+									ResourceType:       aws.String("AWS::S3::Bucket"),
+									StackName:          aws.String("test-stack"),
+								},
+								{
+									LogicalResourceId:  aws.String("Resource2"),
+									PhysicalResourceId: aws.String("physical-id-2"),
+									ResourceType:       aws.String("AWS::IAM::Role"),
+									StackName:          aws.String("test-stack"),
+								},
+							},
+						}, nil
+					},
+				}
+			},
+			want: []CfnResource{
+				{
+					LogicalID:  "Resource1",
+					ResourceID: "physical-id-1",
+					Type:       "AWS::S3::Bucket",
+					StackName:  "test-stack",
+				},
+				{
+					LogicalID:  "Resource2",
+					ResourceID: "physical-id-2",
+					Type:       "AWS::IAM::Role",
+					StackName:  "test-stack",
+				},
+			},
+		},
+		"some checked resources": {
+			stackName:        "test-stack",
+			checkedResources: []string{"Resource1"},
+			setupMock: func() *mockStacksAndResourcesClient {
+				return &mockStacksAndResourcesClient{
+					describeStacksFn: func(ctx context.Context, params *cloudformation.DescribeStacksInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStacksOutput, error) {
+						return &cloudformation.DescribeStacksOutput{
+							Stacks: []types.Stack{
+								{
+									StackName: aws.String("test-stack"),
+									StackId:   aws.String("arn:aws:cloudformation:us-west-2:123456789012:stack/test-stack/abc"),
+								},
+							},
+						}, nil
+					},
+					describeStackResourcesFn: func(ctx context.Context, params *cloudformation.DescribeStackResourcesInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStackResourcesOutput, error) {
+						return &cloudformation.DescribeStackResourcesOutput{
+							StackResources: []types.StackResource{
+								{
+									LogicalResourceId:  aws.String("Resource1"),
+									PhysicalResourceId: aws.String("physical-id-1"),
+									ResourceType:       aws.String("AWS::S3::Bucket"),
+									StackName:          aws.String("test-stack"),
+								},
+								{
+									LogicalResourceId:  aws.String("Resource2"),
+									PhysicalResourceId: aws.String("physical-id-2"),
+									ResourceType:       aws.String("AWS::IAM::Role"),
+									StackName:          aws.String("test-stack"),
+								},
+							},
+						}, nil
+					},
+				}
+			},
+			want: []CfnResource{
+				{
+					LogicalID:  "Resource2",
+					ResourceID: "physical-id-2",
+					Type:       "AWS::IAM::Role",
+					StackName:  "test-stack",
+				},
+			},
+		},
+		"all resources checked": {
+			stackName:        "test-stack",
+			checkedResources: []string{"Resource1", "Resource2"},
+			setupMock: func() *mockStacksAndResourcesClient {
+				return &mockStacksAndResourcesClient{
+					describeStacksFn: func(ctx context.Context, params *cloudformation.DescribeStacksInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStacksOutput, error) {
+						return &cloudformation.DescribeStacksOutput{
+							Stacks: []types.Stack{
+								{
+									StackName: aws.String("test-stack"),
+									StackId:   aws.String("arn:aws:cloudformation:us-west-2:123456789012:stack/test-stack/abc"),
+								},
+							},
+						}, nil
+					},
+					describeStackResourcesFn: func(ctx context.Context, params *cloudformation.DescribeStackResourcesInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStackResourcesOutput, error) {
+						return &cloudformation.DescribeStackResourcesOutput{
+							StackResources: []types.StackResource{
+								{
+									LogicalResourceId:  aws.String("Resource1"),
+									PhysicalResourceId: aws.String("physical-id-1"),
+									ResourceType:       aws.String("AWS::S3::Bucket"),
+									StackName:          aws.String("test-stack"),
+								},
+								{
+									LogicalResourceId:  aws.String("Resource2"),
+									PhysicalResourceId: aws.String("physical-id-2"),
+									ResourceType:       aws.String("AWS::IAM::Role"),
+									StackName:          aws.String("test-stack"),
+								},
+							},
+						}, nil
+					},
+				}
+			},
+			want: []CfnResource{},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			mockClient := tc.setupMock()
+			got := GetUncheckedStackResources(&tc.stackName, tc.checkedResources, mockClient)
+
+			require.Len(t, got, len(tc.want), "Expected %d unchecked resources", len(tc.want))
+
+			for i := range tc.want {
+				assert.Equal(t, tc.want[i].LogicalID, got[i].LogicalID, "Resource[%d].LogicalID", i)
+				assert.Equal(t, tc.want[i].ResourceID, got[i].ResourceID, "Resource[%d].ResourceID", i)
+				assert.Equal(t, tc.want[i].Type, got[i].Type, "Resource[%d].Type", i)
+				assert.Equal(t, tc.want[i].StackName, got[i].StackName, "Resource[%d].StackName", i)
+			}
+		})
+	}
 }

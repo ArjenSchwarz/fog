@@ -9,6 +9,11 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ssoadmin"
 )
 
+const (
+	resourceTypeSSOAssignment = "AWS::SSO::Assignment"
+)
+
+// GetPermissionSetArns retrieves all SSO permission set ARNs for the organization and returns them as a map.
 func GetPermissionSetArns(ssoClient interface {
 	SSOAdminListInstancesAPI
 	SSOAdminListPermissionSetsAPI
@@ -35,6 +40,7 @@ func GetPermissionSetArns(ssoClient interface {
 	return permissionSetArns, nil
 }
 
+// GetSSOInstanceArn retrieves the ARN of the first SSO instance in the organization.
 func GetSSOInstanceArn(ssoClient SSOAdminListInstancesAPI) (string, error) {
 	input := &ssoadmin.ListInstancesInput{}
 
@@ -50,6 +56,7 @@ func GetSSOInstanceArn(ssoClient SSOAdminListInstancesAPI) (string, error) {
 	return *result.Instances[0].InstanceArn, nil
 }
 
+// GetAssignmentArns retrieves all SSO account assignment ARNs across all accounts and permission sets.
 func GetAssignmentArns(ssoClient interface {
 	SSOAdminListInstancesAPI
 	SSOAdminListPermissionSetsAPI
@@ -73,15 +80,16 @@ func GetAssignmentArns(ssoClient interface {
 			return map[string]string{}, err
 		}
 		for assignment := range assignments {
-			assignmentArns[assignment] = "AWS::SSO::Assignment"
+			assignmentArns[assignment] = resourceTypeSSOAssignment
 		}
 	}
 
 	return assignmentArns, nil
 }
 
+// GetAccountAssignmentArnsForPermissionSet retrieves all account assignment ARNs for a specific permission set across all accounts.
 func GetAccountAssignmentArnsForPermissionSet(ssoClient SSOAdminListAccountAssignmentsAPI, organizationsClient OrganizationsListAccountsAPI, ssoInstanceArn string, permissionSetArn string) (map[string]string, error) {
-	//Get the list of accounts
+	// Get the list of accounts
 	accounts, err := GetAccountIDs(organizationsClient)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get accounts: %w", err)
@@ -108,6 +116,7 @@ func GetAccountAssignmentArnsForPermissionSet(ssoClient SSOAdminListAccountAssig
 	return assignmentArns, nil
 }
 
+// GetAccountIDs retrieves all AWS account IDs in the organization.
 func GetAccountIDs(organizationsClient OrganizationsListAccountsAPI) ([]string, error) {
 	input := &organizations.ListAccountsInput{}
 

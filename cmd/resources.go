@@ -30,6 +30,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	sortKeyType = "Type"
+)
+
 // resourcesListCmd represents the list command
 var resourcesListCmd = &cobra.Command{
 	Use:   "list",
@@ -71,9 +75,9 @@ func listResources(cmd *cobra.Command, args []string) {
 	title := fmt.Sprintf("%v in account %v for region %v", subtitle, awsConfig.AccountID, awsConfig.Region)
 	output := format.OutputArray{Keys: keys, Settings: settings.NewOutputSettings()}
 	output.Settings.Title = title
-	output.Settings.SortKey = "Type"
+	output.Settings.SortKey = sortKeyType
 	for _, resource := range resources {
-		content := make(map[string]interface{})
+		content := make(map[string]any)
 		content["Type"] = resource.Type
 		content["ID"] = resource.ResourceID
 		content["Stack"] = resource.StackName

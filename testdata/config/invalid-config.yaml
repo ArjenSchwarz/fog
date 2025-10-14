@@ -1,0 +1,4 @@
+# Invalid YAML configuration with unclosed bracket
+region: us-west-2
+profile: [unclosed
+output: table

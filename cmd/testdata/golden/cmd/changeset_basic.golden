@@ -1,0 +1,10 @@
+Changeset: my-changeset
+Stack: my-stack
+Status: CREATE_COMPLETE
+
+Changes:
+  Change 1:
+    Action: Add
+    LogicalID: NewResource
+    Type: AWS::S3::Bucket
+    Replacement: False

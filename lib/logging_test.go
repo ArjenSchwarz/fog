@@ -236,7 +236,7 @@ func TestDeploymentLog_Failed(t *testing.T) {
 	}
 
 	// Test failures
-	failures := []map[string]interface{}{
+	failures := []map[string]any{
 		{
 			"resource": "Resource1",
 			"reason":   "Permission denied",
@@ -452,7 +452,7 @@ func TestReverseLogs(t *testing.T) {
 	sort.Sort(logs)
 
 	// Verify sorting order
-	for i := 0; i < len(logs); i++ {
+	for i := range logs {
 		if !logs[i].StartedAt.Equal(expected[i].StartedAt) {
 			t.Errorf("Logs[%d].StartedAt = %v, want %v", i, logs[i].StartedAt, expected[i].StartedAt)
 		}

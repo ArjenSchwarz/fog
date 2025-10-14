@@ -1,6 +1,95 @@
 Unreleased
 ===========
 
+### Added
+- Documentation comments for all exported types and functions across cmd, lib, and config packages
+- Godoc-compliant comments for DeployInfo, CfnStack, StackEvent, and ResourceEvent types
+- Function documentation for stack operations, changeset management, and configuration utilities
+
+### Changed
+- Improved code formatting with consistent comment spacing throughout codebase
+- Refactored conditional logic in deploy commands using switch statements for better readability
+- Enhanced code maintainability with proper documentation following Go best practices
+
+### Changed
+- Modernized codebase to use Go 1.25 built-in functions and types across all packages
+- Replaced `interface{}` with `any` type throughout codebase for improved readability
+- Updated drift detection to use `maps.Copy()` instead of manual map copying loops
+- Updated stack operations to use `slices.Contains()` instead of manual slice iteration
+- Simplified file conversion functions using modern type aliases
+- Cleaned up test files by removing redundant blank imports
+- Updated test utilities and assertions to use `any` type
+- Modernized template processing functions with cleaner type handling
+
+### Added
+- Integration tests for deployment workflows including creation, updates, dry runs, changeset validation, and rollback scenarios
+- Integration tests for precheck execution with pass, fail, and stop-on-fail behavior validation
+- Integration tests for changeset creation, execution, and handling of empty changesets
+- Integration tests for rollback scenarios including new stack failures and update rollbacks
+- Test validation script (`test/validate_tests.sh`) for running format checks, unit tests, race detection, and linting
+- Test coverage reporting script (`test/coverage_report.sh`) with per-package and weighted coverage analysis
+- Test documentation (`test/README.md`) covering testing strategy, patterns, coverage targets, and troubleshooting
+
+### Changed
+- Updated CLAUDE.md with integration test documentation including build tags, environment variables, and usage examples
+- Updated README.md with development section covering building, testing, linting, and project structure
+- Disabled parallel execution for tests using global state (viper configuration and deployFlags)
+- Updated `.claude/settings.local.json` to allow execution of coverage reporting script and git rev-parse command
+
+### Added
+- Comprehensive unit tests for template body processing with mock S3 clients testing body-only, URL-only, and S3 URL handling
+- Unit tests for GetTemplateContents, GetRawTemplateBody, and IsFilePathURI functions covering various input scenarios
+
+### Changed
+- Refactored drift detection functions to use interface-based dependency injection for improved testability
+- Updated GetDefaultStackDrift to use manual pagination instead of AWS paginator for better test control
+- Enhanced drift detection tests with modern Go patterns including map-based table tests, parallel execution, and dedicated mock implementations
+- Improved test coverage for drift detection functions including StartDriftDetection, WaitForDriftDetectionToFinish, GetDefaultStackDrift, and GetUncheckedStackResources
+
+### Added (Previous Unreleased)
+- Golden file testing framework with Makefile targets for validating and updating output fixtures
+- Golden test files for deployment output validation including changesets, events, and stack outputs
+- Comprehensive unit tests for deploy helper functions with mock implementations and table-driven patterns
+- Test coverage for deployment output formatting including `formatAccountDisplay` and `determineDeploymentMethod`
+- Test data directory structure (`cmd/testdata/golden/cmd/`) for maintaining golden file test fixtures
+
+### Changed
+- Refactored `showDeploymentInfo` to use extracted helper functions for better testability
+- Refactored `runPrechecks` signature to remove unused `cfg` parameter
+- Updated `showFailedEvents` to use modern `any` type instead of `interface{}`
+- Modernized string operations using `strings.SplitSeq` in `setDeployTags` and `setDeployParameters`
+- Enhanced deploy helper functions with extracted utilities: `validateStackReadiness`, `formatAccountDisplay`, `determineDeploymentMethod`
+
+### Added (Previous Unreleased)
+- golangci-lint configuration with modern linters (govet, staticcheck, revive, gocritic)
+- Unit tests for config package covering GetLCString, GetString, LoadConfigFile, and GetOutputSettings functions
+- Unit tests for AWS config operations including GetAWSConfig, GetAccountDetails, GetCallerIdentity, and GetAccountAliases
+- Test fixtures for config package in testdata/config/ with valid configurations in YAML, JSON, and TOML formats
+- Test fixtures for invalid and minimal configuration scenarios
+- Mock implementations for Config, STSClient, and IAMClient interfaces to enable isolated unit testing
+
+  * Added test pattern validator utility to verify test files follow modern Go patterns including table-driven tests, parallel execution, assertion libraries, and proper test helper usage
+  * Added comprehensive refactored unit tests for changesets with modern Go testing patterns including table-driven tests, parallel execution, and dependency injection for DeleteChangeset, DeployChangeset, AddChange, GetStack, GenerateChangesetUrl, and GetDangerDetails functions
+  * Added comprehensive refactored unit tests for stacks with modern patterns covering GetStack, StackExists, CreateChangeSet, WaitUntilChangesetDone, GetChangeset, GetEvents, DeleteStack, and other stack operations with mock implementations
+  * Added CloudFormationCreateChangeSetAPI and CloudFormationDescribeChangeSetAPI interfaces to lib/interfaces.go for improved testability
+  * Refactored stack operation functions to use interface-based dependencies (CreateChangeSet, WaitUntilChangesetDone, GetChangeset, DeleteStack, GetEvents) enabling better unit testing with mock implementations
+  * Enhanced testutil package with additional builder methods for creating test stacks and mock clients with comprehensive error handling
+  * Added interface definitions for improved testability:
+    - Added AWS service interfaces in lib/interfaces.go for S3Upload and S3Head operations
+    - Added comprehensive config package interfaces in config/interfaces.go including AWSConfigLoader, STSGetCallerIdentityAPI, IAMListAccountAliasesAPI, ConfigReader, and ViperConfigAPI
+    - Added extensive unit tests for both lib and config interface implementations with mock clients and error handling scenarios
+  * Added comprehensive unit tests for mock client builders in lib/testutil/builders_test.go covering MockCFNClient, MockEC2Client, MockS3Client, StackBuilder, and StackEventBuilder with error injection and builder pattern validation
+  * Added comprehensive unit tests for test data fixtures in lib/testutil/fixtures_test.go covering sample templates, configurations, stack responses, changesets, events, and helper functions with fixture consistency validation
+  * Added comprehensive test utilities package (lib/testutil) with assertion helpers, test builders, fixtures, golden file testing, and test helpers to improve test maintainability and coverage
+  * Added golden file testing framework for validating complex output with automatic update capabilities
+  * Added test assertion utilities for common patterns including AWS error handling, stack operations, and changeset validations
+  * Added test builders for creating mock AWS resources (stacks, changesets, parameters, tags) with fluent interfaces
+  * Added comprehensive test fixtures for CloudFormation templates, deployment files, and configurations
+  * Added test helper utilities for temporary files, directories, environment management, and AWS client mocking
+  * Added test data files for configuration and template validation
+  * Add test coverage improvement specification with comprehensive requirements, design, and implementation plan for achieving 80% test coverage across the codebase
+  * Add Claude Code configuration files for AI-assisted development with approved tool permissions and project-specific guidance
+  * Configure gitignore to exclude Claude scripts directory
   * Document deploy workflow
   * Add stack utility tests
   * Expand design for refactoring deploy command

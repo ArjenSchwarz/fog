@@ -36,6 +36,11 @@ import (
 	"github.com/spf13/viper"
 )
 
+const (
+	outputFormatMarkdown = "markdown"
+	eventTypeRemove      = "Remove"
+)
+
 // deployCmd represents the deploy command
 var reportCmd = &cobra.Command{
 	Use:   "report",
@@ -96,6 +101,7 @@ func stackReport(cmd *cobra.Command, args []string) {
 	generateReport()
 }
 
+// GenerateReportFromLambda generates a CloudFormation deployment report for Lambda execution
 func GenerateReportFromLambda(stackname string, bucketname string, outputfilename string, outputformat string, timezone string) {
 	// Default settings for Lambda output: only latest, markdown, with frontmatter
 	reportFlags.LatestOnly = true // The Lambda always only retrieves the latest report
@@ -116,11 +122,11 @@ func generateReport() {
 	}
 	outputsettings = getReportOutputSettingsFromCli(awsConfig)
 	mainoutput := format.OutputArray{Keys: []string{}, Settings: outputsettings}
-	if mainoutput.Settings.OutputFormat == "markdown" || mainoutput.Settings.OutputFormat == "html" {
+	if mainoutput.Settings.OutputFormat == outputFormatMarkdown || mainoutput.Settings.OutputFormat == "html" {
 		reportFlags.HasMermaid = true
 	}
 	stacks, err := lib.GetCfnStacks(&reportFlags.StackName, awsConfig.CloudformationClient())
-	if reportFlags.FrontMatter && outputsettings.OutputFormat == "markdown" {
+	if reportFlags.FrontMatter && outputsettings.OutputFormat == outputFormatMarkdown {
 		mainoutput.Settings.FrontMatter = generateFrontMatter(stacks, awsConfig)
 	}
 
@@ -149,11 +155,12 @@ func generateReport() {
 	if len(mainoutput.Settings.FrontMatter) != 0 {
 		latestText = "Single event."
 	}
-	if reportFlags.StackName == "" {
+	switch {
+	case reportFlags.StackName == "":
 		mainoutput.Settings.Title = fmt.Sprintf("Fog report for account %s. %s", awsConfig.GetAccountAliasID(), latestText)
-	} else if strings.Contains(reportFlags.StackName, "*") {
+	case strings.Contains(reportFlags.StackName, "*"):
 		mainoutput.Settings.Title = fmt.Sprintf("Fog report for stacks matching '%s'. %s", reportFlags.StackName, latestText)
-	} else {
+	default:
 		mainoutput.Settings.Title = fmt.Sprintf("Fog report for stack %s. %s", cleanStackName(reportFlags.StackName), latestText)
 	}
 	mainoutput.Write()
@@ -281,7 +288,7 @@ func createMermaidOutput(stack lib.CfnStack, event lib.StackEvent) format.Output
 	mermaidoutput.Settings.SortKey = "Sorttime"
 	// Add milestones for stack events
 	for moment, status := range event.Milestones {
-		mermaidcontent := make(map[string]interface{})
+		mermaidcontent := make(map[string]any)
 		mermaidcontent["Label"] = fmt.Sprintf("Stack %s", status)
 		mermaidcontent["Start time"] = moment.In(settings.GetTimezoneLocation()).Format("15:04:05")
 		mermaidcontent["Duration"] = "0s"
@@ -300,7 +307,7 @@ func createMetadataTable(stack lib.CfnStack, event lib.StackEvent, awsConfig con
 	if usetitle {
 		output.Settings.Title = title
 	}
-	contents := make(map[string]interface{})
+	contents := make(map[string]any)
 	contents["Stack"] = stack.Name
 	contents["Account"] = awsConfig.GetAccountAliasID()
 	contents["Region"] = awsConfig.Region
@@ -315,7 +322,7 @@ func createMetadataTable(stack lib.CfnStack, event lib.StackEvent, awsConfig con
 
 func createTableResourceHolder(resource lib.ResourceEvent, event lib.StackEvent) format.OutputHolder {
 	// Add row to table OutputArray
-	content := make(map[string]interface{})
+	content := make(map[string]any)
 	content["Action"] = resource.EventType
 	content["CfnName"] = resource.Resource.LogicalID
 	content["Type"] = resource.Resource.Type
@@ -331,17 +338,18 @@ func createTableResourceHolder(resource lib.ResourceEvent, event lib.StackEvent)
 
 func createMermaidResourceHolder(resource lib.ResourceEvent) format.OutputHolder {
 	// Add row to mermaid OutputArray
-	mermaidcontent := make(map[string]interface{})
+	mermaidcontent := make(map[string]any)
 	mermaidcontent["Label"] = resource.Resource.LogicalID
 	mermaidcontent["Start time"] = resource.StartDate.In(settings.GetTimezoneLocation()).Format("15:04:05")
 	mermaidcontent["Duration"] = resource.GetDuration().Round(time.Second).String()
 	mermaidcontent["Sorttime"] = resource.StartDate.In(settings.GetTimezoneLocation()).Format(time.RFC3339)
 	mermaidcontent["Status"] = ""
-	if resource.EndStatus != resource.ExpectedEndStatus {
+	switch {
+	case resource.EndStatus != resource.ExpectedEndStatus:
 		mermaidcontent["Status"] = "done, crit"
-	} else if resource.EventType == "Remove" || resource.EventType == "Cleanup" {
+	case resource.EventType == eventTypeRemove || resource.EventType == "Cleanup":
 		mermaidcontent["Status"] = "crit"
-	} else if resource.EventType == "Modify" {
+	case resource.EventType == "Modify":
 		mermaidcontent["Status"] = "active"
 	}
 	return format.OutputHolder{Contents: mermaidcontent}

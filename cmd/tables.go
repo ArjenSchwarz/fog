@@ -48,7 +48,7 @@ func demoTables(cmd *cobra.Command, args []string) {
 	output := format.OutputArray{Keys: keys, Settings: settings.NewOutputSettings()}
 
 	value1 := format.OutputHolder{
-		Contents: map[string]interface{}{
+		Contents: map[string]any{
 			"Export":      "awesome-stack-dev-s3-arn",
 			"Value":       "arn:aws:s3:::fog-awesome-stack-dev",
 			"Description": "ARN of the S3 bucket",
@@ -57,7 +57,7 @@ func demoTables(cmd *cobra.Command, args []string) {
 		},
 	}
 	value2 := format.OutputHolder{
-		Contents: map[string]interface{}{
+		Contents: map[string]any{
 			"Export":      "awesome-stack-test-s3-arn",
 			"Value":       "arn:aws:s3:::fog-awesome-stack-test",
 			"Description": "ARN of the S3 bucket",
@@ -66,7 +66,7 @@ func demoTables(cmd *cobra.Command, args []string) {
 		},
 	}
 	value3 := format.OutputHolder{
-		Contents: map[string]interface{}{
+		Contents: map[string]any{
 			"Export":      "awesome-stack-prod-s3-arn",
 			"Value":       "arn:aws:s3:::fog-awesome-stack-prod",
 			"Description": "ARN of the S3 bucket",
@@ -75,7 +75,7 @@ func demoTables(cmd *cobra.Command, args []string) {
 		},
 	}
 	value4 := format.OutputHolder{
-		Contents: map[string]interface{}{
+		Contents: map[string]any{
 			"Export":      "demo-s3-bucket",
 			"Value":       "fog-demo-bucket",
 			"Description": "The S3 bucket used for demos but has an exceptionally long description so it can show a multi-line example",

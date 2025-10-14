@@ -12,7 +12,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ssoadmin"
 )
 
-func StartDriftDetection(stackName *string, svc *cloudformation.Client) *string {
+// StartDriftDetection initiates drift detection for a stack and returns the detection ID
+func StartDriftDetection(stackName *string, svc CloudFormationDetectStackDriftAPI) *string {
 	input := &cloudformation.DetectStackDriftInput{
 		StackName: stackName,
 	}
@@ -23,7 +24,8 @@ func StartDriftDetection(stackName *string, svc *cloudformation.Client) *string 
 	return result.StackDriftDetectionId
 }
 
-func WaitForDriftDetectionToFinish(driftDetectionId *string, svc *cloudformation.Client) types.StackDriftDetectionStatus {
+// WaitForDriftDetectionToFinish polls until drift detection completes and returns the final status
+func WaitForDriftDetectionToFinish(driftDetectionId *string, svc CloudFormationDescribeStackDriftDetectionStatusAPI) types.StackDriftDetectionStatus {
 	input := &cloudformation.DescribeStackDriftDetectionStatusInput{
 		StackDriftDetectionId: driftDetectionId,
 	}
@@ -38,26 +40,37 @@ func WaitForDriftDetectionToFinish(driftDetectionId *string, svc *cloudformation
 	return result.DetectionStatus
 }
 
-func GetDefaultStackDrift(stackName *string, svc *cloudformation.Client) []types.StackResourceDrift {
+// GetDefaultStackDrift retrieves all resource drift information for a stack
+func GetDefaultStackDrift(stackName *string, svc CloudFormationDescribeStackResourceDriftsAPI) []types.StackResourceDrift {
 	input := &cloudformation.DescribeStackResourceDriftsInput{
 		StackName: stackName,
 	}
 
 	var allDrifts []types.StackResourceDrift
-	paginator := cloudformation.NewDescribeStackResourceDriftsPaginator(svc, input)
+	var nextToken *string
 
-	for paginator.HasMorePages() {
-		output, err := paginator.NextPage(context.TODO())
+	for {
+		if nextToken != nil {
+			input.NextToken = nextToken
+		}
+
+		output, err := svc.DescribeStackResourceDrifts(context.TODO(), input)
 		if err != nil {
 			panic(err)
 		}
 
 		allDrifts = append(allDrifts, output.StackResourceDrifts...)
+
+		if output.NextToken == nil {
+			break
+		}
+		nextToken = output.NextToken
 	}
 
 	return allDrifts
 }
 
+// GetUncheckedStackResources returns stack resources that have not been checked for drift
 func GetUncheckedStackResources(stackName *string, checkedResources []string, svc interface {
 	CloudFormationDescribeStacksAPI
 	CloudFormationDescribeStackResourcesAPI
@@ -73,6 +86,7 @@ func GetUncheckedStackResources(stackName *string, checkedResources []string, sv
 	return uncheckedresources
 }
 
+// GetResource retrieves a specific resource using Cloud Control API
 func GetResource(client *cloudcontrol.Client, typeName string, identifier string) (*cloudcontrol.GetResourceOutput, error) {
 	input := &cloudcontrol.GetResourceInput{
 		TypeName:   &typeName,
@@ -87,6 +101,7 @@ func GetResource(client *cloudcontrol.Client, typeName string, identifier string
 	return result, nil
 }
 
+// ListAllResources lists all resources of a given type using Cloud Control API or service-specific APIs
 func ListAllResources(typeName string, client *cloudcontrol.Client, ssoClient *ssoadmin.Client, organizationsClient *organizations.Client) (map[string]string, error) {
 	if typeName == "AWS::SSO::PermissionSet" {
 		return GetPermissionSetArns(ssoClient)

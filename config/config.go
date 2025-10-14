@@ -12,6 +12,7 @@ import (
 type Config struct {
 }
 
+// GetLCString gets a string configuration value and converts it to lowercase
 func (config *Config) GetLCString(setting string) string {
 	if viper.IsSet(setting) {
 		return strings.ToLower(viper.GetString(setting))
@@ -19,6 +20,7 @@ func (config *Config) GetLCString(setting string) string {
 	return ""
 }
 
+// GetString gets a string configuration value
 func (config *Config) GetString(setting string) string {
 	if viper.IsSet(setting) {
 		return viper.GetString(setting)
@@ -26,6 +28,7 @@ func (config *Config) GetString(setting string) string {
 	return ""
 }
 
+// GetStringSlice gets a string slice configuration value
 func (config *Config) GetStringSlice(setting string) []string {
 	if viper.IsSet(setting) {
 		return viper.GetStringSlice(setting)
@@ -33,10 +36,12 @@ func (config *Config) GetStringSlice(setting string) []string {
 	return []string{}
 }
 
+// GetBool gets a boolean configuration value
 func (config *Config) GetBool(setting string) bool {
 	return viper.GetBool(setting)
 }
 
+// GetInt gets an integer configuration value
 func (config *Config) GetInt(setting string) int {
 	if viper.IsSet(setting) {
 		return viper.GetInt(setting)
@@ -44,6 +49,7 @@ func (config *Config) GetInt(setting string) int {
 	return 0
 }
 
+// GetSeparator returns the appropriate separator string based on the output format
 func (config *Config) GetSeparator() string {
 	switch config.GetLCString("output") {
 	case "table":
@@ -55,6 +61,7 @@ func (config *Config) GetSeparator() string {
 	}
 }
 
+// GetFieldOrEmptyValue returns the value if not empty, otherwise returns an appropriate empty value based on output format
 func (config *Config) GetFieldOrEmptyValue(value string) string {
 	if value != "" {
 		return value
@@ -77,6 +84,7 @@ func (config *Config) GetTimezoneLocation() *time.Location {
 	return location
 }
 
+// NewOutputSettings creates a new OutputSettings object with configuration values applied
 func (config *Config) NewOutputSettings() *format.OutputSettings {
 	settings := format.NewOutputSettings()
 	settings.UseEmoji = true

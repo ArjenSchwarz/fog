@@ -351,6 +351,69 @@ drift:
 
 There is a lot more planned for the application, and a roadmap etc. will soon show up on GitHub.
 
+## Development
+
+### Building
+
+```bash
+# Build the fog binary
+go build
+
+# Run directly without building
+go run main.go [command]
+```
+
+### Testing
+
+Fog has a comprehensive test suite with unit tests, integration tests, and coverage reporting.
+
+```bash
+# Run all tests
+go test ./...
+
+# Run tests with verbose output
+go test ./... -v
+
+# Run tests with coverage
+go test ./... -cover
+
+# Run tests with race detection
+go test -race ./...
+
+# Run integration tests
+INTEGRATION=1 go test ./...
+```
+
+#### Test Validation Scripts
+
+```bash
+# Run complete validation suite (formatting, tests, race detection, linting)
+./test/validate_tests.sh
+
+# Generate detailed coverage report
+./test/coverage_report.sh
+```
+
+#### Linting
+
+```bash
+# Run golangci-lint
+golangci-lint run
+
+# Format code
+go fmt ./...
+```
+
+For more detailed information about testing, see [test/README.md](test/README.md).
+
+### Project Structure
+
+- `cmd/` - CLI command implementations and flag handling
+- `lib/` - Core CloudFormation operations and AWS utilities
+- `config/` - Configuration file handling
+- `test/` - Test utilities and validation scripts
+- `examples/` - Example templates, parameters, and tags
+
 ## Contributions
 
 If you wish to contribute in any way (reporting bugs, requesting features, writing code), feel free to do so either by opening Issues or Pull Requests. For Pull Requests, just follow the standard pattern.

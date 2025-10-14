@@ -1,0 +1,22 @@
+Changeset: update-changeset
+Stack: prod-stack
+Status: CREATE_COMPLETE
+StatusReason: All resources validated
+
+Changes:
+  Change 1:
+    Action: Add
+    LogicalID: NewBucket
+    Type: AWS::S3::Bucket
+    Replacement: False
+  Change 2:
+    Action: Modify
+    LogicalID: ExistingInstance
+    Type: AWS::EC2::Instance
+    Replacement: True
+    ResourceID: i-12345
+  Change 3:
+    Action: Remove
+    LogicalID: OldQueue
+    Type: AWS::SQS::Queue
+    Replacement: False

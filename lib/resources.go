@@ -13,6 +13,7 @@ import (
 	"github.com/aws/smithy-go"
 )
 
+// CfnResource represents a CloudFormation resource with its identifying information and status.
 type CfnResource struct {
 	StackName  string
 	Type       string

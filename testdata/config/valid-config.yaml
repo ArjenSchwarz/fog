@@ -1,0 +1,21 @@
+# Valid Fog configuration file in YAML format
+region: us-west-2
+profile: default
+
+# Output settings
+output: table
+output-file: ""
+output-file-format: ""
+
+# Table settings
+table:
+  style: default
+  max-column-width: 80
+
+# Timezone configuration
+timezone: UTC
+
+# Template settings
+templates:
+  directory: ./templates
+  validate: true

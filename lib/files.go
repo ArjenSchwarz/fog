@@ -17,7 +17,7 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-// Readfile locates and reads the file. Either it's an actual file name in which case
+// ReadFile locates and reads the file. Either it's an actual file name in which case
 // we'll read it right away, or if not we'll try to locate it in the appropriate
 // directory with one of the configured extensions.
 func ReadFile(fileName *string, fileType string) (string, string, error) {
@@ -45,23 +45,28 @@ func ReadFile(fileName *string, fileType string) (string, string, error) {
 	return string(dat), filePath, nil
 }
 
+// ReadTemplate reads a template file using the configured templates directory and extensions.
 func ReadTemplate(templateName *string) (string, string, error) {
 	return ReadFile(templateName, "templates")
 }
 
+// ReadTagsfile reads a tags file using the configured tags directory and extensions.
 func ReadTagsfile(tagsName string) (string, string, error) {
 	return ReadFile(&tagsName, "tags")
 }
 
+// ReadParametersfile reads a parameters file using the configured parameters directory and extensions.
 func ReadParametersfile(parametersName string) (string, string, error) {
 	return ReadFile(&parametersName, "parameters")
 }
 
+// ReadDeploymentFile reads a deployment file using the configured deployments directory and extensions.
 func ReadDeploymentFile(deploymentmentFileName string) (string, string, error) {
 	return ReadFile(&deploymentmentFileName, "deployments")
 }
 
-func UploadTemplate(templateName *string, template string, bucketName *string, svc *s3.Client) (string, error) {
+// UploadTemplate uploads a CloudFormation template to S3 with a timestamped name and returns the generated key.
+func UploadTemplate(templateName *string, template string, bucketName *string, svc S3UploadAPI) (string, error) {
 	// use the template name with a timestamp that should be unique
 	// prefix with fog to make it easier to set up specific lifecycle rules
 	generatedname := fmt.Sprintf("fog/%v-%v", *templateName, time.Now().UnixNano())
@@ -77,6 +82,7 @@ func UploadTemplate(templateName *string, template string, bucketName *string, s
 	return generatedname, nil
 }
 
+// RunPrechecks executes configured template validation commands and returns results for each check.
 func RunPrechecks(deployment *DeployInfo) (map[string]string, error) {
 	results := make(map[string]string)
 	for _, precheck := range viper.GetStringSlice("templates.prechecks") {
@@ -107,7 +113,7 @@ func RunPrechecks(deployment *DeployInfo) (map[string]string, error) {
 
 // YamlToJson converts a YAML byte array to a JSON byte array
 func YamlToJson(input []byte) ([]byte, error) {
-	var unmarshalled interface{}
+	var unmarshalled any
 	if err := yaml.Unmarshal(input, &unmarshalled); err != nil {
 		return nil, fmt.Errorf("invalid YAML: %s", err)
 	}
@@ -121,15 +127,15 @@ func YamlToJson(input []byte) ([]byte, error) {
 
 // convertMapInterfaceToMapString converts a map[interface{}]interface{} to a map[string]interface{}
 // This is required for the YAML to JSON conversion as the JSON library does not support interface{} keys
-func convertMapInterfaceToMapString(i interface{}) interface{} {
+func convertMapInterfaceToMapString(i any) any {
 	switch x := i.(type) {
-	case map[interface{}]interface{}:
-		m2 := map[string]interface{}{}
+	case map[any]any:
+		m2 := map[string]any{}
 		for key, value := range x {
 			m2[fmt.Sprint(key)] = convertMapInterfaceToMapString(value)
 		}
 		return m2
-	case []interface{}:
+	case []any:
 		for i, v := range x {
 			x[i] = convertMapInterfaceToMapString(v)
 		}

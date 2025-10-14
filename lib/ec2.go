@@ -155,11 +155,12 @@ func CompareRoutes(route1 types.Route, route2 types.Route, blackholeIgnore []str
 // Either DestinationCidrBlock, DestinationPrefixListId or DestinationIpv6CidrBlock
 func GetRouteDestination(route types.Route) string {
 	var result string
-	if route.DestinationCidrBlock != nil {
+	switch {
+	case route.DestinationCidrBlock != nil:
 		result = *route.DestinationCidrBlock
-	} else if route.DestinationPrefixListId != nil {
+	case route.DestinationPrefixListId != nil:
 		result = *route.DestinationPrefixListId
-	} else {
+	default:
 		result = *route.DestinationIpv6CidrBlock
 	}
 	return result
@@ -169,26 +170,27 @@ func GetRouteDestination(route types.Route) string {
 // Either CarrierGatewayId, CoreNetworkArn, EgressOnlyInternetGatewayId, GatewayId, InstanceId, LocalGatewayId, NatGatewayId, NetworkInterfaceId, TransitGatewayId or VpcPeeringConnectionId
 func GetRouteTarget(route types.Route) string {
 	var target string
-	if route.CarrierGatewayId != nil {
+	switch {
+	case route.CarrierGatewayId != nil:
 		target = *route.CarrierGatewayId
-	} else if route.CoreNetworkArn != nil {
+	case route.CoreNetworkArn != nil:
 		target = *route.CoreNetworkArn
-	} else if route.EgressOnlyInternetGatewayId != nil {
+	case route.EgressOnlyInternetGatewayId != nil:
 		target = *route.EgressOnlyInternetGatewayId
-	} else if route.GatewayId != nil {
+	case route.GatewayId != nil:
 		target = *route.GatewayId
-	} else if route.InstanceId != nil {
+	case route.InstanceId != nil:
 		target = *route.InstanceId
 		// InstanceOwnerId
-	} else if route.LocalGatewayId != nil {
+	case route.LocalGatewayId != nil:
 		target = *route.LocalGatewayId
-	} else if route.NatGatewayId != nil {
+	case route.NatGatewayId != nil:
 		target = *route.NatGatewayId
-	} else if route.NetworkInterfaceId != nil {
+	case route.NetworkInterfaceId != nil:
 		target = *route.NetworkInterfaceId
-	} else if route.TransitGatewayId != nil {
+	case route.TransitGatewayId != nil:
 		target = *route.TransitGatewayId
-	} else if route.VpcPeeringConnectionId != nil {
+	case route.VpcPeeringConnectionId != nil:
 		target = *route.VpcPeeringConnectionId
 	}
 	return target

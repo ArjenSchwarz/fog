@@ -37,7 +37,7 @@ Resources:
       BucketName: !Ref NameParam
 `
 
-	overrides := map[string]interface{}{"NameParam": "Overridden"}
+	overrides := map[string]any{"NameParam": "Overridden"}
 
 	// Provide the template body in both JSON and YAML formats to ensure
 	// parsing logic handles each correctly and that parameter overrides are
@@ -75,14 +75,14 @@ func TestNaclResourceToNaclEntry(t *testing.T) {
 	// properties. CIDR is supplied via Ref parameter.
 	resource1 := CfnTemplateResource{
 		Type: "AWS::EC2::NetworkAclEntry",
-		Properties: map[string]interface{}{
+		Properties: map[string]any{
 			"Protocol":   6.0,
 			"RuleNumber": 100.0,
-			"CidrBlock":  map[string]interface{}{"Ref": "CIDR"},
+			"CidrBlock":  map[string]any{"Ref": "CIDR"},
 			"RuleAction": "deny",
 			"Egress":     false,
-			"PortRange":  map[string]interface{}{"From": "80", "To": 443.0},
-			"Icmp":       map[string]interface{}{"Type": "1", "Code": 2.0},
+			"PortRange":  map[string]any{"From": "80", "To": 443.0},
+			"Icmp":       map[string]any{"Type": "1", "Code": 2.0},
 		},
 	}
 
@@ -104,10 +104,10 @@ func TestNaclResourceToNaclEntry(t *testing.T) {
 	// IPv6 entry using string Protocol and no port or ICMP data.
 	resource2 := CfnTemplateResource{
 		Type: "AWS::EC2::NetworkAclEntry",
-		Properties: map[string]interface{}{
+		Properties: map[string]any{
 			"Protocol":      "17",
 			"RuleNumber":    110.0,
-			"Ipv6CidrBlock": map[string]interface{}{"Ref": "IPV6"},
+			"Ipv6CidrBlock": map[string]any{"Ref": "IPV6"},
 			"RuleAction":    "allow",
 			"Egress":        true,
 		},
@@ -139,9 +139,9 @@ func TestRouteResourceToRoute(t *testing.T) {
 	// logical ID reference in the TransitGatewayId property.
 	resource := CfnTemplateResource{
 		Type: "AWS::EC2::Route",
-		Properties: map[string]interface{}{
+		Properties: map[string]any{
 			"DestinationCidrBlock": "10.0.0.0/16",
-			"GatewayId":            map[string]interface{}{"Ref": "GateParam"},
+			"GatewayId":            map[string]any{"Ref": "GateParam"},
 			"TransitGatewayId":     "REF: TGW",
 		},
 	}
@@ -200,18 +200,18 @@ func TestFilterNaclEntriesByLogicalId(t *testing.T) {
 		Resources: map[string]CfnTemplateResource{
 			"IngressRule": {
 				Type: "AWS::EC2::NetworkAclEntry",
-				Properties: map[string]interface{}{
+				Properties: map[string]any{
 					"NetworkAclId": "REF: TestNacl",
 					"Protocol":     6.0,
 					"RuleNumber":   100.0,
-					"CidrBlock":    map[string]interface{}{"Ref": "CIDR"},
+					"CidrBlock":    map[string]any{"Ref": "CIDR"},
 					"RuleAction":   "allow",
 					"Egress":       false,
 				},
 			},
 			"EgressRule": {
 				Type: "AWS::EC2::NetworkAclEntry",
-				Properties: map[string]interface{}{
+				Properties: map[string]any{
 					"NetworkAclId": "REF: TestNacl",
 					"Protocol":     "17",
 					"RuleNumber":   110.0,
@@ -222,7 +222,7 @@ func TestFilterNaclEntriesByLogicalId(t *testing.T) {
 			},
 			"OtherNacl": {
 				Type: "AWS::EC2::NetworkAclEntry",
-				Properties: map[string]interface{}{
+				Properties: map[string]any{
 					"NetworkAclId": "REF: OtherNacl",
 					"Protocol":     "6",
 					"RuleNumber":   200.0,
@@ -288,15 +288,15 @@ func TestFilterRoutesByLogicalId(t *testing.T) {
 		Resources: map[string]CfnTemplateResource{
 			"Route1": {
 				Type: "AWS::EC2::Route",
-				Properties: map[string]interface{}{
+				Properties: map[string]any{
 					"RouteTableId":         "REF: TestRouteTable",
 					"DestinationCidrBlock": "0.0.0.0/0",
-					"GatewayId":            map[string]interface{}{"Ref": "GW"},
+					"GatewayId":            map[string]any{"Ref": "GW"},
 				},
 			},
 			"Route2": {
 				Type: "AWS::EC2::Route",
-				Properties: map[string]interface{}{
+				Properties: map[string]any{
 					"RouteTableId":         "REF: TestRouteTable",
 					"DestinationCidrBlock": "10.0.0.0/8",
 					"NatGatewayId":         "REF: MyNATGateway",
@@ -304,7 +304,7 @@ func TestFilterRoutesByLogicalId(t *testing.T) {
 			},
 			"OtherRoute": {
 				Type: "AWS::EC2::Route",
-				Properties: map[string]interface{}{
+				Properties: map[string]any{
 					"RouteTableId":         "REF: OtherRouteTable",
 					"DestinationCidrBlock": "192.168.0.0/16",
 					"GatewayId":            "local",
@@ -353,7 +353,7 @@ func TestCfnTemplateTransform_Value(t *testing.T) {
 	tests := []struct {
 		name      string
 		transform CfnTemplateTransform
-		want      interface{}
+		want      any
 	}{
 		{
 			name:      "String value",
@@ -475,7 +475,7 @@ func TestParseTemplateString_PseudoParameters(t *testing.T) {
 		t.Errorf("StackId = %v, want non-empty ARN", props["StackId"])
 	}
 
-	if notificationARNs, ok := props["NotificationARNs"].([]interface{}); !ok || len(notificationARNs) == 0 {
+	if notificationARNs, ok := props["NotificationARNs"].([]any); !ok || len(notificationARNs) == 0 {
 		t.Errorf("NotificationARNs = %v, want non-empty array", props["NotificationARNs"])
 	}
 

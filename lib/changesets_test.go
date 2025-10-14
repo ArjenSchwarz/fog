@@ -3,14 +3,16 @@ package lib
 import (
 	"context"
 	"errors"
-	"reflect"
 	"testing"
-	"time"
 
 	"github.com/ArjenSchwarz/fog/config"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // Mock implementation of the CloudFormation client for changesets testing
@@ -37,36 +39,23 @@ func (m *MockChangesetCloudFormationClient) DescribeStacks(ctx context.Context, 
 }
 
 func TestChangesetInfo_DeleteChangeset(t *testing.T) {
-	type fields struct {
-		Changes      []ChangesetChanges
-		CreationTime time.Time
-		HasModule    bool
-		ID           string
-		Name         string
-		Status       string
-		StatusReason string
-		StackID      string
-		StackName    string
-	}
+	t.Helper()
 
-	tests := []struct {
-		name      string
-		fields    fields
+	tests := map[string]struct {
+		changeset *ChangesetInfo
 		mockError error
 		want      bool
 	}{
-		{
-			name: "Successful deletion",
-			fields: fields{
+		"successful deletion": {
+			changeset: &ChangesetInfo{
 				Name:      "test-changeset",
 				StackName: "test-stack",
 			},
 			mockError: nil,
 			want:      true,
 		},
-		{
-			name: "Failed deletion",
-			fields: fields{
+		"failed deletion": {
+			changeset: &ChangesetInfo{
 				Name:      "test-changeset",
 				StackName: "test-stack",
 			},
@@ -75,63 +64,39 @@ func TestChangesetInfo_DeleteChangeset(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			// Create mock client
 			mockClient := &MockChangesetCloudFormationClient{
-				deleteChangeSetError: tt.mockError,
+				deleteChangeSetError: tc.mockError,
 			}
 
-			changeset := &ChangesetInfo{
-				Changes:      tt.fields.Changes,
-				CreationTime: tt.fields.CreationTime,
-				HasModule:    tt.fields.HasModule,
-				ID:           tt.fields.ID,
-				Name:         tt.fields.Name,
-				Status:       tt.fields.Status,
-				StatusReason: tt.fields.StatusReason,
-				StackID:      tt.fields.StackID,
-				StackName:    tt.fields.StackName,
-			}
-
-			if got := changeset.DeleteChangeset(mockClient); got != tt.want {
-				t.Errorf("ChangesetInfo.DeleteChangeset() = %v, want %v", got, tt.want)
-			}
+			got := tc.changeset.DeleteChangeset(mockClient)
+			assert.Equal(t, tc.want, got)
 		})
 	}
 }
 
 func TestChangesetInfo_DeployChangeset(t *testing.T) {
-	type fields struct {
-		Changes      []ChangesetChanges
-		CreationTime time.Time
-		HasModule    bool
-		ID           string
-		Name         string
-		Status       string
-		StatusReason string
-		StackID      string
-		StackName    string
-	}
+	t.Helper()
 
-	tests := []struct {
-		name      string
-		fields    fields
+	tests := map[string]struct {
+		changeset *ChangesetInfo
 		mockError error
 		wantErr   bool
 	}{
-		{
-			name: "Successful deployment",
-			fields: fields{
+		"successful deployment": {
+			changeset: &ChangesetInfo{
 				Name:      "test-changeset",
 				StackName: "test-stack",
 			},
 			mockError: nil,
 			wantErr:   false,
 		},
-		{
-			name: "Failed deployment",
-			fields: fields{
+		"failed deployment": {
+			changeset: &ChangesetInfo{
 				Name:      "test-changeset",
 				StackName: "test-stack",
 			},
@@ -140,76 +105,51 @@ func TestChangesetInfo_DeployChangeset(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			// Create mock client
 			mockClient := &MockChangesetCloudFormationClient{
-				executeChangeSetError: tt.mockError,
+				executeChangeSetError: tc.mockError,
 			}
 
-			changeset := &ChangesetInfo{
-				Changes:      tt.fields.Changes,
-				CreationTime: tt.fields.CreationTime,
-				HasModule:    tt.fields.HasModule,
-				ID:           tt.fields.ID,
-				Name:         tt.fields.Name,
-				Status:       tt.fields.Status,
-				StatusReason: tt.fields.StatusReason,
-				StackID:      tt.fields.StackID,
-				StackName:    tt.fields.StackName,
-			}
+			err := tc.changeset.DeployChangeset(mockClient)
 
-			if err := changeset.DeployChangeset(mockClient); (err != nil) != tt.wantErr {
-				t.Errorf("ChangesetInfo.DeployChangeset() error = %v, wantErr %v", err, tt.wantErr)
+			if tc.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
 			}
 		})
 	}
 }
 
 func TestChangesetInfo_AddChange(t *testing.T) {
-	type fields struct {
-		Changes      []ChangesetChanges
-		CreationTime time.Time
-		HasModule    bool
-		ID           string
-		Name         string
-		Status       string
-		StatusReason string
-		StackID      string
-		StackName    string
-	}
+	t.Helper()
 
-	type args struct {
-		changes ChangesetChanges
-	}
-
-	tests := []struct {
-		name              string
-		fields            fields
-		args              args
+	tests := map[string]struct {
+		changeset         *ChangesetInfo
+		changeToAdd       ChangesetChanges
 		wantChangesLength int
 		wantHasModule     bool
 	}{
-		{
-			name: "Add first change without module",
-			fields: fields{
+		"add first change without module": {
+			changeset: &ChangesetInfo{
 				Changes:   nil,
 				HasModule: false,
 			},
-			args: args{
-				changes: ChangesetChanges{
-					Action:    "Add",
-					LogicalID: "Resource1",
-					Type:      "AWS::S3::Bucket",
-					Module:    "",
-				},
+			changeToAdd: ChangesetChanges{
+				Action:    "Add",
+				LogicalID: "Resource1",
+				Type:      "AWS::S3::Bucket",
+				Module:    "",
 			},
 			wantChangesLength: 1,
 			wantHasModule:     false,
 		},
-		{
-			name: "Add change with module",
-			fields: fields{
+		"add change with module": {
+			changeset: &ChangesetInfo{
 				Changes: []ChangesetChanges{
 					{
 						Action:    "Add",
@@ -220,20 +160,17 @@ func TestChangesetInfo_AddChange(t *testing.T) {
 				},
 				HasModule: false,
 			},
-			args: args{
-				changes: ChangesetChanges{
-					Action:    "Modify",
-					LogicalID: "Resource2",
-					Type:      "AWS::IAM::Role",
-					Module:    "SecurityModule",
-				},
+			changeToAdd: ChangesetChanges{
+				Action:    "Modify",
+				LogicalID: "Resource2",
+				Type:      "AWS::IAM::Role",
+				Module:    "SecurityModule",
 			},
 			wantChangesLength: 2,
 			wantHasModule:     true,
 		},
-		{
-			name: "Add another change with module already set",
-			fields: fields{
+		"add another change with module already set": {
+			changeset: &ChangesetInfo{
 				Changes: []ChangesetChanges{
 					{
 						Action:    "Add",
@@ -250,71 +187,43 @@ func TestChangesetInfo_AddChange(t *testing.T) {
 				},
 				HasModule: true,
 			},
-			args: args{
-				changes: ChangesetChanges{
-					Action:    "Remove",
-					LogicalID: "Resource3",
-					Type:      "AWS::Lambda::Function",
-					Module:    "",
-				},
+			changeToAdd: ChangesetChanges{
+				Action:    "Remove",
+				LogicalID: "Resource3",
+				Type:      "AWS::Lambda::Function",
+				Module:    "",
 			},
 			wantChangesLength: 3,
 			wantHasModule:     true,
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			changeset := &ChangesetInfo{
-				Changes:      tt.fields.Changes,
-				CreationTime: tt.fields.CreationTime,
-				HasModule:    tt.fields.HasModule,
-				ID:           tt.fields.ID,
-				Name:         tt.fields.Name,
-				Status:       tt.fields.Status,
-				StatusReason: tt.fields.StatusReason,
-				StackID:      tt.fields.StackID,
-				StackName:    tt.fields.StackName,
-			}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-			changeset.AddChange(tt.args.changes)
+			tc.changeset.AddChange(tc.changeToAdd)
 
 			// Check if the change was added correctly
-			if len(changeset.Changes) != tt.wantChangesLength {
-				t.Errorf("ChangesetInfo.AddChange() resulted in %d changes, want %d", len(changeset.Changes), tt.wantChangesLength)
-			}
+			assert.Len(t, tc.changeset.Changes, tc.wantChangesLength)
 
 			// Check if HasModule was set correctly
-			if changeset.HasModule != tt.wantHasModule {
-				t.Errorf("ChangesetInfo.AddChange() set HasModule to %v, want %v", changeset.HasModule, tt.wantHasModule)
-			}
+			assert.Equal(t, tc.wantHasModule, tc.changeset.HasModule)
 
 			// Check if the last change added matches what we expect
-			if len(changeset.Changes) > 0 {
-				lastChange := changeset.Changes[len(changeset.Changes)-1]
-				if lastChange.Action != tt.args.changes.Action ||
-					lastChange.LogicalID != tt.args.changes.LogicalID ||
-					lastChange.Type != tt.args.changes.Type ||
-					lastChange.Module != tt.args.changes.Module {
-					t.Errorf("ChangesetInfo.AddChange() last change = %+v, want %+v", lastChange, tt.args.changes)
-				}
+			if len(tc.changeset.Changes) > 0 {
+				lastChange := tc.changeset.Changes[len(tc.changeset.Changes)-1]
+				assert.Equal(t, tc.changeToAdd.Action, lastChange.Action)
+				assert.Equal(t, tc.changeToAdd.LogicalID, lastChange.LogicalID)
+				assert.Equal(t, tc.changeToAdd.Type, lastChange.Type)
+				assert.Equal(t, tc.changeToAdd.Module, lastChange.Module)
 			}
 		})
 	}
 }
 
 func TestChangesetInfo_GetStack(t *testing.T) {
-	type fields struct {
-		Changes      []ChangesetChanges
-		CreationTime time.Time
-		HasModule    bool
-		ID           string
-		Name         string
-		Status       string
-		StatusReason string
-		StackID      string
-		StackName    string
-	}
+	t.Helper()
 
 	// Create test stack
 	testStack := types.Stack{
@@ -323,17 +232,15 @@ func TestChangesetInfo_GetStack(t *testing.T) {
 		StackStatus: types.StackStatusCreateComplete,
 	}
 
-	tests := []struct {
-		name       string
-		fields     fields
+	tests := map[string]struct {
+		changeset  *ChangesetInfo
 		mockOutput cloudformation.DescribeStacksOutput
 		mockError  error
 		want       types.Stack
 		wantErr    bool
 	}{
-		{
-			name: "Successful get stack",
-			fields: fields{
+		"successful get stack": {
+			changeset: &ChangesetInfo{
 				StackID: "arn:aws:cloudformation:us-east-1:123456789012:stack/test-stack/abc123",
 			},
 			mockOutput: cloudformation.DescribeStacksOutput{
@@ -343,9 +250,8 @@ func TestChangesetInfo_GetStack(t *testing.T) {
 			want:      testStack,
 			wantErr:   false,
 		},
-		{
-			name: "Failed get stack",
-			fields: fields{
+		"failed get stack": {
+			changeset: &ChangesetInfo{
 				StackID: "arn:aws:cloudformation:us-east-1:123456789012:stack/test-stack/abc123",
 			},
 			mockOutput: cloudformation.DescribeStacksOutput{},
@@ -355,125 +261,85 @@ func TestChangesetInfo_GetStack(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			// Create mock client
 			mockClient := &MockChangesetCloudFormationClient{
-				describeStacksOutput: tt.mockOutput,
-				describeStacksError:  tt.mockError,
+				describeStacksOutput: tc.mockOutput,
+				describeStacksError:  tc.mockError,
 			}
 
-			changeset := &ChangesetInfo{
-				Changes:      tt.fields.Changes,
-				CreationTime: tt.fields.CreationTime,
-				HasModule:    tt.fields.HasModule,
-				ID:           tt.fields.ID,
-				Name:         tt.fields.Name,
-				Status:       tt.fields.Status,
-				StatusReason: tt.fields.StatusReason,
-				StackID:      tt.fields.StackID,
-				StackName:    tt.fields.StackName,
-			}
+			got, err := tc.changeset.GetStack(mockClient)
 
-			got, err := changeset.GetStack(mockClient)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("ChangesetInfo.GetStack() error = %v, wantErr %v", err, tt.wantErr)
+			if tc.wantErr {
+				require.Error(t, err)
 				return
 			}
 
-			if !tt.wantErr && !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("ChangesetInfo.GetStack() = %v, want %v", got, tt.want)
+			require.NoError(t, err)
+
+			opts := []cmp.Option{
+				cmpopts.IgnoreUnexported(types.Stack{}),
+			}
+
+			if diff := cmp.Diff(tc.want, got, opts...); diff != "" {
+				t.Errorf("GetStack() mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}
 }
 
 func TestChangesetInfo_GenerateChangesetUrl(t *testing.T) {
-	type fields struct {
-		Changes      []ChangesetChanges
-		CreationTime time.Time
-		HasModule    bool
-		ID           string
-		Name         string
-		Status       string
-		StatusReason string
-		StackID      string
-		StackName    string
-	}
-	type args struct {
-		settings config.AWSConfig
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		args   args
-		want   string
+	t.Helper()
+
+	tests := map[string]struct {
+		changeset *ChangesetInfo
+		settings  config.AWSConfig
+		want      string
 	}{
-		{
-			name: "Generate URL for ap-southeast-2",
-			fields: fields{
+		"generate URL for ap-southeast-2": {
+			changeset: &ChangesetInfo{
 				ID:      "arn:aws:cloudformation:ap-southeast-2:123456789012:changeSet/test-changeset/abc123",
 				StackID: "arn:aws:cloudformation:ap-southeast-2:123456789012:stack/test-stack/def456",
 			},
-			args: args{
-				settings: config.AWSConfig{
-					Region: "ap-southeast-2",
-				},
+			settings: config.AWSConfig{
+				Region: "ap-southeast-2",
 			},
 			want: "https://console.aws.amazon.com/cloudformation/home?region=ap-southeast-2#/stacks/changesets/changes?stackId=arn:aws:cloudformation:ap-southeast-2:123456789012:stack/test-stack/def456&changeSetId=arn:aws:cloudformation:ap-southeast-2:123456789012:changeSet/test-changeset/abc123",
 		},
-		{
-			name: "Generate URL for us-east-1",
-			fields: fields{
+		"generate URL for us-east-1": {
+			changeset: &ChangesetInfo{
 				ID:      "arn:aws:cloudformation:us-east-1:123456789012:changeSet/test-changeset/abc123",
 				StackID: "arn:aws:cloudformation:us-east-1:123456789012:stack/test-stack/def456",
 			},
-			args: args{
-				settings: config.AWSConfig{
-					Region: "us-east-1",
-				},
+			settings: config.AWSConfig{
+				Region: "us-east-1",
 			},
 			want: "https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/changesets/changes?stackId=arn:aws:cloudformation:us-east-1:123456789012:stack/test-stack/def456&changeSetId=arn:aws:cloudformation:us-east-1:123456789012:changeSet/test-changeset/abc123",
 		},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			changeset := &ChangesetInfo{
-				Changes:      tt.fields.Changes,
-				CreationTime: tt.fields.CreationTime,
-				HasModule:    tt.fields.HasModule,
-				ID:           tt.fields.ID,
-				Name:         tt.fields.Name,
-				Status:       tt.fields.Status,
-				StatusReason: tt.fields.StatusReason,
-				StackID:      tt.fields.StackID,
-				StackName:    tt.fields.StackName,
-			}
-			if got := changeset.GenerateChangesetUrl(tt.args.settings); got != tt.want {
-				t.Errorf("ChangesetInfo.GenerateChangesetUrl() = %v, want %v", got, tt.want)
-			}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			got := tc.changeset.GenerateChangesetUrl(tc.settings)
+			assert.Equal(t, tc.want, got)
 		})
 	}
 }
 
 func TestChangesetChanges_GetDangerDetails(t *testing.T) {
-	type fields struct {
-		Action      string
-		LogicalID   string
-		Replacement string
-		ResourceID  string
-		Type        string
-		Module      string
-		Details     []types.ResourceChangeDetail
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		want   []string
+	t.Helper()
+
+	tests := map[string]struct {
+		changes ChangesetChanges
+		want    []string
 	}{
-		{
-			name: "No danger details",
-			fields: fields{
+		"no danger details": {
+			changes: ChangesetChanges{
 				Action:    "Add",
 				LogicalID: "Resource1",
 				Type:      "AWS::S3::Bucket",
@@ -489,9 +355,8 @@ func TestChangesetChanges_GetDangerDetails(t *testing.T) {
 			},
 			want: []string{},
 		},
-		{
-			name: "With danger details - Always",
-			fields: fields{
+		"with danger details - Always": {
+			changes: ChangesetChanges{
 				Action:    "Modify",
 				LogicalID: "Resource1",
 				Type:      "AWS::S3::Bucket",
@@ -508,9 +373,8 @@ func TestChangesetChanges_GetDangerDetails(t *testing.T) {
 			},
 			want: []string{"Static: Properties.BucketName - BucketName"},
 		},
-		{
-			name: "With danger details - Conditional",
-			fields: fields{
+		"with danger details - Conditional": {
+			changes: ChangesetChanges{
 				Action:    "Modify",
 				LogicalID: "Resource1",
 				Type:      "AWS::S3::Bucket",
@@ -527,9 +391,8 @@ func TestChangesetChanges_GetDangerDetails(t *testing.T) {
 			},
 			want: []string{"Dynamic: Properties.Tags - Tags"},
 		},
-		{
-			name: "Multiple danger details",
-			fields: fields{
+		"multiple danger details": {
+			changes: ChangesetChanges{
 				Action:    "Modify",
 				LogicalID: "Resource1",
 				Type:      "AWS::S3::Bucket",
@@ -555,20 +418,15 @@ func TestChangesetChanges_GetDangerDetails(t *testing.T) {
 			want: []string{"Static: Properties.BucketName - BucketName"},
 		},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			changes := &ChangesetChanges{
-				Action:      tt.fields.Action,
-				LogicalID:   tt.fields.LogicalID,
-				Replacement: tt.fields.Replacement,
-				ResourceID:  tt.fields.ResourceID,
-				Type:        tt.fields.Type,
-				Module:      tt.fields.Module,
-				Details:     tt.fields.Details,
-			}
-			got := changes.GetDangerDetails()
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("ChangesetChanges.GetDangerDetails() = %v, want %v", got, tt.want)
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			got := tc.changes.GetDangerDetails()
+
+			if diff := cmp.Diff(tc.want, got); diff != "" {
+				t.Errorf("GetDangerDetails() mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}
@@ -576,37 +434,36 @@ func TestChangesetChanges_GetDangerDetails(t *testing.T) {
 
 // TestGetStackAndChangesetFromURL tests parsing of stack and changeset IDs from console URLs
 func TestGetStackAndChangesetFromURL(t *testing.T) {
-	tests := []struct {
-		name          string
+	t.Helper()
+
+	tests := map[string]struct {
 		changeseturl  string
 		region        string
 		wantStack     string
 		wantChangeset string
 	}{
-		{
-			name:          "Valid URL with escaped characters",
+		"valid URL with escaped characters": {
 			changeseturl:  "https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/changesets/changes?stackId=arn:aws:cloudformation:us-east-1:123456789012:stack/test-stack/abc123&changeSetId=arn:aws:cloudformation:us-east-1:123456789012:changeSet/test-changeset/xyz789",
 			region:        "us-east-1",
 			wantStack:     "arn:aws:cloudformation:us-east-1:123456789012:stack/test-stack/abc123",
 			wantChangeset: "arn:aws:cloudformation:us-east-1:123456789012:changeSet/test-changeset/xyz789",
 		},
-		{
-			name:          "Valid URL with URL encoding",
+		"valid URL with URL encoding": {
 			changeseturl:  "https://console.aws.amazon.com/cloudformation/home?region=ap-southeast-2#/stacks/changesets/changes?stackId=arn%3Aaws%3Acloudformation%3Aap-southeast-2%3A123456789012%3Astack%2Fmy-stack%2F12345&changeSetId=arn%3Aaws%3Acloudformation%3Aap-southeast-2%3A123456789012%3AchangeSet%2Fmy-cs%2F67890",
 			region:        "ap-southeast-2",
 			wantStack:     "arn:aws:cloudformation:ap-southeast-2:123456789012:stack/my-stack/12345",
 			wantChangeset: "arn:aws:cloudformation:ap-southeast-2:123456789012:changeSet/my-cs/67890",
 		},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			gotStack, gotChangeset := GetStackAndChangesetFromURL(tt.changeseturl, tt.region)
-			if gotStack != tt.wantStack {
-				t.Errorf("GetStackAndChangesetFromURL() gotStack = %v, want %v", gotStack, tt.wantStack)
-			}
-			if gotChangeset != tt.wantChangeset {
-				t.Errorf("GetStackAndChangesetFromURL() gotChangeset = %v, want %v", gotChangeset, tt.wantChangeset)
-			}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			gotStack, gotChangeset := GetStackAndChangesetFromURL(tc.changeseturl, tc.region)
+
+			assert.Equal(t, tc.wantStack, gotStack)
+			assert.Equal(t, tc.wantChangeset, gotChangeset)
 		})
 	}
 }

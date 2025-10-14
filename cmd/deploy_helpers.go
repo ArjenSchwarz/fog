@@ -9,6 +9,7 @@ import (
 	"github.com/ArjenSchwarz/fog/lib/texts"
 	format "github.com/ArjenSchwarz/go-output"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
+	"github.com/fatih/color"
 	"github.com/spf13/viper"
 	"log"
 )
@@ -52,9 +53,8 @@ func prepareDeployment() (lib.DeployInfo, config.AWSConfig, error) {
 	cfnClient := getCfnClient(awsCfg)
 	deployment.IsNew = deployment.IsNewStack(cfnClient)
 	if !deployment.IsNew {
-		if ready, status := deployment.IsReadyForUpdate(cfnClient); !ready {
-			msg := fmt.Sprintf("The stack '%v' is currently in status %v and can't be updated", deployFlags.StackName, status)
-			return lib.DeployInfo{}, config.AWSConfig{}, fmt.Errorf("%s", msg)
+		if err := validateStackReadiness(deployFlags.StackName, cfnClient); err != nil {
+			return lib.DeployInfo{}, config.AWSConfig{}, err
 		}
 	}
 	deployment.IsDryRun = deployFlags.Dryrun
@@ -88,7 +88,7 @@ func prepareDeployment() (lib.DeployInfo, config.AWSConfig, error) {
 // runPrechecks executes all prechecks for the deployment and updates
 // the deployment log accordingly. The collected output is returned so
 // the caller can decide how to display it.
-func runPrechecks(info *lib.DeployInfo, cfg config.AWSConfig, logObj *lib.DeploymentLog) string {
+func runPrechecks(info *lib.DeployInfo, logObj *lib.DeploymentLog) string {
 	commands := viper.GetStringSlice("templates.prechecks")
 	if len(commands) == 0 {
 		return ""
@@ -185,7 +185,7 @@ func printDeploymentResults(info *lib.DeployInfo, cfg config.AWSConfig, logObj *
 				if outputresult.Description != nil {
 					description = *outputresult.Description
 				}
-				content := make(map[string]interface{})
+				content := make(map[string]any)
 				content["Key"] = *outputresult.OutputKey
 				content["Value"] = *outputresult.OutputValue
 				content["Description"] = description
@@ -200,8 +200,43 @@ func printDeploymentResults(info *lib.DeployInfo, cfg config.AWSConfig, logObj *
 		failures := showFailedEventsFunc(*info, cfg)
 		logObj.Failed(failures)
 		if info.IsNew {
-			//double verify that the stack can be deleted
+			// double verify that the stack can be deleted
 			deleteStackIfNewFunc(*info, cfg)
 		}
 	}
+}
+
+// validateStackReadiness checks if an existing stack is ready for updates.
+// Returns an error if the stack is in a non-updateable state.
+func validateStackReadiness(stackName string, client lib.CloudFormationDescribeStacksAPI) error {
+	deployment := lib.DeployInfo{StackName: stackName}
+	if ready, status := deployment.IsReadyForUpdate(client); !ready {
+		return fmt.Errorf("the stack '%v' is currently in status %v and can't be updated", stackName, status)
+	}
+	return nil
+}
+
+// formatAccountDisplay formats account information with optional alias.
+// Returns "alias (accountID)" if alias is present, otherwise just "accountID".
+func formatAccountDisplay(accountID string, accountAlias string) string {
+	if accountAlias != "" {
+		return fmt.Sprintf("%v (%v)", accountAlias, accountID)
+	}
+	return accountID
+}
+
+// determineDeploymentMethod returns the deployment method description
+// based on whether this is a new stack and if it's a dry run.
+func determineDeploymentMethod(isNew bool, isDryrun bool) string {
+	bold := color.New(color.Bold).SprintFunc()
+	if isNew {
+		if isDryrun {
+			return fmt.Sprintf("Doing a %v for", bold("dry run"))
+		}
+		return "Deploying"
+	}
+	if isDryrun {
+		return fmt.Sprintf("Doing a %v for updating", bold("dry run"))
+	}
+	return "Updating"
 }

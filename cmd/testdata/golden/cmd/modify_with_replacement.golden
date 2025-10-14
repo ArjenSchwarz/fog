@@ -1,0 +1,6 @@
+Action: Modify
+LogicalResourceId: DatabaseInstance
+ResourceType: AWS::RDS::DBInstance
+Replacement: True
+PhysicalResourceId: db-instance-123
+

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/spf13/viper"
@@ -53,12 +54,7 @@ func unique(stringSlice []string) []string {
 
 // stringInSlice checks if a string exists in a slice
 func stringInSlice(a string, list []string) bool {
-	for _, b := range list {
-		if b == a {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(list, a)
 }
 
 func stringValueInMap(a string, list map[string]string) bool {
@@ -71,7 +67,7 @@ func stringValueInMap(a string, list map[string]string) bool {
 }
 
 // addToField increases the integer value of the field by the provided value
-func addToField(field *map[string]interface{}, key string, value int) {
+func addToField(field *map[string]any, key string, value int) {
 	(*field)[key] = (*field)[key].(int) + value
 }
 

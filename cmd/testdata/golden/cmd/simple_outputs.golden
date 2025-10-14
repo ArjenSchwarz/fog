@@ -1,0 +1,6 @@
+Key: VpcId
+Value: vpc-12345678
+
+Key: SubnetId
+Value: subnet-87654321
+

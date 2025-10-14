@@ -1,0 +1,16 @@
+{
+  "region": "us-east-1",
+  "profile": "production",
+  "output": "json",
+  "output-file": "output.json",
+  "output-file-format": "json",
+  "table": {
+    "style": "simple",
+    "max-column-width": 100
+  },
+  "timezone": "America/New_York",
+  "templates": {
+    "directory": "./templates",
+    "validate": true
+  }
+}
