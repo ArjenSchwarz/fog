@@ -2,6 +2,19 @@ Unreleased
 ===========
 
 ### Added
+- Enhanced error handling in GetTransitGatewayRouteTableRoutes with AWS API error type assertions
+- Context timeout handling (30 seconds) for Transit Gateway route retrieval API calls
+- State filters for SearchTransitGatewayRoutes API (active and blackhole states only)
+- Specific error handling for InvalidRouteTableID.NotFound and UnauthorizedOperation AWS errors
+- Additional test cases for AWS error scenarios (InvalidRouteTableID.NotFound, UnauthorizedOperation, context timeout)
+- Context validation test to ensure proper context passing
+
+### Changed
+- Updated GetTransitGatewayRouteTableRoutes to use context.WithTimeout for API call protection
+- Enhanced GetTransitGatewayRouteTableRoutes with errors.As for smithy.APIError type assertions
+- Improved error messages with specific context (route table ID, timeout duration, IAM permissions)
+
+### Added
 - Unit tests for Transit Gateway route table helper functions in lib/tgw_routetables_test.go
 - TestGetTGWRouteDestination with tests for CIDR block extraction, prefix list extraction, nil handling, and precedence
 - TestGetTGWRouteTarget with tests for attachment ID extraction, blackhole state handling, empty array handling, nil pointer handling, and ECMP behavior

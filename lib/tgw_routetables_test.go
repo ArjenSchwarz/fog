@@ -8,6 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"github.com/aws/smithy-go"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 )
@@ -216,6 +217,51 @@ func TestGetTransitGatewayRouteTableRoutes(t *testing.T) {
 				svc: mockEC2SearchTransitGatewayRoutesAPI(func(ctx context.Context, params *ec2.SearchTransitGatewayRoutesInput, optFns ...func(*ec2.Options)) (*ec2.SearchTransitGatewayRoutesOutput, error) {
 					if params.TransitGatewayRouteTableId == nil || *params.TransitGatewayRouteTableId != "tgw-rtb-specific" {
 						return nil, errors.New("incorrect route table ID")
+					}
+					return &ec2.SearchTransitGatewayRoutesOutput{
+						Routes: []types.TransitGatewayRoute{},
+					}, nil
+				}),
+			},
+			want:    []types.TransitGatewayRoute{},
+			wantErr: false,
+		},
+		"Error - InvalidRouteTableID.NotFound": {
+			args: args{
+				routeTableId: "tgw-rtb-notfound",
+				svc: mockEC2SearchTransitGatewayRoutesAPI(func(ctx context.Context, params *ec2.SearchTransitGatewayRoutesInput, optFns ...func(*ec2.Options)) (*ec2.SearchTransitGatewayRoutesOutput, error) {
+					return nil, &smithy.GenericAPIError{Code: "InvalidRouteTableID.NotFound", Message: "route table not found"}
+				}),
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		"Error - UnauthorizedOperation": {
+			args: args{
+				routeTableId: "tgw-rtb-unauthorized",
+				svc: mockEC2SearchTransitGatewayRoutesAPI(func(ctx context.Context, params *ec2.SearchTransitGatewayRoutesInput, optFns ...func(*ec2.Options)) (*ec2.SearchTransitGatewayRoutesOutput, error) {
+					return nil, &smithy.GenericAPIError{Code: "UnauthorizedOperation", Message: "insufficient IAM permissions"}
+				}),
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		"Error - context timeout": {
+			args: args{
+				routeTableId: "tgw-rtb-timeout",
+				svc: mockEC2SearchTransitGatewayRoutesAPI(func(ctx context.Context, params *ec2.SearchTransitGatewayRoutesInput, optFns ...func(*ec2.Options)) (*ec2.SearchTransitGatewayRoutesOutput, error) {
+					return nil, context.DeadlineExceeded
+				}),
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		"Verify context is passed and not nil": {
+			args: args{
+				routeTableId: "tgw-rtb-context",
+				svc: mockEC2SearchTransitGatewayRoutesAPI(func(ctx context.Context, params *ec2.SearchTransitGatewayRoutesInput, optFns ...func(*ec2.Options)) (*ec2.SearchTransitGatewayRoutesOutput, error) {
+					if ctx == nil {
+						return nil, errors.New("context must not be nil")
 					}
 					return &ec2.SearchTransitGatewayRoutesOutput{
 						Routes: []types.TransitGatewayRoute{},

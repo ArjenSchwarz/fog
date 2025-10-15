@@ -62,7 +62,7 @@ references:
 
 ## Core Functions - AWS API Integration
 
-- [ ] 7. Write unit tests for GetTransitGatewayRouteTableRoutes
+- [x] 7. Write unit tests for GetTransitGatewayRouteTableRoutes
   - Create mock EC2SearchTransitGatewayRoutesAPI implementation
   - Test successful route retrieval with multiple routes
   - Test error handling with type assertions (InvalidRouteTableID.NotFound, UnauthorizedOperation)
@@ -72,7 +72,7 @@ references:
   - Requirements: [3.1](requirements.md#3.1), [3.2](requirements.md#3.2), [3.3](requirements.md#3.3), [10.3](requirements.md#10.3), [10.9](requirements.md#10.9)
   - References: lib/ec2_test.go
 
-- [ ] 8. Implement GetTransitGatewayRouteTableRoutes function
+- [x] 8. Implement GetTransitGatewayRouteTableRoutes function
   - Add context.WithTimeout wrapping the passed context
   - Build SearchTransitGatewayRoutesInput with route table ID and state filters
   - Call API with context
