@@ -20,6 +20,12 @@ Unreleased
 - Specific error handling for InvalidRouteTableID.NotFound and UnauthorizedOperation AWS errors
 - Additional test cases for AWS error scenarios (InvalidRouteTableID.NotFound, UnauthorizedOperation, context timeout)
 - Context validation test to ensure proper context passing
+- Integration tests for Transit Gateway drift detection (cmd/drift_integration_test.go) covering end-to-end workflows, propagated route filtering, transient state filtering, --separate-properties flag behavior, and empty route table handling
+- TestTransitGatewayDrift_LibraryFunctions validating drift detection logic using lib functions with table-driven tests for unmanaged, removed, modified, and identical routes
+- TestTransitGatewayDrift_PropagatedRoutesFiltered ensuring propagated routes are excluded from drift detection
+- TestTransitGatewayDrift_TransientStatesFiltered verifying routes in pending, deleting, and deleted states are filtered out
+- TestTransitGatewayDrift_SeparatePropertiesFlag testing both enabled and disabled states of the --separate-properties flag
+- TestTransitGatewayDrift_EmptyRouteTable verifying handling of route tables with no routes
 
 ### Changed
 - Updated separateSpecialCases function to extract Transit Gateway route tables from drift results
