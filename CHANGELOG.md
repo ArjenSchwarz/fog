@@ -9,6 +9,7 @@ Unreleased
 - Detection of unmanaged Transit Gateway routes (in AWS but not in template)
 - Detection of removed Transit Gateway routes (in template but not in AWS)
 - Filtering of propagated routes and transient states in Transit Gateway drift detection
+- Testing documentation (specs/transit-gateway-drift/TESTING_NOTE.md) explaining test architecture decisions for Transit Gateway drift detection
 - Transit Gateway route comparison function (CompareTGWRoutes) with support for blackhole ignore lists
 - Unit tests for CompareTGWRoutes covering identical routes, different fields, state mismatches, and blackhole ignore list handling
 - Transit Gateway route template parsing functions (TGWRouteResourceToTGWRoute, FilterTGWRoutesByLogicalId)

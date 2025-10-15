@@ -206,7 +206,7 @@ references:
 
 ## Command Testing
 
-- [ ] 19. Write unit tests for checkTransitGatewayRouteTableRoutes
+- [x] 19. Write unit tests for checkTransitGatewayRouteTableRoutes
   - Create cmd/drift_test.go tests for the function
   - Mock AWS API responses
   - Test unmanaged route detection (AWS has route not in template)
