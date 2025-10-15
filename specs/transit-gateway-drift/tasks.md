@@ -25,7 +25,7 @@ references:
 
 ## Core Functions - Route Helpers
 
-- [ ] 3. Write unit tests for GetTGWRouteDestination
+- [x] 3. Write unit tests for GetTGWRouteDestination
   - Create lib/tgw_routetables_test.go
   - Test extraction of DestinationCidrBlock
   - Test extraction of PrefixListId when CIDR is nil
@@ -34,7 +34,7 @@ references:
   - Requirements: [3.4](requirements.md#3.4), [5.1](requirements.md#5.1)
   - References: lib/ec2_test.go
 
-- [ ] 4. Implement GetTGWRouteDestination function
+- [x] 4. Implement GetTGWRouteDestination function
   - Implement function in lib/tgw_routetables.go
   - Return DestinationCidrBlock if present
   - Return PrefixListId if CIDR is nil
@@ -42,7 +42,7 @@ references:
   - Run tests to verify implementation
   - Requirements: [3.4](requirements.md#3.4), [5.1](requirements.md#5.1)
 
-- [ ] 5. Write unit tests for GetTGWRouteTarget
+- [x] 5. Write unit tests for GetTGWRouteTarget
   - Test extraction of attachment ID from first attachment
   - Test blackhole state returns 'blackhole'
   - Test empty TransitGatewayAttachments array returns empty string
@@ -51,7 +51,7 @@ references:
   - Requirements: [3.5](requirements.md#3.5), [3.6](requirements.md#3.6), [5.2](requirements.md#5.2), [10.8](requirements.md#10.8)
   - References: lib/tgw_routetables_test.go
 
-- [ ] 6. Implement GetTGWRouteTarget function
+- [x] 6. Implement GetTGWRouteTarget function
   - Implement function in lib/tgw_routetables.go
   - Check if State is blackhole, return 'blackhole'
   - Validate TransitGatewayAttachments array length

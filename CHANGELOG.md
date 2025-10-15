@@ -2,6 +2,14 @@ Unreleased
 ===========
 
 ### Added
+- Unit tests for Transit Gateway route table helper functions in lib/tgw_routetables_test.go
+- TestGetTGWRouteDestination with tests for CIDR block extraction, prefix list extraction, nil handling, and precedence
+- TestGetTGWRouteTarget with tests for attachment ID extraction, blackhole state handling, empty array handling, nil pointer handling, and ECMP behavior
+- TestGetTransitGatewayRouteTableRoutes with tests for successful retrieval, empty tables, API errors, and parameter validation
+- Godoc comments for all Transit Gateway test functions following Go documentation standards
+- Mock EC2SearchTransitGatewayRoutesAPI implementation for isolated unit testing
+
+### Added
 - AWS SDK interface for Transit Gateway route table operations (EC2SearchTransitGatewayRoutesAPI)
 - Core Transit Gateway route table helper functions in lib/tgw_routetables.go
 - GetTransitGatewayRouteTableRoutes function for retrieving routes from AWS
