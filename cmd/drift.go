@@ -23,6 +23,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -83,7 +84,7 @@ func detectDrift(cmd *cobra.Command, args []string) {
 		lib.WaitForDriftDetectionToFinish(driftid, awsConfig.CloudformationClient())
 	}
 	defaultDrift := lib.GetDefaultStackDrift(&driftFlags.StackName, svc)
-	naclResources, routetableResources, logicalToPhysical := separateSpecialCases(defaultDrift)
+	naclResources, routetableResources, tgwRouteTableResources, logicalToPhysical := separateSpecialCases(defaultDrift)
 	checkedResources := []string{}
 	stack, err := lib.GetStack(&driftFlags.StackName, svc)
 	if err != nil {
@@ -171,6 +172,7 @@ func detectDrift(cmd *cobra.Command, args []string) {
 	template := lib.GetTemplateBody(&driftFlags.StackName, params, svc)
 	checkNaclEntries(naclResources, template, stack.Parameters, &output, awsConfig)
 	checkRouteTableRoutes(routetableResources, template, stack.Parameters, logicalToPhysical, &output, awsConfig)
+	checkTransitGatewayRouteTableRoutes(tgwRouteTableResources, template, stack.Parameters, logicalToPhysical, &output, awsConfig)
 	for _, resourcetype := range settings.GetStringSlice("drift.detect-unmanaged-resources") {
 		allresources, err := lib.ListAllResources(resourcetype, awsConfig.CloudControlClient(), awsConfig.SSOAdminClient(), awsConfig.OrganizationsClient())
 		if err != nil {
@@ -181,9 +183,10 @@ func detectDrift(cmd *cobra.Command, args []string) {
 	output.Write()
 }
 
-func separateSpecialCases(defaultDrift []types.StackResourceDrift) (map[string]string, map[string]string, map[string]string) {
+func separateSpecialCases(defaultDrift []types.StackResourceDrift) (map[string]string, map[string]string, map[string]string, map[string]string) {
 	naclResources := make(map[string]string)
 	routetableResources := make(map[string]string)
+	tgwRouteTableResources := make(map[string]string)
 	logicalToPhysical := make(map[string]string)
 	for _, drift := range defaultDrift {
 		logicalToPhysical[*drift.LogicalResourceId] = *drift.PhysicalResourceId
@@ -192,9 +195,11 @@ func separateSpecialCases(defaultDrift []types.StackResourceDrift) (map[string]s
 			naclResources[*drift.LogicalResourceId] = *drift.PhysicalResourceId
 		case "AWS::EC2::RouteTable":
 			routetableResources[*drift.LogicalResourceId] = *drift.PhysicalResourceId
+		case "AWS::EC2::TransitGatewayRouteTable":
+			tgwRouteTableResources[*drift.LogicalResourceId] = *drift.PhysicalResourceId
 		}
 	}
-	return naclResources, routetableResources, logicalToPhysical
+	return naclResources, routetableResources, tgwRouteTableResources, logicalToPhysical
 }
 
 func checkIfResourcesAreManaged(allresources map[string]string, logicalToPhysical map[string]string, output *format.OutputArray) {
@@ -340,6 +345,83 @@ func checkRouteTableRoutes(routetableResources map[string]string, template lib.C
 				content := make(map[string]any)
 				content["LogicalId"] = fmt.Sprintf("Routes for RouteTable %s", logicalId)
 				content["Type"] = "AWS::EC2::Route"
+				content["ChangeType"] = string(types.StackResourceDriftStatusModified)
+				content["Details"] = rulechanges
+				output.AddContents(content)
+			}
+		}
+	}
+}
+
+// checkTransitGatewayRouteTableRoutes verifies Transit Gateway routes and if there are differences adds those to the provided output array
+func checkTransitGatewayRouteTableRoutes(tgwRouteTableResources map[string]string, template lib.CfnTemplateBody, parameters []types.Parameter, logicalToPhysical map[string]string, output *format.OutputArray, awsConfig config.AWSConfig) {
+	// Iterate through each Transit Gateway route table
+	for logicalId, physicalId := range tgwRouteTableResources {
+		rulechanges := []string{}
+
+		// Call lib.GetTransitGatewayRouteTableRoutes with context
+		routes, err := lib.GetTransitGatewayRouteTableRoutes(context.TODO(), physicalId, awsConfig.EC2Client())
+		if err != nil {
+			failWithError(err)
+		}
+
+		// Get template routes using lib.FilterTGWRoutesByLogicalId
+		attachedRules := lib.FilterTGWRoutesByLogicalId(logicalId, template, parameters, logicalToPhysical)
+
+		// Compare AWS routes vs template routes
+		for _, route := range routes {
+			// Filter out propagated routes (Type == propagated)
+			if route.Type == ec2types.TransitGatewayRouteTypePropagated {
+				continue
+			}
+
+			// Filter out routes in transient states (not active or blackhole)
+			if route.State != ec2types.TransitGatewayRouteStateActive && route.State != ec2types.TransitGatewayRouteStateBlackhole {
+				continue
+			}
+
+			ruleid := lib.GetTGWRouteDestination(route)
+
+			// Check if route exists in template
+			if cfnroute, ok := attachedRules[ruleid]; ok {
+				// Route exists in both - compare them
+				if !lib.CompareTGWRoutes(route, cfnroute, settings.GetStringSlice("drift.ignore-blackholes")) {
+					ruledetails := fmt.Sprintf("Expected: %s%sActual: %s", tgwRouteToString(cfnroute), outputsettings.GetSeparator(), tgwRouteToString(route))
+					rulechanges = append(rulechanges, ruledetails)
+				}
+				delete(attachedRules, ruleid)
+			} else {
+				// Unmanaged route (in AWS, not in template)
+				ruledetails := fmt.Sprintf("Unmanaged route: %s", tgwRouteToString(route))
+				rulechanges = append(rulechanges, outputsettings.StringPositiveInline(ruledetails))
+			}
+		}
+
+		// Leftover rules only exist in CloudFormation (removed routes)
+		for routeid, cfnroute := range attachedRules {
+			// Skip routes with empty destination (condition handling)
+			if routeid == "" {
+				continue
+			}
+			ruledetails := fmt.Sprintf("Removed route: %s", tgwRouteToString(cfnroute))
+			rulechanges = append(rulechanges, outputsettings.StringWarningInline(ruledetails))
+		}
+
+		// Build drift output entries if there are changes
+		if len(rulechanges) != 0 {
+			if driftFlags.SeparateProperties {
+				for _, change := range rulechanges {
+					content := make(map[string]any)
+					content["LogicalId"] = fmt.Sprintf("Route for TransitGatewayRouteTable %s", logicalId)
+					content["Type"] = "AWS::EC2::TransitGatewayRoute"
+					content["ChangeType"] = string(types.StackResourceDriftStatusModified)
+					content["Details"] = change
+					output.AddContents(content)
+				}
+			} else {
+				content := make(map[string]any)
+				content["LogicalId"] = fmt.Sprintf("Routes for TransitGatewayRouteTable %s", logicalId)
+				content["Type"] = "AWS::EC2::TransitGatewayRoute"
 				content["ChangeType"] = string(types.StackResourceDriftStatusModified)
 				content["Details"] = rulechanges
 				output.AddContents(content)
@@ -530,4 +612,14 @@ func routeToString(route ec2types.Route) string {
 		status = fmt.Sprintf(" (%s)", string(route.State))
 	}
 	return fmt.Sprintf("%s: %s %s", destination, target, status)
+}
+
+func tgwRouteToString(route ec2types.TransitGatewayRoute) string {
+	destination := lib.GetTGWRouteDestination(route)
+	target := lib.GetTGWRouteTarget(route)
+	status := ""
+	if route.State == ec2types.TransitGatewayRouteStateBlackhole {
+		status = " (blackhole)"
+	}
+	return fmt.Sprintf("%s: %s%s", destination, target, status)
 }

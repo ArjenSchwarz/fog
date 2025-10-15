@@ -156,7 +156,7 @@ references:
 
 ## Command Integration
 
-- [ ] 15. Update separateSpecialCases function in cmd/drift.go
+- [x] 15. Update separateSpecialCases function in cmd/drift.go
   - Add case for 'AWS::EC2::TransitGatewayRouteTable' in switch statement
   - Add tgwRouteTableResources map[string]string variable
   - Store logical-to-physical mapping for TGW route tables
@@ -166,7 +166,7 @@ references:
   - Requirements: [1.1](requirements.md#1.1), [1.2](requirements.md#1.2), [1.3](requirements.md#1.3)
   - References: cmd/drift.go
 
-- [ ] 16. Implement tgwRouteToString formatter function in cmd/drift.go
+- [x] 16. Implement tgwRouteToString formatter function in cmd/drift.go
   - Create function following pattern of routeToString
   - Call lib.GetTGWRouteDestination for destination
   - Call lib.GetTGWRouteTarget for target
@@ -176,7 +176,7 @@ references:
   - Requirements: [7.1](requirements.md#7.1), [7.2](requirements.md#7.2), [7.3](requirements.md#7.3), [7.4](requirements.md#7.4), [7.5](requirements.md#7.5), [7.6](requirements.md#7.6), [7.7](requirements.md#7.7), [7.8](requirements.md#7.8)
   - References: cmd/drift.go
 
-- [ ] 17. Implement checkTransitGatewayRouteTableRoutes function in cmd/drift.go
+- [x] 17. Implement checkTransitGatewayRouteTableRoutes function in cmd/drift.go
   - Create function with signature matching design (tgwRouteTableResources, template, parameters, logicalToPhysical, output, awsConfig)
   - Iterate through each Transit Gateway route table
   - Call lib.GetTransitGatewayRouteTableRoutes with context
@@ -194,7 +194,7 @@ references:
   - Requirements: [4.1](requirements.md#4.1), [4.2](requirements.md#4.2), [4.3](requirements.md#4.3), [5.2](requirements.md#5.2), [5.3](requirements.md#5.3), [5.4](requirements.md#5.4), [5.5](requirements.md#5.5), [5.6](requirements.md#5.6), [5.7](requirements.md#5.7), [5.9](requirements.md#5.9), [6.1](requirements.md#6.1), [6.2](requirements.md#6.2), [6.3](requirements.md#6.3), [6.4](requirements.md#6.4), [6.5](requirements.md#6.5), [6.6](requirements.md#6.6), [6.7](requirements.md#6.7), [6.8](requirements.md#6.8), [6.9](requirements.md#6.9), [6.10](requirements.md#6.10), [8.3](requirements.md#8.3)
   - References: cmd/drift.go
 
-- [ ] 18. Integrate checkTransitGatewayRouteTableRoutes into drift detection flow
+- [x] 18. Integrate checkTransitGatewayRouteTableRoutes into drift detection flow
   - Update detectDrift function in cmd/drift.go
   - Add call to checkTransitGatewayRouteTableRoutes after checkRouteTableRoutes
   - Pass tgwRouteTableResources from separateSpecialCases

@@ -2,6 +2,13 @@ Unreleased
 ===========
 
 ### Added
+- Transit Gateway drift detection command integration in cmd/drift.go
+- checkTransitGatewayRouteTableRoutes function for detecting Transit Gateway route drift
+- tgwRouteToString formatter function for displaying Transit Gateway route information
+- Support for --separate-properties flag in Transit Gateway drift output
+- Detection of unmanaged Transit Gateway routes (in AWS but not in template)
+- Detection of removed Transit Gateway routes (in template but not in AWS)
+- Filtering of propagated routes and transient states in Transit Gateway drift detection
 - Transit Gateway route comparison function (CompareTGWRoutes) with support for blackhole ignore lists
 - Unit tests for CompareTGWRoutes covering identical routes, different fields, state mismatches, and blackhole ignore list handling
 - Transit Gateway route template parsing functions (TGWRouteResourceToTGWRoute, FilterTGWRoutesByLogicalId)
@@ -14,6 +21,9 @@ Unreleased
 - Context validation test to ensure proper context passing
 
 ### Changed
+- Updated separateSpecialCases function to extract Transit Gateway route tables from drift results
+- Extended drift detection flow to include Transit Gateway route table verification
+- Added context import to cmd/drift.go for Transit Gateway API calls
 - Updated GetTransitGatewayRouteTableRoutes to use context.WithTimeout for API call protection
 - Enhanced GetTransitGatewayRouteTableRoutes with errors.As for smithy.APIError type assertions
 - Improved error messages with specific context (route table ID, timeout duration, IAM permissions)
