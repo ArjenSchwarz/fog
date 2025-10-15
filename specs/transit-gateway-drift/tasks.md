@@ -222,7 +222,7 @@ references:
 
 ## Integration Testing
 
-- [ ] 20. Write integration test for end-to-end Transit Gateway drift detection
+- [x] 20. Write integration test for end-to-end Transit Gateway drift detection
   - Create test with //go:build integration tag
   - Create complete drift scenario with CloudFormation stack mock
   - Mock EC2 API responses for SearchTransitGatewayRoutes
@@ -233,7 +233,7 @@ references:
   - Requirements: [11.6](requirements.md#11.6)
   - References: cmd/drift_integration_test.go
 
-- [ ] 21. Write integration test for propagated routes handling
+- [x] 21. Write integration test for propagated routes handling
   - Create test with //go:build integration tag
   - Mock API response with mix of static and propagated routes
   - Verify only static routes are compared
@@ -242,7 +242,7 @@ references:
   - Requirements: [4.1](requirements.md#4.1), [4.2](requirements.md#4.2), [4.3](requirements.md#4.3), [10.2](requirements.md#10.2)
   - References: cmd/drift_integration_test.go
 
-- [ ] 22. Write integration test for prefix list handling
+- [x] 22. Write integration test for prefix list handling
   - Create test with //go:build integration tag
   - Mock template with prefix list route
   - Mock API response with prefix list route
@@ -251,7 +251,7 @@ references:
   - Requirements: [2.4](requirements.md#2.4), [4.4](requirements.md#4.4)
   - References: cmd/drift_integration_test.go
 
-- [ ] 23. Write integration test for ECMP routes
+- [x] 23. Write integration test for ECMP routes
   - Create test with //go:build integration tag
   - Mock route with multiple attachments
   - Verify only first attachment is compared
@@ -261,7 +261,7 @@ references:
 
 ## Code Quality
 
-- [ ] 24. Run go fmt on all modified files
+- [x] 24. Run go fmt on all modified files
   - Run go fmt on lib/tgw_routetables.go
   - Run go fmt on lib/tgw_routetables_test.go
   - Run go fmt on lib/interfaces.go
@@ -270,7 +270,7 @@ references:
   - Verify no formatting issues
   - Requirements: [11.8](requirements.md#11.8)
 
-- [ ] 25. Run all unit tests
+- [x] 25. Run all unit tests
   - Run go test ./lib -v
   - Run go test ./cmd -v
   - Verify all tests pass
@@ -278,14 +278,14 @@ references:
   - Ensure no regressions in existing tests
   - Requirements: [11.5](requirements.md#11.5), [11.8](requirements.md#11.8)
 
-- [ ] 26. Run integration tests
+- [x] 26. Run integration tests
   - Run INTEGRATION=1 go test ./cmd -v
   - Verify all integration tests pass
   - Test Transit Gateway-specific scenarios
   - Ensure existing drift detection still works
   - Requirements: [11.6](requirements.md#11.6), [11.8](requirements.md#11.8)
 
-- [ ] 27. Run linter validation
+- [x] 27. Run linter validation
   - Run golangci-lint run on modified files
   - Fix any linting issues
   - Ensure code follows Go best practices
