@@ -133,7 +133,7 @@ references:
 
 ## Route Comparison Logic
 
-- [ ] 13. Write unit tests for CompareTGWRoutes
+- [x] 13. Write unit tests for CompareTGWRoutes
   - Test comparing identical routes (should return true)
   - Test routes with different DestinationCidrBlock (should return false)
   - Test routes with different PrefixListId (should return false)
@@ -144,7 +144,7 @@ references:
   - Requirements: [5.1](requirements.md#5.1), [5.6](requirements.md#5.6), [5.7](requirements.md#5.7), [5.8](requirements.md#5.8)
   - References: lib/ec2_test.go
 
-- [ ] 14. Implement CompareTGWRoutes function
+- [x] 14. Implement CompareTGWRoutes function
   - Compare DestinationCidrBlock using stringPointerValueMatch helper
   - Compare PrefixListId using stringPointerValueMatch helper
   - Extract and compare attachment IDs from TransitGatewayAttachments[0]

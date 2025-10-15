@@ -2,6 +2,8 @@ Unreleased
 ===========
 
 ### Added
+- Transit Gateway route comparison function (CompareTGWRoutes) with support for blackhole ignore lists
+- Unit tests for CompareTGWRoutes covering identical routes, different fields, state mismatches, and blackhole ignore list handling
 - Transit Gateway route template parsing functions (TGWRouteResourceToTGWRoute, FilterTGWRoutesByLogicalId)
 - Unit tests for Transit Gateway route template parsing with tests for resource conversion and filtering
 - Enhanced error handling in GetTransitGatewayRouteTableRoutes with AWS API error type assertions

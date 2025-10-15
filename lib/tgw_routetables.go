@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -123,6 +124,44 @@ func TGWRouteResourceToTGWRoute(resource CfnTemplateResource, params []cfntypes.
 	}
 
 	return result
+}
+
+// CompareTGWRoutes compares two Transit Gateway routes for equality
+func CompareTGWRoutes(route1 types.TransitGatewayRoute, route2 types.TransitGatewayRoute, blackholeIgnore []string) bool {
+	// Compare DestinationCidrBlock
+	if !stringPointerValueMatch(route1.DestinationCidrBlock, route2.DestinationCidrBlock) {
+		return false
+	}
+
+	// Compare PrefixListId
+	if !stringPointerValueMatch(route1.PrefixListId, route2.PrefixListId) {
+		return false
+	}
+
+	// Extract and compare attachment IDs from TransitGatewayAttachments[0]
+	attachment1 := ""
+	if len(route1.TransitGatewayAttachments) > 0 && route1.TransitGatewayAttachments[0].TransitGatewayAttachmentId != nil {
+		attachment1 = *route1.TransitGatewayAttachments[0].TransitGatewayAttachmentId
+	}
+	attachment2 := ""
+	if len(route2.TransitGatewayAttachments) > 0 && route2.TransitGatewayAttachments[0].TransitGatewayAttachmentId != nil {
+		attachment2 = *route2.TransitGatewayAttachments[0].TransitGatewayAttachmentId
+	}
+
+	if attachment1 != attachment2 {
+		return false
+	}
+
+	// Compare State fields with blackhole ignore list handling
+	if string(route1.State) != string(route2.State) {
+		// If route1 is blackhole and attachment is in ignore list, consider it a match
+		if route1.State == types.TransitGatewayRouteStateBlackhole && attachment1 != "" && slices.Contains(blackholeIgnore, attachment1) {
+			return true
+		}
+		return false
+	}
+
+	return true
 }
 
 // FilterTGWRoutesByLogicalId filters Transit Gateway routes from a template by logical route table ID
