@@ -2,6 +2,13 @@ Unreleased
 ===========
 
 ### Added
+- AWS SDK interface for Transit Gateway route table operations (EC2SearchTransitGatewayRoutesAPI)
+- Core Transit Gateway route table helper functions in lib/tgw_routetables.go
+- GetTransitGatewayRouteTableRoutes function for retrieving routes from AWS
+- GetTGWRouteDestination function for extracting route destination identifiers
+- GetTGWRouteTarget function for extracting route target identifiers with ECMP support
+
+### Added
 - Transit Gateway drift detection specification including requirements, design, tasks, and decision log
 - Requirements document defining 11 requirement categories covering Transit Gateway route table detection, template parsing, AWS API integration, route comparison, output formatting, and error handling
 - Design document specifying technical architecture, component interfaces, data models, testing strategy, performance considerations, and known limitations for Transit Gateway drift detection

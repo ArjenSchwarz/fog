@@ -8,14 +8,14 @@ references:
 
 ## Foundation - Interfaces and Types
 
-- [ ] 1. Add AWS SDK Interface for SearchTransitGatewayRoutes
+- [x] 1. Add AWS SDK Interface for SearchTransitGatewayRoutes
   - Add EC2SearchTransitGatewayRoutesAPI interface to lib/interfaces.go
   - Follow existing pattern from EC2DescribeRouteTablesAPI
   - Include SearchTransitGatewayRoutes method signature with context, params, and options
   - Requirements: [3.2](requirements.md#3.2)
   - References: lib/interfaces.go
 
-- [ ] 2. Create lib/tgw_routetables.go with basic structure
+- [x] 2. Create lib/tgw_routetables.go with basic structure
   - Create new file lib/tgw_routetables.go
   - Add package declaration and imports
   - Add initial function stubs: GetTransitGatewayRouteTableRoutes, GetTGWRouteDestination, GetTGWRouteTarget
