@@ -85,7 +85,7 @@ references:
 
 ## Template Parsing
 
-- [ ] 9. Write unit tests for TGWRouteResourceToTGWRoute
+- [x] 9. Write unit tests for TGWRouteResourceToTGWRoute
   - Test conversion of CloudFormation resource to TransitGatewayRoute type
   - Test extraction of DestinationCidrBlock
   - Test extraction of DestinationPrefixListId
@@ -97,7 +97,7 @@ references:
   - Requirements: [2.3](requirements.md#2.3), [2.4](requirements.md#2.4), [2.5](requirements.md#2.5), [2.6](requirements.md#2.6), [2.7](requirements.md#2.7), [2.8](requirements.md#2.8)
   - References: lib/template_test.go
 
-- [ ] 10. Implement TGWRouteResourceToTGWRoute function
+- [x] 10. Implement TGWRouteResourceToTGWRoute function
   - Extract DestinationCidrBlock or DestinationPrefixListId from Properties
   - Handle string values and map[string]any (Ref) for destinations
   - Extract TransitGatewayAttachmentId, handle Ref resolution
@@ -109,7 +109,7 @@ references:
   - Run tests to verify implementation
   - Requirements: [2.3](requirements.md#2.3), [2.4](requirements.md#2.4), [2.5](requirements.md#2.5), [2.6](requirements.md#2.6), [2.7](requirements.md#2.7), [2.8](requirements.md#2.8), [2.9](requirements.md#2.9)
 
-- [ ] 11. Write unit tests for FilterTGWRoutesByLogicalId
+- [x] 11. Write unit tests for FilterTGWRoutesByLogicalId
   - Test parsing template with multiple Transit Gateway routes
   - Test filtering by specific logical ID
   - Test parameter resolution
@@ -119,7 +119,7 @@ references:
   - Requirements: [2.1](requirements.md#2.1), [2.2](requirements.md#2.2), [2.7](requirements.md#2.7), [2.8](requirements.md#2.8)
   - References: lib/template_test.go
 
-- [ ] 12. Implement FilterTGWRoutesByLogicalId function
+- [x] 12. Implement FilterTGWRoutesByLogicalId function
   - Create result map[string]types.TransitGatewayRoute
   - Iterate through template.Resources
   - Filter for Type == 'AWS::EC2::TransitGatewayRoute'

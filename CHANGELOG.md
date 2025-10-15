@@ -2,6 +2,8 @@ Unreleased
 ===========
 
 ### Added
+- Transit Gateway route template parsing functions (TGWRouteResourceToTGWRoute, FilterTGWRoutesByLogicalId)
+- Unit tests for Transit Gateway route template parsing with tests for resource conversion and filtering
 - Enhanced error handling in GetTransitGatewayRouteTableRoutes with AWS API error type assertions
 - Context timeout handling (30 seconds) for Transit Gateway route retrieval API calls
 - State filters for SearchTransitGatewayRoutes API (active and blackhole states only)

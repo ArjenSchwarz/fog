@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	cfntypes "github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/smithy-go"
@@ -82,4 +84,92 @@ func GetTGWRouteTarget(route types.TransitGatewayRoute) string {
 		return *route.TransitGatewayAttachments[0].TransitGatewayAttachmentId
 	}
 	return ""
+}
+
+// TGWRouteResourceToTGWRoute converts a CloudFormation Transit Gateway route resource to a TransitGatewayRoute
+func TGWRouteResourceToTGWRoute(resource CfnTemplateResource, params []cfntypes.Parameter, logicalToPhysical map[string]string) types.TransitGatewayRoute {
+	prop := resource.Properties
+
+	// Extract destination (CIDR block or prefix list)
+	destCidr := extractStringProperty(prop, params, logicalToPhysical, "DestinationCidrBlock")
+	prefixList := extractStringProperty(prop, params, logicalToPhysical, "DestinationPrefixListId")
+
+	result := types.TransitGatewayRoute{
+		DestinationCidrBlock: destCidr,
+		PrefixListId:         prefixList,
+		Type:                 types.TransitGatewayRouteTypeStatic,
+	}
+
+	// Handle Blackhole property
+	blackhole := false
+	if prop["Blackhole"] != nil {
+		if val, ok := prop["Blackhole"].(bool); ok {
+			blackhole = val
+		}
+	}
+
+	// Set state based on Blackhole property
+	if blackhole {
+		result.State = types.TransitGatewayRouteStateBlackhole
+	} else {
+		result.State = types.TransitGatewayRouteStateActive
+		// Only set attachment if not blackhole
+		attachmentId := extractStringProperty(prop, params, logicalToPhysical, "TransitGatewayAttachmentId")
+		if attachmentId != nil && *attachmentId != "" {
+			result.TransitGatewayAttachments = []types.TransitGatewayRouteAttachment{
+				{TransitGatewayAttachmentId: attachmentId},
+			}
+		}
+	}
+
+	return result
+}
+
+// FilterTGWRoutesByLogicalId filters Transit Gateway routes from a template by logical route table ID
+func FilterTGWRoutesByLogicalId(logicalId string, template CfnTemplateBody, params []cfntypes.Parameter, logicalToPhysical map[string]string) map[string]types.TransitGatewayRoute {
+	result := make(map[string]types.TransitGatewayRoute)
+	for _, resource := range template.Resources {
+		if resource.Type == "AWS::EC2::TransitGatewayRoute" && template.ShouldHaveResource(resource) {
+			rtid := strings.Replace(resource.Properties["TransitGatewayRouteTableId"].(string), "REF: ", "", 1)
+			convresource := TGWRouteResourceToTGWRoute(resource, params, logicalToPhysical)
+			if rtid == logicalId {
+				result[GetTGWRouteDestination(convresource)] = convresource
+			}
+		}
+	}
+	return result
+}
+
+// extractStringProperty extracts a string pointer from CloudFormation properties with parameter and logical ID resolution
+func extractStringProperty(array map[string]any, params []cfntypes.Parameter, logicalToPhysical map[string]string, value string) *string {
+	if _, ok := array[value]; !ok {
+		return nil
+	}
+	result := ""
+	switch value := array[value].(type) {
+	case string:
+		refvalue := strings.Replace(value, "REF: ", "", 1)
+		if _, ok := logicalToPhysical[refvalue]; ok {
+			result = logicalToPhysical[refvalue]
+		} else {
+			result = value
+		}
+	case map[string]any:
+		refname := value["Ref"].(string)
+		if _, ok := logicalToPhysical[refname]; ok {
+			result = logicalToPhysical[refname]
+		} else {
+			for _, parameter := range params {
+				if *parameter.ParameterKey == refname {
+					if parameter.ResolvedValue != nil {
+						result = *parameter.ResolvedValue
+					} else {
+						result = *parameter.ParameterValue
+					}
+				}
+			}
+		}
+	}
+
+	return &result
 }

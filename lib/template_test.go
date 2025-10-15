@@ -528,3 +528,225 @@ func TestParseTemplateString_ParameterDefaults(t *testing.T) {
 		t.Errorf("WithoutDefault = %v, want REF: ParamNoDefault", props["WithoutDefault"])
 	}
 }
+
+// TestFilterTGWRoutesByLogicalId verifies filtering Transit Gateway routes from a template
+// by logical Transit Gateway route table ID.
+func TestFilterTGWRoutesByLogicalId(t *testing.T) {
+	params := []cfntypes.Parameter{
+		{ParameterKey: aws.String("AttachParam"), ParameterValue: aws.String("tgw-attach-param")},
+	}
+	logicalToPhysical := map[string]string{
+		"MyAttachment": "tgw-attach-logical",
+	}
+
+	template := CfnTemplateBody{
+		Resources: map[string]CfnTemplateResource{
+			"TGWRoute1": {
+				Type: "AWS::EC2::TransitGatewayRoute",
+				Properties: map[string]any{
+					"TransitGatewayRouteTableId": "REF: TestTGWRouteTable",
+					"DestinationCidrBlock":       "10.0.0.0/16",
+					"TransitGatewayAttachmentId": "tgw-attach-12345678",
+				},
+			},
+			"TGWRoute2": {
+				Type: "AWS::EC2::TransitGatewayRoute",
+				Properties: map[string]any{
+					"TransitGatewayRouteTableId": "REF: TestTGWRouteTable",
+					"DestinationPrefixListId":    "pl-12345678",
+					"TransitGatewayAttachmentId": map[string]any{"Ref": "AttachParam"},
+				},
+			},
+			"TGWRoute3": {
+				Type: "AWS::EC2::TransitGatewayRoute",
+				Properties: map[string]any{
+					"TransitGatewayRouteTableId": "REF: TestTGWRouteTable",
+					"DestinationCidrBlock":       "192.168.0.0/24",
+					"Blackhole":                  true,
+				},
+			},
+			"OtherTGWRoute": {
+				Type: "AWS::EC2::TransitGatewayRoute",
+				Properties: map[string]any{
+					"TransitGatewayRouteTableId": "REF: OtherTGWRouteTable",
+					"DestinationCidrBlock":       "172.16.0.0/12",
+					"TransitGatewayAttachmentId": "tgw-attach-other",
+				},
+			},
+		},
+		Conditions: map[string]bool{},
+	}
+
+	results := FilterTGWRoutesByLogicalId("TestTGWRouteTable", template, params, logicalToPhysical)
+
+	if len(results) != 3 {
+		t.Errorf("Expected 3 routes, got %d", len(results))
+	}
+
+	// Check that the CIDR route exists with correct attachment
+	if route, ok := results["10.0.0.0/16"]; ok {
+		if *route.DestinationCidrBlock != "10.0.0.0/16" {
+			t.Errorf("Expected destination 10.0.0.0/16, got %s", *route.DestinationCidrBlock)
+		}
+		if len(route.TransitGatewayAttachments) == 0 || *route.TransitGatewayAttachments[0].TransitGatewayAttachmentId != "tgw-attach-12345678" {
+			t.Errorf("Expected attachment tgw-attach-12345678")
+		}
+	} else {
+		t.Errorf("Expected CIDR route not found")
+	}
+
+	// Check that the prefix list route exists with parameter-resolved attachment
+	if route, ok := results["pl-12345678"]; ok {
+		if *route.PrefixListId != "pl-12345678" {
+			t.Errorf("Expected prefix list pl-12345678, got %s", *route.PrefixListId)
+		}
+		if len(route.TransitGatewayAttachments) == 0 || *route.TransitGatewayAttachments[0].TransitGatewayAttachmentId != "tgw-attach-param" {
+			t.Errorf("Expected attachment tgw-attach-param from parameter resolution")
+		}
+	} else {
+		t.Errorf("Expected prefix list route not found")
+	}
+
+	// Check that the blackhole route exists
+	if route, ok := results["192.168.0.0/24"]; ok {
+		if route.State != types.TransitGatewayRouteStateBlackhole {
+			t.Errorf("Expected blackhole state, got %s", route.State)
+		}
+		if len(route.TransitGatewayAttachments) != 0 {
+			t.Errorf("Expected no attachments for blackhole route")
+		}
+	} else {
+		t.Errorf("Expected blackhole route not found")
+	}
+
+	// Ensure the other route table's route is not included
+	if _, ok := results["172.16.0.0/12"]; ok {
+		t.Errorf("Expected OtherTGWRouteTable route not to be included")
+	}
+}
+
+// TestTGWRouteResourceToTGWRoute verifies conversion from a CloudFormation
+// Transit Gateway route resource to a TransitGatewayRoute structure.
+func TestTGWRouteResourceToTGWRoute(t *testing.T) {
+	params := []cfntypes.Parameter{
+		{ParameterKey: aws.String("AttachParam"), ParameterValue: aws.String("tgw-attach-param")},
+		{ParameterKey: aws.String("CIDRParam"), ParameterValue: aws.String("192.168.0.0/16")},
+	}
+	logicalToPhysical := map[string]string{
+		"MyAttachment": "tgw-attach-logical",
+	}
+
+	tests := []struct {
+		name     string
+		resource CfnTemplateResource
+		want     types.TransitGatewayRoute
+	}{
+		{
+			name: "CIDR block with direct attachment ID",
+			resource: CfnTemplateResource{
+				Type: "AWS::EC2::TransitGatewayRoute",
+				Properties: map[string]any{
+					"DestinationCidrBlock":       "10.0.0.0/16",
+					"TransitGatewayAttachmentId": "tgw-attach-12345678",
+				},
+			},
+			want: types.TransitGatewayRoute{
+				DestinationCidrBlock: aws.String("10.0.0.0/16"),
+				State:                types.TransitGatewayRouteStateActive,
+				Type:                 types.TransitGatewayRouteTypeStatic,
+				TransitGatewayAttachments: []types.TransitGatewayRouteAttachment{
+					{TransitGatewayAttachmentId: aws.String("tgw-attach-12345678")},
+				},
+			},
+		},
+		{
+			name: "Prefix list ID with attachment reference",
+			resource: CfnTemplateResource{
+				Type: "AWS::EC2::TransitGatewayRoute",
+				Properties: map[string]any{
+					"DestinationPrefixListId":    "pl-12345678",
+					"TransitGatewayAttachmentId": map[string]any{"Ref": "AttachParam"},
+				},
+			},
+			want: types.TransitGatewayRoute{
+				PrefixListId: aws.String("pl-12345678"),
+				State:        types.TransitGatewayRouteStateActive,
+				Type:         types.TransitGatewayRouteTypeStatic,
+				TransitGatewayAttachments: []types.TransitGatewayRouteAttachment{
+					{TransitGatewayAttachmentId: aws.String("tgw-attach-param")},
+				},
+			},
+		},
+		{
+			name: "CIDR with parameter reference",
+			resource: CfnTemplateResource{
+				Type: "AWS::EC2::TransitGatewayRoute",
+				Properties: map[string]any{
+					"DestinationCidrBlock":       map[string]any{"Ref": "CIDRParam"},
+					"TransitGatewayAttachmentId": "tgw-attach-direct",
+				},
+			},
+			want: types.TransitGatewayRoute{
+				DestinationCidrBlock: aws.String("192.168.0.0/16"),
+				State:                types.TransitGatewayRouteStateActive,
+				Type:                 types.TransitGatewayRouteTypeStatic,
+				TransitGatewayAttachments: []types.TransitGatewayRouteAttachment{
+					{TransitGatewayAttachmentId: aws.String("tgw-attach-direct")},
+				},
+			},
+		},
+		{
+			name: "Logical attachment ID resolution",
+			resource: CfnTemplateResource{
+				Type: "AWS::EC2::TransitGatewayRoute",
+				Properties: map[string]any{
+					"DestinationCidrBlock":       "172.16.0.0/12",
+					"TransitGatewayAttachmentId": "REF: MyAttachment",
+				},
+			},
+			want: types.TransitGatewayRoute{
+				DestinationCidrBlock: aws.String("172.16.0.0/12"),
+				State:                types.TransitGatewayRouteStateActive,
+				Type:                 types.TransitGatewayRouteTypeStatic,
+				TransitGatewayAttachments: []types.TransitGatewayRouteAttachment{
+					{TransitGatewayAttachmentId: aws.String("tgw-attach-logical")},
+				},
+			},
+		},
+		{
+			name: "Blackhole route",
+			resource: CfnTemplateResource{
+				Type: "AWS::EC2::TransitGatewayRoute",
+				Properties: map[string]any{
+					"DestinationCidrBlock": "0.0.0.0/0",
+					"Blackhole":            true,
+				},
+			},
+			want: types.TransitGatewayRoute{
+				DestinationCidrBlock: aws.String("0.0.0.0/0"),
+				State:                types.TransitGatewayRouteStateBlackhole,
+				Type:                 types.TransitGatewayRouteTypeStatic,
+			},
+		},
+		{
+			name: "Missing properties returns empty route",
+			resource: CfnTemplateResource{
+				Type:       "AWS::EC2::TransitGatewayRoute",
+				Properties: map[string]any{},
+			},
+			want: types.TransitGatewayRoute{
+				State: types.TransitGatewayRouteStateActive,
+				Type:  types.TransitGatewayRouteTypeStatic,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := TGWRouteResourceToTGWRoute(tt.resource, params, logicalToPhysical)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("TGWRouteResourceToTGWRoute() = %#v, want %#v", got, tt.want)
+			}
+		})
+	}
+}
