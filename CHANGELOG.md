@@ -26,6 +26,9 @@ Unreleased
 - TestTransitGatewayDrift_TransientStatesFiltered verifying routes in pending, deleting, and deleted states are filtered out
 - TestTransitGatewayDrift_SeparatePropertiesFlag testing both enabled and disabled states of the --separate-properties flag
 - TestTransitGatewayDrift_EmptyRouteTable verifying handling of route tables with no routes
+- TestTransitGatewayDrift_PropagatedRoutesHandling with tests for only propagated routes, mix of static/propagated, static drift with propagated present, and multiple propagated routes
+- TestTransitGatewayDrift_PrefixListHandling with tests for matching, unmanaged, removed, and modified prefix list routes, plus mixed CIDR and prefix list scenarios
+- TestTransitGatewayDrift_ECMPRoutes with tests for ECMP routes where first attachment matches, differs, and template has single while AWS has multiple attachments
 
 ### Changed
 - Updated separateSpecialCases function to extract Transit Gateway route tables from drift results

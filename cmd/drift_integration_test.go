@@ -181,42 +181,157 @@ func TestTransitGatewayDrift_LibraryFunctions(t *testing.T) {
 	}
 }
 
-// TestTransitGatewayDrift_PropagatedRoutesFiltered verifies that propagated routes
-// are excluded from drift detection (per requirement 3.3)
-func TestTransitGatewayDrift_PropagatedRoutesFiltered(t *testing.T) {
+// TestTransitGatewayDrift_PropagatedRoutesHandling verifies propagated route filtering
+// per requirement 4.1-4.3: propagated routes must be excluded from drift detection
+func TestTransitGatewayDrift_PropagatedRoutesHandling(t *testing.T) {
 	testutil.SkipIfIntegration(t)
 
-	// Setup propagated route
-	awsRoutes := []ec2types.TransitGatewayRoute{
-		{
-			Type:                 ec2types.TransitGatewayRouteTypePropagated,
-			State:                ec2types.TransitGatewayRouteStateActive,
-			DestinationCidrBlock: aws.String("192.168.0.0/16"),
-			TransitGatewayAttachments: []ec2types.TransitGatewayRouteAttachment{
-				{TransitGatewayAttachmentId: aws.String("tgw-attach-propagated")},
+	tests := map[string]struct {
+		awsRoutes         []ec2types.TransitGatewayRoute
+		templateRoutes    []templateTGWRoute
+		wantDriftDetected bool
+		description       string
+	}{
+		"only propagated routes - no drift reported": {
+			awsRoutes: []ec2types.TransitGatewayRoute{
+				{
+					Type:                 ec2types.TransitGatewayRouteTypePropagated,
+					State:                ec2types.TransitGatewayRouteStateActive,
+					DestinationCidrBlock: aws.String("192.168.0.0/16"),
+					TransitGatewayAttachments: []ec2types.TransitGatewayRouteAttachment{
+						{TransitGatewayAttachmentId: aws.String("tgw-attach-propagated")},
+					},
+				},
 			},
+			templateRoutes:    []templateTGWRoute{},
+			wantDriftDetected: false,
+			description:       "Propagated routes should not be reported as unmanaged",
+		},
+		"mix of static and propagated - only static compared": {
+			awsRoutes: []ec2types.TransitGatewayRoute{
+				{
+					Type:                 ec2types.TransitGatewayRouteTypeStatic,
+					State:                ec2types.TransitGatewayRouteStateActive,
+					DestinationCidrBlock: aws.String("10.0.0.0/16"),
+					TransitGatewayAttachments: []ec2types.TransitGatewayRouteAttachment{
+						{TransitGatewayAttachmentId: aws.String("tgw-attach-static")},
+					},
+				},
+				{
+					Type:                 ec2types.TransitGatewayRouteTypePropagated,
+					State:                ec2types.TransitGatewayRouteStateActive,
+					DestinationCidrBlock: aws.String("192.168.0.0/16"),
+					TransitGatewayAttachments: []ec2types.TransitGatewayRouteAttachment{
+						{TransitGatewayAttachmentId: aws.String("tgw-attach-propagated")},
+					},
+				},
+			},
+			templateRoutes: []templateTGWRoute{
+				{
+					destCidr:     "10.0.0.0/16",
+					attachmentID: "tgw-attach-static",
+				},
+			},
+			wantDriftDetected: false,
+			description:       "Static route matches template, propagated route ignored",
+		},
+		"static route drift with propagated routes present": {
+			awsRoutes: []ec2types.TransitGatewayRoute{
+				{
+					Type:                 ec2types.TransitGatewayRouteTypeStatic,
+					State:                ec2types.TransitGatewayRouteStateActive,
+					DestinationCidrBlock: aws.String("10.0.0.0/16"),
+					TransitGatewayAttachments: []ec2types.TransitGatewayRouteAttachment{
+						{TransitGatewayAttachmentId: aws.String("tgw-attach-unmanaged")},
+					},
+				},
+				{
+					Type:                 ec2types.TransitGatewayRouteTypePropagated,
+					State:                ec2types.TransitGatewayRouteStateActive,
+					DestinationCidrBlock: aws.String("192.168.0.0/16"),
+					TransitGatewayAttachments: []ec2types.TransitGatewayRouteAttachment{
+						{TransitGatewayAttachmentId: aws.String("tgw-attach-propagated")},
+					},
+				},
+			},
+			templateRoutes:    []templateTGWRoute{},
+			wantDriftDetected: true,
+			description:       "Unmanaged static route detected, propagated route ignored",
+		},
+		"multiple propagated routes with different destinations": {
+			awsRoutes: []ec2types.TransitGatewayRoute{
+				{
+					Type:                 ec2types.TransitGatewayRouteTypePropagated,
+					State:                ec2types.TransitGatewayRouteStateActive,
+					DestinationCidrBlock: aws.String("192.168.0.0/16"),
+					TransitGatewayAttachments: []ec2types.TransitGatewayRouteAttachment{
+						{TransitGatewayAttachmentId: aws.String("tgw-attach-prop1")},
+					},
+				},
+				{
+					Type:                 ec2types.TransitGatewayRouteTypePropagated,
+					State:                ec2types.TransitGatewayRouteStateActive,
+					DestinationCidrBlock: aws.String("172.16.0.0/12"),
+					TransitGatewayAttachments: []ec2types.TransitGatewayRouteAttachment{
+						{TransitGatewayAttachmentId: aws.String("tgw-attach-prop2")},
+					},
+				},
+			},
+			templateRoutes:    []templateTGWRoute{},
+			wantDriftDetected: false,
+			description:       "Multiple propagated routes should all be filtered out",
 		},
 	}
 
-	// Empty template (no routes defined)
-	template := buildTGWTemplate("TGWRouteTable1", []templateTGWRoute{})
-	templateRouteMap := lib.FilterTGWRoutesByLogicalId("TGWRouteTable1", template, []types.Parameter{}, map[string]string{})
+	for name, tc := range tests {
+		tc := tc
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	// Simulate filtering logic
-	foundUnmanaged := false
-	for _, awsRoute := range awsRoutes {
-		// This is the filter from checkTransitGatewayRouteTableRoutes
-		if awsRoute.Type == ec2types.TransitGatewayRouteTypePropagated {
-			continue
-		}
+			template := buildTGWTemplate("TGWRouteTable1", tc.templateRoutes)
+			templateRouteMap := lib.FilterTGWRoutesByLogicalId("TGWRouteTable1", template, []types.Parameter{}, map[string]string{})
 
-		routeID := lib.GetTGWRouteDestination(awsRoute)
-		if _, ok := templateRouteMap[routeID]; !ok {
-			foundUnmanaged = true
-		}
+			// Simulate drift detection logic with propagated route filtering
+			foundDrift := false
+			for _, awsRoute := range tc.awsRoutes {
+				// Filter propagated routes (requirement 4.2)
+				if awsRoute.Type == ec2types.TransitGatewayRouteTypePropagated {
+					continue
+				}
+
+				// Filter transient states
+				if awsRoute.State != ec2types.TransitGatewayRouteStateActive && awsRoute.State != ec2types.TransitGatewayRouteStateBlackhole {
+					continue
+				}
+
+				routeID := lib.GetTGWRouteDestination(awsRoute)
+				if templateRoute, ok := templateRouteMap[routeID]; ok {
+					// Route exists - check if modified
+					if !lib.CompareTGWRoutes(awsRoute, templateRoute, []string{}) {
+						foundDrift = true
+					}
+					delete(templateRouteMap, routeID)
+				} else {
+					// Unmanaged route
+					foundDrift = true
+				}
+			}
+
+			// Check for removed routes
+			for routeID := range templateRouteMap {
+				if routeID != "" {
+					foundDrift = true
+					break
+				}
+			}
+
+			if tc.wantDriftDetected {
+				assert.True(t, foundDrift, "%s: expected drift to be detected", tc.description)
+			} else {
+				assert.False(t, foundDrift, "%s: expected no drift to be detected", tc.description)
+			}
+		})
 	}
-
-	assert.False(t, foundUnmanaged, "Propagated routes should be filtered out")
 }
 
 // TestTransitGatewayDrift_TransientStatesFiltered verifies that routes in transient
@@ -372,6 +487,298 @@ func TestTransitGatewayDrift_EmptyRouteTable(t *testing.T) {
 	}
 
 	assert.False(t, foundDrift, "Empty route table should not report drift")
+}
+
+// TestTransitGatewayDrift_PrefixListHandling verifies prefix list route detection
+// per requirement 2.4, 4.4: prefix lists should be compared like CIDR blocks
+func TestTransitGatewayDrift_PrefixListHandling(t *testing.T) {
+	testutil.SkipIfIntegration(t)
+
+	tests := map[string]struct {
+		awsRoutes         []ec2types.TransitGatewayRoute
+		templateRoutes    []templateTGWRoute
+		wantDriftDetected bool
+		description       string
+	}{
+		"matching prefix list routes": {
+			awsRoutes: []ec2types.TransitGatewayRoute{
+				{
+					Type:         ec2types.TransitGatewayRouteTypeStatic,
+					State:        ec2types.TransitGatewayRouteStateActive,
+					PrefixListId: aws.String("pl-12345678"),
+					TransitGatewayAttachments: []ec2types.TransitGatewayRouteAttachment{
+						{TransitGatewayAttachmentId: aws.String("tgw-attach-11111111")},
+					},
+				},
+			},
+			templateRoutes: []templateTGWRoute{
+				{
+					destPrefixID: "pl-12345678",
+					attachmentID: "tgw-attach-11111111",
+				},
+			},
+			wantDriftDetected: false,
+			description:       "Prefix list route matches template",
+		},
+		"unmanaged prefix list route": {
+			awsRoutes: []ec2types.TransitGatewayRoute{
+				{
+					Type:         ec2types.TransitGatewayRouteTypeStatic,
+					State:        ec2types.TransitGatewayRouteStateActive,
+					PrefixListId: aws.String("pl-87654321"),
+					TransitGatewayAttachments: []ec2types.TransitGatewayRouteAttachment{
+						{TransitGatewayAttachmentId: aws.String("tgw-attach-unmanaged")},
+					},
+				},
+			},
+			templateRoutes:    []templateTGWRoute{},
+			wantDriftDetected: true,
+			description:       "Unmanaged prefix list route detected",
+		},
+		"removed prefix list route": {
+			awsRoutes: []ec2types.TransitGatewayRoute{},
+			templateRoutes: []templateTGWRoute{
+				{
+					destPrefixID: "pl-12345678",
+					attachmentID: "tgw-attach-11111111",
+				},
+			},
+			wantDriftDetected: true,
+			description:       "Removed prefix list route detected",
+		},
+		"modified prefix list route attachment": {
+			awsRoutes: []ec2types.TransitGatewayRoute{
+				{
+					Type:         ec2types.TransitGatewayRouteTypeStatic,
+					State:        ec2types.TransitGatewayRouteStateActive,
+					PrefixListId: aws.String("pl-12345678"),
+					TransitGatewayAttachments: []ec2types.TransitGatewayRouteAttachment{
+						{TransitGatewayAttachmentId: aws.String("tgw-attach-new")},
+					},
+				},
+			},
+			templateRoutes: []templateTGWRoute{
+				{
+					destPrefixID: "pl-12345678",
+					attachmentID: "tgw-attach-old",
+				},
+			},
+			wantDriftDetected: true,
+			description:       "Modified prefix list route attachment detected",
+		},
+		"mix of prefix list and CIDR routes": {
+			awsRoutes: []ec2types.TransitGatewayRoute{
+				{
+					Type:                 ec2types.TransitGatewayRouteTypeStatic,
+					State:                ec2types.TransitGatewayRouteStateActive,
+					DestinationCidrBlock: aws.String("10.0.0.0/16"),
+					TransitGatewayAttachments: []ec2types.TransitGatewayRouteAttachment{
+						{TransitGatewayAttachmentId: aws.String("tgw-attach-cidr")},
+					},
+				},
+				{
+					Type:         ec2types.TransitGatewayRouteTypeStatic,
+					State:        ec2types.TransitGatewayRouteStateActive,
+					PrefixListId: aws.String("pl-12345678"),
+					TransitGatewayAttachments: []ec2types.TransitGatewayRouteAttachment{
+						{TransitGatewayAttachmentId: aws.String("tgw-attach-prefix")},
+					},
+				},
+			},
+			templateRoutes: []templateTGWRoute{
+				{
+					destCidr:     "10.0.0.0/16",
+					attachmentID: "tgw-attach-cidr",
+				},
+				{
+					destPrefixID: "pl-12345678",
+					attachmentID: "tgw-attach-prefix",
+				},
+			},
+			wantDriftDetected: false,
+			description:       "Both CIDR and prefix list routes match template",
+		},
+	}
+
+	for name, tc := range tests {
+		tc := tc
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			template := buildTGWTemplate("TGWRouteTable1", tc.templateRoutes)
+			templateRouteMap := lib.FilterTGWRoutesByLogicalId("TGWRouteTable1", template, []types.Parameter{}, map[string]string{})
+
+			// Simulate drift detection logic
+			foundDrift := false
+			for _, awsRoute := range tc.awsRoutes {
+				// Filter propagated routes
+				if awsRoute.Type == ec2types.TransitGatewayRouteTypePropagated {
+					continue
+				}
+
+				// Filter transient states
+				if awsRoute.State != ec2types.TransitGatewayRouteStateActive && awsRoute.State != ec2types.TransitGatewayRouteStateBlackhole {
+					continue
+				}
+
+				// GetTGWRouteDestination handles both CIDR and prefix list (requirement 4.4)
+				routeID := lib.GetTGWRouteDestination(awsRoute)
+				if templateRoute, ok := templateRouteMap[routeID]; ok {
+					// Route exists - check if modified
+					if !lib.CompareTGWRoutes(awsRoute, templateRoute, []string{}) {
+						foundDrift = true
+					}
+					delete(templateRouteMap, routeID)
+				} else {
+					// Unmanaged route
+					foundDrift = true
+				}
+			}
+
+			// Check for removed routes
+			for routeID := range templateRouteMap {
+				if routeID != "" {
+					foundDrift = true
+					break
+				}
+			}
+
+			if tc.wantDriftDetected {
+				assert.True(t, foundDrift, "%s: expected drift to be detected", tc.description)
+			} else {
+				assert.False(t, foundDrift, "%s: expected no drift to be detected", tc.description)
+			}
+		})
+	}
+}
+
+// TestTransitGatewayDrift_ECMPRoutes verifies ECMP (Equal Cost Multi-Path) route handling
+// per requirement 3.6: only the first attachment is compared for routes with multiple attachments
+func TestTransitGatewayDrift_ECMPRoutes(t *testing.T) {
+	testutil.SkipIfIntegration(t)
+
+	tests := map[string]struct {
+		awsRoutes         []ec2types.TransitGatewayRoute
+		templateRoutes    []templateTGWRoute
+		wantDriftDetected bool
+		description       string
+	}{
+		"ECMP route - first attachment matches": {
+			awsRoutes: []ec2types.TransitGatewayRoute{
+				{
+					Type:                 ec2types.TransitGatewayRouteTypeStatic,
+					State:                ec2types.TransitGatewayRouteStateActive,
+					DestinationCidrBlock: aws.String("10.0.0.0/16"),
+					// Multiple attachments for ECMP
+					TransitGatewayAttachments: []ec2types.TransitGatewayRouteAttachment{
+						{TransitGatewayAttachmentId: aws.String("tgw-attach-first")},
+						{TransitGatewayAttachmentId: aws.String("tgw-attach-second")},
+						{TransitGatewayAttachmentId: aws.String("tgw-attach-third")},
+					},
+				},
+			},
+			templateRoutes: []templateTGWRoute{
+				{
+					destCidr:     "10.0.0.0/16",
+					attachmentID: "tgw-attach-first", // Only first attachment compared
+				},
+			},
+			wantDriftDetected: false,
+			description:       "ECMP route with first attachment matching - no drift",
+		},
+		"ECMP route - first attachment differs": {
+			awsRoutes: []ec2types.TransitGatewayRoute{
+				{
+					Type:                 ec2types.TransitGatewayRouteTypeStatic,
+					State:                ec2types.TransitGatewayRouteStateActive,
+					DestinationCidrBlock: aws.String("10.0.0.0/16"),
+					TransitGatewayAttachments: []ec2types.TransitGatewayRouteAttachment{
+						{TransitGatewayAttachmentId: aws.String("tgw-attach-wrong")},
+						{TransitGatewayAttachmentId: aws.String("tgw-attach-correct")},
+					},
+				},
+			},
+			templateRoutes: []templateTGWRoute{
+				{
+					destCidr:     "10.0.0.0/16",
+					attachmentID: "tgw-attach-correct", // Second attachment (not compared)
+				},
+			},
+			wantDriftDetected: true,
+			description:       "ECMP route with first attachment differing - drift detected",
+		},
+		"ECMP route - template has single attachment, AWS has multiple": {
+			awsRoutes: []ec2types.TransitGatewayRoute{
+				{
+					Type:                 ec2types.TransitGatewayRouteTypeStatic,
+					State:                ec2types.TransitGatewayRouteStateActive,
+					DestinationCidrBlock: aws.String("10.0.0.0/16"),
+					TransitGatewayAttachments: []ec2types.TransitGatewayRouteAttachment{
+						{TransitGatewayAttachmentId: aws.String("tgw-attach-11111")},
+						{TransitGatewayAttachmentId: aws.String("tgw-attach-22222")},
+					},
+				},
+			},
+			templateRoutes: []templateTGWRoute{
+				{
+					destCidr:     "10.0.0.0/16",
+					attachmentID: "tgw-attach-11111",
+				},
+			},
+			wantDriftDetected: false,
+			description:       "Template defines single attachment, AWS has ECMP - no drift if first matches",
+		},
+	}
+
+	for name, tc := range tests {
+		tc := tc
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			template := buildTGWTemplate("TGWRouteTable1", tc.templateRoutes)
+			templateRouteMap := lib.FilterTGWRoutesByLogicalId("TGWRouteTable1", template, []types.Parameter{}, map[string]string{})
+
+			// Simulate drift detection logic
+			foundDrift := false
+			for _, awsRoute := range tc.awsRoutes {
+				// Filter propagated routes
+				if awsRoute.Type == ec2types.TransitGatewayRouteTypePropagated {
+					continue
+				}
+
+				// Filter transient states
+				if awsRoute.State != ec2types.TransitGatewayRouteStateActive && awsRoute.State != ec2types.TransitGatewayRouteStateBlackhole {
+					continue
+				}
+
+				routeID := lib.GetTGWRouteDestination(awsRoute)
+				if templateRoute, ok := templateRouteMap[routeID]; ok {
+					// CompareTGWRoutes uses GetTGWRouteTarget which extracts first attachment (requirement 3.6)
+					if !lib.CompareTGWRoutes(awsRoute, templateRoute, []string{}) {
+						foundDrift = true
+					}
+					delete(templateRouteMap, routeID)
+				} else {
+					// Unmanaged route
+					foundDrift = true
+				}
+			}
+
+			// Check for removed routes
+			for routeID := range templateRouteMap {
+				if routeID != "" {
+					foundDrift = true
+					break
+				}
+			}
+
+			if tc.wantDriftDetected {
+				assert.True(t, foundDrift, "%s: expected drift to be detected", tc.description)
+			} else {
+				assert.False(t, foundDrift, "%s: expected no drift to be detected", tc.description)
+			}
+		})
+	}
 }
 
 // Helper types and functions for test setup
