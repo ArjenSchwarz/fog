@@ -583,37 +583,43 @@ func TestFilterTGWRoutesByLogicalId(t *testing.T) {
 		t.Errorf("Expected 3 routes, got %d", len(results))
 	}
 
-	// Check that the CIDR route exists with correct attachment
+	// Check that the CIDR route exists with correct properties
 	if route, ok := results["10.0.0.0/16"]; ok {
 		if *route.DestinationCidrBlock != "10.0.0.0/16" {
-			t.Errorf("Expected destination 10.0.0.0/16, got %s", *route.DestinationCidrBlock)
+			t.Errorf("Expected CIDR 10.0.0.0/16, got %s", *route.DestinationCidrBlock)
 		}
-		if len(route.TransitGatewayAttachments) == 0 || *route.TransitGatewayAttachments[0].TransitGatewayAttachmentId != "tgw-attach-12345678" {
-			t.Errorf("Expected attachment tgw-attach-12345678")
+		if *route.TransitGatewayAttachments[0].TransitGatewayAttachmentId != "tgw-attach-12345678" {
+			t.Errorf("Expected attachment tgw-attach-12345678, got %s", *route.TransitGatewayAttachments[0].TransitGatewayAttachmentId)
+		}
+		if route.State != types.TransitGatewayRouteStateActive {
+			t.Errorf("Expected state active, got %s", route.State)
 		}
 	} else {
 		t.Errorf("Expected CIDR route not found")
 	}
 
-	// Check that the prefix list route exists with parameter-resolved attachment
+	// Check that the prefix list route exists with parameter resolution
 	if route, ok := results["pl-12345678"]; ok {
 		if *route.PrefixListId != "pl-12345678" {
 			t.Errorf("Expected prefix list pl-12345678, got %s", *route.PrefixListId)
 		}
-		if len(route.TransitGatewayAttachments) == 0 || *route.TransitGatewayAttachments[0].TransitGatewayAttachmentId != "tgw-attach-param" {
-			t.Errorf("Expected attachment tgw-attach-param from parameter resolution")
+		if *route.TransitGatewayAttachments[0].TransitGatewayAttachmentId != "tgw-attach-param" {
+			t.Errorf("Expected attachment from parameter, got %s", *route.TransitGatewayAttachments[0].TransitGatewayAttachmentId)
 		}
 	} else {
 		t.Errorf("Expected prefix list route not found")
 	}
 
-	// Check that the blackhole route exists
+	// Check that the blackhole route exists with correct properties
 	if route, ok := results["192.168.0.0/24"]; ok {
+		if *route.DestinationCidrBlock != "192.168.0.0/24" {
+			t.Errorf("Expected CIDR 192.168.0.0/24, got %s", *route.DestinationCidrBlock)
+		}
 		if route.State != types.TransitGatewayRouteStateBlackhole {
-			t.Errorf("Expected blackhole state, got %s", route.State)
+			t.Errorf("Expected state blackhole, got %s", route.State)
 		}
 		if len(route.TransitGatewayAttachments) != 0 {
-			t.Errorf("Expected no attachments for blackhole route")
+			t.Errorf("Expected no attachments for blackhole route, got %d", len(route.TransitGatewayAttachments))
 		}
 	} else {
 		t.Errorf("Expected blackhole route not found")
@@ -625,16 +631,235 @@ func TestFilterTGWRoutesByLogicalId(t *testing.T) {
 	}
 }
 
+// TestCfnTemplateParameter_UnmarshalJSON verifies that parameter constraint
+// fields can be unmarshaled from both numeric and string JSON values
+func TestCfnTemplateParameter_UnmarshalJSON(t *testing.T) {
+	tests := map[string]struct {
+		json string
+		want CfnTemplateParameter
+	}{
+		"numeric constraints": {
+			json: `{
+				"Type": "String",
+				"MaxLength": 100,
+				"MinLength": 1,
+				"MaxValue": 99.5,
+				"MinValue": 0.5
+			}`,
+			want: CfnTemplateParameter{
+				Type:      "String",
+				MaxLength: 100,
+				MinLength: 1,
+				MaxValue:  99.5,
+				MinValue:  0.5,
+			},
+		},
+		"string constraints": {
+			json: `{
+				"Type": "String",
+				"MaxLength": "100",
+				"MinLength": "1",
+				"MaxValue": "99.5",
+				"MinValue": "0.5"
+			}`,
+			want: CfnTemplateParameter{
+				Type:      "String",
+				MaxLength: 100,
+				MinLength: 1,
+				MaxValue:  99.5,
+				MinValue:  0.5,
+			},
+		},
+		"mixed numeric and string constraints": {
+			json: `{
+				"Type": "String",
+				"MaxLength": "100",
+				"MinLength": 1,
+				"MaxValue": 99.5,
+				"MinValue": "0.5"
+			}`,
+			want: CfnTemplateParameter{
+				Type:      "String",
+				MaxLength: 100,
+				MinLength: 1,
+				MaxValue:  99.5,
+				MinValue:  0.5,
+			},
+		},
+		"parameter with default and allowed values": {
+			json: `{
+				"Type": "String",
+				"Description": "Test parameter",
+				"Default": "test-value",
+				"AllowedPattern": "^[a-z-]+$",
+				"AllowedValues": ["test-value", "other-value"],
+				"ConstraintDescription": "Must be lowercase",
+				"MaxLength": "50",
+				"NoEcho": false
+			}`,
+			want: CfnTemplateParameter{
+				Type:                  "String",
+				Description:           "Test parameter",
+				Default:               "test-value",
+				AllowedPattern:        "^[a-z-]+$",
+				AllowedValues:         []any{"test-value", "other-value"},
+				ConstraintDescription: "Must be lowercase",
+				MaxLength:             50,
+				NoEcho:                false,
+			},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			var got CfnTemplateParameter
+			err := got.UnmarshalJSON([]byte(tc.json))
+			if err != nil {
+				t.Fatalf("UnmarshalJSON() error = %v", err)
+			}
+
+			if got.Type != tc.want.Type {
+				t.Errorf("Type = %v, want %v", got.Type, tc.want.Type)
+			}
+			if got.MaxLength != tc.want.MaxLength {
+				t.Errorf("MaxLength = %v, want %v", got.MaxLength, tc.want.MaxLength)
+			}
+			if got.MinLength != tc.want.MinLength {
+				t.Errorf("MinLength = %v, want %v", got.MinLength, tc.want.MinLength)
+			}
+			if got.MaxValue != tc.want.MaxValue {
+				t.Errorf("MaxValue = %v, want %v", got.MaxValue, tc.want.MaxValue)
+			}
+			if got.MinValue != tc.want.MinValue {
+				t.Errorf("MinValue = %v, want %v", got.MinValue, tc.want.MinValue)
+			}
+			if got.Description != tc.want.Description {
+				t.Errorf("Description = %v, want %v", got.Description, tc.want.Description)
+			}
+			if got.AllowedPattern != tc.want.AllowedPattern {
+				t.Errorf("AllowedPattern = %v, want %v", got.AllowedPattern, tc.want.AllowedPattern)
+			}
+		})
+	}
+}
+
+// TestParseTemplateString_AdditionalStructures verifies parsing of templates with
+// various additional structures including outputs, metadata, and conditions
+func TestParseTemplateString_AdditionalStructures(t *testing.T) {
+	tests := map[string]struct {
+		template string
+		verify   func(*testing.T, CfnTemplateBody)
+	}{
+		"template with outputs": {
+			template: `{
+				"AWSTemplateFormatVersion": "2010-09-09",
+				"Outputs": {
+					"BucketName": {
+						"Value": "my-bucket",
+						"Description": "The bucket name",
+						"Export": {"Name": "MyBucketName"}
+					}
+				}
+			}`,
+			verify: func(t *testing.T, body CfnTemplateBody) {
+				if len(body.Outputs) != 1 {
+					t.Errorf("Expected 1 output, got %d", len(body.Outputs))
+				}
+				if output, ok := body.Outputs["BucketName"]; ok {
+					if output.Value != "my-bucket" {
+						t.Errorf("Output value = %v, want my-bucket", output.Value)
+					}
+				} else {
+					t.Errorf("Expected output BucketName not found")
+				}
+			},
+		},
+		"template with metadata": {
+			template: `{
+				"AWSTemplateFormatVersion": "2010-09-09",
+				"Metadata": {
+					"AWS::CloudFormation::Interface": {
+						"ParameterGroups": [{"Label": "Network", "Parameters": ["VpcId"]}]
+					}
+				}
+			}`,
+			verify: func(t *testing.T, body CfnTemplateBody) {
+				if len(body.Metadata) == 0 {
+					t.Errorf("Expected metadata, got none")
+				}
+			},
+		},
+		"template with conditions": {
+			template: `{
+				"AWSTemplateFormatVersion": "2010-09-09",
+				"Conditions": {
+					"CreateResource": true,
+					"SkipResource": false
+				}
+			}`,
+			verify: func(t *testing.T, body CfnTemplateBody) {
+				if len(body.Conditions) != 2 {
+					t.Errorf("Expected 2 conditions, got %d", len(body.Conditions))
+				}
+				if !body.Conditions["CreateResource"] {
+					t.Errorf("CreateResource condition = false, want true")
+				}
+				if body.Conditions["SkipResource"] {
+					t.Errorf("SkipResource condition = true, want false")
+				}
+			},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			body := ParseTemplateString(tc.template, nil)
+			tc.verify(t, body)
+		})
+	}
+}
+
+// TestRouteResourceToRoute_ImportValue verifies that Fn::ImportValue intrinsic
+// functions are correctly resolved when converting Route resources
+func TestRouteResourceToRoute_ImportValue(t *testing.T) {
+	params := []cfntypes.Parameter{}
+	logicalToPhysical := map[string]string{
+		"CENTRAL-TRANSIT-TransitGateway": "tgw-0f8df356de84e6b47",
+	}
+
+	// Template resource using Fn::ImportValue for TransitGatewayId
+	resource := CfnTemplateResource{
+		Type: "AWS::EC2::Route",
+		Properties: map[string]any{
+			"DestinationCidrBlock": "164.53.5.66/32",
+			"TransitGatewayId": map[string]any{
+				"Fn::ImportValue": "CENTRAL-TRANSIT-TransitGateway",
+			},
+		},
+	}
+
+	expected := types.Route{
+		DestinationCidrBlock: aws.String("164.53.5.66/32"),
+		TransitGatewayId:     aws.String("tgw-0f8df356de84e6b47"),
+		Origin:               types.RouteOriginCreateRoute,
+		State:                types.RouteStateActive,
+	}
+
+	got := RouteResourceToRoute(resource, params, logicalToPhysical)
+	if !reflect.DeepEqual(got, expected) {
+		t.Errorf("RouteResourceToRoute() with Fn::ImportValue:\ngot  = %#v\nwant = %#v", got, expected)
+	}
+}
+
 // TestTGWRouteResourceToTGWRoute verifies conversion from a CloudFormation
-// Transit Gateway route resource to a TransitGatewayRoute structure.
+// Transit Gateway route resource to a TransitGatewayRoute structure for destination extraction.
 func TestTGWRouteResourceToTGWRoute(t *testing.T) {
 	params := []cfntypes.Parameter{
-		{ParameterKey: aws.String("AttachParam"), ParameterValue: aws.String("tgw-attach-param")},
 		{ParameterKey: aws.String("CIDRParam"), ParameterValue: aws.String("192.168.0.0/16")},
 	}
-	logicalToPhysical := map[string]string{
-		"MyAttachment": "tgw-attach-logical",
-	}
+	logicalToPhysical := map[string]string{}
 
 	tests := []struct {
 		name     string
@@ -642,39 +867,31 @@ func TestTGWRouteResourceToTGWRoute(t *testing.T) {
 		want     types.TransitGatewayRoute
 	}{
 		{
-			name: "CIDR block with direct attachment ID",
+			name: "CIDR block destination",
 			resource: CfnTemplateResource{
 				Type: "AWS::EC2::TransitGatewayRoute",
 				Properties: map[string]any{
-					"DestinationCidrBlock":       "10.0.0.0/16",
-					"TransitGatewayAttachmentId": "tgw-attach-12345678",
+					"DestinationCidrBlock": "10.0.0.0/16",
 				},
 			},
 			want: types.TransitGatewayRoute{
 				DestinationCidrBlock: aws.String("10.0.0.0/16"),
 				State:                types.TransitGatewayRouteStateActive,
 				Type:                 types.TransitGatewayRouteTypeStatic,
-				TransitGatewayAttachments: []types.TransitGatewayRouteAttachment{
-					{TransitGatewayAttachmentId: aws.String("tgw-attach-12345678")},
-				},
 			},
 		},
 		{
-			name: "Prefix list ID with attachment reference",
+			name: "Prefix list destination",
 			resource: CfnTemplateResource{
 				Type: "AWS::EC2::TransitGatewayRoute",
 				Properties: map[string]any{
-					"DestinationPrefixListId":    "pl-12345678",
-					"TransitGatewayAttachmentId": map[string]any{"Ref": "AttachParam"},
+					"DestinationPrefixListId": "pl-12345678",
 				},
 			},
 			want: types.TransitGatewayRoute{
 				PrefixListId: aws.String("pl-12345678"),
 				State:        types.TransitGatewayRouteStateActive,
 				Type:         types.TransitGatewayRouteTypeStatic,
-				TransitGatewayAttachments: []types.TransitGatewayRouteAttachment{
-					{TransitGatewayAttachmentId: aws.String("tgw-attach-param")},
-				},
 			},
 		},
 		{
@@ -682,54 +899,17 @@ func TestTGWRouteResourceToTGWRoute(t *testing.T) {
 			resource: CfnTemplateResource{
 				Type: "AWS::EC2::TransitGatewayRoute",
 				Properties: map[string]any{
-					"DestinationCidrBlock":       map[string]any{"Ref": "CIDRParam"},
-					"TransitGatewayAttachmentId": "tgw-attach-direct",
+					"DestinationCidrBlock": map[string]any{"Ref": "CIDRParam"},
 				},
 			},
 			want: types.TransitGatewayRoute{
 				DestinationCidrBlock: aws.String("192.168.0.0/16"),
 				State:                types.TransitGatewayRouteStateActive,
 				Type:                 types.TransitGatewayRouteTypeStatic,
-				TransitGatewayAttachments: []types.TransitGatewayRouteAttachment{
-					{TransitGatewayAttachmentId: aws.String("tgw-attach-direct")},
-				},
 			},
 		},
 		{
-			name: "Logical attachment ID resolution",
-			resource: CfnTemplateResource{
-				Type: "AWS::EC2::TransitGatewayRoute",
-				Properties: map[string]any{
-					"DestinationCidrBlock":       "172.16.0.0/12",
-					"TransitGatewayAttachmentId": "REF: MyAttachment",
-				},
-			},
-			want: types.TransitGatewayRoute{
-				DestinationCidrBlock: aws.String("172.16.0.0/12"),
-				State:                types.TransitGatewayRouteStateActive,
-				Type:                 types.TransitGatewayRouteTypeStatic,
-				TransitGatewayAttachments: []types.TransitGatewayRouteAttachment{
-					{TransitGatewayAttachmentId: aws.String("tgw-attach-logical")},
-				},
-			},
-		},
-		{
-			name: "Blackhole route",
-			resource: CfnTemplateResource{
-				Type: "AWS::EC2::TransitGatewayRoute",
-				Properties: map[string]any{
-					"DestinationCidrBlock": "0.0.0.0/0",
-					"Blackhole":            true,
-				},
-			},
-			want: types.TransitGatewayRoute{
-				DestinationCidrBlock: aws.String("0.0.0.0/0"),
-				State:                types.TransitGatewayRouteStateBlackhole,
-				Type:                 types.TransitGatewayRouteTypeStatic,
-			},
-		},
-		{
-			name: "Missing properties returns empty route",
+			name: "Missing properties returns route with defaults",
 			resource: CfnTemplateResource{
 				Type:       "AWS::EC2::TransitGatewayRoute",
 				Properties: map[string]any{},

@@ -153,3 +153,8 @@ type CloudFormationDescribeStackResourceDriftsAPI interface {
 type CloudFormationGetTemplateAPI interface {
 	GetTemplate(ctx context.Context, params *cloudformation.GetTemplateInput, optFns ...func(*cloudformation.Options)) (*cloudformation.GetTemplateOutput, error)
 }
+
+// CloudFormationListExportsAPI defines the CloudFormation ListExports operation
+type CloudFormationListExportsAPI interface {
+	ListExports(ctx context.Context, params *cloudformation.ListExportsInput, optFns ...func(*cloudformation.Options)) (*cloudformation.ListExportsOutput, error)
+}

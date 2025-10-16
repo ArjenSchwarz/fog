@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
 	"strings"
 	"time"
 
@@ -95,88 +94,97 @@ func TGWRouteResourceToTGWRoute(resource CfnTemplateResource, params []cfntypes.
 	destCidr := extractStringProperty(prop, params, logicalToPhysical, "DestinationCidrBlock")
 	prefixList := extractStringProperty(prop, params, logicalToPhysical, "DestinationPrefixListId")
 
-	result := types.TransitGatewayRoute{
+	// Extract Blackhole property
+	isBlackhole := false
+	if blackholeProp, ok := prop["Blackhole"]; ok {
+		if blackholeBool, ok := blackholeProp.(bool); ok {
+			isBlackhole = blackholeBool
+		}
+	}
+
+	// Build the route structure
+	route := types.TransitGatewayRoute{
 		DestinationCidrBlock: destCidr,
 		PrefixListId:         prefixList,
 		Type:                 types.TransitGatewayRouteTypeStatic,
 	}
 
-	// Handle Blackhole property
-	blackhole := false
-	if prop["Blackhole"] != nil {
-		if val, ok := prop["Blackhole"].(bool); ok {
-			blackhole = val
-		}
-	}
-
-	// Set state based on Blackhole property
-	if blackhole {
-		result.State = types.TransitGatewayRouteStateBlackhole
+	// Set state and attachments based on blackhole property
+	if isBlackhole {
+		route.State = types.TransitGatewayRouteStateBlackhole
+		// Blackhole routes have no attachments
 	} else {
-		result.State = types.TransitGatewayRouteStateActive
-		// Only set attachment if not blackhole
+		route.State = types.TransitGatewayRouteStateActive
+		// Extract attachment ID
 		attachmentId := extractStringProperty(prop, params, logicalToPhysical, "TransitGatewayAttachmentId")
 		if attachmentId != nil && *attachmentId != "" {
-			result.TransitGatewayAttachments = []types.TransitGatewayRouteAttachment{
-				{TransitGatewayAttachmentId: attachmentId},
+			route.TransitGatewayAttachments = []types.TransitGatewayRouteAttachment{
+				{
+					TransitGatewayAttachmentId: attachmentId,
+				},
 			}
 		}
 	}
 
+	return route
+}
+
+// FilterTGWRoutesByLogicalId filters Transit Gateway routes from a template by logical route table ID
+// Returns a map of destination -> TransitGatewayRoute for routes in the template
+func FilterTGWRoutesByLogicalId(logicalId string, template CfnTemplateBody, params []cfntypes.Parameter, logicalToPhysical map[string]string) map[string]types.TransitGatewayRoute {
+	result := make(map[string]types.TransitGatewayRoute)
+
+	for _, resource := range template.Resources {
+		if resource.Type == "AWS::EC2::TransitGatewayRoute" && template.ShouldHaveResource(resource) {
+			rtid := strings.Replace(resource.Properties["TransitGatewayRouteTableId"].(string), "REF: ", "", 1)
+
+			if rtid == logicalId {
+				// Convert CloudFormation resource to TransitGatewayRoute
+				route := TGWRouteResourceToTGWRoute(resource, params, logicalToPhysical)
+				destination := GetTGWRouteDestination(route)
+				// Store the route for comparison
+				if destination != "" {
+					result[destination] = route
+				}
+			}
+		}
+	}
 	return result
 }
 
 // CompareTGWRoutes compares two Transit Gateway routes for equality
+// Returns true if routes match, false if they differ
 func CompareTGWRoutes(route1 types.TransitGatewayRoute, route2 types.TransitGatewayRoute, blackholeIgnore []string) bool {
-	// Compare DestinationCidrBlock
+	// Compare destination (CIDR or prefix list)
 	if !stringPointerValueMatch(route1.DestinationCidrBlock, route2.DestinationCidrBlock) {
 		return false
 	}
-
-	// Compare PrefixListId
 	if !stringPointerValueMatch(route1.PrefixListId, route2.PrefixListId) {
 		return false
 	}
 
-	// Extract and compare attachment IDs from TransitGatewayAttachments[0]
-	attachment1 := ""
-	if len(route1.TransitGatewayAttachments) > 0 && route1.TransitGatewayAttachments[0].TransitGatewayAttachmentId != nil {
-		attachment1 = *route1.TransitGatewayAttachments[0].TransitGatewayAttachmentId
-	}
-	attachment2 := ""
-	if len(route2.TransitGatewayAttachments) > 0 && route2.TransitGatewayAttachments[0].TransitGatewayAttachmentId != nil {
-		attachment2 = *route2.TransitGatewayAttachments[0].TransitGatewayAttachmentId
-	}
-
-	if attachment1 != attachment2 {
-		return false
-	}
-
-	// Compare State fields with blackhole ignore list handling
-	if string(route1.State) != string(route2.State) {
-		// If route1 is blackhole and attachment is in ignore list, consider it a match
-		if route1.State == types.TransitGatewayRouteStateBlackhole && attachment1 != "" && slices.Contains(blackholeIgnore, attachment1) {
-			return true
+	// Compare state
+	if route1.State != route2.State {
+		// Check if this is a blackhole route that should be ignored
+		dest := GetTGWRouteDestination(route1)
+		for _, ignore := range blackholeIgnore {
+			if dest == ignore && (route1.State == types.TransitGatewayRouteStateBlackhole || route2.State == types.TransitGatewayRouteStateBlackhole) {
+				return true
+			}
 		}
 		return false
+	}
+
+	// Compare attachment IDs (only for non-blackhole routes)
+	if route1.State != types.TransitGatewayRouteStateBlackhole {
+		target1 := GetTGWRouteTarget(route1)
+		target2 := GetTGWRouteTarget(route2)
+		if target1 != target2 {
+			return false
+		}
 	}
 
 	return true
-}
-
-// FilterTGWRoutesByLogicalId filters Transit Gateway routes from a template by logical route table ID
-func FilterTGWRoutesByLogicalId(logicalId string, template CfnTemplateBody, params []cfntypes.Parameter, logicalToPhysical map[string]string) map[string]types.TransitGatewayRoute {
-	result := make(map[string]types.TransitGatewayRoute)
-	for _, resource := range template.Resources {
-		if resource.Type == "AWS::EC2::TransitGatewayRoute" && template.ShouldHaveResource(resource) {
-			rtid := strings.Replace(resource.Properties["TransitGatewayRouteTableId"].(string), "REF: ", "", 1)
-			convresource := TGWRouteResourceToTGWRoute(resource, params, logicalToPhysical)
-			if rtid == logicalId {
-				result[GetTGWRouteDestination(convresource)] = convresource
-			}
-		}
-	}
-	return result
 }
 
 // extractStringProperty extracts a string pointer from CloudFormation properties with parameter and logical ID resolution
@@ -194,21 +202,40 @@ func extractStringProperty(array map[string]any, params []cfntypes.Parameter, lo
 			result = value
 		}
 	case map[string]any:
-		refname := value["Ref"].(string)
-		if _, ok := logicalToPhysical[refname]; ok {
-			result = logicalToPhysical[refname]
-		} else {
-			for _, parameter := range params {
-				if *parameter.ParameterKey == refname {
-					if parameter.ResolvedValue != nil {
-						result = *parameter.ResolvedValue
-					} else {
-						result = *parameter.ParameterValue
+		// Handle Ref intrinsic function
+		if refname, ok := value["Ref"].(string); ok {
+			if _, ok := logicalToPhysical[refname]; ok {
+				result = logicalToPhysical[refname]
+			} else {
+				for _, parameter := range params {
+					if *parameter.ParameterKey == refname {
+						if parameter.ResolvedValue != nil {
+							result = *parameter.ResolvedValue
+						} else {
+							result = *parameter.ParameterValue
+						}
 					}
 				}
 			}
 		}
+		// Handle Fn::ImportValue intrinsic function
+		// ImportValue returns the actual physical ID directly from the stack outputs
+		if importValue, ok := value["Fn::ImportValue"].(string); ok {
+			// The importValue is the export name, but we need the actual value
+			// In the processed template, CloudFormation has already resolved this
+			// So we look for it in logicalToPhysical map using the import name
+			if physicalId, ok := logicalToPhysical[importValue]; ok {
+				result = physicalId
+			} else {
+				// If not found, use the import value string itself as a fallback
+				result = importValue
+			}
+		}
 	}
 
+	// Return nil if the result is empty string (property exists but couldn't be resolved)
+	if result == "" {
+		return nil
+	}
 	return &result
 }

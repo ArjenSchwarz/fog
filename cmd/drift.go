@@ -36,6 +36,7 @@ import (
 	"github.com/ArjenSchwarz/fog/lib"
 	format "github.com/ArjenSchwarz/go-output"
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/spf13/cobra"
@@ -84,12 +85,12 @@ func detectDrift(cmd *cobra.Command, args []string) {
 		lib.WaitForDriftDetectionToFinish(driftid, awsConfig.CloudformationClient())
 	}
 	defaultDrift := lib.GetDefaultStackDrift(&driftFlags.StackName, svc)
-	naclResources, routetableResources, tgwRouteTableResources, logicalToPhysical := separateSpecialCases(defaultDrift)
-	checkedResources := []string{}
 	stack, err := lib.GetStack(&driftFlags.StackName, svc)
 	if err != nil {
 		failWithError(err)
 	}
+	naclResources, routetableResources, tgwRouteTableResources, logicalToPhysical := separateSpecialCases(defaultDrift, &driftFlags.StackName, svc)
+	checkedResources := []string{}
 
 	for _, drift := range defaultDrift {
 		//TODO: verify if checkedResources is needed
@@ -138,11 +139,21 @@ func detectDrift(cmd *cobra.Command, args []string) {
 				continue
 			}
 			var expected, actual bytes.Buffer
-			if err := json.Indent(&expected, []byte(aws.ToString(property.ExpectedValue)), "", "  "); err != nil {
-				failWithError(err)
+			expectedStr := aws.ToString(property.ExpectedValue)
+			if json.Valid([]byte(expectedStr)) {
+				if err := json.Indent(&expected, []byte(expectedStr), "", "  "); err != nil {
+					failWithError(err)
+				}
+			} else {
+				expected.WriteString(expectedStr)
 			}
-			if err := json.Indent(&actual, []byte(aws.ToString(property.ActualValue)), "", "  "); err != nil {
-				failWithError(err)
+			actualStr := aws.ToString(property.ActualValue)
+			if json.Valid([]byte(actualStr)) {
+				if err := json.Indent(&actual, []byte(actualStr), "", "  "); err != nil {
+					failWithError(err)
+				}
+			} else {
+				actual.WriteString(actualStr)
 			}
 			switch property.DifferenceType {
 			case types.DifferenceTypeRemove:
@@ -180,16 +191,55 @@ func detectDrift(cmd *cobra.Command, args []string) {
 		}
 		checkIfResourcesAreManaged(allresources, logicalToPhysical, &output)
 	}
-	output.Write()
+	if len(output.Contents) == 0 {
+		noDriftOutput := format.OutputArray{Keys: []string{"Status"}, Settings: settings.NewOutputSettings()}
+		noDriftOutput.Settings.Title = resultTitle
+		content := make(map[string]any)
+		content["Status"] = "No drift detected"
+		noDriftOutput.AddContents(content)
+		noDriftOutput.Write()
+	} else {
+		output.Write()
+	}
 }
 
-func separateSpecialCases(defaultDrift []types.StackResourceDrift) (map[string]string, map[string]string, map[string]string, map[string]string) {
+func separateSpecialCases(defaultDrift []types.StackResourceDrift, stackName *string, svc interface {
+	lib.CloudFormationDescribeStackResourcesAPI
+	lib.CloudFormationListExportsAPI
+}) (map[string]string, map[string]string, map[string]string, map[string]string) {
 	naclResources := make(map[string]string)
 	routetableResources := make(map[string]string)
 	tgwRouteTableResources := make(map[string]string)
 	logicalToPhysical := make(map[string]string)
+
+	// Build logicalToPhysical map from ALL stack resources
+	// This ensures attachments and other resources are available for template resolution
+	stackResourcesResp, err := svc.DescribeStackResources(context.TODO(), &cloudformation.DescribeStackResourcesInput{
+		StackName: stackName,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	for _, resource := range stackResourcesResp.StackResources {
+		logicalToPhysical[*resource.LogicalResourceId] = *resource.PhysicalResourceId
+	}
+
+	// Add CloudFormation exports to the map to handle !ImportValue references
+	// This allows template routes that use ImportValue to be properly resolved
+	exportsResp, err := svc.ListExports(context.TODO(), &cloudformation.ListExportsInput{})
+	if err != nil {
+		// Non-fatal - just log and continue without exports
+		log.Printf("Warning: Could not list CloudFormation exports: %v", err)
+	} else {
+		for _, export := range exportsResp.Exports {
+			if export.Name != nil && export.Value != nil {
+				logicalToPhysical[*export.Name] = *export.Value
+			}
+		}
+	}
+
+	// Identify special case resources from drift results
 	for _, drift := range defaultDrift {
-		logicalToPhysical[*drift.LogicalResourceId] = *drift.PhysicalResourceId
 		switch *drift.ResourceType {
 		case "AWS::EC2::NetworkAcl":
 			naclResources[*drift.LogicalResourceId] = *drift.PhysicalResourceId
@@ -353,61 +403,62 @@ func checkRouteTableRoutes(routetableResources map[string]string, template lib.C
 	}
 }
 
-// checkTransitGatewayRouteTableRoutes verifies Transit Gateway routes and if there are differences adds those to the provided output array
+// checkTransitGatewayRouteTableRoutes verifies Transit Gateway routes and reports any differences
 func checkTransitGatewayRouteTableRoutes(tgwRouteTableResources map[string]string, template lib.CfnTemplateBody, parameters []types.Parameter, logicalToPhysical map[string]string, output *format.OutputArray, awsConfig config.AWSConfig) {
 	// Iterate through each Transit Gateway route table
 	for logicalId, physicalId := range tgwRouteTableResources {
 		rulechanges := []string{}
 
-		// Call lib.GetTransitGatewayRouteTableRoutes with context
+		// Get actual routes from AWS
 		routes, err := lib.GetTransitGatewayRouteTableRoutes(context.TODO(), physicalId, awsConfig.EC2Client())
 		if err != nil {
 			failWithError(err)
 		}
 
-		// Get template routes using lib.FilterTGWRoutesByLogicalId
-		attachedRules := lib.FilterTGWRoutesByLogicalId(logicalId, template, parameters, logicalToPhysical)
+		// Get map of expected routes from template
+		expectedRoutes := lib.FilterTGWRoutesByLogicalId(logicalId, template, parameters, logicalToPhysical)
 
-		// Compare AWS routes vs template routes
+		// Check each actual route against expected routes
 		for _, route := range routes {
-			// Filter out propagated routes (Type == propagated)
+			// Filter out propagated routes (not static)
 			if route.Type == ec2types.TransitGatewayRouteTypePropagated {
 				continue
 			}
 
-			// Filter out routes in transient states (not active or blackhole)
+			// Filter out routes in transient states
 			if route.State != ec2types.TransitGatewayRouteStateActive && route.State != ec2types.TransitGatewayRouteStateBlackhole {
 				continue
 			}
 
-			ruleid := lib.GetTGWRouteDestination(route)
+			destination := lib.GetTGWRouteDestination(route)
 
 			// Check if route exists in template
-			if cfnroute, ok := attachedRules[ruleid]; ok {
-				// Route exists in both - compare them
+			if cfnroute, ok := expectedRoutes[destination]; ok {
+				// Route exists in template, compare for modifications
 				if !lib.CompareTGWRoutes(route, cfnroute, settings.GetStringSlice("drift.ignore-blackholes")) {
 					ruledetails := fmt.Sprintf("Expected: %s%sActual: %s", tgwRouteToString(cfnroute), outputsettings.GetSeparator(), tgwRouteToString(route))
 					rulechanges = append(rulechanges, ruledetails)
 				}
-				delete(attachedRules, ruleid)
+				// Remove from expectedRoutes map to track what's been checked
+				delete(expectedRoutes, destination)
 			} else {
-				// Unmanaged route (in AWS, not in template)
+				// Route not in template, it's unmanaged
 				ruledetails := fmt.Sprintf("Unmanaged route: %s", tgwRouteToString(route))
 				rulechanges = append(rulechanges, outputsettings.StringPositiveInline(ruledetails))
 			}
 		}
 
-		// Leftover rules only exist in CloudFormation (removed routes)
-		for routeid, cfnroute := range attachedRules {
-			// Skip routes with empty destination (condition handling)
-			if routeid == "" {
+		// Check for routes that exist in template but not in AWS (removed routes)
+		for destination, cfnroute := range expectedRoutes {
+			// Empty destination implies the route wasn't created, likely due to a condition
+			if destination == "" {
 				continue
 			}
 			ruledetails := fmt.Sprintf("Removed route: %s", tgwRouteToString(cfnroute))
 			rulechanges = append(rulechanges, outputsettings.StringWarningInline(ruledetails))
 		}
 
-		// Build drift output entries if there are changes
+		// Report all changes if any were found
 		if len(rulechanges) != 0 {
 			if driftFlags.SeparateProperties {
 				for _, change := range rulechanges {

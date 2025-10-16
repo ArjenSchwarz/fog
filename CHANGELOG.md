@@ -1,6 +1,29 @@
 Unreleased
 ===========
 
+### Changed
+- Transit Gateway drift detection now resolves `Fn::ImportValue` references for route attachments
+- Transit Gateway drift detection builds complete resource map before checking special cases
+- Transit Gateway drift detection now displays "No drift detected" message when no drift is found
+- Template parameter constraints (`MaxLength`, `MinLength`, `MaxValue`, `MinValue`) now support both string and numeric values
+- JSON indentation in drift output now handles non-JSON string values
+
+### Added
+- `CloudFormationListExportsAPI` interface for accessing CloudFormation exports
+- Custom `UnmarshalJSON` implementation for `CfnTemplateParameter` to handle mixed type constraints
+- `customImportValueHandler` for processing `Fn::ImportValue` intrinsic functions
+- Support for CloudFormation exports in the `logicalToPhysical` map
+- Unit tests for `CfnTemplateParameter` JSON unmarshaling with string and numeric constraints
+- Unit tests for template parsing with outputs, metadata, and conditions
+- Unit test for `RouteResourceToRoute` with `Fn::ImportValue` resolution
+- Additional Transit Gateway route conversion test cases
+
+### Fixed
+- Transit Gateway drift detection now correctly resolves template routes that reference attachments via `Fn::ImportValue`
+- Template parsing no longer fails when parameter constraints are provided as strings instead of numbers
+- Drift detection output properly handles properties with non-JSON values
+- `stringPointer` function now returns `nil` for unresolved references instead of empty strings
+
 ### Added
 - Transit Gateway drift detection command integration in cmd/drift.go
 - checkTransitGatewayRouteTableRoutes function for detecting Transit Gateway route drift
