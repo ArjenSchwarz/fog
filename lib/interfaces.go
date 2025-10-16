@@ -25,6 +25,11 @@ type EC2DescribeManagedPrefixListsAPI interface {
 	DescribeManagedPrefixLists(ctx context.Context, params *ec2.DescribeManagedPrefixListsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeManagedPrefixListsOutput, error)
 }
 
+// EC2SearchTransitGatewayRoutesAPI defines the EC2 SearchTransitGatewayRoutes operation.
+type EC2SearchTransitGatewayRoutesAPI interface {
+	SearchTransitGatewayRoutes(ctx context.Context, params *ec2.SearchTransitGatewayRoutesInput, optFns ...func(*ec2.Options)) (*ec2.SearchTransitGatewayRoutesOutput, error)
+}
+
 // SSOAdminListInstancesAPI defines the SSO Admin ListInstances operation.
 type SSOAdminListInstancesAPI interface {
 	ListInstances(ctx context.Context, params *ssoadmin.ListInstancesInput, optFns ...func(*ssoadmin.Options)) (*ssoadmin.ListInstancesOutput, error)
@@ -147,4 +152,9 @@ type CloudFormationDescribeStackResourceDriftsAPI interface {
 // CloudFormationGetTemplateAPI defines the CloudFormation GetTemplate operation
 type CloudFormationGetTemplateAPI interface {
 	GetTemplate(ctx context.Context, params *cloudformation.GetTemplateInput, optFns ...func(*cloudformation.Options)) (*cloudformation.GetTemplateOutput, error)
+}
+
+// CloudFormationListExportsAPI defines the CloudFormation ListExports operation
+type CloudFormationListExportsAPI interface {
+	ListExports(ctx context.Context, params *cloudformation.ListExportsInput, optFns ...func(*cloudformation.Options)) (*cloudformation.ListExportsOutput, error)
 }

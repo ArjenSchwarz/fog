@@ -1,6 +1,88 @@
 Unreleased
 ===========
 
+### Changed
+- Transit Gateway drift detection now resolves `Fn::ImportValue` references for route attachments
+- Transit Gateway drift detection builds complete resource map before checking special cases
+- Transit Gateway drift detection now displays "No drift detected" message when no drift is found
+- Template parameter constraints (`MaxLength`, `MinLength`, `MaxValue`, `MinValue`) now support both string and numeric values
+- JSON indentation in drift output now handles non-JSON string values
+
+### Added
+- `CloudFormationListExportsAPI` interface for accessing CloudFormation exports
+- Custom `UnmarshalJSON` implementation for `CfnTemplateParameter` to handle mixed type constraints
+- `customImportValueHandler` for processing `Fn::ImportValue` intrinsic functions
+- Support for CloudFormation exports in the `logicalToPhysical` map
+- Unit tests for `CfnTemplateParameter` JSON unmarshaling with string and numeric constraints
+- Unit tests for template parsing with outputs, metadata, and conditions
+- Unit test for `RouteResourceToRoute` with `Fn::ImportValue` resolution
+- Additional Transit Gateway route conversion test cases
+
+### Fixed
+- Transit Gateway drift detection now correctly resolves template routes that reference attachments via `Fn::ImportValue`
+- Template parsing no longer fails when parameter constraints are provided as strings instead of numbers
+- Drift detection output properly handles properties with non-JSON values
+- `stringPointer` function now returns `nil` for unresolved references instead of empty strings
+
+### Added
+- Transit Gateway drift detection command integration in cmd/drift.go
+- checkTransitGatewayRouteTableRoutes function for detecting Transit Gateway route drift
+- tgwRouteToString formatter function for displaying Transit Gateway route information
+- Support for --separate-properties flag in Transit Gateway drift output
+- Detection of unmanaged Transit Gateway routes (in AWS but not in template)
+- Detection of removed Transit Gateway routes (in template but not in AWS)
+- Filtering of propagated routes and transient states in Transit Gateway drift detection
+- Testing documentation (specs/transit-gateway-drift/TESTING_NOTE.md) explaining test architecture decisions for Transit Gateway drift detection
+- Transit Gateway route comparison function (CompareTGWRoutes) with support for blackhole ignore lists
+- Unit tests for CompareTGWRoutes covering identical routes, different fields, state mismatches, and blackhole ignore list handling
+- Transit Gateway route template parsing functions (TGWRouteResourceToTGWRoute, FilterTGWRoutesByLogicalId)
+- Unit tests for Transit Gateway route template parsing with tests for resource conversion and filtering
+- Enhanced error handling in GetTransitGatewayRouteTableRoutes with AWS API error type assertions
+- Context timeout handling (30 seconds) for Transit Gateway route retrieval API calls
+- State filters for SearchTransitGatewayRoutes API (active and blackhole states only)
+- Specific error handling for InvalidRouteTableID.NotFound and UnauthorizedOperation AWS errors
+- Additional test cases for AWS error scenarios (InvalidRouteTableID.NotFound, UnauthorizedOperation, context timeout)
+- Context validation test to ensure proper context passing
+- Integration tests for Transit Gateway drift detection (cmd/drift_integration_test.go) covering end-to-end workflows, propagated route filtering, transient state filtering, --separate-properties flag behavior, and empty route table handling
+- TestTransitGatewayDrift_LibraryFunctions validating drift detection logic using lib functions with table-driven tests for unmanaged, removed, modified, and identical routes
+- TestTransitGatewayDrift_PropagatedRoutesFiltered ensuring propagated routes are excluded from drift detection
+- TestTransitGatewayDrift_TransientStatesFiltered verifying routes in pending, deleting, and deleted states are filtered out
+- TestTransitGatewayDrift_SeparatePropertiesFlag testing both enabled and disabled states of the --separate-properties flag
+- TestTransitGatewayDrift_EmptyRouteTable verifying handling of route tables with no routes
+- TestTransitGatewayDrift_PropagatedRoutesHandling with tests for only propagated routes, mix of static/propagated, static drift with propagated present, and multiple propagated routes
+- TestTransitGatewayDrift_PrefixListHandling with tests for matching, unmanaged, removed, and modified prefix list routes, plus mixed CIDR and prefix list scenarios
+- TestTransitGatewayDrift_ECMPRoutes with tests for ECMP routes where first attachment matches, differs, and template has single while AWS has multiple attachments
+
+### Changed
+- Updated separateSpecialCases function to extract Transit Gateway route tables from drift results
+- Extended drift detection flow to include Transit Gateway route table verification
+- Added context import to cmd/drift.go for Transit Gateway API calls
+- Updated GetTransitGatewayRouteTableRoutes to use context.WithTimeout for API call protection
+- Enhanced GetTransitGatewayRouteTableRoutes with errors.As for smithy.APIError type assertions
+- Improved error messages with specific context (route table ID, timeout duration, IAM permissions)
+
+### Added
+- Unit tests for Transit Gateway route table helper functions in lib/tgw_routetables_test.go
+- TestGetTGWRouteDestination with tests for CIDR block extraction, prefix list extraction, nil handling, and precedence
+- TestGetTGWRouteTarget with tests for attachment ID extraction, blackhole state handling, empty array handling, nil pointer handling, and ECMP behavior
+- TestGetTransitGatewayRouteTableRoutes with tests for successful retrieval, empty tables, API errors, and parameter validation
+- Godoc comments for all Transit Gateway test functions following Go documentation standards
+- Mock EC2SearchTransitGatewayRoutesAPI implementation for isolated unit testing
+
+### Added
+- AWS SDK interface for Transit Gateway route table operations (EC2SearchTransitGatewayRoutesAPI)
+- Core Transit Gateway route table helper functions in lib/tgw_routetables.go
+- GetTransitGatewayRouteTableRoutes function for retrieving routes from AWS
+- GetTGWRouteDestination function for extracting route destination identifiers
+- GetTGWRouteTarget function for extracting route target identifiers with ECMP support
+
+### Added
+- Transit Gateway drift detection specification including requirements, design, tasks, and decision log
+- Requirements document defining 11 requirement categories covering Transit Gateway route table detection, template parsing, AWS API integration, route comparison, output formatting, and error handling
+- Design document specifying technical architecture, component interfaces, data models, testing strategy, performance considerations, and known limitations for Transit Gateway drift detection
+- Implementation tasks document with 28 numbered tasks organized into foundation setup, core functions, template parsing, route comparison, command integration, testing, and validation phases
+- Decision log documenting 16 key architectural and implementation decisions including VPC route pattern reuse, propagated route exclusion, API choice, error handling strategy, and ECMP limitations
+
 ### Added
 - Documentation comments for all exported types and functions across cmd, lib, and config packages
 - Godoc-compliant comments for DeployInfo, CfnStack, StackEvent, and ResourceEvent types

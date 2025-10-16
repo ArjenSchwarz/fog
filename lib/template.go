@@ -42,11 +42,80 @@ type CfnTemplateParameter struct {
 	AllowedPattern        string  `json:"AllowedPattern,omitempty"`
 	AllowedValues         []any   `json:"AllowedValues,omitempty"`
 	ConstraintDescription string  `json:"ConstraintDescription,omitempty"`
-	MaxLength             int     `json:"MaxLength,omitempty"`
-	MinLength             int     `json:"MinLength,omitempty"`
-	MaxValue              float64 `json:"MaxValue,omitempty"`
-	MinValue              float64 `json:"MinValue,omitempty"`
+	MaxLength             int     `json:"-"`
+	MinLength             int     `json:"-"`
+	MaxValue              float64 `json:"-"`
+	MinValue              float64 `json:"-"`
 	NoEcho                bool    `json:"NoEcho,omitempty"`
+}
+
+// UnmarshalJSON implements custom JSON unmarshalling for CfnTemplateParameter
+func (p *CfnTemplateParameter) UnmarshalJSON(b []byte) error {
+	// Create a temporary struct with all fields as any type
+	type Alias CfnTemplateParameter
+	aux := &struct {
+		MaxLength any `json:"MaxLength,omitempty"`
+		MinLength any `json:"MinLength,omitempty"`
+		MaxValue  any `json:"MaxValue,omitempty"`
+		MinValue  any `json:"MinValue,omitempty"`
+		*Alias
+	}{
+		Alias: (*Alias)(p),
+	}
+
+	if err := json.Unmarshal(b, &aux); err != nil {
+		return err
+	}
+
+	// Convert MaxLength from string or number to int
+	if aux.MaxLength != nil {
+		switch v := aux.MaxLength.(type) {
+		case float64:
+			p.MaxLength = int(v)
+		case string:
+			if val, err := strconv.Atoi(v); err == nil {
+				p.MaxLength = val
+			}
+		}
+	}
+
+	// Convert MinLength from string or number to int
+	if aux.MinLength != nil {
+		switch v := aux.MinLength.(type) {
+		case float64:
+			p.MinLength = int(v)
+		case string:
+			if val, err := strconv.Atoi(v); err == nil {
+				p.MinLength = val
+			}
+		}
+	}
+
+	// Convert MaxValue from string or number to float64
+	if aux.MaxValue != nil {
+		switch v := aux.MaxValue.(type) {
+		case float64:
+			p.MaxValue = v
+		case string:
+			if val, err := strconv.ParseFloat(v, 64); err == nil {
+				p.MaxValue = val
+			}
+		}
+	}
+
+	// Convert MinValue from string or number to float64
+	if aux.MinValue != nil {
+		switch v := aux.MinValue.(type) {
+		case float64:
+			p.MinValue = v
+		case string:
+			if val, err := strconv.ParseFloat(v, 64); err == nil {
+				p.MinValue = val
+			}
+		}
+	}
+
+	return nil
 }
 
 // CfnTemplateResource represents a resource definition in a CloudFormation template
@@ -199,11 +268,21 @@ func customRefHandler(name string, input any, template any) any {
 	return fmt.Sprintf("REF: %s", input)
 }
 
+// customImportValueHandler handles Fn::ImportValue intrinsic functions by preserving them
+// in a map format that can be processed later with the logicalToPhysical map
+func customImportValueHandler(name string, input any, template any) any {
+	// Return the import value in a format that stringPointer can recognize
+	return map[string]any{
+		"Fn::ImportValue": input,
+	}
+}
+
 // ParseTemplateString parses a CloudFormation template string into a CfnTemplateBody
 func ParseTemplateString(template string, parameters *map[string]any) CfnTemplateBody {
 	parsedTemplate := CfnTemplateBody{}
 	override := map[string]intrinsics.IntrinsicHandler{}
 	override["Ref"] = customRefHandler
+	override["Fn::ImportValue"] = customImportValueHandler
 	options := intrinsics.ProcessorOptions{
 		IntrinsicHandlerOverrides: override,
 	}
@@ -414,22 +493,41 @@ func stringPointer(array map[string]any, params []cfntypes.Parameter, logicalToP
 		}
 		// break statement removed as it's redundant at the end of a case
 	case map[string]any:
-		refname := value["Ref"].(string)
-		if _, ok := logicalToPhysical[refname]; ok {
-			result = logicalToPhysical[refname]
-		} else {
-			for _, parameter := range params {
-				if *parameter.ParameterKey == refname {
-					if parameter.ResolvedValue != nil {
-						result = *parameter.ResolvedValue
-					} else {
-						result = *parameter.ParameterValue
+		// Handle Ref intrinsic function
+		if refname, ok := value["Ref"].(string); ok {
+			if _, ok := logicalToPhysical[refname]; ok {
+				result = logicalToPhysical[refname]
+			} else {
+				for _, parameter := range params {
+					if *parameter.ParameterKey == refname {
+						if parameter.ResolvedValue != nil {
+							result = *parameter.ResolvedValue
+						} else {
+							result = *parameter.ParameterValue
+						}
 					}
 				}
 			}
 		}
+		// Handle Fn::ImportValue intrinsic function
+		// ImportValue returns the actual physical ID directly from the stack outputs
+		if importValue, ok := value["Fn::ImportValue"].(string); ok {
+			// The importValue is the export name, but we need the actual value
+			// In the processed template, CloudFormation has already resolved this
+			// So we look for it in logicalToPhysical map using the import name
+			if physicalId, ok := logicalToPhysical[importValue]; ok {
+				result = physicalId
+			} else {
+				// If not found, use the import value string itself as a fallback
+				result = importValue
+			}
+		}
 	}
 
+	// Return nil if the result is empty string (property exists but couldn't be resolved)
+	if result == "" {
+		return nil
+	}
 	return &result
 }
 
