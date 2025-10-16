@@ -310,7 +310,8 @@ Fog's drift detection builds upon the built-in drift detection from CloudFormati
 #### Enhanced Drift Detection Features
 
 * **Tag handling**: Ignoring differences caused by the order of tags and allowing specific tags to be ignored in drift results
-* **Route table monitoring**: Detecting differences in route tables, including unmanaged or removed routes
+* **VPC route table monitoring**: Detecting differences in VPC route tables, including unmanaged or removed routes
+* **Transit Gateway route table monitoring**: Detecting differences in Transit Gateway route tables with support for `Fn::ImportValue` resolution, ECMP routes, and prefix list references
 * **NACL monitoring**: Detecting differences in NACL rules, including unmanaged or removed entries, with improved IPv6 CIDR block handling
 * **Prefix list support**: Supporting verbose mode to detect prefix list changes in routes (excluding AWS-managed prefix lists)
 * **Blackhole route filtering**: Option to ignore specific blackhole routes via configuration
