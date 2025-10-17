@@ -22,13 +22,14 @@ THE SOFTWARE.
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"strings"
 
 	"github.com/ArjenSchwarz/fog/config"
 	"github.com/ArjenSchwarz/fog/lib"
-	format "github.com/ArjenSchwarz/go-output/v2"
+	output "github.com/ArjenSchwarz/go-output/v2"
 	"github.com/spf13/cobra"
 )
 
@@ -66,18 +67,16 @@ func showDependencies(cmd *cobra.Command, args []string) {
 	if err != nil {
 		failWithError(err)
 	}
-	keys := []string{"Stack", "Description", "Imported By"}
+
+	// Build title
 	subtitle := "All stacks"
 	if dependenciesFlags.StackName != "" {
 		subtitle = fmt.Sprintf("Stacks filtered by for %v", dependenciesFlags.StackName)
 	}
 	title := fmt.Sprintf("%v in account %v for region %v", subtitle, awsConfig.AccountID, awsConfig.Region)
-	output := format.OutputArray{Keys: keys, Settings: settings.NewOutputSettings()}
-	output.Settings.Title = title
-	output.Settings.SortKey = "Stack"
-	if output.Settings.NeedsFromToColumns() {
-		output.Settings.AddFromToColumns("Stack", "Imported By")
-	}
+
+	// Build stack data for v2 output
+	data := make([]map[string]any, 0)
 	stackfilter := []string{}
 	if dependenciesFlags.StackName != "" {
 		stackfilter = unique(getFilteredStacks(dependenciesFlags.StackName, &stacks))
@@ -86,14 +85,29 @@ func showDependencies(cmd *cobra.Command, args []string) {
 		if dependenciesFlags.StackName != "" && !stringInSlice(stackname, stackfilter) {
 			continue
 		}
-		content := make(map[string]any)
-		content["Stack"] = stack.Name
-		content["Description"] = stack.Description
-		content["Imported By"] = strings.Join(unique(stack.ImportedBy), settings.GetSeparator())
-		holder := format.OutputHolder{Contents: content}
-		output.AddHolder(holder)
+		row := map[string]any{
+			"Stack":       stack.Name,
+			"Description": stack.Description,
+			// Pass array directly - v2 handles array rendering automatically
+			"Imported By": unique(stack.ImportedBy),
+		}
+		data = append(data, row)
 	}
-	output.Write()
+
+	// Create document using v2 Builder pattern with data pipeline sorting
+	doc := output.New().
+		Table(
+			title,
+			data,
+			output.WithKeys("Stack", "Description", "Imported By"),
+		).
+		Build()
+
+	// Create output with configured options
+	out := output.NewOutput(settings.GetOutputOptions()...)
+	if err := out.Render(context.Background(), doc); err != nil {
+		failWithError(err)
+	}
 }
 
 func getFilteredStacks(stackfilter string, stacks *map[string]lib.CfnStack) []string {

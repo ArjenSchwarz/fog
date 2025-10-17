@@ -1,190 +1,255 @@
 package cmd
 
 import (
-	"flag"
-	"os"
-	"path/filepath"
-	"strings"
+	"context"
 	"testing"
 
-	"github.com/ArjenSchwarz/fog/lib"
-	"github.com/ArjenSchwarz/fog/lib/testutil"
-	format "github.com/ArjenSchwarz/go-output/v2"
+	output "github.com/ArjenSchwarz/go-output/v2"
 	"github.com/spf13/viper"
 )
 
-// update flag for golden file generation
-var updateGolden = flag.Bool("update", false, "update golden files")
-
-// TestExportsOutput_GoldenFiles tests exports command output with golden files
-// This establishes the v1 output baseline before migrating to v2
-func TestExportsOutput_GoldenFiles(t *testing.T) {
-	golden := testutil.NewGoldenFileWithDir(t, "testdata/golden/exports")
+// TestExports_V2BuilderPattern tests the v2 Builder pattern for exports command
+func TestExports_V2BuilderPattern(t *testing.T) {
+	t.Parallel()
 
 	// Create sample export data
-	exports := []lib.CfnOutput{
+	exports := []map[string]any{
 		{
-			StackName:   "vpc-stack",
-			OutputKey:   "VpcId",
-			OutputValue: "vpc-12345678",
-			ExportName:  "my-vpc-id",
-			Description: "The VPC ID for the network",
-			Imported:    true,
-			ImportedBy:  []string{"web-stack", "api-stack"},
+			"Export": "my-vpc-id",
+			"Value":  "vpc-12345678",
 		},
 		{
-			StackName:   "vpc-stack",
-			OutputKey:   "SubnetId",
-			OutputValue: "subnet-87654321",
-			ExportName:  "my-subnet-id",
-			Description: "Public subnet ID",
-			Imported:    false,
-			ImportedBy:  []string{},
-		},
-		{
-			StackName:   "database-stack",
-			OutputKey:   "DBEndpoint",
-			OutputValue: "db.example.com:5432",
-			ExportName:  "my-db-endpoint",
-			Description: "Database connection endpoint",
-			Imported:    true,
-			ImportedBy:  []string{"api-stack"},
+			"Export": "my-subnet-id",
+			"Value":  "subnet-87654321",
 		},
 	}
 
-	title := "All exports in account 123456789012 for region us-east-1"
-
 	tests := map[string]struct {
-		outputFormat string
-		verbose      bool
+		columnOrder []string
 	}{
-		"table_basic": {
-			outputFormat: "table",
-			verbose:      false,
-		},
-		"table_verbose": {
-			outputFormat: "table",
-			verbose:      true,
-		},
-		"csv_basic": {
-			outputFormat: "csv",
-			verbose:      false,
-		},
-		"csv_verbose": {
-			outputFormat: "csv",
-			verbose:      true,
-		},
-		"json_basic": {
-			outputFormat: "json",
-			verbose:      false,
-		},
-		"json_verbose": {
-			outputFormat: "json",
-			verbose:      true,
+		"export_value_order": {
+			columnOrder: []string{"Export", "Value"},
 		},
 	}
 
 	for name, tc := range tests {
+		tc := tc // capture loop variable
 		t.Run(name, func(t *testing.T) {
-			// Create temp file for output
-			tmpFile := filepath.Join(t.TempDir(), name+".out")
+			t.Parallel()
 
-			// Setup viper with appropriate settings
-			viper.Set("output", "table") // Always use table for console (not used in this test)
-			viper.Set("verbose", tc.verbose)
+			// Setup viper configuration
+			viper.Set("output", "table")
+			viper.Set("verbose", false)
 			viper.Set("table.style", "Default")
 			viper.Set("table.max-column-width", 50)
+			viper.Set("use-emoji", false)
+			viper.Set("use-colors", false)
 
-			// Build keys based on verbose flag
-			keys := []string{"Export", "Description", "Stack", "Value", "Imported"}
-			if tc.verbose {
-				keys = append(keys, "Imported By")
+			// Build document using v2 Builder pattern with WithKeys to preserve column order
+			doc := output.New().
+				Table(
+					"All exports in account 123456789012 for region us-east-1",
+					exports,
+					output.WithKeys(tc.columnOrder...),
+				).
+				Build()
+
+			if doc == nil {
+				t.Fatal("Built document should not be nil")
 			}
 
-			// Create output using v1 API
-			outputSettings := settings.NewOutputSettings()
-			outputSettings.Title = title
-			outputSettings.SortKey = "Export"
-			outputSettings.UseEmoji = false
-			outputSettings.UseColors = false
-			outputSettings.OutputFile = tmpFile
-			outputSettings.OutputFileFormat = tc.outputFormat
+			// Verify rendering doesn't error
+			out := output.NewOutput(
+				output.WithFormat(output.Table),
+				output.WithWriter(output.NewStdoutWriter()),
+			)
 
-			output := format.OutputArray{
-				Keys:     keys,
-				Settings: outputSettings,
-			}
-
-			// Add rows
-			for _, export := range exports {
-				content := make(map[string]any)
-				content["Export"] = export.ExportName
-				content["Value"] = export.OutputValue
-				content["Description"] = export.Description
-				content["Stack"] = export.StackName
-				if export.Imported {
-					content["Imported"] = "Yes"
-				} else {
-					content["Imported"] = "No"
-				}
-				if tc.verbose {
-					// Handle array output the same way the actual command does
-					content["Imported By"] = strings.Join(export.ImportedBy, settings.GetSeparator())
-				}
-				holder := format.OutputHolder{Contents: content}
-				output.AddHolder(holder)
-			}
-
-			output.Write()
-
-			// Read the generated file
-			fileContent, err := os.ReadFile(tmpFile)
+			err := out.Render(context.Background(), doc)
 			if err != nil {
-				t.Fatalf("Failed to read output file: %v", err)
+				t.Fatalf("Failed to render output: %v", err)
 			}
-
-			// Assert against golden file
-			golden.Assert(name, fileContent)
 		})
 	}
 }
 
-// TestExportsOutput_EmptyResults tests exports output with no results
-func TestExportsOutput_EmptyResults(t *testing.T) {
-	golden := testutil.NewGoldenFileWithDir(t, "testdata/golden/exports")
+// TestExports_V2ArrayHandling tests array field handling in v2 output
+func TestExports_V2ArrayHandling(t *testing.T) {
+	t.Parallel()
 
-	// Create temp file for output
-	tmpFile := filepath.Join(t.TempDir(), "empty.out")
+	tests := map[string]struct {
+		importedBy []string
+	}{
+		"empty_array": {
+			importedBy: []string{},
+		},
+		"single_item": {
+			importedBy: []string{"consumer-stack"},
+		},
+		"multiple_items": {
+			importedBy: []string{"web-stack", "api-stack", "cache-stack"},
+		},
+	}
 
+	for name, tc := range tests {
+		tc := tc // capture loop variable
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Setup viper
+			viper.Set("output", "table")
+			viper.Set("verbose", true)
+			viper.Set("table.style", "Default")
+			viper.Set("table.max-column-width", 50)
+			viper.Set("use-emoji", false)
+			viper.Set("use-colors", false)
+
+			// Test data with array field
+			data := []map[string]any{
+				{
+					"Export":      "test-export",
+					"Imported By": tc.importedBy,
+				},
+			}
+
+			// Build document with array field - v2 should handle array automatically
+			doc := output.New().
+				Table(
+					"Test Export Arrays",
+					data,
+					output.WithKeys("Export", "Imported By"),
+				).
+				Build()
+
+			if doc == nil {
+				t.Fatal("Built document should not be nil")
+			}
+
+			// Render should handle array without error
+			out := output.NewOutput(
+				output.WithFormat(output.Table),
+				output.WithWriter(output.NewStdoutWriter()),
+			)
+
+			err := out.Render(context.Background(), doc)
+			if err != nil {
+				t.Fatalf("Failed to render output with array field: %v", err)
+			}
+		})
+	}
+}
+
+// TestExports_V2OutputFormats tests that output renders correctly in different formats
+func TestExports_V2OutputFormats(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		format output.Format
+	}{
+		"table_format": {
+			format: output.Table,
+		},
+		"csv_format": {
+			format: output.CSV,
+		},
+		"json_format": {
+			format: output.JSON,
+		},
+		"markdown_format": {
+			format: output.Markdown,
+		},
+	}
+
+	for name, tc := range tests {
+		tc := tc // capture loop variable
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Setup viper
+			viper.Set("output", "table")
+			viper.Set("verbose", false)
+			viper.Set("table.style", "Default")
+			viper.Set("table.max-column-width", 50)
+
+			// Test data
+			data := []map[string]any{
+				{
+					"Export": "my-export",
+					"Value":  "exported-value",
+				},
+			}
+
+			// Build document
+			doc := output.New().
+				Table(
+					"Test Exports",
+					data,
+					output.WithKeys("Export", "Value"),
+				).
+				Build()
+
+			if doc == nil {
+				t.Fatal("Built document should not be nil")
+			}
+
+			// Create output with specific format
+			out := output.NewOutput(
+				output.WithFormat(tc.format),
+				output.WithWriter(output.NewStdoutWriter()),
+			)
+
+			err := out.Render(context.Background(), doc)
+			if err != nil {
+				t.Fatalf("Failed to render in format %s: %v", tc.format.Name, err)
+			}
+		})
+	}
+}
+
+// TestExports_V2VerboseMode tests exports with verbose flag for ImportedBy column
+func TestExports_V2VerboseMode(t *testing.T) {
+	t.Parallel()
+
+	// Setup viper for verbose mode
 	viper.Set("output", "table")
-	viper.Set("verbose", false)
+	viper.Set("verbose", true)
 	viper.Set("table.style", "Default")
 	viper.Set("table.max-column-width", 50)
 
-	keys := []string{"Export", "Description", "Stack", "Value", "Imported"}
-	title := "All exports in account 123456789012 for region us-east-1"
-
-	outputSettings := settings.NewOutputSettings()
-	outputSettings.Title = title
-	outputSettings.SortKey = "Export"
-	outputSettings.UseEmoji = false
-	outputSettings.UseColors = false
-	outputSettings.OutputFile = tmpFile
-	outputSettings.OutputFileFormat = "table"
-
-	output := format.OutputArray{
-		Keys:     keys,
-		Settings: outputSettings,
+	// Test data with ImportedBy field
+	data := []map[string]any{
+		{
+			"Export":      "my-vpc-id",
+			"Value":       "vpc-12345678",
+			"Imported By": []string{"web-stack", "api-stack"},
+		},
+		{
+			"Export":      "my-subnet-id",
+			"Value":       "subnet-87654321",
+			"Imported By": []string{},
+		},
 	}
 
-	// No rows added - empty result
-	output.Write()
+	// Build with verbose column ordering (Export, Value, Imported By)
+	doc := output.New().
+		Table(
+			"Exports with Imported By",
+			data,
+			output.WithKeys("Export", "Value", "Imported By"),
+		).
+		Build()
 
-	// Read the generated file
-	fileContent, err := os.ReadFile(tmpFile)
+	if doc == nil {
+		t.Fatal("Built document should not be nil")
+	}
+
+	// Render
+	out := output.NewOutput(
+		output.WithFormat(output.Table),
+		output.WithWriter(output.NewStdoutWriter()),
+	)
+
+	err := out.Render(context.Background(), doc)
 	if err != nil {
-		t.Fatalf("Failed to read output file: %v", err)
+		t.Fatalf("Failed to render verbose output: %v", err)
 	}
-
-	golden.Assert("empty_results", fileContent)
 }

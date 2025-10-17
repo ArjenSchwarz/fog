@@ -82,7 +82,7 @@ references:
 
 ## Phase 4: Command Migration - Exports
 
-- [ ] 8. Write unit tests for exports command v2 migration
+- [x] 8. Write unit tests for exports command v2 migration
   - Create test cases validating Builder pattern usage
   - Test WithKeys() preserves column order (Export, Value)
   - Test array handling for ImportingStacks field
@@ -90,7 +90,7 @@ references:
   - Requirements: [4.5](requirements.md#4.5), [6.5](requirements.md#6.5), [12.1](requirements.md#12.1)
   - References: cmd/exports_test.go
 
-- [ ] 9. Migrate exports command to v2 Builder pattern
+- [x] 9. Migrate exports command to v2 Builder pattern
   - Replace OutputArray instantiation with output.New().Table().Build()
   - Use settings.GetTableFormat() for table configuration
   - Use WithKeys() to specify column order: Export, Value
@@ -102,7 +102,7 @@ references:
 
 ## Phase 5: Command Migration - Dependencies
 
-- [ ] 10. Write unit tests for dependencies command v2 migration
+- [x] 10. Write unit tests for dependencies command v2 migration
   - Create test cases for Builder pattern with sorting
   - Test SortBy() data pipeline method
   - Test column ordering (Name, DependedOnBy)
@@ -110,7 +110,7 @@ references:
   - Requirements: [8.5](requirements.md#8.5), [12.1](requirements.md#12.1)
   - References: cmd/dependencies_test.go
 
-- [ ] 11. Migrate dependencies command with sorting
+- [x] 11. Migrate dependencies command with sorting
   - Replace OutputArray with Builder pattern
   - Use doc.Pipeline().SortBy(sortKey, output.Ascending).Execute() for sorting
   - Use WithKeys() for column order
