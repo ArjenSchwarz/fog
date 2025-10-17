@@ -44,7 +44,7 @@ require (
 )
 
 require (
-	github.com/ArjenSchwarz/go-output v1.5.1
+	github.com/ArjenSchwarz/go-output v1.4.0
 	github.com/aws/aws-lambda-go v1.50.0
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.254.1
 	github.com/aws/aws-sdk-go-v2/service/organizations v1.45.3
@@ -71,7 +71,6 @@ require (
 	github.com/sagikazarmark/locafero v0.12.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/net v0.44.0 // indirect
-	golang.org/x/term v0.36.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
