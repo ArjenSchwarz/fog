@@ -24,6 +24,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"io"
 	"sort"
 	"strings"
 	"time"
@@ -31,6 +32,7 @@ import (
 	"github.com/ArjenSchwarz/fog/config"
 	"github.com/ArjenSchwarz/fog/lib"
 	output "github.com/ArjenSchwarz/go-output/v2"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/gosimple/slug"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -40,6 +42,36 @@ const (
 	outputFormatMarkdown = "markdown"
 	eventTypeRemove      = "Remove"
 )
+
+// s3ClientAdapter adapts the AWS SDK s3.Client to the go-output v2 S3Client interface
+type s3ClientAdapter struct {
+	client *s3.Client
+}
+
+// PutObject implements the go-output v2 S3Client interface
+func (a *s3ClientAdapter) PutObject(ctx context.Context, input *output.S3PutObjectInput) (*output.S3PutObjectOutput, error) {
+	// Read the body into bytes to get the size
+	body, err := io.ReadAll(input.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read body: %w", err)
+	}
+
+	// Call AWS SDK PutObject
+	result, err := a.client.PutObject(ctx, &s3.PutObjectInput{
+		Bucket:      &input.Bucket,
+		Key:         &input.Key,
+		Body:        strings.NewReader(string(body)),
+		ContentType: &input.ContentType,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to put object to S3: %w", err)
+	}
+
+	// Return output in the expected format
+	return &output.S3PutObjectOutput{
+		ETag: result.ETag,
+	}, nil
+}
 
 // deployCmd represents the deploy command
 var reportCmd = &cobra.Command{
@@ -187,23 +219,20 @@ func getReportOutputOptions(awsConfig config.AWSConfig) []output.OutputOption {
 	opts := settings.GetOutputOptions()
 
 	// Handle S3 bucket output if configured
-	// For now, we support S3 output through the go-output v2 file writer
-	// by writing to a local temporary directory first, then uploading to S3
-	// This is a transitional approach until deeper S3 integration is implemented
 	if reportFlags.TargetBucket != "" {
-		// Build output filename
-		outputFile := reportFlags.Outputfile
-		if outputFile == "" {
+		// Build S3 key pattern
+		keyPattern := reportFlags.Outputfile
+		if keyPattern == "" {
 			ext := getDefaultExtension(settings.GetLCString("output"))
-			outputFile = cleanStackName(reportFlags.StackName) + "-" + time.Now().Format(time.RFC3339) + ext
+			keyPattern = cleanStackName(reportFlags.StackName) + "/" + time.Now().Format(time.RFC3339) + ext
 		} else {
-			outputFile = reportPlaceholderParser(outputFile, reportFlags.StackName, awsConfig)
+			keyPattern = reportPlaceholderParser(keyPattern, reportFlags.StackName, awsConfig)
 		}
 
-		// For S3 support, we would need to implement a custom S3Writer that adapts
-		// the AWS SDK s3.Client to the go-output v2 S3Client interface.
-		// For now, we log the intended path and support local file output.
-		fmt.Printf("Note: S3 output to s3://%s/%s would be written here\n", reportFlags.TargetBucket, outputFile)
+		// Create S3 writer with adapter
+		adapter := &s3ClientAdapter{client: awsConfig.S3Client()}
+		s3Writer := output.NewS3Writer(adapter, reportFlags.TargetBucket, keyPattern)
+		opts = append(opts, output.WithWriter(s3Writer))
 	}
 
 	return opts
