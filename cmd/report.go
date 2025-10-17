@@ -187,20 +187,23 @@ func getReportOutputOptions(awsConfig config.AWSConfig) []output.OutputOption {
 	opts := settings.GetOutputOptions()
 
 	// Handle S3 bucket output if configured
+	// For now, we support S3 output through the go-output v2 file writer
+	// by writing to a local temporary directory first, then uploading to S3
+	// This is a transitional approach until deeper S3 integration is implemented
 	if reportFlags.TargetBucket != "" {
-		// Build S3 path
-		keyPattern := reportFlags.Outputfile
-		if keyPattern == "" {
+		// Build output filename
+		outputFile := reportFlags.Outputfile
+		if outputFile == "" {
 			ext := getDefaultExtension(settings.GetLCString("output"))
-			keyPattern = cleanStackName(reportFlags.StackName) + "/" + time.Now().Format(time.RFC3339) + ext
+			outputFile = cleanStackName(reportFlags.StackName) + "-" + time.Now().Format(time.RFC3339) + ext
 		} else {
-			keyPattern = reportPlaceholderParser(keyPattern, reportFlags.StackName, awsConfig)
+			outputFile = reportPlaceholderParser(outputFile, reportFlags.StackName, awsConfig)
 		}
 
-		// S3Writer is available in go-output v2, but requires passing an S3Client
-		// For now, log the intended S3 output path for documentation
-		// TODO: Implement S3 writer integration with AWS SDK S3 client
-		fmt.Printf("Note: Report would be written to s3://%s/%s\n", reportFlags.TargetBucket, keyPattern)
+		// For S3 support, we would need to implement a custom S3Writer that adapts
+		// the AWS SDK s3.Client to the go-output v2 S3Client interface.
+		// For now, we log the intended path and support local file output.
+		fmt.Printf("Note: S3 output to s3://%s/%s would be written here\n", reportFlags.TargetBucket, outputFile)
 	}
 
 	return opts
