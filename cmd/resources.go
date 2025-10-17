@@ -22,11 +22,13 @@ THE SOFTWARE.
 package cmd
 
 import (
+	"context"
 	"fmt"
+	"slices"
 
 	"github.com/ArjenSchwarz/fog/config"
 	"github.com/ArjenSchwarz/fog/lib"
-	format "github.com/ArjenSchwarz/go-output/v2"
+	output "github.com/ArjenSchwarz/go-output/v2"
 	"github.com/spf13/cobra"
 )
 
@@ -64,30 +66,58 @@ func listResources(cmd *cobra.Command, args []string) {
 		failWithError(err)
 	}
 	resources := lib.GetResources(&resourcesFlags.StackName, awsConfig.CloudformationClient())
+
+	// Build column keys based on verbose flag
 	keys := []string{"Type", "ID", "Stack"}
 	if settings.GetBool("verbose") {
 		keys = append(keys, []string{"LogicalID", "Status"}...)
 	}
+
+	// Build title
 	subtitle := "All resources created by CloudFormation"
 	if resourcesFlags.StackName != "" {
 		subtitle = fmt.Sprintf("Resources for %v", resourcesFlags.StackName)
 	}
 	title := fmt.Sprintf("%v in account %v for region %v", subtitle, awsConfig.AccountID, awsConfig.Region)
-	output := format.OutputArray{Keys: keys, Settings: settings.NewOutputSettings()}
-	output.Settings.Title = title
-	output.Settings.SortKey = sortKeyType
-	for _, resource := range resources {
-		content := make(map[string]any)
-		content["Type"] = resource.Type
-		content["ID"] = resource.ResourceID
-		content["Stack"] = resource.StackName
-		if settings.GetBool("verbose") {
-			content["LogicalID"] = resource.LogicalID
-			content["Status"] = resource.Status
-		}
-		holder := format.OutputHolder{Contents: content}
-		output.AddHolder(holder)
-	}
-	output.Write()
 
+	// Sort resources by Type
+	slices.SortFunc(resources, func(a, b lib.CfnResource) int {
+		if a.Type < b.Type {
+			return -1
+		}
+		if a.Type > b.Type {
+			return 1
+		}
+		return 0
+	})
+
+	// Build resource data for v2 output
+	data := make([]map[string]any, 0, len(resources))
+	for _, resource := range resources {
+		row := map[string]any{
+			"Type":  resource.Type,
+			"ID":    resource.ResourceID,
+			"Stack": resource.StackName,
+		}
+		if settings.GetBool("verbose") {
+			row["LogicalID"] = resource.LogicalID
+			row["Status"] = resource.Status
+		}
+		data = append(data, row)
+	}
+
+	// Create document using v2 Builder pattern
+	doc := output.New().
+		Table(
+			title,
+			data,
+			output.WithKeys(keys...),
+		).
+		Build()
+
+	// Create output with configured options
+	out := output.NewOutput(settings.GetOutputOptions()...)
+	if err := out.Render(context.Background(), doc); err != nil {
+		failWithError(err)
+	}
 }

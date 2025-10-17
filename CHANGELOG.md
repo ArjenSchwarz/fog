@@ -5,6 +5,7 @@ Unreleased
 - Updated go-output dependency from v1.4.0 to v2.3.0 with new v2 package structure
 - Updated all import paths from `github.com/ArjenSchwarz/go-output` to `github.com/ArjenSchwarz/go-output/v2` across 15 Go files
 - Mermaid/gantt chart support now uses v2.3.0 native APIs (ChartContent, NewGanttChart) instead of separate mermaid subpackage
+- **resources command**: Migrated from v1 OutputArray pattern to v2 Builder pattern with modern Go patterns (slices.SortFunc for sorting)
 
 ### Added
 - go-output v2 specification and research documentation in specs/go-output-v2 directory
@@ -17,6 +18,7 @@ Unreleased
 - Decision log tracking architectural and design choices
 - Golden file baseline tests for exports command v1 output (table, CSV, JSON formats)
 - Test coverage for verbose and non-verbose exports output modes
+- **Comprehensive unit tests for resources command**: Tests for v2 Builder pattern, column ordering (basic and verbose), sorting by Type, multiple output formats (table, CSV, JSON, Markdown), array field handling, and empty results
 
 1.11.0 / 2025-10-17
 ===================
