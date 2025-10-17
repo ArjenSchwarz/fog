@@ -1,6 +1,16 @@
 Unreleased
 ===========
 
+### Added
+- go-output v2 specification and research documentation in specs/go-output-v2 directory
+- API documentation covering all v2 public interfaces and agent implementation patterns
+- Migration guide detailing v1 to v2 upgrade path with breaking changes and code examples
+- Evaluation document comparing v2 against alternatives (pterm, lipgloss, glamour, charmbracelet/log)
+- Design document outlining v2 architecture, threading model, and collapsible content system
+- Requirements specification defining functional, technical, and user experience requirements
+- Task breakdown with sprint planning for go-output v2 implementation
+- Decision log tracking architectural and design choices
+
 1.11.0 / 2025-10-17
 ===================
 
