@@ -76,10 +76,7 @@ func detectDrift(cmd *cobra.Command, args []string) {
 	svc := awsConfig.CloudformationClient()
 	resultTitle := "Drift results for stack " + driftFlags.StackName
 	keys := []string{"LogicalId", "Type", "ChangeType", "Details"}
-	outputsettings = settings.NewOutputSettings()
-	output := output.OutputArray{Keys: keys, Settings: settings.NewOutputSettings()}
-	output.Settings.Title = resultTitle
-	output.Settings.SortKey = "LogicalId"
+
 	if !driftFlags.ResultsOnly {
 		driftid := lib.StartDriftDetection(&driftFlags.StackName, awsConfig.CloudformationClient())
 		lib.WaitForDriftDetectionToFinish(driftid, awsConfig.CloudformationClient())
@@ -91,6 +88,9 @@ func detectDrift(cmd *cobra.Command, args []string) {
 	}
 	naclResources, routetableResources, tgwRouteTableResources, logicalToPhysical := separateSpecialCases(defaultDrift, &driftFlags.StackName, svc)
 	checkedResources := []string{}
+
+	// Build rows incrementally
+	rows := make([]map[string]any, 0)
 
 	for _, drift := range defaultDrift {
 		//TODO: verify if checkedResources is needed
@@ -171,35 +171,54 @@ func detectDrift(cmd *cobra.Command, args []string) {
 					separateContent := make(map[string]any)
 					maps.Copy(separateContent, content)
 					separateContent["Details"] = property
-					output.AddContents(separateContent)
+					rows = append(rows, separateContent)
 				}
 			} else {
 				content["Details"] = properties
-				output.AddContents(content)
+				rows = append(rows, content)
 			}
 		}
 	}
 	params := lib.GetParametersMap(stack.Parameters)
 	template := lib.GetTemplateBody(&driftFlags.StackName, params, svc)
-	checkNaclEntries(naclResources, template, stack.Parameters, &output, awsConfig)
-	checkRouteTableRoutes(routetableResources, template, stack.Parameters, logicalToPhysical, &output, awsConfig)
-	checkTransitGatewayRouteTableRoutes(tgwRouteTableResources, template, stack.Parameters, logicalToPhysical, &output, awsConfig)
+	checkNaclEntries(naclResources, template, stack.Parameters, &rows, awsConfig)
+	checkRouteTableRoutes(routetableResources, template, stack.Parameters, logicalToPhysical, &rows, awsConfig)
+	checkTransitGatewayRouteTableRoutes(tgwRouteTableResources, template, stack.Parameters, logicalToPhysical, &rows, awsConfig)
 	for _, resourcetype := range settings.GetStringSlice("drift.detect-unmanaged-resources") {
 		allresources, err := lib.ListAllResources(resourcetype, awsConfig.CloudControlClient(), awsConfig.SSOAdminClient(), awsConfig.OrganizationsClient())
 		if err != nil {
 			log.Fatal(err)
 		}
-		checkIfResourcesAreManaged(allresources, logicalToPhysical, &output)
+		checkIfResourcesAreManaged(allresources, logicalToPhysical, &rows)
 	}
-	if len(output.Contents) == 0 {
-		noDriftOutput := output.OutputArray{Keys: []string{"Status"}, Settings: settings.NewOutputSettings()}
-		noDriftOutput.Settings.Title = resultTitle
-		content := make(map[string]any)
-		content["Status"] = "No drift detected"
-		noDriftOutput.AddContents(content)
-		noDriftOutput.Write()
+
+	// Create and render the document
+	if len(rows) == 0 {
+		doc := output.New().
+			Table(
+				resultTitle,
+				[]map[string]any{
+					{"Status": "No drift detected"},
+				},
+				output.WithKeys("Status"),
+			).
+			Build()
+		out := output.NewOutput(settings.GetOutputOptions()...)
+		if err := out.Render(context.Background(), doc); err != nil {
+			failWithError(err)
+		}
 	} else {
-		output.Write()
+		doc := output.New().
+			Table(
+				resultTitle,
+				rows,
+				output.WithKeys(keys...),
+			).
+			Build()
+		out := output.NewOutput(settings.GetOutputOptions()...)
+		if err := out.Render(context.Background(), doc); err != nil {
+			failWithError(err)
+		}
 	}
 }
 
@@ -252,7 +271,7 @@ func separateSpecialCases(defaultDrift []types.StackResourceDrift, stackName *st
 	return naclResources, routetableResources, tgwRouteTableResources, logicalToPhysical
 }
 
-func checkIfResourcesAreManaged(allresources map[string]string, logicalToPhysical map[string]string, output *output.OutputArray) {
+func checkIfResourcesAreManaged(allresources map[string]string, logicalToPhysical map[string]string, rows *[]map[string]any) {
 	toIgnore := settings.GetStringSlice("drift.ignore-unmanaged-resources")
 	for resource, resourcetype := range allresources {
 		// If the resource isn't in the logicalToPhysical map, it's not managed by CloudFormation
@@ -266,13 +285,13 @@ func checkIfResourcesAreManaged(allresources map[string]string, logicalToPhysica
 			content["Type"] = resourcetype
 			content["ChangeType"] = "UNMANAGED"
 			content["Details"] = "Not managed by this CloudFormation stack"
-			output.AddContents(content)
+			*rows = append(*rows, content)
 		}
 	}
 }
 
-// checkNaclEntries verifies the NACL entries and if there are differences adds those to the provided output array
-func checkNaclEntries(naclResources map[string]string, template lib.CfnTemplateBody, parameters []types.Parameter, output *output.OutputArray, awsConfig config.AWSConfig) {
+// checkNaclEntries verifies the NACL entries and if there are differences adds those to the provided rows slice
+func checkNaclEntries(naclResources map[string]string, template lib.CfnTemplateBody, parameters []types.Parameter, rows *[]map[string]any, awsConfig config.AWSConfig) {
 	// Specific check for NACLs
 	for logicalId, physicalId := range naclResources {
 		rulechanges := []string{}
@@ -291,7 +310,7 @@ func checkNaclEntries(naclResources map[string]string, template lib.CfnTemplateB
 			// If the key exists
 			if ok {
 				if !lib.CompareNaclEntries(entry, cfnentry) {
-					ruledetails := fmt.Sprintf("Expected: %s%sActual: %s", naclEntryToString(cfnentry), outputsettings.GetSeparator(), naclEntryToString(entry))
+					ruledetails := fmt.Sprintf("Expected: %s%sActual: %s", naclEntryToString(cfnentry), settings.GetSeparator(), naclEntryToString(entry))
 					rulechanges = append(rulechanges, ruledetails)
 				}
 				delete(attachedRules, rulenumberstring)
@@ -318,7 +337,7 @@ func checkNaclEntries(naclResources map[string]string, template lib.CfnTemplateB
 					content["Type"] = "AWS::EC2::NetworkACLEntry"
 					content["ChangeType"] = string(types.StackResourceDriftStatusModified)
 					content["Details"] = change
-					output.AddContents(content)
+					*rows = append(*rows, content)
 				}
 			} else {
 				content := make(map[string]any)
@@ -326,14 +345,14 @@ func checkNaclEntries(naclResources map[string]string, template lib.CfnTemplateB
 				content["Type"] = "AWS::EC2::NetworkACLEntry"
 				content["ChangeType"] = string(types.StackResourceDriftStatusModified)
 				content["Details"] = rulechanges
-				output.AddContents(content)
+				*rows = append(*rows, content)
 			}
 		}
 	}
 }
 
-// checkRouteTableRoutes verifies the routes and if there are differences adds those to the provided output array
-func checkRouteTableRoutes(routetableResources map[string]string, template lib.CfnTemplateBody, parameters []types.Parameter, logicalToPhysical map[string]string, output *output.OutputArray, awsConfig config.AWSConfig) {
+// checkRouteTableRoutes verifies the routes and if there are differences adds those to the provided rows slice
+func checkRouteTableRoutes(routetableResources map[string]string, template lib.CfnTemplateBody, parameters []types.Parameter, logicalToPhysical map[string]string, rows *[]map[string]any, awsConfig config.AWSConfig) {
 	// Create a list of all AWS managed prefixes
 	managedPrefixLists := lib.GetManagedPrefixLists(awsConfig.EC2Client())
 	awsPrefixesSlice := make([]string, 0)
@@ -358,7 +377,7 @@ func checkRouteTableRoutes(routetableResources map[string]string, template lib.C
 			}
 			if cfnroute, ok := attachedRules[ruleid]; ok {
 				if !lib.CompareRoutes(route, cfnroute, settings.GetStringSlice("drift.ignore-blackholes")) {
-					ruledetails := fmt.Sprintf("Expected: %s%sActual: %s", routeToString(cfnroute), outputsettings.GetSeparator(), routeToString(route))
+					ruledetails := fmt.Sprintf("Expected: %s%sActual: %s", routeToString(cfnroute), settings.GetSeparator(), routeToString(route))
 					rulechanges = append(rulechanges, ruledetails)
 				}
 				delete(attachedRules, ruleid)
@@ -389,7 +408,7 @@ func checkRouteTableRoutes(routetableResources map[string]string, template lib.C
 					content["Type"] = "AWS::EC2::Route"
 					content["ChangeType"] = string(types.StackResourceDriftStatusModified)
 					content["Details"] = change
-					output.AddContents(content)
+					*rows = append(*rows, content)
 				}
 			} else {
 				content := make(map[string]any)
@@ -397,14 +416,14 @@ func checkRouteTableRoutes(routetableResources map[string]string, template lib.C
 				content["Type"] = "AWS::EC2::Route"
 				content["ChangeType"] = string(types.StackResourceDriftStatusModified)
 				content["Details"] = rulechanges
-				output.AddContents(content)
+				*rows = append(*rows, content)
 			}
 		}
 	}
 }
 
 // checkTransitGatewayRouteTableRoutes verifies Transit Gateway routes and reports any differences
-func checkTransitGatewayRouteTableRoutes(tgwRouteTableResources map[string]string, template lib.CfnTemplateBody, parameters []types.Parameter, logicalToPhysical map[string]string, output *output.OutputArray, awsConfig config.AWSConfig) {
+func checkTransitGatewayRouteTableRoutes(tgwRouteTableResources map[string]string, template lib.CfnTemplateBody, parameters []types.Parameter, logicalToPhysical map[string]string, rows *[]map[string]any, awsConfig config.AWSConfig) {
 	// Iterate through each Transit Gateway route table
 	for logicalId, physicalId := range tgwRouteTableResources {
 		rulechanges := []string{}
@@ -436,7 +455,7 @@ func checkTransitGatewayRouteTableRoutes(tgwRouteTableResources map[string]strin
 			if cfnroute, ok := expectedRoutes[destination]; ok {
 				// Route exists in template, compare for modifications
 				if !lib.CompareTGWRoutes(route, cfnroute, settings.GetStringSlice("drift.ignore-blackholes")) {
-					ruledetails := fmt.Sprintf("Expected: %s%sActual: %s", tgwRouteToString(cfnroute), outputsettings.GetSeparator(), tgwRouteToString(route))
+					ruledetails := fmt.Sprintf("Expected: %s%sActual: %s", tgwRouteToString(cfnroute), settings.GetSeparator(), tgwRouteToString(route))
 					rulechanges = append(rulechanges, ruledetails)
 				}
 				// Remove from expectedRoutes map to track what's been checked
@@ -467,7 +486,7 @@ func checkTransitGatewayRouteTableRoutes(tgwRouteTableResources map[string]strin
 					content["Type"] = "AWS::EC2::TransitGatewayRoute"
 					content["ChangeType"] = string(types.StackResourceDriftStatusModified)
 					content["Details"] = change
-					output.AddContents(content)
+					*rows = append(*rows, content)
 				}
 			} else {
 				content := make(map[string]any)
@@ -475,7 +494,7 @@ func checkTransitGatewayRouteTableRoutes(tgwRouteTableResources map[string]strin
 				content["Type"] = "AWS::EC2::TransitGatewayRoute"
 				content["ChangeType"] = string(types.StackResourceDriftStatusModified)
 				content["Details"] = rulechanges
-				output.AddContents(content)
+				*rows = append(*rows, content)
 			}
 		}
 	}

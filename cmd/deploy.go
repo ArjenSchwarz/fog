@@ -22,6 +22,7 @@ THE SOFTWARE.
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -37,7 +38,7 @@ import (
 	"github.com/ArjenSchwarz/fog/config"
 	"github.com/ArjenSchwarz/fog/lib"
 	"github.com/ArjenSchwarz/fog/lib/texts"
-	format "github.com/ArjenSchwarz/go-output/v2"
+	output "github.com/ArjenSchwarz/go-output/v2"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -67,6 +68,15 @@ Examples:
 var deployFlags DeployFlags
 var deployment lib.DeployInfo
 
+// Placeholder string methods for deploy command formatting
+// In v2, we use simpler text output instead of complex styled output
+func stringFailure(msg interface{}) string  { return fmt.Sprintf("ERROR: %s\n", msg) }
+func stringSuccess(msg interface{}) string  { return fmt.Sprintf("SUCCESS: %s\n", msg) }
+func stringInfo(msg interface{}) string     { return fmt.Sprintf("INFO: %s\n", msg) }
+func stringWarning(msg interface{}) string  { return fmt.Sprintf("WARNING: %s\n", msg) }
+func stringPositive(msg interface{}) string { return fmt.Sprintf("OK: %s\n", msg) }
+func stringBold(msg interface{}) string     { return fmt.Sprintf("*** %s\n", msg) }
+
 func init() {
 	stackCmd.AddCommand(deployCmd)
 	deployFlags.RegisterFlags(deployCmd)
@@ -74,12 +84,10 @@ func init() {
 
 func deployTemplate(cmd *cobra.Command, args []string) {
 	viper.Set("output", "table") // Enforce table output for deployments
-	outputsettings = settings.NewOutputSettings()
-	outputsettings.SeparateTables = true // Make table output stand out more
 
 	deployment, awsConfig, err := prepareDeployment()
 	if err != nil {
-		fmt.Print(outputsettings.StringFailure(err.Error()))
+		fmt.Print(stringFailure(err.Error()))
 		os.Exit(1)
 	}
 
@@ -120,13 +128,13 @@ func setDeployTemplate(deployment *lib.DeployInfo, awsConfig config.AWSConfig) {
 	}
 	deployment.TemplateRelativePath = path
 	if err != nil {
-		fmt.Print(outputsettings.StringFailure(texts.FileTemplateReadFailure))
+		fmt.Print(stringFailure(texts.FileTemplateReadFailure))
 		log.Fatalln(err)
 	}
 	if deployFlags.Bucket != "" {
 		objectname, err := lib.UploadTemplate(&deployFlags.Template, template, &deployFlags.Bucket, awsConfig.S3Client())
 		if err != nil {
-			fmt.Print(outputsettings.StringFailure("this failed"))
+			fmt.Print(stringFailure("this failed"))
 			log.Fatalln(err)
 		}
 		url := fmt.Sprintf("https://%v.s3-%v.amazonaws.com/%v", deployFlags.Bucket, awsConfig.Region, objectname)
@@ -171,13 +179,13 @@ func setDeployTags(deployment *lib.DeployInfo) {
 			tags, _, err := lib.ReadTagsfile(tagfile)
 			if err != nil {
 				message := fmt.Sprintf("%v '%v'", texts.FileTagsReadFailure, tagfile)
-				fmt.Print(outputsettings.StringFailure(message))
+				fmt.Print(stringFailure(message))
 				log.Fatalln(err)
 			}
 			parsedtags, err := lib.ParseTagString(tags)
 			if err != nil {
 				message := fmt.Sprintf("%v '%v'", texts.FileTagsParseFailure, tagfile)
-				fmt.Print(outputsettings.StringFailure(message))
+				fmt.Print(stringFailure(message))
 				log.Fatalln(err)
 			}
 			tagresult = append(tagresult, parsedtags...)
@@ -210,13 +218,13 @@ func setDeployParameters(deployment *lib.DeployInfo) {
 			parameters, _, err := lib.ReadParametersfile(parameterfile)
 			if err != nil {
 				message := fmt.Sprintf("%v '%v'", texts.FileParametersReadFailure, parameterfile)
-				fmt.Print(outputsettings.StringFailure(message))
+				fmt.Print(stringFailure(message))
 				log.Fatalln(err)
 			}
 			parsedparameters, err := lib.ParseParameterString(parameters)
 			if err != nil {
 				message := fmt.Sprintf("%v '%v'", texts.FileParametersParseFailure, parameterfile)
-				fmt.Print(outputsettings.StringFailure(message))
+				fmt.Print(stringFailure(message))
 				log.Fatalln(err)
 			}
 			parameterresult = append(parameterresult, parsedparameters...)
@@ -228,27 +236,27 @@ func setDeployParameters(deployment *lib.DeployInfo) {
 func createChangeset(deployment *lib.DeployInfo, awsConfig config.AWSConfig) *lib.ChangesetInfo {
 	if deployment.TemplateUrl != "" {
 		text := fmt.Sprintf("Using template uploaded as %v", deployment.TemplateUrl)
-		fmt.Print(outputsettings.StringInfo(text))
+		fmt.Print(stringInfo(text))
 	}
 	_, err := deployment.CreateChangeSet(awsConfig.CloudformationClient())
 	if err != nil {
-		fmt.Print(outputsettings.StringFailure(texts.DeployChangesetMessageCreationFailed))
+		fmt.Print(stringFailure(texts.DeployChangesetMessageCreationFailed))
 		log.Fatalln(err)
 	}
 	changeset, err := deployment.WaitUntilChangesetDone(awsConfig.CloudformationClient())
 	if err != nil {
-		fmt.Print(outputsettings.StringFailure(texts.DeployChangesetMessageCreationFailed))
+		fmt.Print(stringFailure(texts.DeployChangesetMessageCreationFailed))
 		log.Fatalln(err)
 	}
 	if changeset.Status != string(types.ChangeSetStatusCreateComplete) {
 		// When the creation fails because there are no changes, say so and complete successfully
 		if changeset.StatusReason == string(texts.DeployReceivedErrorMessagesNoChanges) || changeset.StatusReason == string(texts.DeployReceivedErrorMessagesNoUpdates) {
 			message := fmt.Sprintf(string(texts.DeployChangesetMessageNoChanges), deployment.StackName)
-			fmt.Print(outputsettings.StringSuccess(message))
+			fmt.Print(stringSuccess(message))
 			os.Exit(0)
 		}
 		// Otherwise, show the error and clean up
-		fmt.Print(outputsettings.StringFailure(texts.DeployChangesetMessageCreationFailed))
+		fmt.Print(stringFailure(texts.DeployChangesetMessageCreationFailed))
 		fmt.Println(changeset.StatusReason)
 		fmt.Printf("\r\n%v %v \r\n", texts.DeployChangesetMessageConsole, changeset.GenerateChangesetUrl(awsConfig))
 		var deleteChangesetConfirmation bool
@@ -268,15 +276,15 @@ func createChangeset(deployment *lib.DeployInfo, awsConfig config.AWSConfig) *li
 func deleteChangeset(deployment lib.DeployInfo, awsConfig config.AWSConfig) {
 	switch {
 	case deployFlags.Dryrun:
-		fmt.Print(outputsettings.StringInfo(texts.DeployChangesetMessageDryrunDelete))
+		fmt.Print(stringInfo(texts.DeployChangesetMessageDryrunDelete))
 	case deployFlags.NonInteractive:
-		fmt.Print(outputsettings.StringInfo(texts.DeployChangesetMessageAutoDelete))
+		fmt.Print(stringInfo(texts.DeployChangesetMessageAutoDelete))
 	default:
-		fmt.Print(outputsettings.StringSuccess(texts.DeployChangesetMessageWillDelete))
+		fmt.Print(stringSuccess(texts.DeployChangesetMessageWillDelete))
 	}
 	deleteAttempt := deployment.Changeset.DeleteChangeset(awsConfig.CloudformationClient())
 	if !deleteAttempt {
-		fmt.Print(outputsettings.StringFailure(texts.DeployChangesetMessageDeleteFailed))
+		fmt.Print(stringFailure(texts.DeployChangesetMessageDeleteFailed))
 	}
 	// Likely a new deployment. Check if the stack is in status REVIEW_IN_PROGRESS and offer to delete
 	if deployment.IsNew {
@@ -300,15 +308,15 @@ func deleteStackIfNew(deployment lib.DeployInfo, awsConfig config.AWSConfig) {
 	}
 	if deleteStackConfirmation {
 		if !deployment.DeleteStack(awsConfig.CloudformationClient()) {
-			fmt.Print(outputsettings.StringFailure("Something went wrong while trying to delete the stack. Please check manually."))
+			fmt.Print(stringFailure("Something went wrong while trying to delete the stack. Please check manually."))
 		} else {
 			switch {
 			case deployFlags.Dryrun:
-				fmt.Print(outputsettings.StringInfo(texts.DeployStackMessageNewStackDryrunDelete))
+				fmt.Print(stringInfo(texts.DeployStackMessageNewStackDryrunDelete))
 			case deployFlags.NonInteractive:
-				fmt.Print(outputsettings.StringInfo(texts.DeployStackMessageNewStackAutoDelete))
+				fmt.Print(stringInfo(texts.DeployStackMessageNewStackAutoDelete))
 			default:
-				fmt.Print(outputsettings.StringSuccess(texts.DeployStackMessageNewStackDeleteSuccess))
+				fmt.Print(stringSuccess(texts.DeployStackMessageNewStackDeleteSuccess))
 			}
 		}
 	} else {
@@ -318,18 +326,18 @@ func deleteStackIfNew(deployment lib.DeployInfo, awsConfig config.AWSConfig) {
 
 func deployChangeset(deployment lib.DeployInfo, awsConfig config.AWSConfig) {
 	if deployFlags.NonInteractive {
-		fmt.Print(outputsettings.StringInfo(texts.DeployChangesetMessageAutoDeploy))
+		fmt.Print(stringInfo(texts.DeployChangesetMessageAutoDeploy))
 	} else {
-		fmt.Print(outputsettings.StringSuccess(texts.DeployChangesetMessageWillDeploy))
+		fmt.Print(stringSuccess(texts.DeployChangesetMessageWillDeploy))
 	}
 	err := deployment.Changeset.DeployChangeset(awsConfig.CloudformationClient())
 	if err != nil {
-		fmt.Print(outputsettings.StringFailure("Could not execute changeset! See details below"))
+		fmt.Print(stringFailure("Could not execute changeset! See details below"))
 		fmt.Println(err)
 	}
 	latest := deployment.Changeset.CreationTime
 	time.Sleep(3 * time.Second)
-	fmt.Print(outputsettings.StringBold("Showing the events for the deployment:"))
+	fmt.Print(stringBold("Showing the events for the deployment:"))
 	ongoing := true
 	for ongoing {
 		latest = showEvents(deployment, latest, awsConfig)
@@ -343,7 +351,7 @@ func deployChangeset(deployment lib.DeployInfo, awsConfig config.AWSConfig) {
 func showEvents(deployment lib.DeployInfo, latest time.Time, awsConfig config.AWSConfig) time.Time {
 	events, err := deployment.GetEvents(awsConfig.CloudformationClient())
 	if err != nil {
-		fmt.Print(outputsettings.StringFailure("Something went wrong trying to get the events of the stack"))
+		fmt.Print(stringFailure("Something went wrong trying to get the events of the stack"))
 		fmt.Println(err)
 	}
 	sort.Sort(ReverseEvents(events))
@@ -353,9 +361,9 @@ func showEvents(deployment lib.DeployInfo, latest time.Time, awsConfig config.AW
 			message := fmt.Sprintf("%v: %v %v in status %v", event.Timestamp.In(settings.GetTimezoneLocation()).Format(time.RFC3339), *event.ResourceType, *event.LogicalResourceId, event.ResourceStatus)
 			switch event.ResourceStatus {
 			case types.ResourceStatusCreateFailed, types.ResourceStatusImportFailed, types.ResourceStatusDeleteFailed, types.ResourceStatusUpdateFailed, types.ResourceStatusImportRollbackComplete, types.ResourceStatus(types.StackStatusRollbackComplete), types.ResourceStatus(types.StackStatusUpdateRollbackComplete):
-				fmt.Print(outputsettings.StringWarning(message))
+				fmt.Print(stringWarning(message))
 			case types.ResourceStatusCreateComplete, types.ResourceStatusImportComplete, types.ResourceStatusUpdateComplete, types.ResourceStatusDeleteComplete:
-				fmt.Print(outputsettings.StringPositive(message))
+				fmt.Print(stringPositive(message))
 			default:
 				fmt.Println(message)
 			}
@@ -367,13 +375,11 @@ func showEvents(deployment lib.DeployInfo, latest time.Time, awsConfig config.AW
 func showFailedEvents(deployment lib.DeployInfo, awsConfig config.AWSConfig) []map[string]any {
 	events, err := deployment.GetEvents(awsConfig.CloudformationClient())
 	if err != nil {
-		fmt.Print(outputsettings.StringFailure("Something went wrong trying to get the events of the stack"))
+		fmt.Println("ERROR: Something went wrong trying to get the events of the stack")
 		fmt.Println(err)
 	}
 	changesetkeys := []string{"CfnName", "Type", "Status", "Reason"}
 	changesettitle := fmt.Sprintf("Failed events in deployment of changeset %v", deployment.Changeset.Name)
-	output := format.OutputArray{Keys: changesetkeys, Settings: outputsettings}
-	output.Settings.Title = changesettitle
 	sort.Sort(ReverseEvents(events))
 	result := make([]map[string]any, 0)
 	for _, event := range events {
@@ -385,13 +391,26 @@ func showFailedEvents(deployment lib.DeployInfo, awsConfig config.AWSConfig) []m
 				content["Type"] = *event.ResourceType
 				content["Status"] = string(event.ResourceStatus)
 				content["Reason"] = *event.ResourceStatusReason
-				holder := format.OutputHolder{Contents: content}
-				output.AddHolder(holder)
 				result = append(result, content)
 			}
 		}
 	}
-	output.Write()
+
+	// Render the failed events table using v2
+	if len(result) > 0 {
+		doc := output.New().
+			Table(
+				changesettitle,
+				result,
+				output.WithKeys(changesetkeys...),
+			).
+			Build()
+		out := output.NewOutput(settings.GetOutputOptions()...)
+		if err := out.Render(context.Background(), doc); err != nil {
+			fmt.Printf("ERROR: Failed to render failed events: %v\n", err)
+		}
+	}
+
 	return result
 }
 

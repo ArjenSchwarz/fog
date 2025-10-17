@@ -121,7 +121,7 @@ references:
 
 ## Phase 6: Command Migration - Drift
 
-- [ ] 12. Write unit tests for drift command v2 migration
+- [x] 12. Write unit tests for drift command v2 migration
   - Create test cases for multiple tables with different column sets
   - Test inline styling in drift output (StyleWarning, StylePositive)
   - Test array handling for property differences
@@ -130,7 +130,7 @@ references:
   - Requirements: [9.2](requirements.md#9.2), [10.1](requirements.md#10.1), [10.2](requirements.md#10.2), [10.3](requirements.md#10.3), [10.4](requirements.md#10.4), [10.5](requirements.md#10.5), [12.1](requirements.md#12.1)
   - References: cmd/drift_test.go
 
-- [ ] 13. Migrate drift command to v2 Builder pattern
+- [x] 13. Migrate drift command to v2 Builder pattern
   - Replace OutputArray with output.New().Table() for main drift table
   - Chain additional .Table() calls for multiple tables (if needed)
   - Use WithKeys() to specify independent column ordering for each table
@@ -142,7 +142,7 @@ references:
 
 ## Phase 7: Command Migration - Deploy
 
-- [ ] 14. Write unit tests for deploy command v2 migration
+- [x] 14. Write unit tests for deploy command v2 migration
   - Create test cases for multiple tables (events + outputs)
   - Test each table has independent column sets
   - Test tables are added incrementally in loops
@@ -150,7 +150,7 @@ references:
   - Requirements: [9.1](requirements.md#9.1), [9.3](requirements.md#9.3), [9.5](requirements.md#9.5), [12.1](requirements.md#12.1)
   - References: cmd/deploy_test.go
 
-- [ ] 15. Migrate deploy command with multiple tables
+- [x] 15. Migrate deploy command with multiple tables
   - Use Builder pattern with multiple .Table() calls
   - Add events table with WithKeys() for event columns
   - Add outputs table with WithKeys() for output columns
@@ -162,7 +162,7 @@ references:
 
 ## Phase 8: Remaining Commands
 
-- [ ] 16. Write unit tests for resources command
+- [x] 16. Write unit tests for resources command
   - Create test cases for resources command Builder pattern usage
   - Test column ordering matches v1
   - Test array handling for multi-value fields
@@ -170,7 +170,7 @@ references:
   - Requirements: [4.5](requirements.md#4.5), [12.1](requirements.md#12.1)
   - References: cmd/resources_test.go
 
-- [ ] 17. Migrate resources command
+- [x] 17. Migrate resources command
   - Replace OutputArray with output.New().Table().Build()
   - Use settings.GetTableFormat() and settings.GetOutputOptions()
   - Use WithKeys() for column ordering
@@ -178,7 +178,7 @@ references:
   - Requirements: [4.1](requirements.md#4.1), [4.2](requirements.md#4.2), [4.4](requirements.md#4.4), [4.7](requirements.md#4.7)
   - References: cmd/resources.go
 
-- [ ] 18. Write unit tests for report command
+- [x] 18. Write unit tests for report command
   - Create test cases for report command Builder pattern usage
   - Test column ordering matches v1
   - Test inline styling if used in report output
@@ -186,7 +186,7 @@ references:
   - Requirements: [4.5](requirements.md#4.5), [12.1](requirements.md#12.1)
   - References: cmd/report_test.go
 
-- [ ] 19. Migrate report command
+- [x] 19. Migrate report command
   - Replace OutputArray with output.New().Table().Build()
   - Use settings.GetTableFormat() and settings.GetOutputOptions()
   - Use WithKeys() for column ordering

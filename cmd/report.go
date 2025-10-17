@@ -24,7 +24,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"io"
 	"sort"
 	"strings"
 	"time"
@@ -32,7 +31,6 @@ import (
 	"github.com/ArjenSchwarz/fog/config"
 	"github.com/ArjenSchwarz/fog/lib"
 	output "github.com/ArjenSchwarz/go-output/v2"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/gosimple/slug"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -42,36 +40,6 @@ const (
 	outputFormatMarkdown = "markdown"
 	eventTypeRemove      = "Remove"
 )
-
-// s3ClientAdapter adapts the AWS SDK s3.Client to the go-output v2 S3Client interface
-type s3ClientAdapter struct {
-	client *s3.Client
-}
-
-// PutObject implements the go-output v2 S3Client interface
-func (a *s3ClientAdapter) PutObject(ctx context.Context, input *output.S3PutObjectInput) (*output.S3PutObjectOutput, error) {
-	// Read the body into bytes to get the size
-	body, err := io.ReadAll(input.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read body: %w", err)
-	}
-
-	// Call AWS SDK PutObject
-	result, err := a.client.PutObject(ctx, &s3.PutObjectInput{
-		Bucket:      &input.Bucket,
-		Key:         &input.Key,
-		Body:        strings.NewReader(string(body)),
-		ContentType: &input.ContentType,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to put object to S3: %w", err)
-	}
-
-	// Return output in the expected format
-	return &output.S3PutObjectOutput{
-		ETag: result.ETag,
-	}, nil
-}
 
 // deployCmd represents the deploy command
 var reportCmd = &cobra.Command{
@@ -229,9 +197,8 @@ func getReportOutputOptions(awsConfig config.AWSConfig) []output.OutputOption {
 			keyPattern = reportPlaceholderParser(keyPattern, reportFlags.StackName, awsConfig)
 		}
 
-		// Create S3 writer with adapter
-		adapter := &s3ClientAdapter{client: awsConfig.S3Client()}
-		s3Writer := output.NewS3Writer(adapter, reportFlags.TargetBucket, keyPattern)
+		// Create S3 writer - v2.3.2+ supports AWS SDK v2 clients directly
+		s3Writer := output.NewS3Writer(awsConfig.S3Client(), reportFlags.TargetBucket, keyPattern)
 		opts = append(opts, output.WithWriter(s3Writer))
 	}
 

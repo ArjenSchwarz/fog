@@ -4,7 +4,7 @@
 
 Go-Output v2 is a complete redesign of the library providing thread-safe document generation with preserved key ordering and multiple output formats. This API documentation covers all public interfaces and methods.
 
-**Version**: v2.2.1
+**Version**: v2.3.0
 **Go Version**: 1.24+
 **Import Path**: `github.com/ArjenSchwarz/go-output/v2`
 
@@ -1000,8 +1000,8 @@ func NewStdoutWriter() Writer
 // FileWriter writes to files with pattern support
 func NewFileWriter(rootDir, pattern string) (Writer, error)
 
-// S3Writer writes to AWS S3
-func NewS3Writer(region, bucket, keyPattern string) (Writer, error)
+// S3Writer writes to AWS S3 (compatible with AWS SDK v2)
+func NewS3Writer(client S3PutObjectAPI, bucket, keyPattern string) *S3Writer
 
 // MultiWriter writes to multiple destinations
 func NewMultiWriter(writers ...Writer) Writer
@@ -2289,7 +2289,7 @@ The v2 API is designed for extensibility:
 |-------------|---------|---------|
 | `NewStdoutWriter()` | Write to console | `NewStdoutWriter()` |
 | `NewFileWriter(dir, pattern)` | Write to files | `NewFileWriter("./out", "report.{format}")` |
-| `NewS3Writer(region, bucket, key)` | Write to S3 | `NewS3Writer("us-east-1", "bucket", "key.{format}")` |
+| `NewS3Writer(client, bucket, key)` | Write to S3 (AWS SDK v2) | `NewS3Writer(s3Client, "bucket", "key.{format}")` |
 | `NewMultiWriter(writers...)` | Multiple outputs | `NewMultiWriter(stdout, file)` |
 
 ### Built-in Formats
@@ -2418,8 +2418,8 @@ Use `icons.AllAWSGroups()` for the complete list.
 ### Version History
 | Version | Key Features |
 |---------|--------------|
-| v2.2.1 | Inline styling functions, table max column width, format-aware array handling |
-| v2.2.0 | AWS Icons package for Draw.io diagram support |
+| v2.3.0 | AWS Icons package, inline styling functions, table max column width, array handling |
+| v2.2.0 | Data transformation pipeline system, development tooling automation |
 | v2.1.3 | Enhanced markdown table escaping for pipes, asterisks, underscores, backticks, brackets |
 | v2.1.1 | Code fence support for collapsible fields with syntax highlighting |
 | v2.1.0 | Complete collapsible content system with format-aware rendering |
