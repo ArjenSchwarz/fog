@@ -10,6 +10,8 @@ Unreleased
 - Requirements specification defining functional, technical, and user experience requirements
 - Task breakdown with sprint planning for go-output v2 implementation
 - Decision log tracking architectural and design choices
+- Golden file baseline tests for exports command v1 output (table, CSV, JSON formats)
+- Test coverage for verbose and non-verbose exports output modes
 
 1.11.0 / 2025-10-17
 ===================

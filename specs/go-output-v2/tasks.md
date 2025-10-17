@@ -8,7 +8,7 @@ references:
 
 ## Phase 0: Pre-Migration Baseline
 
-- [ ] 1. Create golden file baseline for current v1 output
+- [x] 1. Create golden file baseline for current v1 output
   - Before making any code changes, capture v1 output as golden files
   - Create testdata directory structure for golden files
   - Run exports command with sample data and save table format output
