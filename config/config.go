@@ -1,9 +1,11 @@
 package config
 
 import (
+	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/ArjenSchwarz/go-output/v2"
 	format "github.com/ArjenSchwarz/go-output/v2"
 	"github.com/spf13/viper"
 )
@@ -84,16 +86,75 @@ func (config *Config) GetTimezoneLocation() *time.Location {
 	return location
 }
 
-// NewOutputSettings creates a new OutputSettings object with configuration values applied
-func (config *Config) NewOutputSettings() *format.OutputSettings {
-	settings := format.NewOutputSettings()
-	settings.UseEmoji = true
-	settings.UseColors = true
-	settings.SetOutputFormat(config.GetLCString("output"))
-	settings.OutputFile = config.GetLCString("output-file")
-	settings.OutputFileFormat = config.GetLCString("output-file-format")
-	// settings.ShouldAppend = config.GetBool("output.append")
-	settings.TableStyle = format.TableStyles[config.GetString("table.style")]
-	settings.TableMaxColumnWidth = config.GetInt("table.max-column-width")
-	return settings
+// GetTableFormat creates a v2 Format object for table output with configured style and max column width
+func (config *Config) GetTableFormat() format.Format {
+	styleName := config.GetString("table.style")
+	maxWidth := config.GetInt("table.max-column-width")
+
+	// v2 API accepts style name directly as string
+	return output.TableWithStyleAndMaxColumnWidth(styleName, maxWidth)
 }
+
+// getFormatForOutput maps format name to v2 Format object
+func (config *Config) getFormatForOutput(formatName string) format.Format {
+	switch formatName {
+	case "csv":
+		return output.CSV
+	case "json":
+		return output.JSON
+	case "dot":
+		return output.DOT
+	case "markdown":
+		return output.Markdown
+	case "yaml":
+		return output.YAML
+	default:
+		return config.GetTableFormat()
+	}
+}
+
+// GetOutputOptions creates v2 functional options from config settings
+func (config *Config) GetOutputOptions() []output.OutputOption {
+	opts := []output.OutputOption{}
+
+	// Console output
+	consoleFormat := config.getFormatForOutput(config.GetLCString("output"))
+	opts = append(opts, output.WithFormat(consoleFormat))
+	opts = append(opts, output.WithWriter(output.NewStdoutWriter()))
+
+	// File output if configured
+	if outputFile := config.GetLCString("output-file"); outputFile != "" {
+		fileFormat := config.getFormatForOutput(config.GetLCString("output-file-format"))
+		dir, pattern := filepath.Split(outputFile)
+		fileWriter, err := output.NewFileWriter(dir, pattern)
+		if err == nil {
+			opts = append(opts, output.WithFormat(fileFormat))
+			opts = append(opts, output.WithWriter(fileWriter))
+		}
+	}
+
+	// Transformers
+	if config.GetBool("use-emoji") {
+		opts = append(opts, output.WithTransformer(&output.EmojiTransformer{}))
+	}
+	if config.GetBool("use-colors") {
+		opts = append(opts, output.WithTransformer(&output.ColorTransformer{}))
+	}
+
+	return opts
+}
+
+// NewOutputSettings is deprecated and kept for backward compatibility during v2 migration.
+// This will be removed after all commands are migrated to use GetOutputOptions().
+// func (config *Config) NewOutputSettings() *format.OutputSettings {
+// 	settings := format.NewOutputSettings()
+// 	settings.UseEmoji = true
+// 	settings.UseColors = true
+// 	settings.SetOutputFormat(config.GetLCString("output"))
+// 	settings.OutputFile = config.GetLCString("output-file")
+// 	settings.OutputFileFormat = config.GetLCString("output-file-format")
+// 	// settings.ShouldAppend = config.GetBool("output.append")
+// 	settings.TableStyle = format.TableStyles[config.GetString("table.style")]
+// 	settings.TableMaxColumnWidth = config.GetInt("table.max-column-width")
+// 	return settings
+// }

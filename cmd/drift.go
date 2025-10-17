@@ -34,7 +34,7 @@ import (
 
 	"github.com/ArjenSchwarz/fog/config"
 	"github.com/ArjenSchwarz/fog/lib"
-	format "github.com/ArjenSchwarz/go-output/v2"
+	output "github.com/ArjenSchwarz/go-output/v2"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
@@ -77,7 +77,7 @@ func detectDrift(cmd *cobra.Command, args []string) {
 	resultTitle := "Drift results for stack " + driftFlags.StackName
 	keys := []string{"LogicalId", "Type", "ChangeType", "Details"}
 	outputsettings = settings.NewOutputSettings()
-	output := format.OutputArray{Keys: keys, Settings: settings.NewOutputSettings()}
+	output := output.OutputArray{Keys: keys, Settings: settings.NewOutputSettings()}
 	output.Settings.Title = resultTitle
 	output.Settings.SortKey = "LogicalId"
 	if !driftFlags.ResultsOnly {
@@ -118,7 +118,7 @@ func detectDrift(cmd *cobra.Command, args []string) {
 		content["Type"] = *drift.ResourceType
 		changetype := string(drift.StackResourceDriftStatus)
 		if drift.StackResourceDriftStatus == types.StackResourceDriftStatusDeleted {
-			changetype = outputsettings.StringWarningInline(changetype)
+			changetype = output.StyleWarning(changetype)
 		}
 		content["ChangeType"] = changetype
 		tagMap := getExpectedAndActualTags(expectedProperties, actualProperties)
@@ -157,9 +157,9 @@ func detectDrift(cmd *cobra.Command, args []string) {
 			}
 			switch property.DifferenceType {
 			case types.DifferenceTypeRemove:
-				properties = append(properties, outputsettings.StringWarningInline(fmt.Sprintf("%s: %s - %s", property.DifferenceType, aws.ToString(property.PropertyPath), expected.String())))
+				properties = append(properties, output.StyleWarning(fmt.Sprintf("%s: %s - %s", property.DifferenceType, aws.ToString(property.PropertyPath), expected.String())))
 			case types.DifferenceTypeAdd:
-				properties = append(properties, outputsettings.StringPositiveInline(fmt.Sprintf("%s: %s - %s", property.DifferenceType, aws.ToString(property.PropertyPath), actual.String())))
+				properties = append(properties, output.StylePositive(fmt.Sprintf("%s: %s - %s", property.DifferenceType, aws.ToString(property.PropertyPath), actual.String())))
 			default:
 				properties = append(properties, fmt.Sprintf("%s: %s - %s => %s", property.DifferenceType, aws.ToString(property.PropertyPath), aws.ToString(property.ExpectedValue), aws.ToString(property.ActualValue)))
 			}
@@ -192,7 +192,7 @@ func detectDrift(cmd *cobra.Command, args []string) {
 		checkIfResourcesAreManaged(allresources, logicalToPhysical, &output)
 	}
 	if len(output.Contents) == 0 {
-		noDriftOutput := format.OutputArray{Keys: []string{"Status"}, Settings: settings.NewOutputSettings()}
+		noDriftOutput := output.OutputArray{Keys: []string{"Status"}, Settings: settings.NewOutputSettings()}
 		noDriftOutput.Settings.Title = resultTitle
 		content := make(map[string]any)
 		content["Status"] = "No drift detected"
@@ -252,7 +252,7 @@ func separateSpecialCases(defaultDrift []types.StackResourceDrift, stackName *st
 	return naclResources, routetableResources, tgwRouteTableResources, logicalToPhysical
 }
 
-func checkIfResourcesAreManaged(allresources map[string]string, logicalToPhysical map[string]string, output *format.OutputArray) {
+func checkIfResourcesAreManaged(allresources map[string]string, logicalToPhysical map[string]string, output *output.OutputArray) {
 	toIgnore := settings.GetStringSlice("drift.ignore-unmanaged-resources")
 	for resource, resourcetype := range allresources {
 		// If the resource isn't in the logicalToPhysical map, it's not managed by CloudFormation
@@ -272,7 +272,7 @@ func checkIfResourcesAreManaged(allresources map[string]string, logicalToPhysica
 }
 
 // checkNaclEntries verifies the NACL entries and if there are differences adds those to the provided output array
-func checkNaclEntries(naclResources map[string]string, template lib.CfnTemplateBody, parameters []types.Parameter, output *format.OutputArray, awsConfig config.AWSConfig) {
+func checkNaclEntries(naclResources map[string]string, template lib.CfnTemplateBody, parameters []types.Parameter, output *output.OutputArray, awsConfig config.AWSConfig) {
 	// Specific check for NACLs
 	for logicalId, physicalId := range naclResources {
 		rulechanges := []string{}
@@ -301,13 +301,13 @@ func checkNaclEntries(naclResources map[string]string, template lib.CfnTemplateB
 					continue
 				}
 				ruledetails := fmt.Sprintf("Unmanaged entry: %s", naclEntryToString(entry))
-				rulechanges = append(rulechanges, outputsettings.StringPositiveInline(ruledetails))
+				rulechanges = append(rulechanges, output.StylePositive(ruledetails))
 			}
 		}
 		// Leftover rules only exist in CloudFormation
 		for _, cfnentry := range attachedRules {
 			ruledetails := fmt.Sprintf("Removed entry: %s", naclEntryToString(cfnentry))
-			rulechanges = append(rulechanges, outputsettings.StringWarningInline(ruledetails))
+			rulechanges = append(rulechanges, output.StyleWarning(ruledetails))
 
 		}
 		if len(rulechanges) != 0 {
@@ -333,7 +333,7 @@ func checkNaclEntries(naclResources map[string]string, template lib.CfnTemplateB
 }
 
 // checkRouteTableRoutes verifies the routes and if there are differences adds those to the provided output array
-func checkRouteTableRoutes(routetableResources map[string]string, template lib.CfnTemplateBody, parameters []types.Parameter, logicalToPhysical map[string]string, output *format.OutputArray, awsConfig config.AWSConfig) {
+func checkRouteTableRoutes(routetableResources map[string]string, template lib.CfnTemplateBody, parameters []types.Parameter, logicalToPhysical map[string]string, output *output.OutputArray, awsConfig config.AWSConfig) {
 	// Create a list of all AWS managed prefixes
 	managedPrefixLists := lib.GetManagedPrefixLists(awsConfig.EC2Client())
 	awsPrefixesSlice := make([]string, 0)
@@ -368,7 +368,7 @@ func checkRouteTableRoutes(routetableResources map[string]string, template lib.C
 					continue
 				}
 				ruledetails := fmt.Sprintf("Unmanaged route: %s", routeToString(route))
-				rulechanges = append(rulechanges, outputsettings.StringPositiveInline(ruledetails))
+				rulechanges = append(rulechanges, output.StylePositive(ruledetails))
 			}
 		}
 		// Leftover rules only exist in CloudFormation
@@ -378,7 +378,7 @@ func checkRouteTableRoutes(routetableResources map[string]string, template lib.C
 				continue
 			}
 			ruledetails := fmt.Sprintf("Removed route: %s", routeToString(cfnroute))
-			rulechanges = append(rulechanges, outputsettings.StringWarningInline(ruledetails))
+			rulechanges = append(rulechanges, output.StyleWarning(ruledetails))
 
 		}
 		if len(rulechanges) != 0 {
@@ -404,7 +404,7 @@ func checkRouteTableRoutes(routetableResources map[string]string, template lib.C
 }
 
 // checkTransitGatewayRouteTableRoutes verifies Transit Gateway routes and reports any differences
-func checkTransitGatewayRouteTableRoutes(tgwRouteTableResources map[string]string, template lib.CfnTemplateBody, parameters []types.Parameter, logicalToPhysical map[string]string, output *format.OutputArray, awsConfig config.AWSConfig) {
+func checkTransitGatewayRouteTableRoutes(tgwRouteTableResources map[string]string, template lib.CfnTemplateBody, parameters []types.Parameter, logicalToPhysical map[string]string, output *output.OutputArray, awsConfig config.AWSConfig) {
 	// Iterate through each Transit Gateway route table
 	for logicalId, physicalId := range tgwRouteTableResources {
 		rulechanges := []string{}
@@ -444,7 +444,7 @@ func checkTransitGatewayRouteTableRoutes(tgwRouteTableResources map[string]strin
 			} else {
 				// Route not in template, it's unmanaged
 				ruledetails := fmt.Sprintf("Unmanaged route: %s", tgwRouteToString(route))
-				rulechanges = append(rulechanges, outputsettings.StringPositiveInline(ruledetails))
+				rulechanges = append(rulechanges, output.StylePositive(ruledetails))
 			}
 		}
 
@@ -455,7 +455,7 @@ func checkTransitGatewayRouteTableRoutes(tgwRouteTableResources map[string]strin
 				continue
 			}
 			ruledetails := fmt.Sprintf("Removed route: %s", tgwRouteToString(cfnroute))
-			rulechanges = append(rulechanges, outputsettings.StringWarningInline(ruledetails))
+			rulechanges = append(rulechanges, output.StyleWarning(ruledetails))
 		}
 
 		// Report all changes if any were found
@@ -592,7 +592,7 @@ func tagDifferences(property types.PropertyDifference, handledtags []string, tag
 			tagstructs = append(tagstructs, tagstruct)
 		}
 		for _, tagstruct := range tagstructs {
-			return outputsettings.StringWarningInline(fmt.Sprintf("%s: %s - %s: %s", property.DifferenceType, pathsplit[1], tagstruct.Key, tagstruct.Value)), ""
+			return output.StyleWarning(fmt.Sprintf("%s: %s - %s: %s", property.DifferenceType, pathsplit[1], tagstruct.Key, tagstruct.Value)), ""
 		}
 		return "", ""
 	case types.DifferenceTypeAdd:
@@ -600,7 +600,7 @@ func tagDifferences(property types.PropertyDifference, handledtags []string, tag
 		if err := json.Unmarshal(actual.Bytes(), &tagstruct); err != nil {
 			failWithError(err)
 		}
-		return outputsettings.StringPositiveInline(fmt.Sprintf("%s: %s - %s: %s", property.DifferenceType, pathsplit[1], tagstruct.Key, tagstruct.Value)), ""
+		return output.StylePositive(fmt.Sprintf("%s: %s - %s: %s", property.DifferenceType, pathsplit[1], tagstruct.Key, tagstruct.Value)), ""
 	default:
 		tagKey := ""
 		tags := map[string]string{}

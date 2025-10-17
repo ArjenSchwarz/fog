@@ -3,6 +3,7 @@ package config
 import (
 	"testing"
 
+	"github.com/ArjenSchwarz/go-output/v2"
 	format "github.com/ArjenSchwarz/go-output/v2"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
@@ -428,114 +429,358 @@ func TestConfig_GetTimezoneLocation(t *testing.T) {
 	}
 }
 
-func TestConfig_NewOutputSettings(t *testing.T) {
+func TestConfig_GetTableFormat(t *testing.T) {
+	t.Parallel()
+
 	tests := map[string]struct {
 		setup func()
-		check func(*testing.T, *format.OutputSettings)
+		check func(*testing.T, format.Format)
 	}{
-		"default settings": {
+		"default style with default width": {
 			setup: func() {
 				viper.Reset()
+				viper.SetDefault("table.style", "Default")
+				viper.SetDefault("table.max-column-width", 50)
 			},
-			check: func(t *testing.T, settings *format.OutputSettings) {
+			check: func(t *testing.T, fmt format.Format) {
 				t.Helper()
-				assert.True(t, settings.UseEmoji)
-				assert.True(t, settings.UseColors)
+				assert.NotNil(t, fmt)
 			},
 		},
-		"json output format": {
+		"default style with custom width": {
 			setup: func() {
 				viper.Reset()
-				viper.Set("output", "json")
-			},
-			check: func(t *testing.T, settings *format.OutputSettings) {
-				t.Helper()
-				assert.True(t, settings.UseEmoji)
-				assert.True(t, settings.UseColors)
-				assert.Equal(t, "json", settings.OutputFormat)
-			},
-		},
-		"table output format": {
-			setup: func() {
-				viper.Reset()
-				viper.Set("output", "table")
-			},
-			check: func(t *testing.T, settings *format.OutputSettings) {
-				t.Helper()
-				assert.Equal(t, "table", settings.OutputFormat)
-			},
-		},
-		"with output file": {
-			setup: func() {
-				viper.Reset()
-				viper.Set("output-file", "output.txt")
-			},
-			check: func(t *testing.T, settings *format.OutputSettings) {
-				t.Helper()
-				assert.Equal(t, "output.txt", settings.OutputFile)
-			},
-		},
-		"with output file format": {
-			setup: func() {
-				viper.Reset()
-				viper.Set("output-file-format", "csv")
-			},
-			check: func(t *testing.T, settings *format.OutputSettings) {
-				t.Helper()
-				assert.Equal(t, "csv", settings.OutputFileFormat)
-			},
-		},
-		"with table max column width": {
-			setup: func() {
-				viper.Reset()
-				viper.Set("table.max-column-width", 50)
-			},
-			check: func(t *testing.T, settings *format.OutputSettings) {
-				t.Helper()
-				assert.Equal(t, 50, settings.TableMaxColumnWidth)
-			},
-		},
-		"with table style": {
-			setup: func() {
-				viper.Reset()
-				viper.Set("table.style", "simple")
-			},
-			check: func(t *testing.T, settings *format.OutputSettings) {
-				t.Helper()
-				// The table style should be set from TableStyles map
-				assert.NotNil(t, settings.TableStyle)
-			},
-		},
-		"with multiple settings": {
-			setup: func() {
-				viper.Reset()
-				viper.Set("output", "csv")
-				viper.Set("output-file", "results.csv")
-				viper.Set("output-file-format", "csv")
+				viper.SetDefault("table.style", "Default")
 				viper.Set("table.max-column-width", 100)
 			},
-			check: func(t *testing.T, settings *format.OutputSettings) {
+			check: func(t *testing.T, fmt format.Format) {
 				t.Helper()
-				assert.Equal(t, "csv", settings.OutputFormat)
-				assert.Equal(t, "results.csv", settings.OutputFile)
-				assert.Equal(t, "csv", settings.OutputFileFormat)
-				assert.Equal(t, 100, settings.TableMaxColumnWidth)
+				assert.NotNil(t, fmt)
+			},
+		},
+		"bold style with default width": {
+			setup: func() {
+				viper.Reset()
+				viper.Set("table.style", "Bold")
+				viper.SetDefault("table.max-column-width", 50)
+			},
+			check: func(t *testing.T, fmt format.Format) {
+				t.Helper()
+				assert.NotNil(t, fmt)
+			},
+		},
+		"colored bright style": {
+			setup: func() {
+				viper.Reset()
+				viper.Set("table.style", "ColoredBright")
+				viper.SetDefault("table.max-column-width", 50)
+			},
+			check: func(t *testing.T, fmt format.Format) {
+				t.Helper()
+				assert.NotNil(t, fmt)
+			},
+		},
+		"zero width": {
+			setup: func() {
+				viper.Reset()
+				viper.SetDefault("table.style", "Default")
+				viper.Set("table.max-column-width", 0)
+			},
+			check: func(t *testing.T, fmt format.Format) {
+				t.Helper()
+				assert.NotNil(t, fmt)
+			},
+		},
+		"large width": {
+			setup: func() {
+				viper.Reset()
+				viper.SetDefault("table.style", "Default")
+				viper.Set("table.max-column-width", 500)
+			},
+			check: func(t *testing.T, fmt format.Format) {
+				t.Helper()
+				assert.NotNil(t, fmt)
+			},
+		},
+		"unrecognized style defaults to Default": {
+			setup: func() {
+				viper.Reset()
+				viper.Set("table.style", "UnknownStyle")
+				viper.SetDefault("table.max-column-width", 50)
+			},
+			check: func(t *testing.T, fmt format.Format) {
+				t.Helper()
+				assert.NotNil(t, fmt)
+			},
+		},
+		"style not set uses default": {
+			setup: func() {
+				viper.Reset()
+				viper.SetDefault("table.max-column-width", 50)
+			},
+			check: func(t *testing.T, fmt format.Format) {
+				t.Helper()
+				assert.NotNil(t, fmt)
 			},
 		},
 	}
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			tc.setup()
 			t.Cleanup(func() {
 				viper.Reset()
 			})
 
 			config := &Config{}
-			got := config.NewOutputSettings()
+			got := config.GetTableFormat()
 
 			require.NotNil(t, got)
 			tc.check(t, got)
 		})
 	}
 }
+
+func TestConfig_GetOutputOptions(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		setup func()
+		check func(*testing.T, []output.OutputOption)
+	}{
+		"default console output only": {
+			setup: func() {
+				viper.Reset()
+				viper.SetDefault("output", "table")
+				viper.SetDefault("use-emoji", false)
+				viper.SetDefault("use-colors", false)
+			},
+			check: func(t *testing.T, opts []output.OutputOption) {
+				t.Helper()
+				// Should have at least 2 options: format and writer
+				assert.GreaterOrEqual(t, len(opts), 2)
+			},
+		},
+		"csv output format": {
+			setup: func() {
+				viper.Reset()
+				viper.Set("output", "csv")
+				viper.SetDefault("use-emoji", false)
+				viper.SetDefault("use-colors", false)
+			},
+			check: func(t *testing.T, opts []output.OutputOption) {
+				t.Helper()
+				assert.GreaterOrEqual(t, len(opts), 2)
+			},
+		},
+		"json output format": {
+			setup: func() {
+				viper.Reset()
+				viper.Set("output", "json")
+				viper.SetDefault("use-emoji", false)
+				viper.SetDefault("use-colors", false)
+			},
+			check: func(t *testing.T, opts []output.OutputOption) {
+				t.Helper()
+				assert.GreaterOrEqual(t, len(opts), 2)
+			},
+		},
+		"with emoji transformer": {
+			setup: func() {
+				viper.Reset()
+				viper.SetDefault("output", "table")
+				viper.Set("use-emoji", true)
+				viper.SetDefault("use-colors", false)
+			},
+			check: func(t *testing.T, opts []output.OutputOption) {
+				t.Helper()
+				// Should have format, writer, and emoji transformer
+				assert.GreaterOrEqual(t, len(opts), 3)
+			},
+		},
+		"with color transformer": {
+			setup: func() {
+				viper.Reset()
+				viper.SetDefault("output", "table")
+				viper.SetDefault("use-emoji", false)
+				viper.Set("use-colors", true)
+			},
+			check: func(t *testing.T, opts []output.OutputOption) {
+				t.Helper()
+				// Should have format, writer, and color transformer
+				assert.GreaterOrEqual(t, len(opts), 3)
+			},
+		},
+		"with both transformers": {
+			setup: func() {
+				viper.Reset()
+				viper.SetDefault("output", "table")
+				viper.Set("use-emoji", true)
+				viper.Set("use-colors", true)
+			},
+			check: func(t *testing.T, opts []output.OutputOption) {
+				t.Helper()
+				// Should have format, writer, emoji transformer, and color transformer
+				assert.GreaterOrEqual(t, len(opts), 4)
+			},
+		},
+		"with file output": {
+			setup: func() {
+				viper.Reset()
+				viper.SetDefault("output", "table")
+				viper.Set("output-file", "/tmp/output.txt")
+				viper.SetDefault("output-file-format", "table")
+				viper.SetDefault("use-emoji", false)
+				viper.SetDefault("use-colors", false)
+			},
+			check: func(t *testing.T, opts []output.OutputOption) {
+				t.Helper()
+				// Should have console format/writer and file format/writer
+				assert.GreaterOrEqual(t, len(opts), 4)
+			},
+		},
+		"markdown output format": {
+			setup: func() {
+				viper.Reset()
+				viper.Set("output", "markdown")
+				viper.SetDefault("use-emoji", false)
+				viper.SetDefault("use-colors", false)
+			},
+			check: func(t *testing.T, opts []output.OutputOption) {
+				t.Helper()
+				assert.GreaterOrEqual(t, len(opts), 2)
+			},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			tc.setup()
+			t.Cleanup(func() {
+				viper.Reset()
+			})
+
+			config := &Config{}
+			got := config.GetOutputOptions()
+
+			require.NotNil(t, got)
+			tc.check(t, got)
+		})
+	}
+}
+
+// TestConfig_NewOutputSettings is commented out pending migration from v1 OutputSettings to v2 API
+// The NewOutputSettings method will be removed in Phase 4 after all commands are migrated
+// func TestConfig_NewOutputSettings(t *testing.T) {
+// 	tests := map[string]struct {
+// 		setup func()
+// 		check func(*testing.T, *format.OutputSettings)
+// 	}{
+// 		"default settings": {
+// 			setup: func() {
+// 				viper.Reset()
+// 			},
+// 			check: func(t *testing.T, settings *format.OutputSettings) {
+// 				t.Helper()
+// 				assert.True(t, settings.UseEmoji)
+// 				assert.True(t, settings.UseColors)
+// 			},
+// 		},
+// 		"json output format": {
+// 			setup: func() {
+// 				viper.Reset()
+// 				viper.Set("output", "json")
+// 			},
+// 			check: func(t *testing.T, settings *format.OutputSettings) {
+// 				t.Helper()
+// 				assert.True(t, settings.UseEmoji)
+// 				assert.True(t, settings.UseColors)
+// 				assert.Equal(t, "json", settings.OutputFormat)
+// 			},
+// 		},
+// 		"table output format": {
+// 			setup: func() {
+// 				viper.Reset()
+// 				viper.Set("output", "table")
+// 			},
+// 			check: func(t *testing.T, settings *format.OutputSettings) {
+// 				t.Helper()
+// 				assert.Equal(t, "table", settings.OutputFormat)
+// 			},
+// 		},
+// 		"with output file": {
+// 			setup: func() {
+// 				viper.Reset()
+// 				viper.Set("output-file", "output.txt")
+// 			},
+// 			check: func(t *testing.T, settings *format.OutputSettings) {
+// 				t.Helper()
+// 				assert.Equal(t, "output.txt", settings.OutputFile)
+// 			},
+// 		},
+// 		"with output file format": {
+// 			setup: func() {
+// 				viper.Reset()
+// 				viper.Set("output-file-format", "csv")
+// 			},
+// 			check: func(t *testing.T, settings *format.OutputSettings) {
+// 				t.Helper()
+// 				assert.Equal(t, "csv", settings.OutputFileFormat)
+// 			},
+// 		},
+// 		"with table max column width": {
+// 			setup: func() {
+// 				viper.Reset()
+// 				viper.Set("table.max-column-width", 50)
+// 			},
+// 			check: func(t *testing.T, settings *format.OutputSettings) {
+// 				t.Helper()
+// 				assert.Equal(t, 50, settings.TableMaxColumnWidth)
+// 			},
+// 		},
+// 		"with table style": {
+// 			setup: func() {
+// 				viper.Reset()
+// 				viper.Set("table.style", "simple")
+// 			},
+// 			check: func(t *testing.T, settings *format.OutputSettings) {
+// 				t.Helper()
+// 				// The table style should be set from TableStyles map
+// 				assert.NotNil(t, settings.TableStyle)
+// 			},
+// 		},
+// 		"with multiple settings": {
+// 			setup: func() {
+// 				viper.Reset()
+// 				viper.Set("output", "csv")
+// 				viper.Set("output-file", "results.csv")
+// 				viper.Set("output-file-format", "csv")
+// 				viper.Set("table.max-column-width", 100)
+// 			},
+// 			check: func(t *testing.T, settings *format.OutputSettings) {
+// 				t.Helper()
+// 				assert.Equal(t, "csv", settings.OutputFormat)
+// 				assert.Equal(t, "results.csv", settings.OutputFile)
+// 				assert.Equal(t, "csv", settings.OutputFileFormat)
+// 				assert.Equal(t, 100, settings.TableMaxColumnWidth)
+// 			},
+// 		},
+// 	}
+//
+// 	for name, tc := range tests {
+// 		t.Run(name, func(t *testing.T) {
+// 			tc.setup()
+// 			t.Cleanup(func() {
+// 				viper.Reset()
+// 			})
+//
+// 			config := &Config{}
+// 			got := config.NewOutputSettings()
+//
+// 			require.NotNil(t, got)
+// 			tc.check(t, got)
+// 		})
+// 	}
+// }

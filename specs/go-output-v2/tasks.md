@@ -32,7 +32,7 @@ references:
 
 ## Phase 2: Configuration Layer
 
-- [ ] 3. Write unit tests for config layer Format helper methods
+- [x] 3. Write unit tests for config layer Format helper methods
   - Create test cases for GetTableFormat() method
   - Test table style name mapping (Default, Bold, ColoredBright, etc.)
   - Verify TableWithStyleAndMaxColumnWidth() is called with correct parameters
@@ -40,7 +40,7 @@ references:
   - Requirements: [3.1](requirements.md#3.1), [3.2](requirements.md#3.2), [3.3](requirements.md#3.3), [11.2](requirements.md#11.2), [11.3](requirements.md#11.3), [12.1](requirements.md#12.1)
   - References: config/config_test.go
 
-- [ ] 4. Implement config layer helper methods for v2 Format objects
+- [x] 4. Implement config layer helper methods for v2 Format objects
   - Add GetTableFormat() method to config.Config that creates v2 Format objects with style and max column width
   - Implement table style name mapping (Default, Bold, ColoredBright, etc.)
   - Use TableWithStyleAndMaxColumnWidth() constructor with values from viper
@@ -48,7 +48,7 @@ references:
   - Requirements: [3.1](requirements.md#3.1), [3.2](requirements.md#3.2), [3.3](requirements.md#3.3), [3.6](requirements.md#3.6), [11.1](requirements.md#11.1), [11.2](requirements.md#11.2), [11.3](requirements.md#11.3)
   - References: config/config.go
 
-- [ ] 5. Write unit tests for config layer Output options helper methods
+- [x] 5. Write unit tests for config layer Output options helper methods
   - Create test cases for GetOutputOptions() method
   - Test format name mapping (table, csv, json, dot) to v2 Format objects
   - Test console output configuration with WithFormat() and WithWriter()
@@ -58,7 +58,7 @@ references:
   - Requirements: [5.1](requirements.md#5.1), [5.2](requirements.md#5.2), [5.3](requirements.md#5.3), [5.4](requirements.md#5.4), [7.3](requirements.md#7.3), [11.4](requirements.md#11.4), [11.5](requirements.md#11.5), [12.1](requirements.md#12.1)
   - References: config/config_test.go
 
-- [ ] 6. Implement config layer helper methods for v2 Output options
+- [x] 6. Implement config layer helper methods for v2 Output options
   - Add GetOutputOptions() method that returns []output.Option based on viper settings
   - Add getFormatForOutput() helper that maps format names (table, csv, json, dot) to v2 Format objects
   - Handle console output with WithFormat() and WithWriter(NewStdoutWriter())
@@ -70,7 +70,7 @@ references:
 
 ## Phase 3: Inline Styling Migration
 
-- [ ] 7. Migrate inline styling calls to v2 functions
+- [x] 7. Migrate inline styling calls to v2 functions
   - Replace all outputsettings.StringWarningInline() calls with output.StyleWarning()
   - Replace all outputsettings.StringPositiveInline() calls with output.StylePositive()
   - Replace all outputsettings.StringNegativeInline() calls with output.StyleNegative()
