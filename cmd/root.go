@@ -23,7 +23,7 @@ package cmd
 
 import (
 	"github.com/ArjenSchwarz/fog/config"
-	format "github.com/ArjenSchwarz/go-output"
+	format "github.com/ArjenSchwarz/go-output/v2"
 	"github.com/spf13/cobra"
 
 	homedir "github.com/mitchellh/go-homedir"

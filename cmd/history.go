@@ -27,7 +27,7 @@ import (
 
 	"github.com/ArjenSchwarz/fog/config"
 	"github.com/ArjenSchwarz/fog/lib"
-	format "github.com/ArjenSchwarz/go-output"
+	format "github.com/ArjenSchwarz/go-output/v2"
 	"github.com/spf13/cobra"
 )
 

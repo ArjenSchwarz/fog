@@ -4,7 +4,7 @@ import (
 	"strings"
 	"time"
 
-	format "github.com/ArjenSchwarz/go-output"
+	format "github.com/ArjenSchwarz/go-output/v2"
 	"github.com/spf13/viper"
 )
 

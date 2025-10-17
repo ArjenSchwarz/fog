@@ -1,6 +1,11 @@
 Unreleased
 ===========
 
+### Changed
+- Updated go-output dependency from v1.4.0 to v2.3.0 with new v2 package structure
+- Updated all import paths from `github.com/ArjenSchwarz/go-output` to `github.com/ArjenSchwarz/go-output/v2` across 15 Go files
+- Mermaid/gantt chart support now uses v2.3.0 native APIs (ChartContent, NewGanttChart) instead of separate mermaid subpackage
+
 ### Added
 - go-output v2 specification and research documentation in specs/go-output-v2 directory
 - API documentation covering all v2 public interfaces and agent implementation patterns

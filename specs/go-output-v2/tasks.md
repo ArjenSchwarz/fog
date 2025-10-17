@@ -22,7 +22,7 @@ references:
 
 ## Phase 1: Dependency Update
 
-- [ ] 2. Update dependencies and import paths
+- [x] 2. Update dependencies and import paths
   - Update go.mod to require github.com/ArjenSchwarz/go-output/v2 v2.2.1 or later
   - Update all import statements from github.com/ArjenSchwarz/go-output to github.com/ArjenSchwarz/go-output/v2
   - Run go mod tidy to resolve dependencies

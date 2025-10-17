@@ -29,8 +29,7 @@ import (
 
 	"github.com/ArjenSchwarz/fog/config"
 	"github.com/ArjenSchwarz/fog/lib"
-	format "github.com/ArjenSchwarz/go-output"
-	"github.com/ArjenSchwarz/go-output/mermaid"
+	format "github.com/ArjenSchwarz/go-output/v2"
 	"github.com/gosimple/slug"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
