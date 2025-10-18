@@ -1,6 +1,9 @@
 Unreleased
 ===========
 
+### Added
+- Migration completion documentation in decision log (Decision 8) summarizing v2 migration success, implementation decisions, deviations from design, lessons learned, and migration metrics
+
 ### Changed
 - Replaced `interface{}` with `any` in deploy.go helper functions per Go 1.18+ best practices
 - Removed duplicate import alias in config/config.go (consolidated to single `output` alias)

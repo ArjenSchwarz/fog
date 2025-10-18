@@ -315,7 +315,7 @@ references:
 
 ## Phase 13: Documentation
 
-- [ ] 34. Update README if needed
+- [x] 34. Update README if needed
   - Check if README mentions go-output version
   - Update dependency versions if documented
   - Verify build instructions still accurate
@@ -323,7 +323,7 @@ references:
   - Requirements: [15.3](requirements.md#15.3)
   - References: README.md
 
-- [ ] 35. Add migration documentation to decision log
+- [x] 35. Add migration documentation to decision log
   - Document the migration completion in decision_log.md
   - Note any decisions made during implementation
   - Record any deviations from original design

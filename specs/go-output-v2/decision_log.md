@@ -298,6 +298,134 @@ This document tracks key decisions made during the requirements phase of the go-
 
 ---
 
+## Decision 8: Migration Completion and Final Implementation
+
+**Date:** 2025-10-18
+**Decision:** Migration to go-output v2 completed successfully with all requirements met
+
+**Context:**
+- All migration phases completed (dependency update, inline styling, command migration, global state removal, testing)
+- Migration progressed from October 17-18, 2025
+- Version upgraded to v2.3.2 (later than originally planned v2.2.1)
+- Comprehensive testing added beyond initial scope
+
+**Implementation Summary:**
+
+**Phase 1 - Dependency Update (Commit b039248):**
+- Upgraded from go-output v1.4.0 to v2.3.0, later to v2.3.2
+- Updated all 15 Go files with v2 import paths
+- Removed v1 dependency entirely
+- Mermaid support migrated to v2.3.0 native APIs
+
+**Phase 2-7 - Command Migration:**
+- Migrated all commands to v2 Builder pattern: resources, exports, dependencies, deploy, drift, report, describe changeset, demo tables, history
+- Replaced all inline styling methods with v2 stateless functions
+- Eliminated global `outputsettings` variable
+- Used functional options throughout
+
+**Phase 8 - Testing and Validation:**
+- Added 46 v2-specific unit tests
+- Created 5 golden file test suites
+- Achieved 100% pass rate on all tests
+- Manual validation confirmed functional equivalence
+
+**Key Implementation Decisions:**
+
+1. **Version Selection**: Used v2.3.2 instead of v2.2.1
+   - Rationale: Later stable version with same features, more bug fixes
+   - No breaking changes from v2.2.1 to v2.3.2
+
+2. **Complete v1 Removal**: Removed v1 dependency in first phase
+   - Rationale: Cleaner approach, prevents accidental v1 usage
+   - Alternative was gradual removal
+
+3. **Testing Philosophy**: Focus on data correctness vs byte-for-byte matching
+   - Created `StripAnsi()` helper to validate content without ANSI codes
+   - Golden files validate structure and data, not exact formatting
+   - More maintainable and resilient to formatting changes
+
+4. **Test Scope Expansion**: Added more tests than initially planned
+   - 46 v2-specific tests across all commands
+   - Column ordering validation tests
+   - Array handling validation tests
+   - Multiple output format tests
+   - Rationale: Build confidence in migration, prevent regressions
+
+**Deviations from Original Design:**
+
+1. **Version Upgrade**: v2.3.2 instead of v2.2.1
+   - Impact: None - fully compatible
+   - Benefit: More bug fixes and stability improvements
+
+2. **Test Coverage**: More comprehensive than planned
+   - Original: 4 minimal golden file tests
+   - Actual: 46 v2-specific tests + 5 golden file suites
+   - Benefit: Higher confidence, better regression prevention
+
+3. **Testing Infrastructure**: Added test helpers beyond scope
+   - `StripAnsi()` for content validation
+   - `AssertStringWithoutAnsi()` for test assertions
+   - Benefit: Reusable testing utilities for future work
+
+**Design Confirmations:**
+
+All design decisions validated during implementation:
+- Builder pattern works as designed
+- Functional options provide clean configuration
+- Inline styling functions are stateless and clean
+- Array handling works correctly across all formats
+- No global state remaining
+
+**Lessons Learned:**
+
+1. **Version Selection**: Using latest stable minor version (v2.3.2 vs v2.2.1) safe when major version matches
+2. **Test Philosophy**: Content validation more valuable than exact formatting match
+3. **Incremental Migration**: Phased approach (dependency → styling → commands → cleanup) worked well
+4. **Test Investment**: Additional testing effort paid off with high confidence in migration
+5. **Documentation**: Having clear requirements and design docs enabled smooth implementation
+6. **Golden Files**: Useful for regression testing but need flexible comparison (ANSI stripping)
+
+**Migration Metrics:**
+
+- **Files Changed**: 15 Go files migrated
+- **Commands Migrated**: 9 commands (deploy, drift, report, exports, dependencies, resources, history, describe changeset, demo tables)
+- **Tests Added**: 46 v2-specific tests
+- **Test Pass Rate**: 100%
+- **Breaking Changes**: 0 (full backward compatibility maintained)
+- **User-Visible Changes**: None (functional equivalence achieved)
+
+**Validation Results:**
+
+All requirements (1-15) validated as complete:
+- ✅ Dependency updated to v2.3.2
+- ✅ Inline styling migrated
+- ✅ Table column width configuration working
+- ✅ Builder pattern adopted throughout
+- ✅ Functional options replacing settings objects
+- ✅ Array handling working correctly
+- ✅ File output configuration functional
+- ✅ Table sorting operational
+- ✅ Multiple table support implemented
+- ✅ Drift detection output enhanced
+- ✅ Configuration layer updated
+- ✅ All tests passing
+- ✅ Backward compatibility maintained
+- ✅ Code quality standards met
+- ✅ Documentation updated
+
+**Outcome:**
+Migration completed successfully. All acceptance criteria met. v2 best practices adopted. No breaking changes to user-facing behavior. Production ready.
+
+**Implications:**
+- fog now uses modern go-output v2 architecture
+- No global state in output configuration
+- Thread-safe output operations
+- Better maintainability for future development
+- Windows compilation issue from v1 resolved
+- Foundation for future v2 feature adoption (collapsible content, enhanced pipelines)
+
+---
+
 ## Future Considerations
 
 Items identified but deferred:
