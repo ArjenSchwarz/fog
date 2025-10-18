@@ -22,9 +22,10 @@ THE SOFTWARE.
 package cmd
 
 import (
+	"context"
 	"fmt"
 
-	format "github.com/ArjenSchwarz/go-output/v2"
+	output "github.com/ArjenSchwarz/go-output/v2"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -45,37 +46,30 @@ func demoTables(cmd *cobra.Command, args []string) {
 	keys := []string{"Export", "Description", "Stack", "Value", "Imported"}
 	title := "Export values demo"
 
-	output := format.OutputArray{Keys: keys, Settings: settings.NewOutputSettings()}
-
-	value1 := format.OutputHolder{
-		Contents: map[string]any{
+	// Build sample data
+	data := []map[string]any{
+		{
 			"Export":      "awesome-stack-dev-s3-arn",
 			"Value":       "arn:aws:s3:::fog-awesome-stack-dev",
 			"Description": "ARN of the S3 bucket",
 			"Stack":       "awesome-stack-dev",
 			"Imported":    true,
 		},
-	}
-	value2 := format.OutputHolder{
-		Contents: map[string]any{
+		{
 			"Export":      "awesome-stack-test-s3-arn",
 			"Value":       "arn:aws:s3:::fog-awesome-stack-test",
 			"Description": "ARN of the S3 bucket",
 			"Stack":       "awesome-stack-test",
 			"Imported":    true,
 		},
-	}
-	value3 := format.OutputHolder{
-		Contents: map[string]any{
+		{
 			"Export":      "awesome-stack-prod-s3-arn",
 			"Value":       "arn:aws:s3:::fog-awesome-stack-prod",
 			"Description": "ARN of the S3 bucket",
 			"Stack":       "awesome-stack-prod",
 			"Imported":    true,
 		},
-	}
-	value4 := format.OutputHolder{
-		Contents: map[string]any{
+		{
 			"Export":      "demo-s3-bucket",
 			"Value":       "fog-demo-bucket",
 			"Description": "The S3 bucket used for demos but has an exceptionally long description so it can show a multi-line example",
@@ -83,10 +77,7 @@ func demoTables(cmd *cobra.Command, args []string) {
 			"Imported":    false,
 		},
 	}
-	output.AddHolder(value1)
-	output.AddHolder(value2)
-	output.AddHolder(value3)
-	output.AddHolder(value4)
+
 	fmt.Print(`Tables are often used for the various outputs. You can set your preferred style in your settings file.
 An example if you use fog.yaml as your settings file:
 
@@ -95,13 +86,29 @@ table:
   max-column-width: 50
 
 `)
-	for style := range format.TableStyles {
+
+	// Available table styles in v2
+	styles := []string{"Default", "Bold", "ColoredBright", "Light", "Rounded"}
+
+	for _, style := range styles {
 		viper.Set("table.style", style)
-		output.Settings = settings.NewOutputSettings()
-		output.Settings.Title = title
-		output.Settings.SortKey = "Export"
-		output.Settings.SeparateTables = true
+		viper.Set("table.max-column-width", 50)
+
 		fmt.Printf("Showing style: %v\r\n", style)
-		output.Write()
+
+		// Build document using v2 Builder pattern
+		doc := output.New().
+			Table(
+				title,
+				data,
+				output.WithKeys(keys...),
+			).
+			Build()
+
+		// Render using v2 Output
+		out := output.NewOutput(settings.GetOutputOptions()...)
+		if err := out.Render(context.Background(), doc); err != nil {
+			fmt.Printf("ERROR: Failed to render table style %s: %v\n", style, err)
+		}
 	}
 }

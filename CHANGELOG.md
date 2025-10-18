@@ -9,6 +9,9 @@ Unreleased
 - **deploy command**: Migrated from v1 OutputSettings to v2 Builder pattern with simplified string formatting helpers
 - **drift command**: Migrated from v1 OutputArray to v2 Builder pattern with incremental row building
 - **report command**: Migrated to v2 Output API with context-based rendering
+- **describe changeset command**: Migrated from v1 OutputArray to v2 Builder pattern with multiple tables support
+- **demo tables command**: Migrated from v1 OutputArray/OutputHolder to v2 Builder pattern with explicit style list
+- **history command**: Migrated from v1 OutputArray to v2 Builder pattern with settings-based configuration
 
 ### Added
 - go-output v2 specification and research documentation in specs/go-output-v2 directory
@@ -25,6 +28,13 @@ Unreleased
 - **Integration tests for deploy command**: Tests for deployment preparation, S3 uploads, and error handling
 - **Integration tests for drift command**: Tests for drift detection scenarios and output formatting
 - **Integration tests for report command**: Tests for report generation with different output formats
+- **Comprehensive unit tests for describe changeset command**: Tests for stack info, changeset changes, danger table, summary table, multiple output formats, sorting, empty changesets, and action/replacement variations
+- **Comprehensive unit tests for demo tables command**: Tests for different table styles (Default, Bold, ColoredBright, Light, Rounded), long descriptions with column wrapping, sorted output, multiple output formats, boolean value handling, and column ordering
+- **Comprehensive unit tests for history command**: Tests for deployment history, multiple output formats, column ordering, and log formatting
+
+### Fixed
+- **helpers.go**: Replaced v1 `settings.NewOutputSettings().StringFailure()` with v2 `output.StyleNegative()` for error messages
+- **deploy_helpers_test.go**: Removed obsolete v1 `outputsettings` initialization from test cases
 
 1.11.0 / 2025-10-17
 ===================
