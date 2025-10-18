@@ -1,6 +1,22 @@
 Unreleased
 ===========
 
+### Added
+- Golden file test infrastructure with ANSI code stripping for test validation
+- `StripAnsi()` helper function to remove ANSI escape codes from strings
+- `AssertStringWithoutAnsi()` method for validating output content without formatting codes
+- Manual validation results documented in decision log (Decision 7) confirming functional equivalence with v1
+- Windows cross-compilation verification confirming v2 resolves v1 compilation issues
+
+### Changed
+- Test validation philosophy updated to focus on data correctness rather than byte-for-byte matching
+- Config tests no longer use parallel execution to avoid viper global state race conditions
+
+### Fixed
+- Golden file tests now strip ANSI codes before comparison to validate content structure
+- Config test race conditions resolved by removing `t.Parallel()` from tests using viper global state
+- Test assertions changed from `SetDefault()` to `Set()` for consistent viper configuration
+
 ### Changed
 - Updated go-output dependency from v1.4.0 to v2.3.0 with new v2 package structure
 - Updated all import paths from `github.com/ArjenSchwarz/go-output` to `github.com/ArjenSchwarz/go-output/v2` across 15 Go files

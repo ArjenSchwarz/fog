@@ -543,7 +543,8 @@ func TestConfig_GetTableFormat(t *testing.T) {
 }
 
 func TestConfig_GetOutputOptions(t *testing.T) {
-	t.Parallel()
+	// NOTE: Cannot use t.Parallel() because viper uses global state
+	// and viper.Reset() in one test affects other concurrent tests
 
 	tests := map[string]struct {
 		setup func()
@@ -552,9 +553,9 @@ func TestConfig_GetOutputOptions(t *testing.T) {
 		"default console output only": {
 			setup: func() {
 				viper.Reset()
-				viper.SetDefault("output", "table")
-				viper.SetDefault("use-emoji", false)
-				viper.SetDefault("use-colors", false)
+				viper.Set("output", "table")
+				viper.Set("use-emoji", false)
+				viper.Set("use-colors", false)
 			},
 			check: func(t *testing.T, opts []output.OutputOption) {
 				t.Helper()
@@ -566,8 +567,8 @@ func TestConfig_GetOutputOptions(t *testing.T) {
 			setup: func() {
 				viper.Reset()
 				viper.Set("output", "csv")
-				viper.SetDefault("use-emoji", false)
-				viper.SetDefault("use-colors", false)
+				viper.Set("use-emoji", false)
+				viper.Set("use-colors", false)
 			},
 			check: func(t *testing.T, opts []output.OutputOption) {
 				t.Helper()
@@ -578,8 +579,8 @@ func TestConfig_GetOutputOptions(t *testing.T) {
 			setup: func() {
 				viper.Reset()
 				viper.Set("output", "json")
-				viper.SetDefault("use-emoji", false)
-				viper.SetDefault("use-colors", false)
+				viper.Set("use-emoji", false)
+				viper.Set("use-colors", false)
 			},
 			check: func(t *testing.T, opts []output.OutputOption) {
 				t.Helper()
@@ -589,9 +590,9 @@ func TestConfig_GetOutputOptions(t *testing.T) {
 		"with emoji transformer": {
 			setup: func() {
 				viper.Reset()
-				viper.SetDefault("output", "table")
+				viper.Set("output", "table")
 				viper.Set("use-emoji", true)
-				viper.SetDefault("use-colors", false)
+				viper.Set("use-colors", false)
 			},
 			check: func(t *testing.T, opts []output.OutputOption) {
 				t.Helper()
@@ -602,8 +603,8 @@ func TestConfig_GetOutputOptions(t *testing.T) {
 		"with color transformer": {
 			setup: func() {
 				viper.Reset()
-				viper.SetDefault("output", "table")
-				viper.SetDefault("use-emoji", false)
+				viper.Set("output", "table")
+				viper.Set("use-emoji", false)
 				viper.Set("use-colors", true)
 			},
 			check: func(t *testing.T, opts []output.OutputOption) {
@@ -615,7 +616,7 @@ func TestConfig_GetOutputOptions(t *testing.T) {
 		"with both transformers": {
 			setup: func() {
 				viper.Reset()
-				viper.SetDefault("output", "table")
+				viper.Set("output", "table")
 				viper.Set("use-emoji", true)
 				viper.Set("use-colors", true)
 			},
@@ -628,11 +629,11 @@ func TestConfig_GetOutputOptions(t *testing.T) {
 		"with file output": {
 			setup: func() {
 				viper.Reset()
-				viper.SetDefault("output", "table")
+				viper.Set("output", "table")
 				viper.Set("output-file", "/tmp/output.txt")
-				viper.SetDefault("output-file-format", "table")
-				viper.SetDefault("use-emoji", false)
-				viper.SetDefault("use-colors", false)
+				viper.Set("output-file-format", "table")
+				viper.Set("use-emoji", false)
+				viper.Set("use-colors", false)
 			},
 			check: func(t *testing.T, opts []output.OutputOption) {
 				t.Helper()
@@ -644,8 +645,8 @@ func TestConfig_GetOutputOptions(t *testing.T) {
 			setup: func() {
 				viper.Reset()
 				viper.Set("output", "markdown")
-				viper.SetDefault("use-emoji", false)
-				viper.SetDefault("use-colors", false)
+				viper.Set("use-emoji", false)
+				viper.Set("use-colors", false)
 			},
 			check: func(t *testing.T, opts []output.OutputOption) {
 				t.Helper()
@@ -656,7 +657,6 @@ func TestConfig_GetOutputOptions(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			t.Parallel()
 			tc.setup()
 			t.Cleanup(func() {
 				viper.Reset()

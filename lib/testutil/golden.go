@@ -4,6 +4,7 @@ import (
 	"flag"
 	"os"
 	"path/filepath"
+	"regexp"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -125,4 +126,20 @@ func (g *GoldenFile) Update(name string, content []byte) {
 	if err := os.WriteFile(goldenPath, content, 0644); err != nil {
 		g.t.Fatalf("Failed to update golden file %s: %v", goldenPath, err)
 	}
+}
+
+// StripAnsi removes ANSI escape codes from a string
+// This is useful for testing content without color/formatting codes
+func StripAnsi(s string) string {
+	// Regex pattern for ANSI escape codes
+	ansiRegex := regexp.MustCompile(`\x1b\[[0-9;]*m`)
+	return ansiRegex.ReplaceAllString(s, "")
+}
+
+// AssertStringWithoutAnsi strips ANSI codes from actual content before comparing with golden file
+// This is useful for testing content structure while allowing colored output in production
+func (g *GoldenFile) AssertStringWithoutAnsi(name string, actual string) {
+	g.t.Helper()
+	stripped := StripAnsi(actual)
+	g.Assert(name, []byte(stripped))
 }
