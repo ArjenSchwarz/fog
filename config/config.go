@@ -143,18 +143,3 @@ func (config *Config) GetOutputOptions() []output.OutputOption {
 
 	return opts
 }
-
-// NewOutputSettings is deprecated and kept for backward compatibility during v2 migration.
-// This will be removed after all commands are migrated to use GetOutputOptions().
-// func (config *Config) NewOutputSettings() *format.OutputSettings {
-// 	settings := format.NewOutputSettings()
-// 	settings.UseEmoji = true
-// 	settings.UseColors = true
-// 	settings.SetOutputFormat(config.GetLCString("output"))
-// 	settings.OutputFile = config.GetLCString("output-file")
-// 	settings.OutputFileFormat = config.GetLCString("output-file-format")
-// 	// settings.ShouldAppend = config.GetBool("output.append")
-// 	settings.TableStyle = format.TableStyles[config.GetString("table.style")]
-// 	settings.TableMaxColumnWidth = config.GetInt("table.max-column-width")
-// 	return settings
-// }

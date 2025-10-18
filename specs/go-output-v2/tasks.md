@@ -194,56 +194,56 @@ references:
   - Requirements: [4.1](requirements.md#4.1), [4.2](requirements.md#4.2), [4.4](requirements.md#4.4), [4.7](requirements.md#4.7), [2.6](requirements.md#2.6)
   - References: cmd/report.go
 
-- [ ] 20. Write unit tests for history command
+- [x] 20. Write unit tests for history command
   - Create test cases for history command Builder pattern usage
   - Test column ordering matches v1
   - Verify output renders correctly
   - Requirements: [4.5](requirements.md#4.5), [12.1](requirements.md#12.1)
   - References: cmd/history_test.go
 
-- [ ] 21. Migrate history command
+- [x] 21. Migrate history command
   - Replace OutputArray with output.New().Table().Build()
   - Use settings.GetTableFormat() and settings.GetOutputOptions()
   - Use WithKeys() for column ordering
   - Requirements: [4.1](requirements.md#4.1), [4.2](requirements.md#4.2), [4.4](requirements.md#4.4), [4.7](requirements.md#4.7)
   - References: cmd/history.go
 
-- [ ] 22. Write unit tests for describe_changeset command
+- [x] 22. Write unit tests for describe_changeset command
   - Create test cases for describe_changeset command Builder pattern usage
   - Test column ordering matches v1
   - Verify output renders correctly
   - Requirements: [4.5](requirements.md#4.5), [12.1](requirements.md#12.1)
   - References: cmd/describe_changeset_test.go
 
-- [ ] 23. Migrate describe_changeset command
+- [x] 23. Migrate describe_changeset command
   - Replace OutputArray with output.New().Table().Build()
   - Use settings.GetTableFormat() and settings.GetOutputOptions()
   - Use WithKeys() for column ordering
   - Requirements: [4.1](requirements.md#4.1), [4.2](requirements.md#4.2), [4.4](requirements.md#4.4), [4.7](requirements.md#4.7)
   - References: cmd/describe_changeset.go
 
-- [ ] 24. Write unit tests for tables helper
+- [x] 24. Write unit tests for tables helper
   - Create test cases for tables.go helper functions
   - Test any OutputArray usage in helper functions
   - Verify helpers work with v2 Builder pattern
   - Requirements: [12.1](requirements.md#12.1)
   - References: cmd/tables_test.go
 
-- [ ] 25. Migrate tables helper
+- [x] 25. Migrate tables helper
   - Update any OutputArray usage in tables.go helper functions
   - Ensure helpers accept and return v2 compatible types
   - Update function signatures if needed for v2 compatibility
   - Requirements: [4.1](requirements.md#4.1)
   - References: cmd/tables.go
 
-- [ ] 26. Write unit tests for deploy_helpers
+- [x] 26. Write unit tests for deploy_helpers
   - Create test cases for deploy_helpers.go functions
   - Test any OutputArray usage in helper functions
   - Verify helpers work with v2 Builder pattern
   - Requirements: [12.1](requirements.md#12.1)
   - References: cmd/deploy_helpers_test.go
 
-- [ ] 27. Migrate deploy_helpers
+- [x] 27. Migrate deploy_helpers
   - Update any OutputArray usage in deploy_helpers.go
   - Ensure helpers accept and return v2 compatible types
   - Update function signatures if needed for v2 compatibility
@@ -252,7 +252,7 @@ references:
 
 ## Phase 9: Global State Cleanup
 
-- [ ] 28. Remove global outputsettings variable
+- [x] 28. Remove global outputsettings variable
   - Remove var outputsettings *format.OutputSettings from cmd/root.go
   - Remove initialization of outputsettings in root command
   - Verify no remaining references to global outputsettings exist

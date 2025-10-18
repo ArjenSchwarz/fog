@@ -35,6 +35,9 @@ Unreleased
 ### Fixed
 - **helpers.go**: Replaced v1 `settings.NewOutputSettings().StringFailure()` with v2 `output.StyleNegative()` for error messages
 - **deploy_helpers_test.go**: Removed obsolete v1 `outputsettings` initialization from test cases
+- **config.go**: Removed deprecated `NewOutputSettings()` method and all references to global `outputsettings` variable from test files
+- **deploy_integration_test.go**: Removed global `outputsettings` variable assignments no longer needed with v2 API
+- **drift_integration_test.go**: Updated `TestTransitGatewayDrift_SeparatePropertiesFlag` to use v2 API patterns instead of deprecated `OutputArray`
 
 1.11.0 / 2025-10-17
 ===================
