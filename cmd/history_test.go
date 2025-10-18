@@ -34,7 +34,7 @@ func TestHistory_V2BuilderPattern(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc // capture loop variable
+		// capture loop variable
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -95,7 +95,7 @@ func TestHistory_V2FailedEventsTable(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc // capture loop variable
+		// capture loop variable
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -155,7 +155,7 @@ func TestHistory_V2InlineStyling(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc // capture loop variable
+		// capture loop variable
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -196,7 +196,7 @@ func TestHistory_V2OutputFormats(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc // capture loop variable
+		// capture loop variable
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 

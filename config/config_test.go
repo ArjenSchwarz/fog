@@ -243,61 +243,6 @@ func TestConfig_GetInt(t *testing.T) {
 	}
 }
 
-func TestConfig_GetSeparator(t *testing.T) {
-	tests := map[string]struct {
-		setup func()
-		want  string
-	}{
-		"table output": {
-			setup: func() {
-				viper.Reset()
-				viper.Set("output", "table")
-			},
-			want: "\r\n",
-		},
-		"dot output": {
-			setup: func() {
-				viper.Reset()
-				viper.Set("output", "dot")
-			},
-			want: ",",
-		},
-		"json output": {
-			setup: func() {
-				viper.Reset()
-				viper.Set("output", "json")
-			},
-			want: ", ",
-		},
-		"csv output": {
-			setup: func() {
-				viper.Reset()
-				viper.Set("output", "csv")
-			},
-			want: ", ",
-		},
-		"no output set": {
-			setup: func() {
-				viper.Reset()
-			},
-			want: ", ",
-		},
-	}
-
-	for name, tc := range tests {
-		t.Run(name, func(t *testing.T) {
-			tc.setup()
-			t.Cleanup(func() {
-				viper.Reset()
-			})
-
-			config := &Config{}
-			got := config.GetSeparator()
-			assert.Equal(t, tc.want, got)
-		})
-	}
-}
-
 func TestConfig_GetFieldOrEmptyValue(t *testing.T) {
 	tests := map[string]struct {
 		setup func()

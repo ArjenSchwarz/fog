@@ -28,7 +28,7 @@ func TestPrintBasicStackInfo_V2BuilderPattern(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc // capture loop variable
+		// capture loop variable
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -99,7 +99,7 @@ func TestPrintChangeset_V2BuilderPattern(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc // capture loop variable
+		// capture loop variable
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -179,7 +179,7 @@ func TestPrintDangerTable_V2BuilderPattern(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc // capture loop variable
+		// capture loop variable
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -314,7 +314,7 @@ func TestChangeset_V2OutputFormats(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc // capture loop variable
+		// capture loop variable
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -544,7 +544,7 @@ func TestChangeset_V2ActionTypeVariations(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc // capture loop variable
+		// capture loop variable
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -610,7 +610,7 @@ func TestChangeset_V2ReplacementTypes(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc // capture loop variable
+		// capture loop variable
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -738,7 +738,7 @@ func TestAddToChangesetSummary_V2(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc // capture loop variable
+		// capture loop variable
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 

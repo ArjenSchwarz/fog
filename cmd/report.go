@@ -246,11 +246,11 @@ func generateStackReport(stack lib.CfnStack, doc *output.Builder, awsConfig conf
 		metadataTitle, metadataData := createMetadataTable(stack, event, awsConfig)
 		doc.Table(metadataTitle, metadataData, output.WithKeys("Stack", "Account", "Region", "Type", "Start time", "Duration", "Success"))
 
-		// Create events table
+		// Create events table (data is sorted within the helper function)
 		eventTitle, eventKeys, eventData := createEventsTable(stack, event)
 		doc.Table(eventTitle, eventData, output.WithKeys(eventKeys...))
 
-		// Add Mermaid diagram if needed
+		// Add Mermaid diagram if needed (data is sorted within the helper function)
 		if reportFlags.HasMermaid {
 			mermaidTitle, mermaidData := createMermaidTable(stack, event)
 			doc.Table(mermaidTitle, mermaidData, output.WithKeys("Start time", "Duration", "Label"))
@@ -319,7 +319,11 @@ func createEventsTable(stack lib.CfnStack, event lib.StackEvent) (string, []stri
 		data = append(data, row)
 	}
 
-	// Sort by start time (v2 doesn't have SortKey, so we sort the data)
+	// Sort by start time
+	// Note: Using manual sorting instead of Pipeline API because:
+	// 1. Pipeline sorting applies to all tables in a document, but we need different sort columns
+	//    (events table sorts by "Start time", mermaid table sorts by "Sorttime")
+	// 2. These are small datasets (CloudFormation events) where manual sorting is efficient
 	sort.Slice(data, func(i, j int) bool {
 		return data[i]["Start time"].(string) < data[j]["Start time"].(string)
 	})
@@ -353,6 +357,10 @@ func createMermaidTable(stack lib.CfnStack, event lib.StackEvent) (string, []map
 	}
 
 	// Sort by Sorttime
+	// Note: Using manual sorting instead of Pipeline API because:
+	// 1. Pipeline sorting applies to all tables in a document, but we need different sort columns
+	//    (events table sorts by "Start time", mermaid table sorts by "Sorttime")
+	// 2. These are small datasets (CloudFormation events) where manual sorting is efficient
 	sort.Slice(data, func(i, j int) bool {
 		return data[i]["Sorttime"].(string) < data[j]["Sorttime"].(string)
 	})

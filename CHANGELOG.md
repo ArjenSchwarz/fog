@@ -1,6 +1,15 @@
 Unreleased
 ===========
 
+### Changed
+- Modernized test patterns for Go 1.22+ compatibility (removed explicit loop variable captures `tc := tc` as loop variables are now automatically captured)
+- Updated drift detection output formatting to use newlines instead of dynamic separators for better readability
+- Added explanatory comments in report.go for manual sorting approach in events and mermaid tables
+
+### Removed
+- `GetSeparator()` method from config.Config as separator logic is now handled directly in drift detection
+- Unused config tests for GetSeparator method
+
 ### Added
 - Migration completion documentation in decision log (Decision 8) summarizing v2 migration success, implementation decisions, deviations from design, lessons learned, and migration metrics
 

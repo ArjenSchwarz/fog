@@ -420,6 +420,7 @@ func TestModernTestPatterns_TParallelUsage(t *testing.T) {
 }
 
 // TestModernTestPatterns_VariableCapture verifies proper variable capture in parallel tests
+// NOTE: Go 1.22+ automatically captures loop variables, so explicit capture (tc := tc) is no longer required
 func TestModernTestPatterns_VariableCapture(t *testing.T) {
 	t.Helper()
 
@@ -427,9 +428,9 @@ func TestModernTestPatterns_VariableCapture(t *testing.T) {
 		testFile              string
 		shouldCaptureVariable bool
 	}{
-		"stacks_refactored_test captures range variable": {
+		"stacks_refactored_test has parallel tests": {
 			testFile:              "../stacks_refactored_test.go",
-			shouldCaptureVariable: true,
+			shouldCaptureVariable: false, // Not required in Go 1.22+
 		},
 	}
 
@@ -444,12 +445,18 @@ func TestModernTestPatterns_VariableCapture(t *testing.T) {
 			fileContent := string(content)
 
 			// Check for variable capture pattern (tc := tc or similar)
+			// This is now optional in Go 1.22+ but still allowed
 			capturesVariable := strings.Contains(fileContent, "tc := tc") ||
 				strings.Contains(fileContent, "tt := tt")
 
+			// In Go 1.22+, we just verify the test uses t.Parallel() but don't require explicit capture
 			if tc.shouldCaptureVariable && strings.Contains(fileContent, "t.Parallel()") {
 				assert.True(t, capturesVariable, "Test file with t.Parallel() should capture range variable")
 			}
+
+			// Verify the file uses t.Parallel() even if capture is not required
+			usesParallel := strings.Contains(fileContent, "t.Parallel()")
+			assert.True(t, usesParallel, "Test file should use t.Parallel() for parallel tests")
 		})
 	}
 }

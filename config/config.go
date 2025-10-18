@@ -50,18 +50,6 @@ func (config *Config) GetInt(setting string) int {
 	return 0
 }
 
-// GetSeparator returns the appropriate separator string based on the output format
-func (config *Config) GetSeparator() string {
-	switch config.GetLCString("output") {
-	case "table":
-		return "\r\n"
-	case "dot":
-		return ","
-	default:
-		return ", "
-	}
-}
-
 // GetFieldOrEmptyValue returns the value if not empty, otherwise returns an appropriate empty value based on output format
 func (config *Config) GetFieldOrEmptyValue(value string) string {
 	if value != "" {
@@ -126,6 +114,8 @@ func (config *Config) GetOutputOptions() []output.OutputOption {
 		fileFormat := config.getFormatForOutput(config.GetLCString("output-file-format"))
 		dir, pattern := filepath.Split(outputFile)
 		fileWriter, err := output.NewFileWriter(dir, pattern)
+		// TODO: Consider returning error instead of silently failing if NewFileWriter fails
+		// Currently swallows errors which could lead to confusion when file output is expected but not created
 		if err == nil {
 			opts = append(opts, output.WithFormat(fileFormat))
 			opts = append(opts, output.WithWriter(fileWriter))

@@ -37,7 +37,7 @@ func TestDrift_V2BuilderPattern(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc // capture loop variable
+		// capture loop variable
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -96,7 +96,7 @@ func TestDrift_V2InlineStyling(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc // capture loop variable
+		// capture loop variable
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -165,7 +165,7 @@ func TestDrift_V2ArrayHandling(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc // capture loop variable
+		// capture loop variable
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -417,7 +417,7 @@ func TestDrift_V2OutputFormats(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc // capture loop variable
+		// capture loop variable
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 

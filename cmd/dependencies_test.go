@@ -41,7 +41,7 @@ func TestDependencies_V2BuilderPattern(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc // capture loop variable
+		// capture loop variable
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -110,7 +110,7 @@ func TestDependencies_V2Sorting(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc // capture loop variable
+		// capture loop variable
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -165,7 +165,7 @@ func TestDependencies_V2ArrayHandling(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc // capture loop variable
+		// capture loop variable
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -229,7 +229,7 @@ func TestDependencies_V2OutputFormats(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc // capture loop variable
+		// capture loop variable
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -384,7 +384,7 @@ func TestDependencies_V2LargeDataSet(t *testing.T) {
 
 	// Create larger dataset with many stacks
 	data := make([]map[string]any, 0, 20)
-	for i := 0; i < 20; i++ {
+	for i := range 20 {
 		var stackName string
 		if i%3 == 0 {
 			stackName = "prod-stack-" + fmt.Sprintf("%d", i)

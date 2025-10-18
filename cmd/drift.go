@@ -310,7 +310,7 @@ func checkNaclEntries(naclResources map[string]string, template lib.CfnTemplateB
 			// If the key exists
 			if ok {
 				if !lib.CompareNaclEntries(entry, cfnentry) {
-					ruledetails := fmt.Sprintf("Expected: %s%sActual: %s", naclEntryToString(cfnentry), settings.GetSeparator(), naclEntryToString(entry))
+					ruledetails := fmt.Sprintf("Expected: %s\nActual: %s", naclEntryToString(cfnentry), naclEntryToString(entry))
 					rulechanges = append(rulechanges, ruledetails)
 				}
 				delete(attachedRules, rulenumberstring)
@@ -377,7 +377,7 @@ func checkRouteTableRoutes(routetableResources map[string]string, template lib.C
 			}
 			if cfnroute, ok := attachedRules[ruleid]; ok {
 				if !lib.CompareRoutes(route, cfnroute, settings.GetStringSlice("drift.ignore-blackholes")) {
-					ruledetails := fmt.Sprintf("Expected: %s%sActual: %s", routeToString(cfnroute), settings.GetSeparator(), routeToString(route))
+					ruledetails := fmt.Sprintf("Expected: %s\nActual: %s", routeToString(cfnroute), routeToString(route))
 					rulechanges = append(rulechanges, ruledetails)
 				}
 				delete(attachedRules, ruleid)
@@ -455,7 +455,7 @@ func checkTransitGatewayRouteTableRoutes(tgwRouteTableResources map[string]strin
 			if cfnroute, ok := expectedRoutes[destination]; ok {
 				// Route exists in template, compare for modifications
 				if !lib.CompareTGWRoutes(route, cfnroute, settings.GetStringSlice("drift.ignore-blackholes")) {
-					ruledetails := fmt.Sprintf("Expected: %s%sActual: %s", tgwRouteToString(cfnroute), settings.GetSeparator(), tgwRouteToString(route))
+					ruledetails := fmt.Sprintf("Expected: %s\nActual: %s", tgwRouteToString(cfnroute), tgwRouteToString(route))
 					rulechanges = append(rulechanges, ruledetails)
 				}
 				// Remove from expectedRoutes map to track what's been checked
