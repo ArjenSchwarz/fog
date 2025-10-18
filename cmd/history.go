@@ -144,10 +144,7 @@ func printLog(log lib.DeploymentLog) {
 	// print error info if failed
 	if log.Status == lib.DeploymentLogStatusFailed {
 		// Prepare failed events data
-		failedEventsData := make([]map[string]any, 0, len(log.Failures))
-		for _, event := range log.Failures {
-			failedEventsData = append(failedEventsData, event)
-		}
+		failedEventsData := append([]map[string]any(nil), log.Failures...)
 
 		// Build failed events document
 		failedDoc := output.New().

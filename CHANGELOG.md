@@ -1,6 +1,13 @@
 Unreleased
 ===========
 
+### Changed
+- Replaced `interface{}` with `any` in deploy.go helper functions per Go 1.18+ best practices
+- Removed duplicate import alias in config/config.go (consolidated to single `output` alias)
+- Simplified loop in cmd/history.go using `append(...slice...)` pattern instead of manual iteration
+- Refactored deploy.go helper functions from one-line to multi-line format for better readability
+- Removed `t.Parallel()` from deploy_helpers_test.go tests to avoid test timeout issues with global state
+
 ### Added
 - Golden file test infrastructure with ANSI code stripping for test validation
 - `StripAnsi()` helper function to remove ANSI escape codes from strings

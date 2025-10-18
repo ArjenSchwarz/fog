@@ -263,7 +263,7 @@ references:
 
 ## Phase 10: Testing and Validation
 
-- [ ] 29. Run existing test suite after migration
+- [x] 29. Run existing test suite after migration
   - Run go test ./... and verify all existing unit tests pass
   - Run INTEGRATION=1 go test ./... and verify integration tests pass
   - Fix any test failures related to output format changes
@@ -271,7 +271,7 @@ references:
   - Requirements: [12.1](requirements.md#12.1), [12.2](requirements.md#12.2)
   - References: All test files
 
-- [ ] 30. Manual validation testing and golden file comparison
+- [x] 30. Manual validation testing and golden file comparison
   - Compare v2 output against golden files created in Phase 0
   - Verify column ordering matches v1 for each command
   - Test inline styling appears correctly (fog drift command)
@@ -285,7 +285,7 @@ references:
   - Requirements: [12.3](requirements.md#12.3), [12.4](requirements.md#12.4), [12.5](requirements.md#12.5), [12.6](requirements.md#12.6), [13.1](requirements.md#13.1), [13.2](requirements.md#13.2), [13.3](requirements.md#13.3), [13.4](requirements.md#13.4)
   - References: specs/go-output-v2/decision_log.md, testdata/
 
-- [ ] 31. Verify Windows build with cross-compilation
+- [x] 31. Verify Windows build with cross-compilation
   - Run GOOS=windows GOARCH=amd64 go build to verify Windows compilation succeeds
   - Successful build is sufficient - no Windows machine available for execution testing
   - This verifies the v2 dependency resolves the v1 Windows compilation issue
@@ -294,7 +294,7 @@ references:
 
 ## Phase 11: Code Quality and Cleanup
 
-- [ ] 32. Code quality checks
+- [x] 32. Code quality checks
   - Run go fmt ./... on all modified files
   - Run golangci-lint run and fix any issues
   - Review code for v2 best practices (Builder pattern, functional options)
@@ -305,7 +305,7 @@ references:
 
 ## Phase 12: Final Cleanup
 
-- [ ] 33. Remove v1 dependency
+- [x] 33. Remove v1 dependency
   - Remove v1 dependency from go.mod
   - Run go mod tidy to clean up module dependencies
   - Verify build succeeds without v1 dependency

@@ -70,12 +70,29 @@ var deployment lib.DeployInfo
 
 // Placeholder string methods for deploy command formatting
 // In v2, we use simpler text output instead of complex styled output
-func stringFailure(msg interface{}) string  { return fmt.Sprintf("ERROR: %s\n", msg) }
-func stringSuccess(msg interface{}) string  { return fmt.Sprintf("SUCCESS: %s\n", msg) }
-func stringInfo(msg interface{}) string     { return fmt.Sprintf("INFO: %s\n", msg) }
-func stringWarning(msg interface{}) string  { return fmt.Sprintf("WARNING: %s\n", msg) }
-func stringPositive(msg interface{}) string { return fmt.Sprintf("OK: %s\n", msg) }
-func stringBold(msg interface{}) string     { return fmt.Sprintf("*** %s\n", msg) }
+func stringFailure(msg any) string {
+	return fmt.Sprintf("ERROR: %s\n", msg)
+}
+
+func stringSuccess(msg any) string {
+	return fmt.Sprintf("SUCCESS: %s\n", msg)
+}
+
+func stringInfo(msg any) string {
+	return fmt.Sprintf("INFO: %s\n", msg)
+}
+
+func stringWarning(msg any) string {
+	return fmt.Sprintf("WARNING: %s\n", msg)
+}
+
+func stringPositive(msg any) string {
+	return fmt.Sprintf("OK: %s\n", msg)
+}
+
+func stringBold(msg any) string {
+	return fmt.Sprintf("*** %s\n", msg)
+}
 
 func init() {
 	stackCmd.AddCommand(deployCmd)

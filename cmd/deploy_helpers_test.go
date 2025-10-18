@@ -18,8 +18,6 @@ import (
 
 // TestValidateStackReadiness tests the validateStackReadiness helper function
 func TestValidateStackReadiness(t *testing.T) {
-	t.Parallel()
-
 	tests := map[string]struct {
 		stackName string
 		setup     func(*testutil.MockCFNClient)
@@ -72,8 +70,6 @@ func TestValidateStackReadiness(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-
 			mockClient := testutil.NewMockCFNClient()
 			if tc.setup != nil {
 				tc.setup(mockClient)
@@ -98,8 +94,6 @@ func TestValidateStackReadiness(t *testing.T) {
 
 // TestFormatAccountDisplay tests the formatAccountDisplay helper function
 func TestFormatAccountDisplay(t *testing.T) {
-	t.Parallel()
-
 	tests := map[string]struct {
 		accountID    string
 		accountAlias string
@@ -129,8 +123,6 @@ func TestFormatAccountDisplay(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-
 			got := formatAccountDisplay(tc.accountID, tc.accountAlias)
 
 			if got != tc.want {
@@ -142,8 +134,6 @@ func TestFormatAccountDisplay(t *testing.T) {
 
 // TestDetermineDeploymentMethod tests the determineDeploymentMethod helper function
 func TestDetermineDeploymentMethod(t *testing.T) {
-	t.Parallel()
-
 	tests := map[string]struct {
 		isNew    bool
 		isDryrun bool
@@ -173,8 +163,6 @@ func TestDetermineDeploymentMethod(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-
 			got := determineDeploymentMethod(tc.isNew, tc.isDryrun)
 
 			if !strings.Contains(got, tc.want) {

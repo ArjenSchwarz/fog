@@ -5,8 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ArjenSchwarz/go-output/v2"
-	format "github.com/ArjenSchwarz/go-output/v2"
+	output "github.com/ArjenSchwarz/go-output/v2"
 	"github.com/spf13/viper"
 )
 
@@ -87,7 +86,7 @@ func (config *Config) GetTimezoneLocation() *time.Location {
 }
 
 // GetTableFormat creates a v2 Format object for table output with configured style and max column width
-func (config *Config) GetTableFormat() format.Format {
+func (config *Config) GetTableFormat() output.Format {
 	styleName := config.GetString("table.style")
 	maxWidth := config.GetInt("table.max-column-width")
 
@@ -96,7 +95,7 @@ func (config *Config) GetTableFormat() format.Format {
 }
 
 // getFormatForOutput maps format name to v2 Format object
-func (config *Config) getFormatForOutput(formatName string) format.Format {
+func (config *Config) getFormatForOutput(formatName string) output.Format {
 	switch formatName {
 	case "csv":
 		return output.CSV
