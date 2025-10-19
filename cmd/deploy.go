@@ -151,7 +151,7 @@ func setDeployTemplate(deployment *lib.DeployInfo, awsConfig config.AWSConfig) {
 	if deployFlags.Bucket != "" {
 		objectname, err := lib.UploadTemplate(&deployFlags.Template, template, &deployFlags.Bucket, awsConfig.S3Client())
 		if err != nil {
-			fmt.Print(stringFailure("this failed"))
+			fmt.Print(stringFailure("Failed to upload template to S3"))
 			log.Fatalln(err)
 		}
 		url := fmt.Sprintf("https://%v.s3-%v.amazonaws.com/%v", deployFlags.Bucket, awsConfig.Region, objectname)

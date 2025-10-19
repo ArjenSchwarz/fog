@@ -1,6 +1,20 @@
 Unreleased
 ===========
 
+### Fixed
+- File writer creation errors are now logged with warning messages instead of being silently swallowed (config.go)
+- Report frontmatter now properly attached to v2 output via `WithFrontMatter()` option
+- Mermaid timeline diagrams now render as proper Gantt charts using v2 `GanttChart()` API instead of plain tables
+- Improved error message for S3 template upload failures in deploy command (changed from "this failed" to "Failed to upload template to S3")
+
+### Changed
+- Report command uses v2 `createMermaidGanttChart()` returning GanttTask objects instead of map data
+- Test `TestReportMermaidTableGeneration` renamed to `TestReportMermaidGanttChartGeneration` with updated assertions for GanttTask structure
+
+### Removed
+- Obsolete "capture range variable" and "capture loop variable" comments from all test files (Go 1.22+ automatically captures loop variables)
+- Unused `checkedResources` variable and associated workaround code from drift.go
+
 ### Changed
 - Modernized test patterns for Go 1.22+ compatibility (removed explicit loop variable captures `tc := tc` as loop variables are now automatically captured)
 - Updated drift detection output formatting to use newlines instead of dynamic separators for better readability

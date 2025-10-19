@@ -1,6 +1,7 @@
 package config
 
 import (
+	"log"
 	"path/filepath"
 	"strings"
 	"time"
@@ -114,9 +115,11 @@ func (config *Config) GetOutputOptions() []output.OutputOption {
 		fileFormat := config.getFormatForOutput(config.GetLCString("output-file-format"))
 		dir, pattern := filepath.Split(outputFile)
 		fileWriter, err := output.NewFileWriter(dir, pattern)
-		// TODO: Consider returning error instead of silently failing if NewFileWriter fails
-		// Currently swallows errors which could lead to confusion when file output is expected but not created
-		if err == nil {
+		if err != nil {
+			// Log warning message with file path and error details
+			// Continue with console output even if file writer fails
+			log.Printf("Warning: Failed to create file writer for %s: %v", outputFile, err)
+		} else {
 			opts = append(opts, output.WithFormat(fileFormat))
 			opts = append(opts, output.WithWriter(fileWriter))
 		}

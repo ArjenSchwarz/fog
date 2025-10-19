@@ -173,7 +173,7 @@ func generateReport() {
 	}
 
 	// Get output options with S3/file configuration if needed
-	outputOptions := getReportOutputOptions(awsConfig)
+	outputOptions := getReportOutputOptions(awsConfig, frontMatter)
 
 	// Render the complete document
 	out := output.NewOutput(outputOptions...)
@@ -183,8 +183,13 @@ func generateReport() {
 }
 
 // getReportOutputOptions creates output options with S3/file support
-func getReportOutputOptions(awsConfig config.AWSConfig) []output.OutputOption {
+func getReportOutputOptions(awsConfig config.AWSConfig, frontMatter map[string]string) []output.OutputOption {
 	opts := settings.GetOutputOptions()
+
+	// Add frontmatter if provided (for markdown output)
+	if len(frontMatter) > 0 {
+		opts = append(opts, output.WithFrontMatter(frontMatter))
+	}
 
 	// Handle S3 bucket output if configured
 	if reportFlags.TargetBucket != "" {
@@ -250,10 +255,10 @@ func generateStackReport(stack lib.CfnStack, doc *output.Builder, awsConfig conf
 		eventTitle, eventKeys, eventData := createEventsTable(stack, event)
 		doc.Table(eventTitle, eventData, output.WithKeys(eventKeys...))
 
-		// Add Mermaid diagram if needed (data is sorted within the helper function)
+		// Add Mermaid diagram if needed (uses v2 GanttChart for proper rendering)
 		if reportFlags.HasMermaid {
-			mermaidTitle, mermaidData := createMermaidTable(stack, event)
-			doc.Table(mermaidTitle, mermaidData, output.WithKeys("Start time", "Duration", "Label"))
+			mermaidTitle, ganttTasks := createMermaidGanttChart(stack, event)
+			doc.GanttChart(mermaidTitle, ganttTasks)
 		}
 	}
 }
@@ -331,41 +336,49 @@ func createEventsTable(stack lib.CfnStack, event lib.StackEvent) (string, []stri
 	return title, keys, data
 }
 
-// createMermaidTable creates the data for the Mermaid diagram
-func createMermaidTable(stack lib.CfnStack, event lib.StackEvent) (string, []map[string]any) {
+// createMermaidGanttChart creates Gantt chart tasks for the Mermaid diagram
+func createMermaidGanttChart(stack lib.CfnStack, event lib.StackEvent) (string, []output.GanttTask) {
 	title := fmt.Sprintf("Visual timeline of %s - %s event - Started %s",
 		stack.Name, event.Type, event.StartDate.In(settings.GetTimezoneLocation()).Format(time.RFC3339))
 
-	data := make([]map[string]any, 0)
+	tasks := make([]output.GanttTask, 0)
+
+	// Create a slice to hold all events for sorting
+	type sortableEvent struct {
+		task     output.GanttTask
+		sortTime time.Time
+	}
+	sortableEvents := make([]sortableEvent, 0)
 
 	// Add milestones for stack events
 	for moment, status := range event.Milestones {
-		row := map[string]any{
-			"Label":      fmt.Sprintf("Stack %s", status),
-			"Start time": moment.In(settings.GetTimezoneLocation()).Format("15:04:05"),
-			"Duration":   "0s",
-			"Sorttime":   moment.In(settings.GetTimezoneLocation()).Format(time.RFC3339),
-			"Status":     "milestone",
+		task := output.GanttTask{
+			ID:        fmt.Sprintf("milestone-%d", moment.Unix()),
+			Title:     fmt.Sprintf("Stack %s", status),
+			StartDate: moment.In(settings.GetTimezoneLocation()).Format("2006-01-02 15:04:05"),
+			Duration:  "0s",
+			Status:    "milestone",
 		}
-		data = append(data, row)
+		sortableEvents = append(sortableEvents, sortableEvent{task: task, sortTime: moment})
 	}
 
 	// Add resource events
 	for _, resource := range event.ResourceEvents {
-		row := createMermaidResourceData(resource)
-		data = append(data, row)
+		task := createMermaidGanttTask(resource)
+		sortableEvents = append(sortableEvents, sortableEvent{task: task, sortTime: resource.StartDate})
 	}
 
-	// Sort by Sorttime
-	// Note: Using manual sorting instead of Pipeline API because:
-	// 1. Pipeline sorting applies to all tables in a document, but we need different sort columns
-	//    (events table sorts by "Start time", mermaid table sorts by "Sorttime")
-	// 2. These are small datasets (CloudFormation events) where manual sorting is efficient
-	sort.Slice(data, func(i, j int) bool {
-		return data[i]["Sorttime"].(string) < data[j]["Sorttime"].(string)
+	// Sort by time
+	sort.Slice(sortableEvents, func(i, j int) bool {
+		return sortableEvents[i].sortTime.Before(sortableEvents[j].sortTime)
 	})
 
-	return title, data
+	// Extract sorted tasks
+	for _, se := range sortableEvents {
+		tasks = append(tasks, se.task)
+	}
+
+	return title, tasks
 }
 
 func createMetadataTable(stack lib.CfnStack, event lib.StackEvent, awsConfig config.AWSConfig) (string, []map[string]any) {
@@ -405,25 +418,25 @@ func createTableResourceData(resource lib.ResourceEvent, event lib.StackEvent) m
 	return content
 }
 
-func createMermaidResourceData(resource lib.ResourceEvent) map[string]any {
-	content := map[string]any{
-		"Label":      resource.Resource.LogicalID,
-		"Start time": resource.StartDate.In(settings.GetTimezoneLocation()).Format("15:04:05"),
-		"Duration":   resource.GetDuration().Round(time.Second).String(),
-		"Sorttime":   resource.StartDate.In(settings.GetTimezoneLocation()).Format(time.RFC3339),
-		"Status":     "",
+func createMermaidGanttTask(resource lib.ResourceEvent) output.GanttTask {
+	task := output.GanttTask{
+		ID:        resource.Resource.LogicalID,
+		Title:     resource.Resource.LogicalID,
+		StartDate: resource.StartDate.In(settings.GetTimezoneLocation()).Format("2006-01-02 15:04:05"),
+		Duration:  resource.GetDuration().Round(time.Second).String(),
+		Status:    "",
 	}
 
 	switch {
 	case resource.EndStatus != resource.ExpectedEndStatus:
-		content["Status"] = "done, crit"
+		task.Status = "done, crit"
 	case resource.EventType == eventTypeRemove || resource.EventType == "Cleanup":
-		content["Status"] = "crit"
+		task.Status = "crit"
 	case resource.EventType == "Modify":
-		content["Status"] = "active"
+		task.Status = "active"
 	}
 
-	return content
+	return task
 }
 
 func cleanStackName(stackname string) string {

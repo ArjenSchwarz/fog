@@ -21,7 +21,6 @@ func TestDemoTables_V2BuilderPattern(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		// capture loop variable
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -116,7 +115,6 @@ func TestDemoTables_V2DifferentStyles(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		// capture loop variable
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -295,7 +293,6 @@ func TestDemoTables_V2OutputFormats(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		// capture loop variable
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -358,7 +355,6 @@ func TestDemoTables_V2BooleanValues(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		// capture loop variable
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 

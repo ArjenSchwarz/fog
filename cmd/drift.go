@@ -87,17 +87,10 @@ func detectDrift(cmd *cobra.Command, args []string) {
 		failWithError(err)
 	}
 	naclResources, routetableResources, tgwRouteTableResources, logicalToPhysical := separateSpecialCases(defaultDrift, &driftFlags.StackName, svc)
-	checkedResources := []string{}
-
 	// Build rows incrementally
 	rows := make([]map[string]any, 0)
 
 	for _, drift := range defaultDrift {
-		//TODO: verify if checkedResources is needed
-		// Store the result of append
-		checkedResources = append(checkedResources, *drift.LogicalResourceId)
-		// Use checkedResources to avoid the SA4010 warning
-		_ = checkedResources
 		if drift.StackResourceDriftStatus == types.StackResourceDriftStatusInSync {
 			continue
 		}

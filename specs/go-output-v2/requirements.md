@@ -212,3 +212,46 @@ This feature migrates fog from go-output v1 to v2.2.1+, adopting modern patterns
 3. <a name="15.3"></a>The README SHALL be updated if there are new dependencies or requirements
 4. <a name="15.4"></a>Code comments SHALL be added where v2 patterns differ significantly from v1
 5. <a name="15.5"></a>The migration SHALL be documented in the decision log
+
+### 16. Error Handling Improvements
+
+**User Story:** As a user, I want clear error messages when file output fails, so that I can understand and fix configuration issues.
+
+**Acceptance Criteria:**
+
+1. <a name="16.1"></a>The system SHALL log a warning when NewFileWriter() fails to create a file writer
+2. <a name="16.2"></a>The system SHALL continue with console output even if file writer creation fails
+3. <a name="16.3"></a>The error message SHALL indicate which file path failed and why
+4. <a name="16.4"></a>The system SHALL NOT silently swallow file writer creation errors
+
+### 17. Code Comments Cleanup
+
+**User Story:** As a developer, I want accurate code comments that reflect current Go behavior, so that the codebase is maintainable.
+
+**Acceptance Criteria:**
+
+1. <a name="17.1"></a>The system SHALL remove or update obsolete loop variable capture comments
+2. <a name="17.2"></a>Comments about Go 1.22+ automatic loop variable capture SHALL be removed unless explaining why old pattern is preserved
+3. <a name="17.3"></a>Test files SHALL NOT contain misleading comments about manual variable capture
+
+### 18. Report Command Frontmatter Support
+
+**User Story:** As a user, I want frontmatter in markdown reports when requested, so that I can integrate reports with static site generators.
+
+**Acceptance Criteria:**
+
+1. <a name="18.1"></a>The report command SHALL support --frontmatter flag for markdown output
+2. <a name="18.2"></a>The system SHALL generate frontmatter metadata including stack name, region, account
+3. <a name="18.3"></a>The frontmatter SHALL be properly attached to the v2 output rendering
+4. <a name="18.4"></a>The frontmatter SHALL appear as a YAML block at the beginning of markdown output
+
+### 19. Report Command Mermaid Timeline Support
+
+**User Story:** As a user, I want Mermaid Gantt charts in markdown/HTML reports, so that I can visualize deployment timelines.
+
+**Acceptance Criteria:**
+
+1. <a name="19.1"></a>The report command SHALL render Mermaid timelines for markdown and HTML output formats
+2. <a name="19.2"></a>The system SHALL use Mermaid code blocks with ganttChart syntax, not plain tables
+3. <a name="19.3"></a>The Mermaid chart SHALL include all resource events with start times and durations
+4. <a name="19.4"></a>The chart SHALL be properly formatted within markdown/HTML output

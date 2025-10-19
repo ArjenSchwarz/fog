@@ -330,3 +330,57 @@ references:
   - Document lessons learned for future migrations
   - Requirements: [15.5](requirements.md#15.5)
   - References: specs/go-output-v2/decision_log.md
+
+## Phase 14: Post-Migration Fixes (PR Review Feedback)
+
+- [x] 36. Fix error handling in config.GetOutputOptions()
+  - Add error logging when NewFileWriter() fails
+  - Log warning message with file path and error details
+  - Continue with console output even if file writer fails
+  - Do not silently swallow file writer creation errors
+  - Requirements: [16.1](requirements.md#16.1), [16.2](requirements.md#16.2), [16.3](requirements.md#16.3), [16.4](requirements.md#16.4)
+  - References: config/config.go:117-122
+
+- [x] 37. Remove obsolete loop variable capture comments
+  - Remove "capture range variable" comment from lib/stacks_refactored_test.go:102
+  - Remove "capture loop variable" comment from cmd/tables_test.go:24
+  - Remove "capture loop variable" comment from cmd/resources_test.go:101
+  - Remove "capture loop variable" comment from cmd/report_test.go:129
+  - These comments are misleading since Go 1.22+ automatically captures loop variables
+  - Requirements: [17.1](requirements.md#17.1), [17.2](requirements.md#17.2), [17.3](requirements.md#17.3)
+  - References: Multiple test files
+
+- [x] 38. Investigate and fix report frontmatter support
+  - Research v2 API for frontmatter support (check for WithFrontMatter() or similar)
+  - If v2 supports frontmatter directly, attach frontMatter map to builder
+  - If v2 doesn't support frontmatter, implement custom transformer or pre-render YAML block
+  - Verify frontmatter appears at beginning of markdown output when --frontmatter flag is used
+  - Test with sample report generation
+  - Requirements: [18.1](requirements.md#18.1), [18.2](requirements.md#18.2), [18.3](requirements.md#18.3), [18.4](requirements.md#18.4)
+  - References: cmd/report.go:140
+
+- [x] 39. Investigate and fix Mermaid timeline rendering
+  - Research v2 API for Mermaid chart support or code block insertion
+  - Determine best approach: doc.MermaidChart(), doc.CodeBlock(), or doc.RawContent()
+  - Implement Mermaid gantt chart generation from resource events
+  - Ensure output is Mermaid code block syntax, not plain table
+  - Test that Mermaid charts render correctly in markdown and HTML output
+  - Requirements: [19.1](requirements.md#19.1), [19.2](requirements.md#19.2), [19.3](requirements.md#19.3), [19.4](requirements.md#19.4)
+  - References: cmd/report.go (Mermaid rendering section)
+
+- [x] 40. Fix minor code quality issues
+  - Fix inconsistent string formatting in deploy.go:71-95 (standardize newline handling)
+  - Remove unused checkedResources variable in drift.go:96-100 or implement its use case
+  - Replace "this failed" error message in deploy.go:154 with descriptive message
+  - Requirements: [14.7](requirements.md#14.7)
+  - References: cmd/deploy.go, cmd/drift.go
+
+- [x] 41. Test post-migration fixes
+  - Verify error logging works when file writer creation fails
+  - Test frontmatter appears in markdown reports with --frontmatter flag
+  - Test Mermaid charts render as code blocks in markdown/HTML output
+  - Verify all obsolete comments are removed
+  - Run go fmt ./... and golangci-lint run
+  - Run full test suite: go test ./... and INTEGRATION=1 go test ./...
+  - Requirements: [12.1](requirements.md#12.1), [12.2](requirements.md#12.2), [14.5](requirements.md#14.5), [14.6](requirements.md#14.6)
+  - References: All modified files

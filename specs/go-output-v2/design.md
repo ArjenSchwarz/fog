@@ -716,6 +716,158 @@ Design-critic questioned use of `context.Background()` instead of cancelable con
 
 This is a conscious design choice appropriate for CLI tools, not an oversight.
 
+## Post-Migration Fixes
+
+This section documents fixes needed after the initial migration based on peer review feedback.
+
+### 1. Error Handling in File Writer Creation
+
+**Issue**: config.go silently swallows errors from NewFileWriter(), confusing users when file output is expected but not created.
+
+**Current Code** (config/config.go:117-122):
+```go
+fileWriter, err := output.NewFileWriter(dir, pattern)
+if err == nil {
+    opts = append(opts, output.WithFormat(fileFormat))
+    opts = append(opts, output.WithWriter(fileWriter))
+}
+```
+
+**Fixed Design**:
+```go
+fileWriter, err := output.NewFileWriter(dir, pattern)
+if err != nil {
+    log.Printf("Warning: Failed to create file writer for %s: %v", outputFile, err)
+} else {
+    opts = append(opts, output.WithFormat(fileFormat))
+    opts = append(opts, output.WithWriter(fileWriter))
+}
+```
+
+Requirements: [16.1](requirements.md#16.1), [16.2](requirements.md#16.2), [16.3](requirements.md#16.3), [16.4](requirements.md#16.4)
+
+### 2. Obsolete Loop Variable Comments Removal
+
+**Issue**: Comments mention "capture range variable" but Go 1.22+ automatically captures loop variables.
+
+**Locations**:
+- lib/stacks_refactored_test.go:102
+- cmd/tables_test.go:24
+- cmd/resources_test.go:101
+- cmd/report_test.go:129
+
+**Fix**: Remove these comments entirely since they're misleading.
+
+Requirements: [17.1](requirements.md#17.1), [17.2](requirements.md#17.2), [17.3](requirements.md#17.3)
+
+### 3. Report Command Frontmatter Support
+
+**Issue**: Frontmatter is calculated but never attached to the v2 builder/output.
+
+**Current Problem** (cmd/report.go:140):
+```go
+var frontMatter map[string]string
+if reportFlags.FrontMatter && outputFormat == outputFormatMarkdown {
+    frontMatter = generateFrontMatter(stacks, awsConfig)
+}
+// frontMatter is never used!
+```
+
+**Fixed Design**:
+```go
+// After building the document, attach frontmatter
+doc := output.New()
+
+// Build all content...
+
+// If frontmatter requested, add it before rendering
+if frontMatter != nil {
+    doc = doc.WithFrontMatter(frontMatter)
+}
+
+// Render
+out.Render(context.Background(), doc.Build())
+```
+
+**Note**: Verify that v2 supports frontmatter via a method like `WithFrontMatter()`. If not, use a custom transformer or pre-render YAML block.
+
+Requirements: [18.1](requirements.md#18.1), [18.2](requirements.md#18.2), [18.3](requirements.md#18.3), [18.4](requirements.md#18.4)
+
+### 4. Report Command Mermaid Timeline Rendering
+
+**Issue**: Code builds Mermaid data but renders it as a plain table instead of a Mermaid code block.
+
+**Current Problem** (cmd/report.go):
+```go
+if reportFlags.HasMermaid {
+    mermaidTitle, mermaidData := createMermaidTable(stack, event)
+    doc.Table(mermaidTitle, mermaidData, output.WithKeys("Start time", "Duration", "Label"))
+}
+```
+
+This renders as a normal table, not a Mermaid chart.
+
+**Fixed Design**:
+
+Option 1 - Custom Mermaid Format (if v2 supports it):
+```go
+if reportFlags.HasMermaid {
+    mermaidChart := createMermaidGanttChart(stack, event)
+    doc.MermaidChart(mermaidChart) // If v2 has this method
+}
+```
+
+Option 2 - Manual Code Block Insertion:
+```go
+if reportFlags.HasMermaid {
+    mermaidCode := generateMermaidGanttCode(event.ResourceEvents)
+    doc.CodeBlock("mermaid", mermaidCode)
+}
+
+func generateMermaidGanttCode(events []ResourceEvent) string {
+    var buf strings.Builder
+    buf.WriteString("gantt\n")
+    buf.WriteString("    title Deployment Timeline\n")
+    buf.WriteString("    dateFormat YYYY-MM-DD HH:mm:ss\n")
+
+    for _, event := range events {
+        buf.WriteString(fmt.Sprintf("    %s: %s, %s, %s\n",
+            event.ResourceName,
+            event.StartTime.Format("2006-01-02 15:04:05"),
+            event.Duration.String(),
+            statusToMermaidState(event.Status)))
+    }
+
+    return buf.String()
+}
+```
+
+Option 3 - Raw Content Insertion (if v2 supports raw blocks):
+```go
+if reportFlags.HasMermaid {
+    mermaidBlock := fmt.Sprintf("```mermaid\n%s\n```", generateMermaidGanttSyntax(event))
+    doc.RawContent(mermaidBlock)
+}
+```
+
+**Investigation Needed**: Check v2 API for Mermaid/code block support. If not available, may need to use a custom transformer or post-process the markdown output.
+
+Requirements: [19.1](requirements.md#19.1), [19.2](requirements.md#19.2), [19.3](requirements.md#19.3), [19.4](requirements.md#19.4)
+
+### 5. Minor Code Quality Issues
+
+**Issue 1**: Inconsistent string formatting in deploy.go:71-95
+- Helper functions add newlines but usage is inconsistent with fmt.Print() vs fmt.Println()
+- **Fix**: Standardize on one pattern - either remove newlines and use fmt.Println(), or keep newlines and document fmt.Print() usage
+
+**Issue 2**: Unused checkedResources variable in drift.go:96-100
+- Uses `_ = checkedResources` workaround to suppress linter warning
+- **Fix**: Either implement the actual use case or remove the variable entirely
+
+**Issue 3**: Non-descriptive error message in deploy.go:154
+- Message is "this failed"
+- **Fix**: Replace with "Failed to upload template to S3"
+
 ## References
 
 - [Requirements Document](requirements.md)

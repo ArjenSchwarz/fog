@@ -98,7 +98,6 @@ func TestResources_ColumnOrderingMatching(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		// capture loop variable
 		t.Run(name, func(t *testing.T) {
 			// Build document - verify WithKeys enforces proper column ordering
 			doc := buildResourcesDocument(tc.data, tc.keys, tc.title)
@@ -206,7 +205,6 @@ func TestResources_V2OutputRenderingCorrectly(t *testing.T) {
 	title := "CloudFormation Resources"
 
 	for name, tc := range tests {
-		// capture loop variable
 		t.Run(name, func(t *testing.T) {
 			// Build document
 			doc := buildResourcesDocument(data, keys, title)
@@ -258,7 +256,6 @@ func TestResources_ArrayFieldHandling(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		// capture loop variable
 		t.Run(name, func(t *testing.T) {
 			keys := []string{"Type", "ID", "Stack"}
 			if len(tc.data) > 0 && tc.data[0]["LogicalID"] != nil {

@@ -126,7 +126,6 @@ func TestReportTableColumnOrdering(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		// capture loop variable
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -175,7 +174,6 @@ func TestReportOutputFormats(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		// capture loop variable
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -276,8 +274,8 @@ func TestReportHelperFunctions(t *testing.T) {
 	}
 }
 
-// TestReportMermaidTableGeneration tests Mermaid diagram data generation
-func TestReportMermaidTableGeneration(t *testing.T) {
+// TestReportMermaidGanttChartGeneration tests Mermaid Gantt chart generation
+func TestReportMermaidGanttChartGeneration(t *testing.T) {
 	t.Parallel()
 
 	stack := lib.CfnStack{
@@ -298,25 +296,31 @@ func TestReportMermaidTableGeneration(t *testing.T) {
 		Milestones: milestones,
 	}
 
-	// Test createMermaidTable
-	title, data := createMermaidTable(stack, event)
+	// Test createMermaidGanttChart
+	title, tasks := createMermaidGanttChart(stack, event)
 
 	if title == "" {
-		t.Fatal("Mermaid table title should not be empty")
+		t.Fatal("Mermaid Gantt chart title should not be empty")
 	}
 
-	// Should have milestones in the data
-	if len(data) < len(milestones) {
-		t.Fatalf("Expected at least %d rows for milestones, got %d", len(milestones), len(data))
+	// Should have milestones in the tasks
+	if len(tasks) < len(milestones) {
+		t.Fatalf("Expected at least %d tasks for milestones, got %d", len(milestones), len(tasks))
 	}
 
-	// Verify columns
-	expectedColumns := []string{"Start time", "Duration", "Label"}
-	for _, row := range data {
-		for _, col := range expectedColumns {
-			if _, ok := row[col]; !ok {
-				t.Fatalf("Missing column '%s' in mermaid row", col)
-			}
+	// Verify GanttTask structure
+	for _, task := range tasks {
+		if task.ID == "" {
+			t.Fatal("GanttTask ID should not be empty")
+		}
+		if task.Title == "" {
+			t.Fatal("GanttTask Title should not be empty")
+		}
+		if task.StartDate == "" {
+			t.Fatal("GanttTask StartDate should not be empty")
+		}
+		if task.Duration == "" {
+			t.Fatal("GanttTask Duration should not be empty")
 		}
 	}
 }
