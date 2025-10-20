@@ -22,7 +22,7 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 )
 
-// replace github.com/ArjenSchwarz/go-output => ../go-output
+// replace github.com/ArjenSchwarz/go-output/v2 => ../go-output/v2
 
 require (
 	github.com/aws/aws-sdk-go-v2/credentials v1.18.16 // indirect
@@ -43,7 +43,7 @@ require (
 )
 
 require (
-	github.com/ArjenSchwarz/go-output/v2 v2.3.2
+	github.com/ArjenSchwarz/go-output/v2 v2.3.3
 	github.com/aws/aws-lambda-go v1.50.0
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.254.1
 	github.com/aws/aws-sdk-go-v2/service/organizations v1.45.3

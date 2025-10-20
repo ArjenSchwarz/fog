@@ -94,6 +94,8 @@ func (config *Config) getFormatForOutput(formatName string) output.Format {
 		return output.DOT
 	case "markdown":
 		return output.Markdown
+	case "html":
+		return output.HTML
 	case "yaml":
 		return output.YAML
 	default:
@@ -104,26 +106,51 @@ func (config *Config) getFormatForOutput(formatName string) output.Format {
 // GetOutputOptions creates v2 functional options from config settings
 func (config *Config) GetOutputOptions() []output.OutputOption {
 	opts := []output.OutputOption{}
+	formats := []output.Format{}
 
-	// Console output
-	consoleFormat := config.getFormatForOutput(config.GetLCString("output"))
-	opts = append(opts, output.WithFormat(consoleFormat))
+	// Console output format
+	consoleFormatName := config.GetLCString("output")
+	consoleFormat := config.getFormatForOutput(consoleFormatName)
+	formats = append(formats, consoleFormat)
+
+	// Console writer
 	opts = append(opts, output.WithWriter(output.NewStdoutWriter()))
 
 	// File output if configured
 	if outputFile := config.GetLCString("output-file"); outputFile != "" {
-		fileFormat := config.getFormatForOutput(config.GetLCString("output-file-format"))
+		fileFormatName := config.GetLCString("output-file-format")
+		// If file format not specified, use console format name
+		if fileFormatName == "" {
+			fileFormatName = consoleFormatName
+		}
+		fileFormat := config.getFormatForOutput(fileFormatName)
+
+		// Only add file format if different from console format
+		addFileFormat := true
+		if fileFormatName == consoleFormatName {
+			addFileFormat = false
+		}
+
 		dir, pattern := filepath.Split(outputFile)
+		// If no directory specified, default to current directory
+		if dir == "" {
+			dir = "."
+		}
 		fileWriter, err := output.NewFileWriter(dir, pattern)
 		if err != nil {
 			// Log warning message with file path and error details
 			// Continue with console output even if file writer fails
 			log.Printf("Warning: Failed to create file writer for %s: %v", outputFile, err)
 		} else {
-			opts = append(opts, output.WithFormat(fileFormat))
+			if addFileFormat {
+				formats = append(formats, fileFormat)
+			}
 			opts = append(opts, output.WithWriter(fileWriter))
 		}
 	}
+
+	// Add all formats at once
+	opts = append(opts, output.WithFormats(formats...))
 
 	// Transformers
 	if config.GetBool("use-emoji") {

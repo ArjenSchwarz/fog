@@ -582,8 +582,8 @@ func TestConfig_GetOutputOptions(t *testing.T) {
 			},
 			check: func(t *testing.T, opts []output.OutputOption) {
 				t.Helper()
-				// Should have console format/writer and file format/writer
-				assert.GreaterOrEqual(t, len(opts), 4)
+				// Should have console writer, file writer, and formats
+				assert.GreaterOrEqual(t, len(opts), 3)
 			},
 		},
 		"markdown output format": {

@@ -54,12 +54,14 @@ You can provide a file to be written to using --file, or ask for the result to b
 stored on an S3 bucket with --s3bucket. When providing the s3bucket parameter it
 will automatically generate a filename consisting of a prefix with the provided
 stackname (or all-stacks if not provided) and a datestamp of when it was taken.
-When you use --file, it supports the below placeholders. Make sure you use single
-quotes around the filename to ensure it doesn't get substituted.
-- $TIMESTAMP
-- $REGION
-- $ACCOUNTID
-- $STACKNAME
+
+Note: The --file flag writes output to a local file using the exact filename provided.
+For S3 output, the Outputfile parameter (used via Lambda integration) supports the
+following placeholders:
+- $TIMESTAMP - Current timestamp
+- $REGION - AWS region
+- $ACCOUNTID - AWS account ID
+- $STACKNAME - CloudFormation stack name
 
 
 Example:

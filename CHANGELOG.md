@@ -2,14 +2,23 @@ Unreleased
 ===========
 
 ### Fixed
+- File output now works correctly for all commands (drift, report, etc.) by using `WithFormats()` instead of multiple `WithFormat()` calls
+- Report command `--file` flag now works correctly (removed local flag that was shadowing global persistent flag)
+- HTML format output now renders correctly (added missing `case "html"` in format switch)
+- Empty directory paths in file output now default to current directory
+- File format now correctly defaults to console format when `--file-format` is not specified
+- ANSI color codes no longer appear in JSON/CSV/YAML output from drift command (styling now only applied to table/markdown/html formats)
 - File writer creation errors are now logged with warning messages instead of being silently swallowed (config.go)
 - Report frontmatter now properly attached to v2 output via `WithFrontMatter()` option
 - Mermaid timeline diagrams now render as proper Gantt charts using v2 `GanttChart()` API instead of plain tables
 - Improved error message for S3 template upload failures in deploy command (changed from "this failed" to "Failed to upload template to S3")
 
 ### Changed
+- Updated go-output dependency from v2.3.2 to v2.3.3 (includes Mermaid rendering fixes)
+- Report help text now clarifies that `--file` uses exact filename (no placeholders), while S3 output via Lambda supports placeholders
 - Report command uses v2 `createMermaidGanttChart()` returning GanttTask objects instead of map data
 - Test `TestReportMermaidTableGeneration` renamed to `TestReportMermaidGanttChartGeneration` with updated assertions for GanttTask structure
+- Test expectations for file output updated from 4 options to 3 options (console writer + file writer + formats)
 
 ### Removed
 - Obsolete "capture range variable" and "capture loop variable" comments from all test files (Go 1.22+ automatically captures loop variables)
