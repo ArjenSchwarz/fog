@@ -18,8 +18,6 @@ import (
 
 // TestValidateStackReadiness tests the validateStackReadiness helper function
 func TestValidateStackReadiness(t *testing.T) {
-	t.Parallel()
-
 	tests := map[string]struct {
 		stackName string
 		setup     func(*testutil.MockCFNClient)
@@ -72,8 +70,6 @@ func TestValidateStackReadiness(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-
 			mockClient := testutil.NewMockCFNClient()
 			if tc.setup != nil {
 				tc.setup(mockClient)
@@ -98,8 +94,6 @@ func TestValidateStackReadiness(t *testing.T) {
 
 // TestFormatAccountDisplay tests the formatAccountDisplay helper function
 func TestFormatAccountDisplay(t *testing.T) {
-	t.Parallel()
-
 	tests := map[string]struct {
 		accountID    string
 		accountAlias string
@@ -129,8 +123,6 @@ func TestFormatAccountDisplay(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-
 			got := formatAccountDisplay(tc.accountID, tc.accountAlias)
 
 			if got != tc.want {
@@ -142,8 +134,6 @@ func TestFormatAccountDisplay(t *testing.T) {
 
 // TestDetermineDeploymentMethod tests the determineDeploymentMethod helper function
 func TestDetermineDeploymentMethod(t *testing.T) {
-	t.Parallel()
-
 	tests := map[string]struct {
 		isNew    bool
 		isDryrun bool
@@ -173,8 +163,6 @@ func TestDetermineDeploymentMethod(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-
 			got := determineDeploymentMethod(tc.isNew, tc.isDryrun)
 
 			if !strings.Contains(got, tc.want) {
@@ -234,7 +222,6 @@ func TestRunPrechecks(t *testing.T) {
 
 			info := lib.DeployInfo{TemplateRelativePath: "test"}
 			logObj := lib.DeploymentLog{}
-			outputsettings = settings.NewOutputSettings()
 
 			out := runPrechecks(&info, &logObj)
 
@@ -361,7 +348,6 @@ func TestPrepareDeployment(t *testing.T) {
 			viper.Set("logging.enabled", false)
 			viper.Set("templates.directory", "../examples/templates")
 			viper.Set("changeset.name-format", "changeset-$TIMESTAMP")
-			outputsettings = settings.NewOutputSettings()
 			deployFlags = DeployFlags{
 				StackName: tc.stackName,
 				Template:  tc.template,
@@ -449,7 +435,6 @@ func TestCreateAndShowChangeset(t *testing.T) {
 				Changeset: changeset,
 			}
 			logObj := lib.DeploymentLog{}
-			outputsettings = settings.NewOutputSettings()
 
 			cs := createAndShowChangeset(&info, config.AWSConfig{}, &logObj)
 
@@ -552,7 +537,6 @@ func TestConfirmAndDeployChangeset(t *testing.T) {
 				CreateChangeset: tc.createOnly,
 				NonInteractive:  tc.nonInteractive,
 			}
-			outputsettings = settings.NewOutputSettings()
 
 			result := confirmAndDeployChangeset(&lib.ChangesetInfo{}, &lib.DeployInfo{}, config.AWSConfig{})
 
@@ -647,7 +631,6 @@ func TestPrintDeploymentResults(t *testing.T) {
 			}
 
 			viper.Set("logging.enabled", false)
-			outputsettings = settings.NewOutputSettings()
 
 			info := lib.DeployInfo{IsNew: tc.isNew}
 			logObj := lib.DeploymentLog{}
@@ -699,7 +682,6 @@ func TestPrintDeploymentResults_WithOutputs(t *testing.T) {
 	}
 
 	viper.Set("logging.enabled", false)
-	outputsettings = settings.NewOutputSettings()
 
 	info := lib.DeployInfo{IsNew: true}
 	logObj := lib.DeploymentLog{}

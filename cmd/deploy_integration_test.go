@@ -244,8 +244,6 @@ func TestDeploymentWorkflow_EndToEnd(t *testing.T) {
 				deployFlags.Tags = strings.Join(tagStrs, ",")
 			}
 
-			outputsettings = settings.NewOutputSettings()
-
 			// Execute deployment workflow
 			info, awsCfg, err := prepareDeployment()
 
@@ -372,8 +370,6 @@ func TestDeploymentWorkflow_WithPrechecks(t *testing.T) {
 				Template:       "../examples/templates/basicvpc.yaml",
 				NonInteractive: true,
 			}
-
-			outputsettings = settings.NewOutputSettings()
 
 			// Prepare deployment
 			info, awsCfg, err := prepareDeployment()
@@ -630,7 +626,6 @@ func TestDeploymentWorkflow_RollbackHandling(t *testing.T) {
 			}
 
 			viper.Set("logging.enabled", false)
-			outputsettings = settings.NewOutputSettings()
 
 			info := &lib.DeployInfo{
 				StackName: "test-stack",

@@ -23,7 +23,6 @@ package cmd
 
 import (
 	"github.com/ArjenSchwarz/fog/config"
-	format "github.com/ArjenSchwarz/go-output"
 	"github.com/spf13/cobra"
 
 	homedir "github.com/mitchellh/go-homedir"
@@ -32,7 +31,6 @@ import (
 
 var cfgFile string
 var settings = new(config.Config)
-var outputsettings *format.OutputSettings
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
