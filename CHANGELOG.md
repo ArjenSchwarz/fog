@@ -2,6 +2,7 @@ Unreleased
 ===========
 
 ### Fixed
+- Linting issue resolved by extracting "html" string constant in report command
 - File output now works correctly for all commands (drift, report, etc.) by using `WithFormats()` instead of multiple `WithFormat()` calls
 - Report command `--file` flag now works correctly (removed local flag that was shadowing global persistent flag)
 - HTML format output now renders correctly (added missing `case "html"` in format switch)

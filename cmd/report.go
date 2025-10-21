@@ -38,6 +38,7 @@ import (
 
 const (
 	outputFormatMarkdown = "markdown"
+	outputFormatHTML     = "html"
 	eventTypeRemove      = "Remove"
 )
 
@@ -125,7 +126,7 @@ func generateReport() {
 
 	// Determine if we need Mermaid output based on format
 	outputFormat := settings.GetLCString("output")
-	hasMermaid := outputFormat == outputFormatMarkdown || outputFormat == "html"
+	hasMermaid := outputFormat == outputFormatMarkdown || outputFormat == outputFormatHTML
 	if hasMermaid {
 		reportFlags.HasMermaid = true
 	}
@@ -215,7 +216,7 @@ func getReportOutputOptions(awsConfig config.AWSConfig, frontMatter map[string]s
 // getDefaultExtension returns the default file extension for a format
 func getDefaultExtension(format string) string {
 	switch format {
-	case "markdown", "html":
+	case outputFormatMarkdown, outputFormatHTML:
 		return ".md"
 	case "json":
 		return ".json"
