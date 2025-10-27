@@ -729,7 +729,7 @@ func TestPrepareDeployment_ValidationError(t *testing.T) {
 
 // TestMockClientInteraction tests that mock client interactions work correctly
 func TestMockClientInteraction(t *testing.T) {
-	t.Parallel()
+	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 	tests := map[string]struct {
 		setup func(*testutil.MockCFNClient)
@@ -779,7 +779,7 @@ func TestMockClientInteraction(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			t.Parallel()
+			// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 			mockClient := testutil.NewMockCFNClient()
 			if tc.setup != nil {
@@ -793,7 +793,7 @@ func TestMockClientInteraction(t *testing.T) {
 
 // TestStackBuilder tests the StackBuilder helper
 func TestStackBuilder(t *testing.T) {
-	t.Parallel()
+	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 	stack := testutil.NewStackBuilder("test-stack").
 		WithStatus(types.StackStatusCreateComplete).
@@ -825,7 +825,7 @@ func TestStackBuilder(t *testing.T) {
 
 // TestAssertEqualStructs demonstrates using cmp.Diff for struct comparison
 func TestAssertEqualStructs(t *testing.T) {
-	t.Parallel()
+	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 	type TestStruct struct {
 		Name  string
@@ -857,7 +857,7 @@ func TestAssertEqualStructs(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			t.Parallel()
+			// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 			diff := cmp.Diff(tc.want, tc.got)
 			hasDiff := diff != ""

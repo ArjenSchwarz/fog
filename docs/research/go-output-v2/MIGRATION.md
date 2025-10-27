@@ -2,6 +2,17 @@
 
 This guide provides comprehensive instructions for migrating from go-output v1 to v2. Version 2 is a complete redesign that eliminates global state, provides thread safety, and maintains exact key ordering while preserving all v1 functionality.
 
+**Current Version**: v2.4.0
+
+**Breaking Changes in v2.4.0**:
+- Pipeline API has been removed - use per-content transformations instead
+- See [Per-Content Transformations](#per-content-transformations-v240) section below
+
+**New Features in v2.4.0**:
+- Per-content transformations (attach transformations to individual tables)
+- File and S3 append mode with format-specific handling
+- HTML template system with responsive CSS
+
 ## Table of Contents
 
 - [Overview](#overview)
@@ -18,6 +29,12 @@ This guide provides comprehensive instructions for migrating from go-output v1 t
 - [Feature-by-Feature Migration](#feature-by-feature-migration)
 - [Common Issues](#common-issues)
 - [Examples](#examples)
+- [Per-Content Transformations (New in v2.4+)](#per-content-transformations-new-in-v24)
+  - [Why Per-Content Transformations?](#why-per-content-transformations)
+  - [Basic Migration Pattern](#basic-migration-pattern)
+  - [Multiple Tables with Different Transformations](#multiple-tables-with-different-transformations)
+  - [Available Operations](#available-operations)
+  - [Further Resources](#further-resources)
 
 ## Overview
 
@@ -341,6 +358,105 @@ out := output.NewOutput(
 )
 ```
 
+### Append Mode (v2.4.0)
+
+v2.4.0 includes comprehensive append mode support for both FileWriter and S3Writer, allowing you to add content to existing files instead of replacing them.
+
+#### Configuration Change
+
+**v1 Approach:**
+```go
+settings := format.NewOutputSettings()
+settings.ShouldAppend = true
+settings.OutputFileFormat = output.FormatHTML
+```
+
+**v2 Approach:**
+```go
+// FileWriter with append mode
+fw, err := output.NewFileWriterWithOptions(
+    "./output",
+    "report.{ext}",
+    output.WithAppendMode(),
+)
+
+out := output.NewOutput(
+    output.WithFormat(output.FormatHTML),
+    output.WithWriter(fw),
+)
+```
+
+#### Breaking Change: HTML Marker
+
+**⚠️ CRITICAL:** v2 uses a different HTML append marker that is incompatible with v1 files.
+
+```html
+<!-- v1 marker (no longer supported) -->
+<div id='end'></div>
+
+<!-- v2 marker (required) -->
+<!-- go-output-append -->
+```
+
+**Migration Action Required:**
+- Replace `<div id='end'></div>` with `<!-- go-output-append -->` in existing HTML files, OR
+- Regenerate HTML files using v2
+
+#### Format-Specific Behavior
+
+```go
+// JSON/YAML: Byte-level appending (useful for NDJSON logging)
+fw, _ := output.NewFileWriterWithOptions("./logs", "app.{ext}", output.WithAppendMode())
+out := output.NewOutput(output.WithFormat(output.FormatJSON), output.WithWriter(fw))
+// Each render creates a new JSON object on a new line
+
+// CSV: Automatic header skipping
+fw, _ := output.NewFileWriterWithOptions("./data", "sensors.{ext}", output.WithAppendMode())
+out := output.NewOutput(output.WithFormat(output.FormatCSV), output.WithWriter(fw))
+// Headers from appended data are automatically removed
+
+// HTML: Inserts before marker comment
+fw, _ := output.NewFileWriterWithOptions("./reports", "daily.{ext}", output.WithAppendMode())
+out := output.NewOutput(output.WithFormat(output.FormatHTML), output.WithWriter(fw))
+// Content is inserted before <!-- go-output-append --> marker
+```
+
+#### New Features in v2
+
+**S3 Append Mode** (not available in v1):
+```go
+import (
+    "github.com/aws/aws-sdk-go-v2/config"
+    "github.com/aws/aws-sdk-go-v2/service/s3"
+)
+
+cfg, _ := config.LoadDefaultConfig(ctx)
+s3Client := s3.NewFromConfig(cfg)
+
+sw := output.NewS3WriterWithOptions(
+    s3Client,
+    "my-bucket",
+    "logs/app.{ext}",
+    output.WithS3AppendMode(),
+    output.WithMaxAppendSize(10*1024*1024), // 10MB limit
+)
+```
+
+**Thread Safety:** v2 append operations use sync.Mutex for safe concurrent writes.
+
+**Unsafe Append Prevention:**
+```go
+// Prevent accidental JSON/YAML appending (creates invalid files)
+fw, _ := output.NewFileWriterWithOptions(
+    "./output",
+    "data.{ext}",
+    output.WithAppendMode(),
+    output.WithDisallowUnsafeAppend(), // Error on JSON/YAML append
+)
+```
+
+**Examples:** See [v2/examples/append_mode/](../../examples/append_mode/) for detailed usage patterns including NDJSON logging, HTML reports, CSV data collection, and S3 appending.
+
 ### S3 Output
 
 v2 S3Writer is fully compatible with AWS SDK v2 and requires no adapter:
@@ -533,6 +649,141 @@ out := output.NewOutput(
     output.WithWriter(output.NewStdoutWriter()),
 )
 out.Render(context.Background(), doc)
+```
+
+### HTML Template System (v2.4.0+)
+
+v2.4.0 introduces a complete HTML template system for generating full HTML documents with responsive styling. v1 only generated basic HTML fragments.
+
+#### v1 HTML Output
+```go
+// v1 - Basic HTML table fragment only
+settings := format.NewOutputSettings()
+settings.OutputFormat = "html"
+output.Write()
+// Produces: <table>...</table> (no page structure)
+```
+
+#### v2 HTML with Templates
+```go
+// v2 - Full HTML document with responsive template
+htmlFormat := output.HTML.WithOptions(
+    output.WithHTMLTemplate(output.DefaultHTMLTemplate),
+)
+
+out := output.NewOutput(
+    output.WithFormat(htmlFormat),
+    output.WithWriter(output.NewFileWriter(".", "report.html")),
+)
+
+err := out.Render(ctx, doc)
+// Produces: Complete HTML5 document with responsive CSS
+```
+
+#### Built-in Templates
+
+v2 provides three built-in templates:
+
+```go
+// 1. DefaultHTMLTemplate - Responsive design with mobile-first CSS
+htmlFormat := output.HTML.WithOptions(
+    output.WithHTMLTemplate(output.DefaultHTMLTemplate),
+)
+
+// 2. MinimalHTMLTemplate - Clean HTML with no styling
+htmlFormat := output.HTML.WithOptions(
+    output.WithHTMLTemplate(output.MinimalHTMLTemplate),
+)
+
+// 3. MermaidHTMLTemplate - Optimized for Mermaid diagrams
+htmlFormat := output.HTML.WithOptions(
+    output.WithHTMLTemplate(output.MermaidHTMLTemplate),
+)
+```
+
+#### Custom Templates
+
+Create custom templates with full control:
+
+```go
+customTemplate := &output.HTMLTemplate{
+    Title:       "Sales Report Q4 2024",
+    Description: "Quarterly sales analysis",
+    Author:      "Analytics Team",
+    CSS:         output.DefaultResponsiveCSS,
+    ThemeOverrides: map[string]string{
+        "--primary-color":   "#0066cc",
+        "--bg-color":        "#f8f9fa",
+        "--text-color":      "#212529",
+        "--font-family":     "Arial, sans-serif",
+    },
+    ExternalCSS: []string{
+        "https://cdn.example.com/custom-styles.css",
+    },
+}
+
+htmlFormat := output.HTML.WithOptions(
+    output.WithHTMLTemplate(customTemplate),
+)
+```
+
+#### Template Features
+
+**Responsive Design**:
+- Mobile-first CSS with breakpoints at 480px and 768px
+- Responsive table layout with mobile stacking
+- System font stack for performance
+- WCAG AA compliant color contrast
+
+**CSS Theming**:
+```go
+template := &output.HTMLTemplate{
+    Title: "Report",
+    CSS:   output.DefaultResponsiveCSS,
+    ThemeOverrides: map[string]string{
+        "--primary-color":   "#007bff",
+        "--secondary-color": "#6c757d",
+        "--border-color":    "#dee2e6",
+    },
+}
+```
+
+**Content Injection**:
+```go
+template := &output.HTMLTemplate{
+    HeadExtra: `<script src="analytics.js"></script>`,
+    BodyClass: "report-page",
+    BodyAttributes: `data-theme="dark"`,
+    BodyExtra: `<footer>© 2024 Company</footer>`,
+}
+```
+
+**Fragment Mode (Append)**:
+
+When using append mode, the HTML renderer automatically switches to fragment mode to avoid duplicate page structure:
+
+```go
+// First write: Full HTML document with template
+fw, _ := output.NewFileWriterWithOptions(
+    "./reports",
+    "daily.html",
+    output.WithAppendMode(),
+)
+
+htmlFormat := output.HTML.WithOptions(
+    output.WithHTMLTemplate(output.DefaultHTMLTemplate),
+)
+
+out := output.NewOutput(
+    output.WithFormat(htmlFormat),
+    output.WithWriter(fw),
+)
+
+// Creates: Complete HTML page with <!-- go-output-append --> marker
+
+// Subsequent writes: Fragments only (no <html>, <head>, <body>)
+out.Render(ctx, doc2)
+// Inserts: Content fragment before the marker
 ```
 
 ## Feature-by-Feature Migration
@@ -1663,11 +1914,99 @@ out := output.NewOutput(
 // ✅ Format-agnostic operations
 ```
 
+## Per-Content Transformations (v2.4.0)
+
+**Breaking Change in v2.4.0**: The Pipeline API has been removed and replaced with **per-content transformations**. This allows attaching transformations directly to individual tables at creation time.
+
+### Why Per-Content Transformations?
+
+The Pipeline API applied transformations globally to all tables in a document. Per-content transformations solve this limitation by allowing each table to have its own transformation logic, which was the primary use case for most users.
+
+### Basic Migration Pattern
+
+**Pipeline API (REMOVED in v2.4)**:
+```go
+doc := output.New().
+    Table("users", users, output.WithKeys("name", "age")).
+    Build()
+
+// This API has been REMOVED
+transformed, _ := doc.Pipeline().
+    Filter(func(r output.Record) bool {
+        return r["age"].(int) >= 18
+    }).
+    Sort(output.SortKey{Column: "name", Direction: output.Ascending}).
+    Execute()
+```
+
+**Per-Content Transformations (use instead)**:
+```go
+doc := output.New().
+    Table("users", users,
+        output.WithKeys("name", "age"),
+        output.WithTransformations(
+            output.NewFilterOp(func(r output.Record) bool {
+                return r["age"].(int) >= 18
+            }),
+            output.NewSortOp(output.SortKey{Column: "name", Direction: output.Ascending}),
+        ),
+    ).
+    Build()
+
+// Transformations apply automatically during rendering
+```
+
+### Multiple Tables with Different Transformations
+
+This is where per-content transformations really shine:
+
+```go
+doc := output.New().
+    // Filter and sort users
+    Table("adult_users", users,
+        output.WithKeys("name", "email", "age"),
+        output.WithTransformations(
+            output.NewFilterOp(func(r output.Record) bool {
+                return r["age"].(int) >= 18
+            }),
+            output.NewSortOp(output.SortKey{Column: "name", Direction: output.Ascending}),
+        ),
+    ).
+    // Different transformations for products
+    Table("top_products", products,
+        output.WithKeys("id", "name", "price"),
+        output.WithTransformations(
+            output.NewSortOp(output.SortKey{Column: "price", Direction: output.Descending}),
+            output.NewLimitOp(10), // Top 10 by price
+        ),
+    ).
+    Build()
+```
+
+### Available Operations
+
+All Pipeline operations have equivalent constructors for per-content use:
+
+| Pipeline Method | Per-Content Operation |
+|----------------|----------------------|
+| `.Filter(predicate)` | `NewFilterOp(predicate)` |
+| `.Sort(keys...)` | `NewSortOp(keys...)` |
+| `.Limit(count)` | `NewLimitOp(count)` |
+| `.GroupBy(cols, aggs)` | `NewGroupByOp(cols, aggs)` |
+| `.AddColumn(name, fn)` | `NewAddColumnOp(name, fn, nil)` |
+
+### Further Resources
+
+For complete migration examples and best practices, see:
+- [PIPELINE_MIGRATION.md](PIPELINE_MIGRATION.md) - Detailed Pipeline API to per-content migration
+- [BEST_PRACTICES.md](BEST_PRACTICES.md) - Thread safety and performance guidance
+
 ## Need Help?
 
 - Check the [API documentation](https://pkg.go.dev/github.com/ArjenSchwarz/go-output/v2)
 - Review the [examples](https://github.com/ArjenSchwarz/go-output/tree/main/v2/examples)
 - See [collapsible examples](https://github.com/ArjenSchwarz/go-output/tree/main/v2/examples/collapsible_*)
+- Read [PIPELINE_MIGRATION.md](PIPELINE_MIGRATION.md) for Pipeline API migration
 - Report issues at [GitHub Issues](https://github.com/ArjenSchwarz/go-output/issues)
 
 The migration tool can handle most common patterns automatically. For complex migrations, refer to this guide and the API documentation.

@@ -11,7 +11,7 @@ import (
 
 // TestDependencies_V2BuilderPattern tests the v2 Builder pattern for dependencies command
 func TestDependencies_V2BuilderPattern(t *testing.T) {
-	t.Parallel()
+	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 	// Create sample stack dependency data
 	stacks := []map[string]any{
@@ -42,7 +42,7 @@ func TestDependencies_V2BuilderPattern(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			t.Parallel()
+			// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 			// Setup viper
 			viper.Set("output", "table")
@@ -78,7 +78,7 @@ func TestDependencies_V2BuilderPattern(t *testing.T) {
 
 // TestDependencies_V2Sorting tests the v2 data pipeline sorting for dependencies
 func TestDependencies_V2Sorting(t *testing.T) {
-	t.Parallel()
+	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 	tests := map[string]struct {
 		stacks    []map[string]any
@@ -110,7 +110,7 @@ func TestDependencies_V2Sorting(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			t.Parallel()
+			// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 			// Setup viper
 			viper.Set("output", "table")
@@ -146,7 +146,7 @@ func TestDependencies_V2Sorting(t *testing.T) {
 
 // TestDependencies_V2ArrayHandling tests array field handling in v2 output
 func TestDependencies_V2ArrayHandling(t *testing.T) {
-	t.Parallel()
+	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 	tests := map[string]struct {
 		importedBy []string
@@ -164,7 +164,7 @@ func TestDependencies_V2ArrayHandling(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			t.Parallel()
+			// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 			// Setup viper
 			viper.Set("output", "table")
@@ -209,7 +209,7 @@ func TestDependencies_V2ArrayHandling(t *testing.T) {
 
 // TestDependencies_V2OutputFormats tests rendering in different output formats
 func TestDependencies_V2OutputFormats(t *testing.T) {
-	t.Parallel()
+	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 	tests := map[string]struct {
 		format output.Format
@@ -227,7 +227,7 @@ func TestDependencies_V2OutputFormats(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			t.Parallel()
+			// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 			// Setup viper
 			viper.Set("output", "table")
@@ -277,7 +277,7 @@ func TestDependencies_V2OutputFormats(t *testing.T) {
 
 // TestDependencies_V2ColumnOrdering tests that column order is preserved
 func TestDependencies_V2ColumnOrdering(t *testing.T) {
-	t.Parallel()
+	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 	// Setup viper
 	viper.Set("output", "table")
@@ -323,7 +323,7 @@ func TestDependencies_V2ColumnOrdering(t *testing.T) {
 
 // TestDependencies_V2FilteredOutput tests output with filtered stacks
 func TestDependencies_V2FilteredOutput(t *testing.T) {
-	t.Parallel()
+	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 	// Setup viper
 	viper.Set("output", "table")
@@ -371,7 +371,7 @@ func TestDependencies_V2FilteredOutput(t *testing.T) {
 
 // TestDependencies_V2LargeDataSet tests output with many stacks
 func TestDependencies_V2LargeDataSet(t *testing.T) {
-	t.Parallel()
+	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 	// Setup viper
 	viper.Set("output", "table")

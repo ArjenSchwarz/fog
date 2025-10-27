@@ -2,6 +2,7 @@ Unreleased
 ===========
 
 ### Fixed
+- Race conditions in parallel test execution causing `fatal error: concurrent map writes` in cmd and config packages (removed `t.Parallel()` from tests that use global state and concurrent rendering)
 - Linting issue resolved by extracting "html" string constant in report command
 - File output now works correctly for all commands (drift, report, etc.) by using `WithFormats()` instead of multiple `WithFormat()` calls
 - Report command `--file` flag now works correctly (removed local flag that was shadowing global persistent flag)

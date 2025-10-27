@@ -112,7 +112,7 @@ func TestTransitGatewayDrift_LibraryFunctions(t *testing.T) {
 	for name, tc := range tests {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
-			t.Parallel()
+			// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 			// Build template with Transit Gateway routes
 			template := buildTGWTemplate(tc.routeTableLogicalID, tc.templateRoutes)
@@ -286,7 +286,7 @@ func TestTransitGatewayDrift_PropagatedRoutesHandling(t *testing.T) {
 	for name, tc := range tests {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
-			t.Parallel()
+			// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 			template := buildTGWTemplate("TGWRouteTable1", tc.templateRoutes)
 			templateRouteMap := lib.FilterTGWRoutesByLogicalId("TGWRouteTable1", template, []types.Parameter{}, map[string]string{})
@@ -348,7 +348,7 @@ func TestTransitGatewayDrift_TransientStatesFiltered(t *testing.T) {
 	for _, state := range transientStates {
 		state := state
 		t.Run(string(state), func(t *testing.T) {
-			t.Parallel()
+			// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 			awsRoutes := []ec2types.TransitGatewayRoute{
 				{
@@ -601,7 +601,7 @@ func TestTransitGatewayDrift_PrefixListHandling(t *testing.T) {
 	for name, tc := range tests {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
-			t.Parallel()
+			// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 			template := buildTGWTemplate("TGWRouteTable1", tc.templateRoutes)
 			templateRouteMap := lib.FilterTGWRoutesByLogicalId("TGWRouteTable1", template, []types.Parameter{}, map[string]string{})
@@ -731,7 +731,7 @@ func TestTransitGatewayDrift_ECMPRoutes(t *testing.T) {
 	for name, tc := range tests {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
-			t.Parallel()
+			// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 			template := buildTGWTemplate("TGWRouteTable1", tc.templateRoutes)
 			templateRouteMap := lib.FilterTGWRoutesByLogicalId("TGWRouteTable1", template, []types.Parameter{}, map[string]string{})

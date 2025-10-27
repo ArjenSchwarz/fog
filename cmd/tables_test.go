@@ -10,7 +10,7 @@ import (
 
 // TestDemoTables_V2BuilderPattern tests the v2 Builder pattern for demo tables command
 func TestDemoTables_V2BuilderPattern(t *testing.T) {
-	t.Parallel()
+	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 	tests := map[string]struct {
 		columnOrder []string
@@ -22,7 +22,7 @@ func TestDemoTables_V2BuilderPattern(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			t.Parallel()
+			// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 			// Setup viper configuration
 			viper.Set("output", "table")
@@ -92,7 +92,7 @@ func TestDemoTables_V2BuilderPattern(t *testing.T) {
 
 // TestDemoTables_V2DifferentStyles tests rendering with different table styles
 func TestDemoTables_V2DifferentStyles(t *testing.T) {
-	t.Parallel()
+	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 	tests := map[string]struct {
 		style string
@@ -116,7 +116,7 @@ func TestDemoTables_V2DifferentStyles(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			t.Parallel()
+			// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 			// Setup viper with specific style
 			viper.Set("output", "table")
@@ -165,7 +165,7 @@ func TestDemoTables_V2DifferentStyles(t *testing.T) {
 
 // TestDemoTables_V2LongDescriptions tests column width wrapping with long descriptions
 func TestDemoTables_V2LongDescriptions(t *testing.T) {
-	t.Parallel()
+	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 	// Setup viper configuration
 	viper.Set("output", "table")
@@ -212,7 +212,7 @@ func TestDemoTables_V2LongDescriptions(t *testing.T) {
 
 // TestDemoTables_V2SortedOutput tests sorting by Export column
 func TestDemoTables_V2SortedOutput(t *testing.T) {
-	t.Parallel()
+	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 	// Setup viper configuration
 	viper.Set("output", "table")
@@ -273,7 +273,7 @@ func TestDemoTables_V2SortedOutput(t *testing.T) {
 
 // TestDemoTables_V2OutputFormats tests rendering in different output formats
 func TestDemoTables_V2OutputFormats(t *testing.T) {
-	t.Parallel()
+	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 	tests := map[string]struct {
 		format output.Format
@@ -294,7 +294,7 @@ func TestDemoTables_V2OutputFormats(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			t.Parallel()
+			// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 			// Setup viper
 			viper.Set("output", "table")
@@ -341,7 +341,7 @@ func TestDemoTables_V2OutputFormats(t *testing.T) {
 
 // TestDemoTables_V2BooleanValues tests handling of boolean Imported field
 func TestDemoTables_V2BooleanValues(t *testing.T) {
-	t.Parallel()
+	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 	tests := map[string]struct {
 		imported bool
@@ -356,7 +356,7 @@ func TestDemoTables_V2BooleanValues(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			t.Parallel()
+			// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 			// Setup viper configuration
 			viper.Set("output", "table")
@@ -403,7 +403,7 @@ func TestDemoTables_V2BooleanValues(t *testing.T) {
 
 // TestDemoTables_V2ColumnOrdering tests that column order is preserved
 func TestDemoTables_V2ColumnOrdering(t *testing.T) {
-	t.Parallel()
+	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 	// Setup viper configuration
 	viper.Set("output", "table")

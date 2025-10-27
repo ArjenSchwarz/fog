@@ -12,8 +12,7 @@ import (
 
 // TestReportBuilderPatternMultipleTables tests v2 Builder pattern with multiple tables
 func TestReportBuilderPatternMultipleTables(t *testing.T) {
-	t.Parallel()
-
+	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 	// Build a report document with multiple tables using v2 Builder pattern
 	doc := output.New()
 
@@ -86,8 +85,7 @@ func TestReportBuilderPatternMultipleTables(t *testing.T) {
 
 // TestReportTableColumnOrdering tests that column ordering matches v1 behavior
 func TestReportTableColumnOrdering(t *testing.T) {
-	t.Parallel()
-
+	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 	tests := map[string]struct {
 		title           string
 		data            []map[string]any
@@ -127,8 +125,6 @@ func TestReportTableColumnOrdering(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-
 			// Build document with table
 			doc := output.New().
 				Table(tc.title, tc.data, output.WithKeys(tc.expectedColumns...)).
@@ -154,8 +150,7 @@ func TestReportTableColumnOrdering(t *testing.T) {
 
 // TestReportOutputFormats tests rendering in multiple output formats
 func TestReportOutputFormats(t *testing.T) {
-	t.Parallel()
-
+	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 	tests := map[string]struct {
 		format output.Format
 	}{
@@ -175,8 +170,6 @@ func TestReportOutputFormats(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-
 			// Create report data
 			metadataData := []map[string]any{
 				{
@@ -220,8 +213,7 @@ func TestReportOutputFormats(t *testing.T) {
 
 // TestReportHelperFunctions tests the table data builder helper functions
 func TestReportHelperFunctions(t *testing.T) {
-	t.Parallel()
-
+	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 	// Create test data
 	awsConfig := config.AWSConfig{
 		AccountID: "123456789012",
@@ -276,8 +268,7 @@ func TestReportHelperFunctions(t *testing.T) {
 
 // TestReportMermaidGanttChartGeneration tests Mermaid Gantt chart generation
 func TestReportMermaidGanttChartGeneration(t *testing.T) {
-	t.Parallel()
-
+	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 	stack := lib.CfnStack{
 		Name: "test-stack",
 	}
@@ -327,8 +318,7 @@ func TestReportMermaidGanttChartGeneration(t *testing.T) {
 
 // TestReportEventDataBuilding tests event table data building
 func TestReportEventDataBuilding(t *testing.T) {
-	t.Parallel()
-
+	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 	stack := lib.CfnStack{
 		Name: "test-stack",
 	}

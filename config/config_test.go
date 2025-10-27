@@ -472,7 +472,8 @@ func TestConfig_GetTableFormat(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			t.Parallel()
+			// NOTE: Cannot use t.Parallel() because viper uses global state
+			// and viper.Reset() in one test affects other concurrent tests
 			tc.setup()
 			t.Cleanup(func() {
 				viper.Reset()

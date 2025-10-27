@@ -4,7 +4,7 @@
 
 Go-Output v2 is a complete redesign of the library providing thread-safe document generation with preserved key ordering and multiple output formats. This API documentation covers all public interfaces and methods.
 
-**Version**: v2.3.0
+**Version**: v2.4.0
 **Go Version**: 1.24+
 **Import Path**: `github.com/ArjenSchwarz/go-output/v2`
 
@@ -1011,6 +1011,146 @@ func NewMultiWriter(writers ...Writer) Writer
 - `"report.{format}"` → `report.json`, `report.csv`
 - `"output/{format}/data.{ext}"` → `output/json/data.json`
 
+#### HTML Template System (v2.4.0+)
+
+The HTML renderer can wrap content in complete HTML document templates with responsive CSS styling:
+
+```go
+// Use built-in responsive template
+htmlFormat := output.HTML.WithOptions(
+    output.WithHTMLTemplate(output.DefaultHTMLTemplate),
+)
+
+// Or create custom template
+customTemplate := &output.HTMLTemplate{
+    Title:       "My Report",
+    Description: "Analysis Results",
+    CSS:         output.DefaultResponsiveCSS,
+    Author:      "AI Agent",
+    Viewport:    "width=device-width, initial-scale=1.0",
+    ThemeOverrides: map[string]string{
+        "--primary-color": "#007bff",
+        "--bg-color": "#f8f9fa",
+    },
+}
+
+htmlFormat = output.HTML.WithOptions(
+    output.WithHTMLTemplate(customTemplate),
+)
+```
+
+**Built-in Templates**:
+- `DefaultHTMLTemplate`: Modern responsive design with mobile-first CSS and WCAG AA colors
+- `MinimalHTMLTemplate`: Clean HTML with no styling
+- `MermaidHTMLTemplate`: Optimized for Mermaid diagram rendering
+
+**Template Fields**:
+```go
+type HTMLTemplate struct {
+    Title          string            // Page title
+    Description    string            // Meta description
+    Author         string            // Meta author
+    Keywords       string            // Meta keywords
+    Viewport       string            // Viewport meta tag
+    Charset        string            // Character encoding (default: utf-8)
+    CSS            string            // Embedded CSS styles
+    ExternalCSS    []string          // External stylesheet URLs
+    ThemeOverrides map[string]string // CSS custom property overrides
+    HeadExtra      string            // Additional head content (unescaped)
+    BodyClass      string            // Body element class
+    BodyAttributes string            // Additional body attributes
+    BodyExtra      string            // Content after main (unescaped)
+}
+```
+
+**CSS Theming**:
+
+The default template uses CSS custom properties for easy theming:
+
+```go
+template := &output.HTMLTemplate{
+    Title: "Report",
+    CSS:   output.DefaultResponsiveCSS,
+    ThemeOverrides: map[string]string{
+        "--primary-color":   "#0066cc",
+        "--secondary-color": "#6c757d",
+        "--bg-color":        "#ffffff",
+        "--text-color":      "#212529",
+        "--border-color":    "#dee2e6",
+        "--font-family":     "Arial, sans-serif",
+    },
+}
+```
+
+**Responsive Features**:
+- Mobile-first design with breakpoints at 480px and 768px
+- Responsive table layout with mobile stacking
+- System font stack for optimal performance
+- WCAG AA compliant color contrast
+
+**Fragment Mode**:
+
+When using append mode, the HTML renderer automatically switches to fragment mode (no `<html>`, `<head>`, `<body>` tags) to avoid duplicate page structure.
+
+#### Append Mode (v2.4.0+)
+
+FileWriter and S3Writer support append mode to add content to existing files instead of replacing them:
+
+```go
+// Enable append mode with options
+fw, err := output.NewFileWriterWithOptions(
+    "./logs",
+    "app.{ext}",
+    output.WithAppendMode(),
+)
+
+// S3 append mode with conflict detection
+sw := output.NewS3WriterWithOptions(
+    s3Client,
+    "my-bucket",
+    "logs/app.{ext}",
+    output.WithS3AppendMode(),
+    output.WithMaxAppendSize(10*1024*1024), // 10MB limit
+)
+```
+
+**FileWriter Options**:
+```go
+// Functional options for FileWriter configuration
+func WithAppendMode() FileWriterOption
+func WithPermissions(perms os.FileMode) FileWriterOption
+func WithDisallowUnsafeAppend() FileWriterOption
+```
+
+**S3Writer Options**:
+```go
+// Functional options for S3Writer configuration
+func WithS3AppendMode() S3WriterOption
+func WithMaxAppendSize(size int64) S3WriterOption
+```
+
+**Format-Specific Behavior**:
+
+| Format | Append Behavior | Notes |
+|--------|-----------------|-------|
+| JSON/YAML | Byte-level append | Creates NDJSON-style logging (newline-separated objects) |
+| CSV | Header-aware append | Automatically skips headers from appended data |
+| HTML | Marker-based insert | Inserts before `<!-- go-output-append -->` marker |
+| Text/Table | Byte-level append | Simple file concatenation |
+
+**HTML Append Marker**:
+```go
+const HTMLAppendMarker = "<!-- go-output-append -->"
+```
+
+When using append mode with HTML format, content is inserted before this marker comment. The marker must be present in the file for append operations to succeed.
+
+**Thread Safety**: Append operations use `sync.Mutex` for safe concurrent writes within a single FileWriter instance.
+
+**S3 Append**: Uses download-modify-upload pattern with ETag-based conflict detection. Not suitable for high-frequency concurrent writes.
+
+**Examples**: See [v2/examples/append_mode/](../../examples/append_mode/) for practical usage patterns.
+
 ### Transformer System
 
 #### Transformer Interface
@@ -1088,9 +1228,144 @@ type ColorScheme struct {
 }
 ```
 
-### Data Transformation Pipeline System
+### Per-Content Transformations (v2.4.0+)
 
-The Pipeline API provides a fluent interface for performing data-level transformations on structured table content before rendering. This enables operations like filtering, sorting, and aggregation directly on data rather than parsing rendered output.
+**Breaking Change**: The Pipeline API was removed in v2.4.0. Use per-content transformations instead.
+
+Per-content transformations allow you to apply operations directly to individual content items at creation time, enabling different transformations for different tables in the same document.
+
+#### Key Features
+
+- **Flexible**: Different transformations on different content items
+- **Type-Specific**: `WithTransformations()` for tables, `WithTextTransformations()` for text, `WithRawTransformations()` for raw content, `WithSectionTransformations()` for sections
+- **Integrated**: Works seamlessly across all renderers
+- **Thread-Safe**: All transformation operations are thread-safe
+- **Immutable**: Transformations applied during rendering, preserving original document
+
+#### Basic Usage
+
+```go
+// Different transformations for different tables
+doc := output.New().
+    Table("High Earners", employees,
+        output.WithKeys("Name", "Department", "Salary"),
+        output.WithTransformations(
+            output.NewFilterOp(func(r output.Record) bool {
+                return r["Salary"].(float64) > 100000
+            }),
+            output.NewSortOp(output.SortKey{Column: "Salary", Direction: output.Descending}),
+        ),
+    ).
+    Table("Active Projects", projects,
+        output.WithKeys("Project", "Status", "Priority"),
+        output.WithTransformations(
+            output.NewFilterOp(func(r output.Record) bool {
+                return r["Status"] == "Active"
+            }),
+            output.NewLimitOp(10),
+        ),
+    ).
+    Build()
+```
+
+#### Transformation Operations
+
+**Filter Operation**:
+```go
+output.NewFilterOp(func(r output.Record) bool {
+    return r["status"] == "active"
+})
+```
+
+**Sort Operation**:
+```go
+// Single column sort
+output.NewSortOp(output.SortKey{Column: "name", Direction: output.Ascending})
+
+// Custom comparator
+output.NewSortWithOp(func(a, b output.Record) int {
+    // Custom comparison logic
+    return 0
+})
+```
+
+**Limit Operation**:
+```go
+output.NewLimitOp(10) // Get first 10 records
+```
+
+**Group By Operation**:
+```go
+output.NewGroupByOp(
+    []string{"category", "status"},
+    map[string]output.AggregateFunc{
+        "count": output.CountAggregate,
+        "total": output.SumAggregate("amount"),
+    },
+)
+```
+
+**Add Column Operation**:
+```go
+output.NewAddColumnOp("calculated_field", func(r output.Record) any {
+    return r["value1"].(float64) + r["value2"].(float64)
+})
+```
+
+#### Content-Specific Transformation Options
+
+```go
+// Tables
+output.WithTransformations(ops...)
+
+// Text content
+output.WithTextTransformations(ops...)
+
+// Raw content
+output.WithRawTransformations(ops...)
+
+// Sections
+output.WithSectionTransformations(ops...)
+```
+
+#### Migration from Pipeline API
+
+**Old (Pipeline API - Removed in v2.4.0)**:
+```go
+transformedDoc := doc.Pipeline().
+    Filter(predicate).
+    Sort(keys).
+    Limit(10).
+    Execute()
+```
+
+**New (Per-Content Transformations)**:
+```go
+doc := output.New().
+    Table("Data", data,
+        output.WithKeys("Name", "Value"),
+        output.WithTransformations(
+            output.NewFilterOp(predicate),
+            output.NewSortOp(output.SortKey{Column: "Value", Direction: output.Descending}),
+            output.NewLimitOp(10),
+        ),
+    ).
+    Build()
+```
+
+**Benefits of Per-Content Transformations**:
+- Each table can have different transformations
+- More intuitive - transformations defined where content is created
+- Better performance - only transforms what needs transforming
+- Cleaner API - no intermediate transformed document
+
+For detailed migration guidance, see [PIPELINE_MIGRATION.md](PIPELINE_MIGRATION.md).
+
+### Data Transformation Pipeline System (REMOVED in v2.4.0)
+
+**⚠️ Deprecated**: The Pipeline API was removed in v2.4.0. Use per-content transformations instead (see above).
+
+The Pipeline API previously provided a fluent interface for performing data-level transformations on structured table content before rendering. This has been replaced with the more flexible per-content transformations system.
 
 #### Key Features
 
@@ -2418,6 +2693,7 @@ Use `icons.AllAWSGroups()` for the complete list.
 ### Version History
 | Version | Key Features |
 |---------|--------------|
+| v2.4.0 | **Breaking**: Pipeline API removed, per-content transformations, file/S3 append mode, HTML template system |
 | v2.3.0 | AWS Icons package, inline styling functions, table max column width, array handling |
 | v2.2.0 | Data transformation pipeline system, development tooling automation |
 | v2.1.3 | Enhanced markdown table escaping for pipes, asterisks, underscores, backticks, brackets |

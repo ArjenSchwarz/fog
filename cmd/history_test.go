@@ -10,7 +10,7 @@ import (
 
 // TestHistory_V2BuilderPattern tests the v2 Builder pattern for history command
 func TestHistory_V2BuilderPattern(t *testing.T) {
-	t.Parallel()
+	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 	// Sample deployment log data matching the history command structure
 	logData := []map[string]any{
@@ -35,7 +35,7 @@ func TestHistory_V2BuilderPattern(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			t.Parallel()
+			// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 			// Setup viper configuration
 			viper.Set("output", "table")
@@ -73,7 +73,7 @@ func TestHistory_V2BuilderPattern(t *testing.T) {
 
 // TestHistory_V2FailedEventsTable tests the failed events table with correct column order
 func TestHistory_V2FailedEventsTable(t *testing.T) {
-	t.Parallel()
+	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 	// Sample failed events data
 	failedEvents := []map[string]any{
@@ -95,7 +95,7 @@ func TestHistory_V2FailedEventsTable(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			t.Parallel()
+			// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 			// Setup viper configuration
 			viper.Set("output", "table")
@@ -133,7 +133,7 @@ func TestHistory_V2FailedEventsTable(t *testing.T) {
 
 // TestHistory_V2InlineStyling tests inline styling for success and failure status
 func TestHistory_V2InlineStyling(t *testing.T) {
-	t.Parallel()
+	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 	tests := map[string]struct {
 		status      string
@@ -154,7 +154,7 @@ func TestHistory_V2InlineStyling(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			t.Parallel()
+			// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 			// Create styled header
 			header := "📋 2025-10-17T10:00:00Z - my-stack"
@@ -173,7 +173,7 @@ func TestHistory_V2InlineStyling(t *testing.T) {
 
 // TestHistory_V2OutputFormats tests that history output renders correctly in different formats
 func TestHistory_V2OutputFormats(t *testing.T) {
-	t.Parallel()
+	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 	tests := map[string]struct {
 		format output.Format
@@ -194,7 +194,7 @@ func TestHistory_V2OutputFormats(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			t.Parallel()
+			// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 			// Setup viper
 			viper.Set("output", "table")
@@ -243,7 +243,7 @@ func TestHistory_V2OutputFormats(t *testing.T) {
 
 // TestHistory_V2MultipleTables tests multiple tables in history output (deployment log + failed events)
 func TestHistory_V2MultipleTables(t *testing.T) {
-	t.Parallel()
+	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 	// Setup viper
 	viper.Set("output", "table")

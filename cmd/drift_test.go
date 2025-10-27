@@ -10,7 +10,7 @@ import (
 
 // TestDrift_V2BuilderPattern tests the v2 Builder pattern for drift command
 func TestDrift_V2BuilderPattern(t *testing.T) {
-	t.Parallel()
+	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 	// Create sample drift detection data
 	driftData := []map[string]any{
@@ -38,7 +38,7 @@ func TestDrift_V2BuilderPattern(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			t.Parallel()
+			// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 			// Setup viper
 			viper.Set("output", "table")
@@ -74,7 +74,7 @@ func TestDrift_V2BuilderPattern(t *testing.T) {
 
 // TestDrift_V2InlineStyling tests inline styling in drift output
 func TestDrift_V2InlineStyling(t *testing.T) {
-	t.Parallel()
+	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 	tests := map[string]struct {
 		changeType string
@@ -96,7 +96,7 @@ func TestDrift_V2InlineStyling(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			t.Parallel()
+			// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 			// Setup viper
 			viper.Set("output", "table")
@@ -142,7 +142,7 @@ func TestDrift_V2InlineStyling(t *testing.T) {
 
 // TestDrift_V2ArrayHandling tests array handling for property differences
 func TestDrift_V2ArrayHandling(t *testing.T) {
-	t.Parallel()
+	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 	tests := map[string]struct {
 		details []string
@@ -164,7 +164,7 @@ func TestDrift_V2ArrayHandling(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			t.Parallel()
+			// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 			// Setup viper
 			viper.Set("output", "table")
@@ -210,7 +210,7 @@ func TestDrift_V2ArrayHandling(t *testing.T) {
 
 // TestDrift_V2NACLDifferences tests NACL entry differences handling
 func TestDrift_V2NACLDifferences(t *testing.T) {
-	t.Parallel()
+	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 	// Setup viper
 	viper.Set("output", "table")
@@ -257,7 +257,7 @@ func TestDrift_V2NACLDifferences(t *testing.T) {
 
 // TestDrift_V2RouteTableDifferences tests Route Table differences handling
 func TestDrift_V2RouteTableDifferences(t *testing.T) {
-	t.Parallel()
+	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 	// Setup viper
 	viper.Set("output", "table")
@@ -304,7 +304,7 @@ func TestDrift_V2RouteTableDifferences(t *testing.T) {
 
 // TestDrift_V2TransitGatewayDifferences tests Transit Gateway route differences
 func TestDrift_V2TransitGatewayDifferences(t *testing.T) {
-	t.Parallel()
+	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 	// Setup viper
 	viper.Set("output", "table")
@@ -351,7 +351,7 @@ func TestDrift_V2TransitGatewayDifferences(t *testing.T) {
 
 // TestDrift_V2MultilineProperties tests multi-line property value rendering
 func TestDrift_V2MultilineProperties(t *testing.T) {
-	t.Parallel()
+	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 	// Setup viper
 	viper.Set("output", "table")
@@ -397,7 +397,7 @@ func TestDrift_V2MultilineProperties(t *testing.T) {
 
 // TestDrift_V2OutputFormats tests drift output in different formats
 func TestDrift_V2OutputFormats(t *testing.T) {
-	t.Parallel()
+	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 	tests := map[string]struct {
 		format output.Format
@@ -415,7 +415,7 @@ func TestDrift_V2OutputFormats(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			t.Parallel()
+			// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 			// Setup viper
 			viper.Set("output", "table")
@@ -461,7 +461,7 @@ func TestDrift_V2OutputFormats(t *testing.T) {
 
 // TestDrift_V2ComplexScenario tests a complex drift scenario with multiple differences
 func TestDrift_V2ComplexScenario(t *testing.T) {
-	t.Parallel()
+	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 	// Setup viper
 	viper.Set("output", "table")

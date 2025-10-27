@@ -28,7 +28,7 @@ import (
 // TestDeployMultipleTables verifies that deploy command output supports multiple tables
 // with independent column sets (events + outputs).
 func TestDeployMultipleTables(t *testing.T) {
-	t.Parallel()
+	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 	// Test case: Events and Outputs tables should have independent column ordering
 	testCases := map[string]struct {
@@ -55,7 +55,7 @@ func TestDeployMultipleTables(t *testing.T) {
 
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
-			t.Parallel()
+			// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 			// This test verifies the expected column structure
 			// Actual table rendering will be validated in integration tests
@@ -76,7 +76,7 @@ func TestDeployMultipleTables(t *testing.T) {
 // TestDeployTablesAddIncrementally verifies that deploy tables can be added
 // incrementally (e.g., in loops) before rendering.
 func TestDeployTablesAddIncrementally(t *testing.T) {
-	t.Parallel()
+	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 	testCases := map[string]struct {
 		tableType   string
@@ -107,7 +107,7 @@ func TestDeployTablesAddIncrementally(t *testing.T) {
 
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
-			t.Parallel()
+			// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 			// This test verifies that tables support incremental row addition
 			// Implementation details verified through integration tests
@@ -121,7 +121,7 @@ func TestDeployTablesAddIncrementally(t *testing.T) {
 // TestDeployTableSeparation verifies that multiple tables are properly separated
 // in table format output.
 func TestDeployTableSeparation(t *testing.T) {
-	t.Parallel()
+	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 	// This test verifies tables are separated appropriately in output
 	testCases := map[string]struct {
@@ -143,7 +143,7 @@ func TestDeployTableSeparation(t *testing.T) {
 
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
-			t.Parallel()
+			// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 			if len(tc.tables) == 0 {
 				t.Errorf("%s: no tables defined", name)
@@ -162,7 +162,7 @@ func TestDeployTableSeparation(t *testing.T) {
 // TestDeployIndependentColumnOrdering verifies that each table has independent
 // column ordering without affecting other tables.
 func TestDeployIndependentColumnOrdering(t *testing.T) {
-	t.Parallel()
+	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 	// Events table column order
 	eventsColumns := []string{"LogicalId", "Type", "Status", "Reason"}
@@ -206,7 +206,7 @@ func TestDeployIndependentColumnOrdering(t *testing.T) {
 // TestDeployFailedEventsTable verifies that failed events table is created
 // with proper column separation from main events table.
 func TestDeployFailedEventsTable(t *testing.T) {
-	t.Parallel()
+	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
 
 	failedEventsColumns := []string{"CfnName", "Type", "Status", "Reason"}
 	mainEventsColumns := []string{"LogicalId", "Type", "Status", "Reason"}

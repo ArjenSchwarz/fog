@@ -328,10 +328,10 @@ func createEventsTable(stack lib.CfnStack, event lib.StackEvent) (string, []stri
 	}
 
 	// Sort by start time
-	// Note: Using manual sorting instead of Pipeline API because:
-	// 1. Pipeline sorting applies to all tables in a document, but we need different sort columns
-	//    (events table sorts by "Start time", mermaid table sorts by "Sorttime")
-	// 2. These are small datasets (CloudFormation events) where manual sorting is efficient
+	// Note: Using manual sorting instead of v2.4.0 transformations because:
+	// 1. Small datasets (CloudFormation events) where manual sorting is efficient and clear
+	// 2. Other sorting in this file (stack names, Gantt tasks) can't use transformations,
+	//    so keeping consistent approach across all sorting operations
 	sort.Slice(data, func(i, j int) bool {
 		return data[i]["Start time"].(string) < data[j]["Start time"].(string)
 	})
