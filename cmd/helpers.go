@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 
+	output "github.com/ArjenSchwarz/go-output/v2"
 	"github.com/spf13/viper"
 )
 
@@ -72,7 +73,7 @@ func addToField(field *map[string]any, key string, value int) {
 }
 
 func failWithError(err error) {
-	fmt.Print(settings.NewOutputSettings().StringFailure(fmt.Sprintf("Error: %v", err)))
+	fmt.Print(output.StyleNegative(fmt.Sprintf("Error: %v", err)))
 	if viper.GetBool("debug") {
 		panic(err)
 	}
