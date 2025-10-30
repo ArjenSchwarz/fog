@@ -157,7 +157,9 @@ func (config *Config) GetOutputOptions() []output.OutputOption {
 		opts = append(opts, output.WithTransformer(&output.EmojiTransformer{}))
 	}
 	if config.GetBool("use-colors") {
-		opts = append(opts, output.WithTransformer(&output.ColorTransformer{}))
+		// Use EnhancedColorTransformer for format-aware color handling
+		// This automatically strips ANSI codes from JSON, CSV, and other non-terminal formats
+		opts = append(opts, output.WithTransformer(output.NewEnhancedColorTransformer()))
 	}
 
 	return opts

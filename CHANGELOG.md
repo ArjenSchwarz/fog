@@ -1,6 +1,14 @@
 Unreleased
 ===========
 
+### Changed
+- Simplified inline styling in deploy command by removing unnecessary wrapper functions (stringFailure, stringSuccess, stringInfo, stringWarning, stringPositive, stringBold) and calling output.Style*() functions directly
+- Simplified inline styling in drift command by removing format-checking wrapper functions (styleForFormat, styleWarning, stylePositive) and calling output.Style*() functions directly
+- Updated config to use EnhancedColorTransformer instead of ColorTransformer for format-aware color handling
+
+### Known Issues
+- Inline styling functions (StyleWarning, StylePositive) embed ANSI codes in data which appear in JSON/CSV/DOT output - this will be addressed in a future go-output v2 update
+
 ### Fixed
 - Race conditions in parallel test execution causing `fatal error: concurrent map writes` in cmd and config packages (removed `t.Parallel()` from tests that use global state and concurrent rendering)
 - Linting issue resolved by extracting "html" string constant in report command

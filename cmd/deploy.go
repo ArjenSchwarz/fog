@@ -68,32 +68,6 @@ Examples:
 var deployFlags DeployFlags
 var deployment lib.DeployInfo
 
-// Placeholder string methods for deploy command formatting
-// In v2, we use simpler text output instead of complex styled output
-func stringFailure(msg any) string {
-	return fmt.Sprintf("ERROR: %s\n", msg)
-}
-
-func stringSuccess(msg any) string {
-	return fmt.Sprintf("SUCCESS: %s\n", msg)
-}
-
-func stringInfo(msg any) string {
-	return fmt.Sprintf("INFO: %s\n", msg)
-}
-
-func stringWarning(msg any) string {
-	return fmt.Sprintf("WARNING: %s\n", msg)
-}
-
-func stringPositive(msg any) string {
-	return fmt.Sprintf("OK: %s\n", msg)
-}
-
-func stringBold(msg any) string {
-	return fmt.Sprintf("*** %s\n", msg)
-}
-
 func init() {
 	stackCmd.AddCommand(deployCmd)
 	deployFlags.RegisterFlags(deployCmd)
@@ -104,7 +78,7 @@ func deployTemplate(cmd *cobra.Command, args []string) {
 
 	deployment, awsConfig, err := prepareDeployment()
 	if err != nil {
-		fmt.Print(stringFailure(err.Error()))
+		fmt.Println(output.StyleNegative(err.Error()))
 		os.Exit(1)
 	}
 
@@ -145,13 +119,13 @@ func setDeployTemplate(deployment *lib.DeployInfo, awsConfig config.AWSConfig) {
 	}
 	deployment.TemplateRelativePath = path
 	if err != nil {
-		fmt.Print(stringFailure(texts.FileTemplateReadFailure))
+		fmt.Println(output.StyleNegative(string(texts.FileTemplateReadFailure)))
 		log.Fatalln(err)
 	}
 	if deployFlags.Bucket != "" {
 		objectname, err := lib.UploadTemplate(&deployFlags.Template, template, &deployFlags.Bucket, awsConfig.S3Client())
 		if err != nil {
-			fmt.Print(stringFailure("Failed to upload template to S3"))
+			fmt.Println(output.StyleNegative("Failed to upload template to S3"))
 			log.Fatalln(err)
 		}
 		url := fmt.Sprintf("https://%v.s3-%v.amazonaws.com/%v", deployFlags.Bucket, awsConfig.Region, objectname)
@@ -196,13 +170,13 @@ func setDeployTags(deployment *lib.DeployInfo) {
 			tags, _, err := lib.ReadTagsfile(tagfile)
 			if err != nil {
 				message := fmt.Sprintf("%v '%v'", texts.FileTagsReadFailure, tagfile)
-				fmt.Print(stringFailure(message))
+				fmt.Println(output.StyleNegative(message))
 				log.Fatalln(err)
 			}
 			parsedtags, err := lib.ParseTagString(tags)
 			if err != nil {
 				message := fmt.Sprintf("%v '%v'", texts.FileTagsParseFailure, tagfile)
-				fmt.Print(stringFailure(message))
+				fmt.Println(output.StyleNegative(message))
 				log.Fatalln(err)
 			}
 			tagresult = append(tagresult, parsedtags...)
@@ -235,13 +209,13 @@ func setDeployParameters(deployment *lib.DeployInfo) {
 			parameters, _, err := lib.ReadParametersfile(parameterfile)
 			if err != nil {
 				message := fmt.Sprintf("%v '%v'", texts.FileParametersReadFailure, parameterfile)
-				fmt.Print(stringFailure(message))
+				fmt.Println(output.StyleNegative(message))
 				log.Fatalln(err)
 			}
 			parsedparameters, err := lib.ParseParameterString(parameters)
 			if err != nil {
 				message := fmt.Sprintf("%v '%v'", texts.FileParametersParseFailure, parameterfile)
-				fmt.Print(stringFailure(message))
+				fmt.Println(output.StyleNegative(message))
 				log.Fatalln(err)
 			}
 			parameterresult = append(parameterresult, parsedparameters...)
@@ -253,27 +227,27 @@ func setDeployParameters(deployment *lib.DeployInfo) {
 func createChangeset(deployment *lib.DeployInfo, awsConfig config.AWSConfig) *lib.ChangesetInfo {
 	if deployment.TemplateUrl != "" {
 		text := fmt.Sprintf("Using template uploaded as %v", deployment.TemplateUrl)
-		fmt.Print(stringInfo(text))
+		fmt.Println(output.StyleInfo(text))
 	}
 	_, err := deployment.CreateChangeSet(awsConfig.CloudformationClient())
 	if err != nil {
-		fmt.Print(stringFailure(texts.DeployChangesetMessageCreationFailed))
+		fmt.Println(output.StyleNegative(string(texts.DeployChangesetMessageCreationFailed)))
 		log.Fatalln(err)
 	}
 	changeset, err := deployment.WaitUntilChangesetDone(awsConfig.CloudformationClient())
 	if err != nil {
-		fmt.Print(stringFailure(texts.DeployChangesetMessageCreationFailed))
+		fmt.Println(output.StyleNegative(string(texts.DeployChangesetMessageCreationFailed)))
 		log.Fatalln(err)
 	}
 	if changeset.Status != string(types.ChangeSetStatusCreateComplete) {
 		// When the creation fails because there are no changes, say so and complete successfully
 		if changeset.StatusReason == string(texts.DeployReceivedErrorMessagesNoChanges) || changeset.StatusReason == string(texts.DeployReceivedErrorMessagesNoUpdates) {
 			message := fmt.Sprintf(string(texts.DeployChangesetMessageNoChanges), deployment.StackName)
-			fmt.Print(stringSuccess(message))
+			fmt.Println(output.StylePositive(message))
 			os.Exit(0)
 		}
 		// Otherwise, show the error and clean up
-		fmt.Print(stringFailure(texts.DeployChangesetMessageCreationFailed))
+		fmt.Println(output.StyleNegative(string(texts.DeployChangesetMessageCreationFailed)))
 		fmt.Println(changeset.StatusReason)
 		fmt.Printf("\r\n%v %v \r\n", texts.DeployChangesetMessageConsole, changeset.GenerateChangesetUrl(awsConfig))
 		var deleteChangesetConfirmation bool
@@ -293,15 +267,15 @@ func createChangeset(deployment *lib.DeployInfo, awsConfig config.AWSConfig) *li
 func deleteChangeset(deployment lib.DeployInfo, awsConfig config.AWSConfig) {
 	switch {
 	case deployFlags.Dryrun:
-		fmt.Print(stringInfo(texts.DeployChangesetMessageDryrunDelete))
+		fmt.Println(output.StyleInfo(string(texts.DeployChangesetMessageDryrunDelete)))
 	case deployFlags.NonInteractive:
-		fmt.Print(stringInfo(texts.DeployChangesetMessageAutoDelete))
+		fmt.Println(output.StyleInfo(string(texts.DeployChangesetMessageAutoDelete)))
 	default:
-		fmt.Print(stringSuccess(texts.DeployChangesetMessageWillDelete))
+		fmt.Println(output.StylePositive(string(texts.DeployChangesetMessageWillDelete)))
 	}
 	deleteAttempt := deployment.Changeset.DeleteChangeset(awsConfig.CloudformationClient())
 	if !deleteAttempt {
-		fmt.Print(stringFailure(texts.DeployChangesetMessageDeleteFailed))
+		fmt.Println(output.StyleNegative(string(texts.DeployChangesetMessageDeleteFailed)))
 	}
 	// Likely a new deployment. Check if the stack is in status REVIEW_IN_PROGRESS and offer to delete
 	if deployment.IsNew {
@@ -325,15 +299,15 @@ func deleteStackIfNew(deployment lib.DeployInfo, awsConfig config.AWSConfig) {
 	}
 	if deleteStackConfirmation {
 		if !deployment.DeleteStack(awsConfig.CloudformationClient()) {
-			fmt.Print(stringFailure("Something went wrong while trying to delete the stack. Please check manually."))
+			fmt.Println(output.StyleNegative("Something went wrong while trying to delete the stack. Please check manually."))
 		} else {
 			switch {
 			case deployFlags.Dryrun:
-				fmt.Print(stringInfo(texts.DeployStackMessageNewStackDryrunDelete))
+				fmt.Println(output.StyleInfo(string(texts.DeployStackMessageNewStackDryrunDelete)))
 			case deployFlags.NonInteractive:
-				fmt.Print(stringInfo(texts.DeployStackMessageNewStackAutoDelete))
+				fmt.Println(output.StyleInfo(string(texts.DeployStackMessageNewStackAutoDelete)))
 			default:
-				fmt.Print(stringSuccess(texts.DeployStackMessageNewStackDeleteSuccess))
+				fmt.Println(output.StylePositive(string(texts.DeployStackMessageNewStackDeleteSuccess)))
 			}
 		}
 	} else {
@@ -343,18 +317,18 @@ func deleteStackIfNew(deployment lib.DeployInfo, awsConfig config.AWSConfig) {
 
 func deployChangeset(deployment lib.DeployInfo, awsConfig config.AWSConfig) {
 	if deployFlags.NonInteractive {
-		fmt.Print(stringInfo(texts.DeployChangesetMessageAutoDeploy))
+		fmt.Println(output.StyleInfo(string(texts.DeployChangesetMessageAutoDeploy)))
 	} else {
-		fmt.Print(stringSuccess(texts.DeployChangesetMessageWillDeploy))
+		fmt.Println(output.StylePositive(string(texts.DeployChangesetMessageWillDeploy)))
 	}
 	err := deployment.Changeset.DeployChangeset(awsConfig.CloudformationClient())
 	if err != nil {
-		fmt.Print(stringFailure("Could not execute changeset! See details below"))
+		fmt.Println(output.StyleNegative("Could not execute changeset! See details below"))
 		fmt.Println(err)
 	}
 	latest := deployment.Changeset.CreationTime
 	time.Sleep(3 * time.Second)
-	fmt.Print(stringBold("Showing the events for the deployment:"))
+	fmt.Println(output.StyleBold("Showing the events for the deployment:"))
 	ongoing := true
 	for ongoing {
 		latest = showEvents(deployment, latest, awsConfig)
@@ -368,7 +342,7 @@ func deployChangeset(deployment lib.DeployInfo, awsConfig config.AWSConfig) {
 func showEvents(deployment lib.DeployInfo, latest time.Time, awsConfig config.AWSConfig) time.Time {
 	events, err := deployment.GetEvents(awsConfig.CloudformationClient())
 	if err != nil {
-		fmt.Print(stringFailure("Something went wrong trying to get the events of the stack"))
+		fmt.Println(output.StyleNegative("Something went wrong trying to get the events of the stack"))
 		fmt.Println(err)
 	}
 	sort.Sort(ReverseEvents(events))
@@ -378,9 +352,9 @@ func showEvents(deployment lib.DeployInfo, latest time.Time, awsConfig config.AW
 			message := fmt.Sprintf("%v: %v %v in status %v", event.Timestamp.In(settings.GetTimezoneLocation()).Format(time.RFC3339), *event.ResourceType, *event.LogicalResourceId, event.ResourceStatus)
 			switch event.ResourceStatus {
 			case types.ResourceStatusCreateFailed, types.ResourceStatusImportFailed, types.ResourceStatusDeleteFailed, types.ResourceStatusUpdateFailed, types.ResourceStatusImportRollbackComplete, types.ResourceStatus(types.StackStatusRollbackComplete), types.ResourceStatus(types.StackStatusUpdateRollbackComplete):
-				fmt.Print(stringWarning(message))
+				fmt.Println(output.StyleWarning(message))
 			case types.ResourceStatusCreateComplete, types.ResourceStatusImportComplete, types.ResourceStatusUpdateComplete, types.ResourceStatusDeleteComplete:
-				fmt.Print(stringPositive(message))
+				fmt.Println(output.StylePositive(message))
 			default:
 				fmt.Println(message)
 			}
