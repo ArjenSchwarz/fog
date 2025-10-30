@@ -10,7 +10,7 @@ import (
 
 // TestDemoTables_V2BuilderPattern tests the v2 Builder pattern for demo tables command
 func TestDemoTables_V2BuilderPattern(t *testing.T) {
-	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
+	// NOTE: Cannot use t.Parallel() because viper uses global state
 
 	tests := map[string]struct {
 		columnOrder []string
@@ -22,7 +22,7 @@ func TestDemoTables_V2BuilderPattern(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
+			// NOTE: Cannot use t.Parallel() because viper uses global state
 
 			// Setup viper configuration
 			viper.Set("output", "table")
@@ -78,7 +78,7 @@ func TestDemoTables_V2BuilderPattern(t *testing.T) {
 
 			// Verify rendering doesn't error
 			out := output.NewOutput(
-				output.WithFormat(output.Table),
+				output.WithFormat(output.Table()),
 				output.WithWriter(output.NewStdoutWriter()),
 			)
 
@@ -92,7 +92,7 @@ func TestDemoTables_V2BuilderPattern(t *testing.T) {
 
 // TestDemoTables_V2DifferentStyles tests rendering with different table styles
 func TestDemoTables_V2DifferentStyles(t *testing.T) {
-	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
+	// NOTE: Cannot use t.Parallel() because viper uses global state
 
 	tests := map[string]struct {
 		style string
@@ -116,7 +116,7 @@ func TestDemoTables_V2DifferentStyles(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
+			// NOTE: Cannot use t.Parallel() because viper uses global state
 
 			// Setup viper with specific style
 			viper.Set("output", "table")
@@ -151,7 +151,7 @@ func TestDemoTables_V2DifferentStyles(t *testing.T) {
 
 			// Render with specific style
 			out := output.NewOutput(
-				output.WithFormat(output.Table),
+				output.WithFormat(output.Table()),
 				output.WithWriter(output.NewStdoutWriter()),
 			)
 
@@ -165,7 +165,7 @@ func TestDemoTables_V2DifferentStyles(t *testing.T) {
 
 // TestDemoTables_V2LongDescriptions tests column width wrapping with long descriptions
 func TestDemoTables_V2LongDescriptions(t *testing.T) {
-	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
+	// NOTE: Cannot use t.Parallel() because viper uses global state
 
 	// Setup viper configuration
 	viper.Set("output", "table")
@@ -200,7 +200,7 @@ func TestDemoTables_V2LongDescriptions(t *testing.T) {
 
 	// Render
 	out := output.NewOutput(
-		output.WithFormat(output.Table),
+		output.WithFormat(output.Table()),
 		output.WithWriter(output.NewStdoutWriter()),
 	)
 
@@ -212,7 +212,7 @@ func TestDemoTables_V2LongDescriptions(t *testing.T) {
 
 // TestDemoTables_V2SortedOutput tests sorting by Export column
 func TestDemoTables_V2SortedOutput(t *testing.T) {
-	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
+	// NOTE: Cannot use t.Parallel() because viper uses global state
 
 	// Setup viper configuration
 	viper.Set("output", "table")
@@ -261,7 +261,7 @@ func TestDemoTables_V2SortedOutput(t *testing.T) {
 
 	// Render
 	out := output.NewOutput(
-		output.WithFormat(output.Table),
+		output.WithFormat(output.Table()),
 		output.WithWriter(output.NewStdoutWriter()),
 	)
 
@@ -273,28 +273,28 @@ func TestDemoTables_V2SortedOutput(t *testing.T) {
 
 // TestDemoTables_V2OutputFormats tests rendering in different output formats
 func TestDemoTables_V2OutputFormats(t *testing.T) {
-	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
+	// NOTE: Cannot use t.Parallel() because viper uses global state
 
 	tests := map[string]struct {
 		format output.Format
 	}{
 		"table_format": {
-			format: output.Table,
+			format: output.Table(),
 		},
 		"csv_format": {
-			format: output.CSV,
+			format: output.CSV(),
 		},
 		"json_format": {
-			format: output.JSON,
+			format: output.JSON(),
 		},
 		"markdown_format": {
-			format: output.Markdown,
+			format: output.Markdown(),
 		},
 	}
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
+			// NOTE: Cannot use t.Parallel() because viper uses global state
 
 			// Setup viper
 			viper.Set("output", "table")
@@ -341,7 +341,7 @@ func TestDemoTables_V2OutputFormats(t *testing.T) {
 
 // TestDemoTables_V2BooleanValues tests handling of boolean Imported field
 func TestDemoTables_V2BooleanValues(t *testing.T) {
-	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
+	// NOTE: Cannot use t.Parallel() because viper uses global state
 
 	tests := map[string]struct {
 		imported bool
@@ -356,7 +356,7 @@ func TestDemoTables_V2BooleanValues(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
+			// NOTE: Cannot use t.Parallel() because viper uses global state
 
 			// Setup viper configuration
 			viper.Set("output", "table")
@@ -389,7 +389,7 @@ func TestDemoTables_V2BooleanValues(t *testing.T) {
 
 			// Render
 			out := output.NewOutput(
-				output.WithFormat(output.Table),
+				output.WithFormat(output.Table()),
 				output.WithWriter(output.NewStdoutWriter()),
 			)
 
@@ -403,7 +403,7 @@ func TestDemoTables_V2BooleanValues(t *testing.T) {
 
 // TestDemoTables_V2ColumnOrdering tests that column order is preserved
 func TestDemoTables_V2ColumnOrdering(t *testing.T) {
-	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
+	// NOTE: Cannot use t.Parallel() because viper uses global state
 
 	// Setup viper configuration
 	viper.Set("output", "table")
@@ -441,7 +441,7 @@ func TestDemoTables_V2ColumnOrdering(t *testing.T) {
 
 	// Verify rendering preserves column order
 	out := output.NewOutput(
-		output.WithFormat(output.Table),
+		output.WithFormat(output.Table()),
 		output.WithWriter(output.NewStdoutWriter()),
 	)
 

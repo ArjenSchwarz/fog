@@ -1,12 +1,21 @@
 # Go-Output v2 Migration Guide
 
-This guide provides comprehensive instructions for migrating from go-output v1 to v2. Version 2 is a complete redesign that eliminates global state, provides thread safety, and maintains exact key ordering while preserving all v1 functionality.
+This guide provides comprehensive instructions for migrating between go-output versions. It covers both v1→v2 migration and intra-v2 breaking changes.
 
-**Current Version**: v2.4.0
+**Current Version**: v2.5.0
+
+**Breaking Changes in v2.5.0**:
+- **Format variables converted to functions** - For thread safety and parallel test support
+- All format references must be updated: `output.JSON` → `output.JSON()`
+- See [Migration from v2.4.x to v2.5.0](#migration-from-v24x-to-v250) section below
 
 **Breaking Changes in v2.4.0**:
 - Pipeline API has been removed - use per-content transformations instead
 - See [Per-Content Transformations](#per-content-transformations-v240) section below
+
+**New Features in v2.5.0**:
+- Thread-safe Format functions enabling parallel test execution
+- Each format call returns a fresh renderer instance
 
 **New Features in v2.4.0**:
 - Per-content transformations (attach transformations to individual tables)
@@ -1912,6 +1921,171 @@ out := output.NewOutput(
 // ✅ Built-in performance tracking
 // ✅ Immutable transformations
 // ✅ Format-agnostic operations
+```
+
+## Migration from v2.4.x to v2.5.0
+
+**Breaking Change in v2.5.0**: Format variables have been converted to functions to ensure thread safety and enable parallel test execution.
+
+### The Problem
+
+In v2.4.x and earlier, Format variables (`JSON`, `YAML`, `HTML`, etc.) were global variables that created shared renderer instances:
+
+```go
+// v2.4.x - Problematic shared state
+var HTML = Format{Name: FormatHTML, Renderer: &htmlRenderer{...}}
+```
+
+When multiple goroutines used the same format variable (e.g., in parallel tests), they shared the same renderer instance, causing race conditions. Users reported issues like:
+
+```go
+// This caused data races in v2.4.x
+func TestMyFeature(t *testing.T) {
+    t.Parallel() // ❌ Race condition!
+
+    out := output.NewOutput(
+        output.WithFormat(output.JSON), // Shared renderer instance
+        output.WithWriter(output.NewStdoutWriter()),
+    )
+    // ... test code ...
+}
+```
+
+### The Solution
+
+Format variables are now **functions** that return fresh Format instances with new renderers:
+
+```go
+// v2.5.0 - Each call gets a fresh instance
+func JSON() Format {
+    return Format{Name: FormatJSON, Renderer: &jsonRenderer{}}
+}
+```
+
+### Migration Steps
+
+**Step 1**: Add parentheses `()` to all format references:
+
+```go
+// Before (v2.4.x)
+output.WithFormat(output.JSON)
+output.WithFormat(output.HTML)
+output.WithFormats(output.Table, output.CSV, output.Markdown)
+
+// After (v2.5.0)
+output.WithFormat(output.JSON())
+output.WithFormat(output.HTML())
+output.WithFormats(output.Table(), output.CSV(), output.Markdown())
+```
+
+**Step 2**: Update format variable assignments:
+
+```go
+// Before (v2.4.x)
+format := output.JSON
+formats := []output.Format{output.JSON, output.YAML}
+
+// After (v2.5.0)
+format := output.JSON()
+formats := []output.Format{output.JSON(), output.YAML()}
+```
+
+**Step 3**: Update table style variants:
+
+```go
+// Before (v2.4.x)
+output.WithFormat(output.TableBold)
+output.WithFormat(output.TableColoredBright)
+
+// After (v2.5.0)
+output.WithFormat(output.TableBold())
+output.WithFormat(output.TableColoredBright())
+```
+
+### Automated Migration
+
+Use this shell command to update your codebase:
+
+```bash
+# Update format function calls
+find . -name "*.go" -type f -exec sed -i '' \
+  -e 's/output\.JSON)/output.JSON())/g' \
+  -e 's/output\.YAML)/output.YAML())/g' \
+  -e 's/output\.CSV)/output.CSV())/g' \
+  -e 's/output\.HTML)/output.HTML())/g' \
+  -e 's/output\.Table)/output.Table())/g' \
+  -e 's/output\.Markdown)/output.Markdown())/g' \
+  -e 's/output\.DOT)/output.DOT())/g' \
+  -e 's/output\.Mermaid)/output.Mermaid())/g' \
+  -e 's/output\.DrawIO)/output.DrawIO())/g' \
+  -e 's/WithFormat(JSON)/WithFormat(JSON())/g' \
+  -e 's/WithFormat(YAML)/WithFormat(YAML())/g' \
+  -e 's/WithFormat(CSV)/WithFormat(CSV())/g' \
+  -e 's/WithFormat(HTML)/WithFormat(HTML())/g' \
+  -e 's/WithFormat(Table)/WithFormat(Table())/g' \
+  -e 's/WithFormat(Markdown)/WithFormat(Markdown())/g' \
+  {} \;
+
+# Test your changes
+go test ./... -race
+```
+
+### Benefits of This Change
+
+1. **Parallel Test Support**: Tests can now safely use `t.Parallel()` without race conditions
+2. **True Thread Safety**: Each format usage gets an independent renderer instance
+3. **No Shared Mutable State**: Eliminates the last remnant of global state in v2
+4. **Better Testing**: Applications can run tests concurrently without "concurrent map write" errors
+
+### Common Migration Issues
+
+**Issue**: Compilation error "cannot use JSON (value of type func() Format) as Format value"
+
+```go
+// ❌ Wrong - missing parentheses
+formats := []Format{JSON, YAML}
+
+// ✅ Correct
+formats := []Format{JSON(), YAML()}
+```
+
+**Issue**: Format assigned to variable without calling function
+
+```go
+// ❌ Wrong
+myFormat := output.JSON
+out := output.NewOutput(output.WithFormat(myFormat))
+
+// ✅ Correct
+myFormat := output.JSON()
+out := output.NewOutput(output.WithFormat(myFormat))
+```
+
+### Testing the Migration
+
+After migration, verify parallel test support:
+
+```go
+func TestParallelRendering(t *testing.T) {
+    t.Parallel() // ✅ Now safe!
+
+    doc := output.New().
+        Table("test", data, output.WithKeys("id", "name")).
+        Build()
+
+    out := output.NewOutput(
+        output.WithFormat(output.JSON()), // Fresh renderer
+        output.WithWriter(output.NewStdoutWriter()),
+    )
+
+    err := out.Render(context.Background(), doc)
+    // ... assertions ...
+}
+```
+
+Run with race detector to confirm:
+```bash
+go test ./... -race
 ```
 
 ## Per-Content Transformations (v2.4.0)

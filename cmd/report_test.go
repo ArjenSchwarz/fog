@@ -12,7 +12,7 @@ import (
 
 // TestReportBuilderPatternMultipleTables tests v2 Builder pattern with multiple tables
 func TestReportBuilderPatternMultipleTables(t *testing.T) {
-	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
+	t.Parallel()
 	// Build a report document with multiple tables using v2 Builder pattern
 	doc := output.New()
 
@@ -73,7 +73,7 @@ func TestReportBuilderPatternMultipleTables(t *testing.T) {
 
 	// Verify we can render it
 	out := output.NewOutput(
-		output.WithFormat(output.Table),
+		output.WithFormat(output.Table()),
 		output.WithWriter(output.NewStdoutWriter()),
 	)
 
@@ -85,7 +85,7 @@ func TestReportBuilderPatternMultipleTables(t *testing.T) {
 
 // TestReportTableColumnOrdering tests that column ordering matches v1 behavior
 func TestReportTableColumnOrdering(t *testing.T) {
-	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
+	t.Parallel()
 	tests := map[string]struct {
 		title           string
 		data            []map[string]any
@@ -136,7 +136,7 @@ func TestReportTableColumnOrdering(t *testing.T) {
 
 			// Verify rendering works with column ordering
 			out := output.NewOutput(
-				output.WithFormat(output.Table),
+				output.WithFormat(output.Table()),
 				output.WithWriter(output.NewStdoutWriter()),
 			)
 
@@ -150,21 +150,21 @@ func TestReportTableColumnOrdering(t *testing.T) {
 
 // TestReportOutputFormats tests rendering in multiple output formats
 func TestReportOutputFormats(t *testing.T) {
-	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
+	t.Parallel()
 	tests := map[string]struct {
 		format output.Format
 	}{
 		"table": {
-			format: output.Table,
+			format: output.Table(),
 		},
 		"csv": {
-			format: output.CSV,
+			format: output.CSV(),
 		},
 		"json": {
-			format: output.JSON,
+			format: output.JSON(),
 		},
 		"markdown": {
-			format: output.Markdown,
+			format: output.Markdown(),
 		},
 	}
 
@@ -213,7 +213,7 @@ func TestReportOutputFormats(t *testing.T) {
 
 // TestReportHelperFunctions tests the table data builder helper functions
 func TestReportHelperFunctions(t *testing.T) {
-	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
+	t.Parallel()
 	// Create test data
 	awsConfig := config.AWSConfig{
 		AccountID: "123456789012",
@@ -268,7 +268,7 @@ func TestReportHelperFunctions(t *testing.T) {
 
 // TestReportMermaidGanttChartGeneration tests Mermaid Gantt chart generation
 func TestReportMermaidGanttChartGeneration(t *testing.T) {
-	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
+	t.Parallel()
 	stack := lib.CfnStack{
 		Name: "test-stack",
 	}
@@ -318,7 +318,7 @@ func TestReportMermaidGanttChartGeneration(t *testing.T) {
 
 // TestReportEventDataBuilding tests event table data building
 func TestReportEventDataBuilding(t *testing.T) {
-	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
+	t.Parallel()
 	stack := lib.CfnStack{
 		Name: "test-stack",
 	}

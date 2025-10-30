@@ -4,9 +4,11 @@
 
 Go-Output v2 is a complete redesign of the library providing thread-safe document generation with preserved key ordering and multiple output formats. This API documentation covers all public interfaces and methods.
 
-**Version**: v2.4.0
+**Version**: v2.5.0
 **Go Version**: 1.24+
 **Import Path**: `github.com/ArjenSchwarz/go-output/v2`
+
+> **Breaking Change in v2.5.0**: Format variables have been converted to functions to ensure thread safety and support for parallel tests. See [Migration Guide](#migration-from-v24x-to-v25x) for details.
 
 ## Agent Implementation Guide
 
@@ -36,7 +38,7 @@ func main() {
 
     // Create output with multiple formats
     out := output.NewOutput(
-        output.WithFormats(output.Table, output.JSON),
+        output.WithFormats(output.Table(), output.JSON()),
         output.WithWriter(output.NewStdoutWriter()),
     )
 
@@ -107,7 +109,7 @@ doc := output.New().
 // Render to multiple formats and destinations
 fileWriter, _ := output.NewFileWriter("./reports", "output.{format}")
 out := output.NewOutput(
-    output.WithFormats(output.JSON, output.CSV, output.Markdown),
+    output.WithFormats(output.JSON(), output.CSV(), output.Markdown()),
     output.WithWriter(output.NewStdoutWriter()),
     output.WithWriter(fileWriter),
 )
@@ -157,7 +159,7 @@ largeData := generateLargeDataset() // Millions of rows
 
 // Good: Streaming formats
 out := output.NewOutput(
-    output.WithFormats(output.CSV, output.JSON), // Both support streaming
+    output.WithFormats(output.CSV(), output.JSON()), // Both support streaming
     output.WithWriter(output.NewFileWriter(".", "large.{format}")),
 )
 
@@ -690,7 +692,7 @@ type CollapsibleConfig struct {
 
 // Apply configuration to renderers
 tableOutput := output.NewOutput(
-    output.WithFormat(output.Table),
+    output.WithFormat(output.Table()),
     output.WithCollapsibleConfig(output.CollapsibleConfig{
         GlobalExpansion:      false,
         TableHiddenIndicator: "[click to expand]",
@@ -699,7 +701,7 @@ tableOutput := output.NewOutput(
 )
 
 htmlOutput := output.NewOutput(
-    output.WithFormat(output.HTML),
+    output.WithFormat(output.HTML()),
     output.WithCollapsibleConfig(output.CollapsibleConfig{
         HTMLCSSClasses: map[string]string{
             "details": "my-collapsible",
@@ -775,7 +777,7 @@ func main() {
     
     // Render with custom configuration
     out := output.NewOutput(
-        output.WithFormats(output.Markdown, output.JSON, output.Table),
+        output.WithFormats(output.Markdown(), output.JSON(), output.Table()),
         output.WithWriter(output.NewStdoutWriter()),
         output.WithCollapsibleConfig(output.CollapsibleConfig{
             TableHiddenIndicator: "[expand for details]",
@@ -856,30 +858,41 @@ type Format struct {
 
 #### Built-in Formats
 
-Pre-configured formats:
+**BREAKING CHANGE (v2.5.0)**: Format variables have been converted to functions for thread safety.
+
+Pre-configured format functions (v2.5.0+):
 
 ```go
-var (
-    JSON     Format  // JSON output
-    YAML     Format  // YAML output
-    CSV      Format  // CSV output
-    HTML     Format  // HTML output
-    Table    Format  // Table output
-    Markdown Format  // Markdown output
-    DOT      Format  // Graphviz DOT output
-    Mermaid  Format  // Mermaid diagram output
-    DrawIO   Format  // Draw.io CSV output
-)
+// Core format functions - each call returns a fresh Format instance
+func JSON() Format         // JSON output
+func YAML() Format         // YAML output
+func CSV() Format          // CSV output
+func HTML() Format         // Complete HTML document with template
+func HTMLFragment() Format // HTML fragments without template wrapper
+func Table() Format        // Terminal table output
+func Markdown() Format     // Markdown output
+func DOT() Format          // Graphviz DOT output
+func Mermaid() Format      // Mermaid diagram output
+func DrawIO() Format       // Draw.io CSV output
 
-// Table style variants
-var (
-    TableDefault       Format
-    TableBold          Format
-    TableColoredBright Format
-    TableLight         Format
-    TableRounded       Format
-)
+// Table style variants - each call returns a fresh Format instance
+func TableDefault() Format       // Default table style
+func TableBold() Format          // Bold table style
+func TableColoredBright() Format // Colored bright table style
+func TableLight() Format         // Light table style
+func TableRounded() Format       // Rounded table style
 ```
+
+**Migration from v2.4.x**: Add `()` to all format references:
+```go
+// Before (v2.4.x)
+output.WithFormat(output.JSON)
+
+// After (v2.5.0+)
+output.WithFormat(output.JSON())
+```
+
+**Why this change?** Format functions ensure each usage gets a fresh renderer instance, preventing shared mutable state and enabling parallel test execution. This fixes race conditions that occurred when multiple goroutines used the same global Format variable.
 
 #### Format Constructors
 
@@ -1743,7 +1756,7 @@ func main() {
 
     // Output results
     out := output.NewOutput(
-        output.WithFormats(output.Table, output.JSON),
+        output.WithFormats(output.Table(), output.JSON()),
         output.WithWriter(output.NewStdoutWriter()),
     )
 
@@ -2006,7 +2019,7 @@ doc := output.New().
     Build()
 
 out := output.NewOutput(
-    output.WithFormat(output.Table),
+    output.WithFormat(output.Table()),
     output.WithWriter(output.NewStdoutWriter()),
 )
 
@@ -2031,7 +2044,7 @@ Arrays are rendered as `<br/>`-separated values in markdown table cells:
 ```go
 // Same data as above
 out := output.NewOutput(
-    output.WithFormat(output.Markdown),
+    output.WithFormat(output.Markdown()),
     output.WithWriter(output.NewStdoutWriter()),
 )
 
@@ -2053,7 +2066,7 @@ Arrays are preserved natively in structured formats:
 ```go
 // Same data
 out := output.NewOutput(
-    output.WithFormat(output.JSON),
+    output.WithFormat(output.JSON()),
     output.WithWriter(output.NewStdoutWriter()),
 )
 
@@ -2095,7 +2108,7 @@ doc := output.New().
     Build()
 
 out := output.NewOutput(
-    output.WithFormat(output.Table),
+    output.WithFormat(output.Table()),
     output.WithWriter(output.NewStdoutWriter()),
 )
 
@@ -2113,7 +2126,7 @@ doc := output.New().
 fileWriter, _ := output.NewFileWriter("./output", "report.{format}")
 
 out := output.NewOutput(
-    output.WithFormats(output.JSON, output.CSV, output.HTML),
+    output.WithFormats(output.JSON(), output.CSV(), output.HTML()),
     output.WithWriter(output.NewStdoutWriter()),
     output.WithWriter(fileWriter),
 )
@@ -2142,7 +2155,7 @@ doc := output.New().
 ```go
 // Pattern 1: Direct struct instantiation (simple transformers)
 out := output.NewOutput(
-    output.WithFormat(output.Table),
+    output.WithFormat(output.Table()),
     output.WithTransformer(&output.EmojiTransformer{}),
     output.WithTransformer(&output.RemoveColorsTransformer{}),
     output.WithWriter(output.NewStdoutWriter()),
@@ -2158,14 +2171,14 @@ colorTransformer := output.NewColorTransformerWithScheme(output.ColorScheme{
 sortTransformer := output.NewSortTransformer("Name", true)
 
 out = output.NewOutput(
-    output.WithFormat(output.Table),
+    output.WithFormat(output.Table()),
     output.WithTransformers(colorTransformer, sortTransformer),
     output.WithWriter(output.NewStdoutWriter()),
 )
 
 // Pattern 3: Struct instantiation with configuration
 out = output.NewOutput(
-    output.WithFormat(output.Table),
+    output.WithFormat(output.Table()),
     output.WithTransformer(&output.SortTransformer{Key: "Name", Ascending: true}),
     output.WithTransformer(&output.LineSplitTransformer{Column: "Description", Separator: ","}),
     output.WithWriter(output.NewStdoutWriter()),
@@ -2181,7 +2194,7 @@ progress := output.NewProgress(output.FormatTable,
 )
 
 out := output.NewOutput(
-    output.WithFormat(output.Table),
+    output.WithFormat(output.Table()),
     output.WithWriter(output.NewStdoutWriter()),
     output.WithProgress(progress),
 )
@@ -2251,7 +2264,7 @@ doc := output.New().
 
 // Render to GitHub-compatible markdown
 out := output.NewOutput(
-    output.WithFormat(output.Markdown),
+    output.WithFormat(output.Markdown()),
     output.WithWriter(output.NewStdoutWriter()),
 )
 ```
@@ -2379,19 +2392,19 @@ doc := output.New().Add(table).Build()
 
 // Markdown: GitHub <details> elements
 markdownOut := output.NewOutput(
-    output.WithFormat(output.Markdown),
+    output.WithFormat(output.Markdown()),
     output.WithWriter(output.NewFileWriter(".", "report.md")),
 )
 
 // JSON: Structured collapsible data
 jsonOut := output.NewOutput(
-    output.WithFormat(output.JSON),
+    output.WithFormat(output.JSON()),
     output.WithWriter(output.NewFileWriter(".", "report.json")),
 )
 
 // Table: Terminal-friendly with expansion indicators
 tableOut := output.NewOutput(
-    output.WithFormat(output.Table),
+    output.WithFormat(output.Table()),
     output.WithWriter(output.NewStdoutWriter()),
     output.WithCollapsibleConfig(output.CollapsibleConfig{
         TableHiddenIndicator: "[expand to view all errors]",
@@ -2400,7 +2413,7 @@ tableOut := output.NewOutput(
 
 // CSV: Automatic detail columns for spreadsheet analysis
 csvOut := output.NewOutput(
-    output.WithFormat(output.CSV),
+    output.WithFormat(output.CSV()),
     output.WithWriter(output.NewFileWriter(".", "report.csv")),
 )
 
@@ -2417,7 +2430,7 @@ csvOut.Render(ctx, doc)       // Creates: errors, errors_details columns
 ```go
 // Development/debug mode: expand all content
 debugOut := output.NewOutput(
-    output.WithFormat(output.Table),
+    output.WithFormat(output.Table()),
     output.WithCollapsibleConfig(output.CollapsibleConfig{
         GlobalExpansion: true, // Override all IsExpanded() settings
     }),
@@ -2426,7 +2439,7 @@ debugOut := output.NewOutput(
 
 // Production mode: respect individual expansion settings
 prodOut := output.NewOutput(
-    output.WithFormat(output.Markdown),
+    output.WithFormat(output.Markdown()),
     output.WithCollapsibleConfig(output.CollapsibleConfig{
         GlobalExpansion: false, // Use individual IsExpanded() values
         MaxDetailLength: 500,   // Limit detail length
@@ -2441,7 +2454,7 @@ prodOut := output.NewOutput(
 ```go
 // Custom HTML output with branded styling
 htmlOut := output.NewOutput(
-    output.WithFormat(output.HTML),
+    output.WithFormat(output.HTML()),
     output.WithCollapsibleConfig(output.CollapsibleConfig{
         HTMLCSSClasses: map[string]string{
             "details": "company-collapsible",
@@ -2454,7 +2467,7 @@ htmlOut := output.NewOutput(
 
 // Custom table output with branded indicators
 tableOut := output.NewOutput(
-    output.WithFormat(output.Table),
+    output.WithFormat(output.Table()),
     output.WithCollapsibleConfig(output.CollapsibleConfig{
         TableHiddenIndicator: "📋 Click to expand detailed information",
         MaxDetailLength:      150,
@@ -2551,7 +2564,7 @@ The v2 API is designed for extensibility:
 | Method | Purpose | Example |
 |--------|---------|---------|
 | `NewOutput(opts...)` | Create output instance | `NewOutput(WithFormat(Table))` |
-| `WithFormat(format)` | Set single format | `WithFormat(output.JSON)` |
+| `WithFormat(format)` | Set single format | `WithFormat(output.JSON())` |
 | `WithFormats(formats...)` | Set multiple formats | `WithFormats(JSON, CSV, Table)` |
 | `WithWriter(writer)` | Set output destination | `WithWriter(NewStdoutWriter())` |
 | `WithWriters(writers...)` | Multiple destinations | `WithWriters(stdout, file)` |

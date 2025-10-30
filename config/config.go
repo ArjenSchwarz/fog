@@ -87,17 +87,17 @@ func (config *Config) GetTableFormat() output.Format {
 func (config *Config) getFormatForOutput(formatName string) output.Format {
 	switch formatName {
 	case "csv":
-		return output.CSV
+		return output.CSV()
 	case "json":
-		return output.JSON
+		return output.JSON()
 	case "dot":
-		return output.DOT
+		return output.DOT()
 	case "markdown":
-		return output.Markdown
+		return output.Markdown()
 	case "html":
-		return output.HTML
+		return output.HTML()
 	case "yaml":
-		return output.YAML
+		return output.YAML()
 	default:
 		return config.GetTableFormat()
 	}

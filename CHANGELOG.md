@@ -2,6 +2,12 @@ Unreleased
 ===========
 
 ### Changed
+- Upgraded go-output dependency from v2.4.0 to v2.5.0 for thread-safe format functions and parallel test support
+- Migrated all format references from variables to functions (e.g., `output.JSON` → `output.JSON()`) per v2.5.0 breaking changes
+- Re-enabled `t.Parallel()` for tests that don't use viper global state (deploy_test.go, report_test.go)
+- Updated all test files to use format function calls in both `WithFormat()` calls and struct literals
+
+### Changed
 - Simplified inline styling in deploy command by removing unnecessary wrapper functions (stringFailure, stringSuccess, stringInfo, stringWarning, stringPositive, stringBold) and calling output.Style*() functions directly
 - Simplified inline styling in drift command by removing format-checking wrapper functions (styleForFormat, styleWarning, stylePositive) and calling output.Style*() functions directly
 - Updated config to use EnhancedColorTransformer instead of ColorTransformer for format-aware color handling

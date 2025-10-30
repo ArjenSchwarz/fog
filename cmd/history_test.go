@@ -10,7 +10,7 @@ import (
 
 // TestHistory_V2BuilderPattern tests the v2 Builder pattern for history command
 func TestHistory_V2BuilderPattern(t *testing.T) {
-	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
+	// NOTE: Cannot use t.Parallel() because viper uses global state
 
 	// Sample deployment log data matching the history command structure
 	logData := []map[string]any{
@@ -35,7 +35,7 @@ func TestHistory_V2BuilderPattern(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
+			// NOTE: Cannot use t.Parallel() because viper uses global state
 
 			// Setup viper configuration
 			viper.Set("output", "table")
@@ -59,7 +59,7 @@ func TestHistory_V2BuilderPattern(t *testing.T) {
 
 			// Verify rendering doesn't error
 			out := output.NewOutput(
-				output.WithFormat(output.Table),
+				output.WithFormat(output.Table()),
 				output.WithWriter(output.NewStdoutWriter()),
 			)
 
@@ -73,7 +73,7 @@ func TestHistory_V2BuilderPattern(t *testing.T) {
 
 // TestHistory_V2FailedEventsTable tests the failed events table with correct column order
 func TestHistory_V2FailedEventsTable(t *testing.T) {
-	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
+	// NOTE: Cannot use t.Parallel() because viper uses global state
 
 	// Sample failed events data
 	failedEvents := []map[string]any{
@@ -95,7 +95,7 @@ func TestHistory_V2FailedEventsTable(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
+			// NOTE: Cannot use t.Parallel() because viper uses global state
 
 			// Setup viper configuration
 			viper.Set("output", "table")
@@ -119,7 +119,7 @@ func TestHistory_V2FailedEventsTable(t *testing.T) {
 
 			// Verify rendering doesn't error
 			out := output.NewOutput(
-				output.WithFormat(output.Table),
+				output.WithFormat(output.Table()),
 				output.WithWriter(output.NewStdoutWriter()),
 			)
 
@@ -133,7 +133,7 @@ func TestHistory_V2FailedEventsTable(t *testing.T) {
 
 // TestHistory_V2InlineStyling tests inline styling for success and failure status
 func TestHistory_V2InlineStyling(t *testing.T) {
-	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
+	// NOTE: Cannot use t.Parallel() because viper uses global state
 
 	tests := map[string]struct {
 		status      string
@@ -154,7 +154,7 @@ func TestHistory_V2InlineStyling(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
+			// NOTE: Cannot use t.Parallel() because viper uses global state
 
 			// Create styled header
 			header := "📋 2025-10-17T10:00:00Z - my-stack"
@@ -173,28 +173,28 @@ func TestHistory_V2InlineStyling(t *testing.T) {
 
 // TestHistory_V2OutputFormats tests that history output renders correctly in different formats
 func TestHistory_V2OutputFormats(t *testing.T) {
-	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
+	// NOTE: Cannot use t.Parallel() because viper uses global state
 
 	tests := map[string]struct {
 		format output.Format
 	}{
 		"table_format": {
-			format: output.Table,
+			format: output.Table(),
 		},
 		"csv_format": {
-			format: output.CSV,
+			format: output.CSV(),
 		},
 		"json_format": {
-			format: output.JSON,
+			format: output.JSON(),
 		},
 		"markdown_format": {
-			format: output.Markdown,
+			format: output.Markdown(),
 		},
 	}
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
+			// NOTE: Cannot use t.Parallel() because viper uses global state
 
 			// Setup viper
 			viper.Set("output", "table")
@@ -243,7 +243,7 @@ func TestHistory_V2OutputFormats(t *testing.T) {
 
 // TestHistory_V2MultipleTables tests multiple tables in history output (deployment log + failed events)
 func TestHistory_V2MultipleTables(t *testing.T) {
-	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
+	// NOTE: Cannot use t.Parallel() because viper uses global state
 
 	// Setup viper
 	viper.Set("output", "table")
@@ -295,7 +295,7 @@ func TestHistory_V2MultipleTables(t *testing.T) {
 
 	// Verify rendering doesn't error
 	out := output.NewOutput(
-		output.WithFormat(output.Table),
+		output.WithFormat(output.Table()),
 		output.WithWriter(output.NewStdoutWriter()),
 	)
 

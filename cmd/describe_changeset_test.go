@@ -11,7 +11,7 @@ import (
 
 // TestPrintBasicStackInfo_V2BuilderPattern tests the v2 Builder pattern for stack info table
 func TestPrintBasicStackInfo_V2BuilderPattern(t *testing.T) {
-	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
+	// NOTE: Cannot use t.Parallel() because viper uses global state
 
 	tests := map[string]struct {
 		showDryRunInfo bool
@@ -29,7 +29,7 @@ func TestPrintBasicStackInfo_V2BuilderPattern(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
+			// NOTE: Cannot use t.Parallel() because viper uses global state
 
 			// Setup viper configuration
 			viper.Set("output", "table")
@@ -67,7 +67,7 @@ func TestPrintBasicStackInfo_V2BuilderPattern(t *testing.T) {
 
 			// Verify rendering doesn't error
 			out := output.NewOutput(
-				output.WithFormat(output.Table),
+				output.WithFormat(output.Table()),
 				output.WithWriter(output.NewStdoutWriter()),
 			)
 
@@ -81,7 +81,7 @@ func TestPrintBasicStackInfo_V2BuilderPattern(t *testing.T) {
 
 // TestPrintChangeset_V2BuilderPattern tests the v2 Builder pattern for changeset table
 func TestPrintChangeset_V2BuilderPattern(t *testing.T) {
-	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
+	// NOTE: Cannot use t.Parallel() because viper uses global state
 
 	tests := map[string]struct {
 		hasModule   bool
@@ -99,7 +99,7 @@ func TestPrintChangeset_V2BuilderPattern(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
+			// NOTE: Cannot use t.Parallel() because viper uses global state
 
 			// Setup viper configuration
 			viper.Set("output", "table")
@@ -146,7 +146,7 @@ func TestPrintChangeset_V2BuilderPattern(t *testing.T) {
 
 			// Verify rendering doesn't error
 			out := output.NewOutput(
-				output.WithFormat(output.Table),
+				output.WithFormat(output.Table()),
 				output.WithWriter(output.NewStdoutWriter()),
 			)
 
@@ -160,7 +160,7 @@ func TestPrintChangeset_V2BuilderPattern(t *testing.T) {
 
 // TestPrintDangerTable_V2BuilderPattern tests the v2 Builder pattern for danger table
 func TestPrintDangerTable_V2BuilderPattern(t *testing.T) {
-	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
+	// NOTE: Cannot use t.Parallel() because viper uses global state
 
 	tests := map[string]struct {
 		hasModule   bool
@@ -178,7 +178,7 @@ func TestPrintDangerTable_V2BuilderPattern(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
+			// NOTE: Cannot use t.Parallel() because viper uses global state
 
 			// Setup viper configuration
 			viper.Set("output", "table")
@@ -227,7 +227,7 @@ func TestPrintDangerTable_V2BuilderPattern(t *testing.T) {
 
 			// Verify rendering doesn't error
 			out := output.NewOutput(
-				output.WithFormat(output.Table),
+				output.WithFormat(output.Table()),
 				output.WithWriter(output.NewStdoutWriter()),
 			)
 
@@ -241,7 +241,7 @@ func TestPrintDangerTable_V2BuilderPattern(t *testing.T) {
 
 // TestChangesetSummary_V2BuilderPattern tests the v2 Builder pattern for changeset summary
 func TestChangesetSummary_V2BuilderPattern(t *testing.T) {
-	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
+	// NOTE: Cannot use t.Parallel() because viper uses global state
 
 	// Setup viper configuration
 	viper.Set("output", "table")
@@ -279,7 +279,7 @@ func TestChangesetSummary_V2BuilderPattern(t *testing.T) {
 
 	// Verify rendering doesn't error
 	out := output.NewOutput(
-		output.WithFormat(output.Table),
+		output.WithFormat(output.Table()),
 		output.WithWriter(output.NewStdoutWriter()),
 	)
 
@@ -291,28 +291,28 @@ func TestChangesetSummary_V2BuilderPattern(t *testing.T) {
 
 // TestChangeset_V2OutputFormats tests that changeset output renders correctly in different formats
 func TestChangeset_V2OutputFormats(t *testing.T) {
-	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
+	// NOTE: Cannot use t.Parallel() because viper uses global state
 
 	tests := map[string]struct {
 		format output.Format
 	}{
 		"table_format": {
-			format: output.Table,
+			format: output.Table(),
 		},
 		"csv_format": {
-			format: output.CSV,
+			format: output.CSV(),
 		},
 		"json_format": {
-			format: output.JSON,
+			format: output.JSON(),
 		},
 		"markdown_format": {
-			format: output.Markdown,
+			format: output.Markdown(),
 		},
 	}
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
+			// NOTE: Cannot use t.Parallel() because viper uses global state
 
 			// Setup viper
 			viper.Set("output", "table")
@@ -359,7 +359,7 @@ func TestChangeset_V2OutputFormats(t *testing.T) {
 
 // TestChangeset_V2SortByType tests sorting changeset by Type column
 func TestChangeset_V2SortByType(t *testing.T) {
-	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
+	// NOTE: Cannot use t.Parallel() because viper uses global state
 
 	// Setup viper configuration
 	viper.Set("output", "table")
@@ -408,7 +408,7 @@ func TestChangeset_V2SortByType(t *testing.T) {
 
 	// Verify rendering with sort
 	out := output.NewOutput(
-		output.WithFormat(output.Table),
+		output.WithFormat(output.Table()),
 		output.WithWriter(output.NewStdoutWriter()),
 	)
 
@@ -420,7 +420,7 @@ func TestChangeset_V2SortByType(t *testing.T) {
 
 // TestChangeset_V2MultipleTables tests multiple tables in single changeset output
 func TestChangeset_V2MultipleTables(t *testing.T) {
-	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
+	// NOTE: Cannot use t.Parallel() because viper uses global state
 
 	// Setup viper configuration
 	viper.Set("output", "table")
@@ -472,7 +472,7 @@ func TestChangeset_V2MultipleTables(t *testing.T) {
 
 	// Verify rendering multiple tables
 	out := output.NewOutput(
-		output.WithFormat(output.Table),
+		output.WithFormat(output.Table()),
 		output.WithWriter(output.NewStdoutWriter()),
 	)
 
@@ -484,7 +484,7 @@ func TestChangeset_V2MultipleTables(t *testing.T) {
 
 // TestChangeset_V2EmptyChangeset tests handling of changeset with no changes
 func TestChangeset_V2EmptyChangeset(t *testing.T) {
-	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
+	// NOTE: Cannot use t.Parallel() because viper uses global state
 
 	// Setup viper configuration
 	viper.Set("output", "table")
@@ -511,7 +511,7 @@ func TestChangeset_V2EmptyChangeset(t *testing.T) {
 
 	// Verify rendering empty table works
 	out := output.NewOutput(
-		output.WithFormat(output.Table),
+		output.WithFormat(output.Table()),
 		output.WithWriter(output.NewStdoutWriter()),
 	)
 
@@ -523,7 +523,7 @@ func TestChangeset_V2EmptyChangeset(t *testing.T) {
 
 // TestChangeset_V2ActionTypeVariations tests different action types
 func TestChangeset_V2ActionTypeVariations(t *testing.T) {
-	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
+	// NOTE: Cannot use t.Parallel() because viper uses global state
 
 	tests := map[string]struct {
 		action string
@@ -541,7 +541,7 @@ func TestChangeset_V2ActionTypeVariations(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
+			// NOTE: Cannot use t.Parallel() because viper uses global state
 
 			// Setup viper configuration
 			viper.Set("output", "table")
@@ -574,7 +574,7 @@ func TestChangeset_V2ActionTypeVariations(t *testing.T) {
 
 			// Render
 			out := output.NewOutput(
-				output.WithFormat(output.Table),
+				output.WithFormat(output.Table()),
 				output.WithWriter(output.NewStdoutWriter()),
 			)
 
@@ -588,7 +588,7 @@ func TestChangeset_V2ActionTypeVariations(t *testing.T) {
 
 // TestChangeset_V2ReplacementTypes tests different replacement types
 func TestChangeset_V2ReplacementTypes(t *testing.T) {
-	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
+	// NOTE: Cannot use t.Parallel() because viper uses global state
 
 	tests := map[string]struct {
 		replacement string
@@ -606,7 +606,7 @@ func TestChangeset_V2ReplacementTypes(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
+			// NOTE: Cannot use t.Parallel() because viper uses global state
 
 			// Setup viper configuration
 			viper.Set("output", "table")
@@ -639,7 +639,7 @@ func TestChangeset_V2ReplacementTypes(t *testing.T) {
 
 			// Render
 			out := output.NewOutput(
-				output.WithFormat(output.Table),
+				output.WithFormat(output.Table()),
 				output.WithWriter(output.NewStdoutWriter()),
 			)
 
@@ -653,7 +653,7 @@ func TestChangeset_V2ReplacementTypes(t *testing.T) {
 
 // TestGetChangesetSummaryTable_V2 tests the summary table helper function
 func TestGetChangesetSummaryTable_V2(t *testing.T) {
-	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
+	// NOTE: Cannot use t.Parallel() because viper uses global state
 
 	summarykeys, summaryContent := getChangesetSummaryTable()
 
@@ -681,7 +681,7 @@ func TestGetChangesetSummaryTable_V2(t *testing.T) {
 
 // TestAddToChangesetSummary_V2 tests the summary accumulator function
 func TestAddToChangesetSummary_V2(t *testing.T) {
-	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
+	// NOTE: Cannot use t.Parallel() because viper uses global state
 
 	tests := map[string]struct {
 		change       lib.ChangesetChanges
@@ -733,7 +733,7 @@ func TestAddToChangesetSummary_V2(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
+			// NOTE: Cannot use t.Parallel() because viper uses global state
 
 			// Initialize summary
 			_, summaryContent := getChangesetSummaryTable()

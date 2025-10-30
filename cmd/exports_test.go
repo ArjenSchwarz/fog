@@ -10,7 +10,7 @@ import (
 
 // TestExports_V2BuilderPattern tests the v2 Builder pattern for exports command
 func TestExports_V2BuilderPattern(t *testing.T) {
-	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
+	// NOTE: Cannot use t.Parallel() because viper uses global state
 
 	// Create sample export data
 	exports := []map[string]any{
@@ -34,7 +34,7 @@ func TestExports_V2BuilderPattern(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
+			// NOTE: Cannot use t.Parallel() because viper uses global state
 
 			// Setup viper configuration
 			viper.Set("output", "table")
@@ -59,7 +59,7 @@ func TestExports_V2BuilderPattern(t *testing.T) {
 
 			// Verify rendering doesn't error
 			out := output.NewOutput(
-				output.WithFormat(output.Table),
+				output.WithFormat(output.Table()),
 				output.WithWriter(output.NewStdoutWriter()),
 			)
 
@@ -73,7 +73,7 @@ func TestExports_V2BuilderPattern(t *testing.T) {
 
 // TestExports_V2ArrayHandling tests array field handling in v2 output
 func TestExports_V2ArrayHandling(t *testing.T) {
-	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
+	// NOTE: Cannot use t.Parallel() because viper uses global state
 
 	tests := map[string]struct {
 		importedBy []string
@@ -91,7 +91,7 @@ func TestExports_V2ArrayHandling(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
+			// NOTE: Cannot use t.Parallel() because viper uses global state
 
 			// Setup viper
 			viper.Set("output", "table")
@@ -124,7 +124,7 @@ func TestExports_V2ArrayHandling(t *testing.T) {
 
 			// Render should handle array without error
 			out := output.NewOutput(
-				output.WithFormat(output.Table),
+				output.WithFormat(output.Table()),
 				output.WithWriter(output.NewStdoutWriter()),
 			)
 
@@ -138,28 +138,28 @@ func TestExports_V2ArrayHandling(t *testing.T) {
 
 // TestExports_V2OutputFormats tests that output renders correctly in different formats
 func TestExports_V2OutputFormats(t *testing.T) {
-	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
+	// NOTE: Cannot use t.Parallel() because viper uses global state
 
 	tests := map[string]struct {
 		format output.Format
 	}{
 		"table_format": {
-			format: output.Table,
+			format: output.Table(),
 		},
 		"csv_format": {
-			format: output.CSV,
+			format: output.CSV(),
 		},
 		"json_format": {
-			format: output.JSON,
+			format: output.JSON(),
 		},
 		"markdown_format": {
-			format: output.Markdown,
+			format: output.Markdown(),
 		},
 	}
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
+			// NOTE: Cannot use t.Parallel() because viper uses global state
 
 			// Setup viper
 			viper.Set("output", "table")
@@ -204,7 +204,7 @@ func TestExports_V2OutputFormats(t *testing.T) {
 
 // TestExports_V2VerboseMode tests exports with verbose flag for ImportedBy column
 func TestExports_V2VerboseMode(t *testing.T) {
-	// NOTE: Cannot use t.Parallel() because go-output rendering has concurrent map write issues
+	// NOTE: Cannot use t.Parallel() because viper uses global state
 
 	// Setup viper for verbose mode
 	viper.Set("output", "table")
@@ -241,7 +241,7 @@ func TestExports_V2VerboseMode(t *testing.T) {
 
 	// Render
 	out := output.NewOutput(
-		output.WithFormat(output.Table),
+		output.WithFormat(output.Table()),
 		output.WithWriter(output.NewStdoutWriter()),
 	)
 

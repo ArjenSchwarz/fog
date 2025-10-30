@@ -53,7 +53,7 @@ func TestResources_V2BuilderPattern(t *testing.T) {
 
 	// Verify rendering doesn't error
 	out := output.NewOutput(
-		output.WithFormat(output.Table),
+		output.WithFormat(output.Table()),
 		output.WithWriter(output.NewStdoutWriter()),
 	)
 
@@ -108,7 +108,7 @@ func TestResources_ColumnOrderingMatching(t *testing.T) {
 
 			// Verify rendering works
 			out := output.NewOutput(
-				output.WithFormat(output.Table),
+				output.WithFormat(output.Table()),
 				output.WithWriter(output.NewStdoutWriter()),
 			)
 
@@ -158,7 +158,7 @@ func TestResources_SortingByType(t *testing.T) {
 
 	// Verify rendering succeeds
 	out := output.NewOutput(
-		output.WithFormat(output.Table),
+		output.WithFormat(output.Table()),
 		output.WithWriter(output.NewStdoutWriter()),
 	)
 
@@ -174,16 +174,16 @@ func TestResources_V2OutputRenderingCorrectly(t *testing.T) {
 		format output.Format
 	}{
 		"table_format": {
-			format: output.Table,
+			format: output.Table(),
 		},
 		"csv_format": {
-			format: output.CSV,
+			format: output.CSV(),
 		},
 		"json_format": {
-			format: output.JSON,
+			format: output.JSON(),
 		},
 		"markdown_format": {
-			format: output.Markdown,
+			format: output.Markdown(),
 		},
 	}
 
@@ -269,7 +269,7 @@ func TestResources_ArrayFieldHandling(t *testing.T) {
 			}
 
 			out := output.NewOutput(
-				output.WithFormat(output.Table),
+				output.WithFormat(output.Table()),
 				output.WithWriter(output.NewStdoutWriter()),
 			)
 
@@ -294,7 +294,7 @@ func TestResources_EmptyResults(t *testing.T) {
 	}
 
 	out := output.NewOutput(
-		output.WithFormat(output.Table),
+		output.WithFormat(output.Table()),
 		output.WithWriter(output.NewStdoutWriter()),
 	)
 
