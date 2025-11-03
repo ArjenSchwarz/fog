@@ -1,6 +1,14 @@
 Unreleased
 ===========
 
+### Added
+- Unit tests for all output formats in describe changeset command covering table, CSV, JSON, YAML, Markdown, and HTML rendering
+- Unit tests for empty changeset handling across all formats
+- Unit tests for ANSI code behavior verification in structured formats
+- Unit tests for JSON structure validation matching go-output v2 array format
+- Unit tests for dangerous changes detection with Remove actions, Conditional replacements, and True replacements
+- Helper functions `contains()` and `captureStdout()` in describe_changeset_test.go for test validation
+
 ### Changed
 - Describe changeset command now respects global `--output` flag instead of enforcing table format
 - Refactored describe changeset command to use `buildAndRenderChangeset()` orchestration function for single document rendering

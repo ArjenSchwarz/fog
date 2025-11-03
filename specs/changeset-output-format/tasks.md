@@ -68,7 +68,7 @@ references:
 
 ## Phase 3: Testing
 
-- [ ] 9. Add unit tests for all output formats
+- [x] 9. Add unit tests for all output formats
   - Create table-driven tests
   - Cover table, csv, json, yaml, markdown, html formats
   - Use sample changeset data
