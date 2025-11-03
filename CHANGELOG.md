@@ -2,6 +2,13 @@ Unreleased
 ===========
 
 ### Added
+- Created spec for changeset output format support feature in `specs/changeset-output-format/`
+  - Requirements document with 33 acceptance criteria across 7 sections covering output format configuration, content completeness, format-specific rendering, scope limitation, backward compatibility, data structure specification, and error handling
+  - Design document with architecture diagrams, component specifications, data structure definitions for JSON/YAML/CSV formats, testing strategy, and implementation checklist
+  - Decision log documenting 10 key design decisions including removal of DOT format, console URL as table field, acceptance of go-output v2's tables array structure, and preservation of shared functions
+  - Task list with 20 implementation tasks organized into 4 phases: refactor output functions, update command function, testing, and cleanup
+
+### Added
 - Created `cmd/output_helpers.go` with formatting helper functions (formatInfo, formatSuccess, formatError, formatPositive, formatBold) that replicate v1 output styling behavior with emojis and colors
 - Added `printMessage()` helper function for rendering formatted messages through go-output document builder
 
