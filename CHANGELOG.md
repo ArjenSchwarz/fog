@@ -1,6 +1,21 @@
 Unreleased
 ===========
 
+### Added
+- Created `cmd/output_helpers.go` with formatting helper functions (formatInfo, formatSuccess, formatError, formatPositive, formatBold) that replicate v1 output styling behavior with emojis and colors
+- Added `printMessage()` helper function for rendering formatted messages through go-output document builder
+
+### Changed
+- Refactored deploy command to use unified go-output document building for success messages and outputs table instead of mixing `fmt.Print()` with go-output rendering
+- Updated `printLog()` function to accept an optional message parameter for better integration with formatted output
+- Migrated all precheck and deployment status messages to use new formatting helpers instead of plain text prefixes
+
+### Fixed
+- Missing emoji and color formatting in deployment status messages (info ℹ️, success ✅, error 🚨)
+- Missing visual spacing before prechecks start in deployment workflow (added leading newline)
+- Missing spacing between changeset summary table and AWS Console link (added newline before console URL)
+- Table spacing issues caused by mixing `fmt.Print()` and go-output rendering (now using unified document building)
+
 ### Changed
 - Upgraded go-output dependency from v2.4.0 to v2.5.0 for thread-safe format functions and parallel test support
 - Migrated all format references from variables to functions (e.g., `output.JSON` → `output.JSON()`) per v2.5.0 breaking changes

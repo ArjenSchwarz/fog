@@ -608,7 +608,7 @@ func TestDeploymentWorkflow_RollbackHandling(t *testing.T) {
 				return *stack, nil
 			}
 
-			showFailedEventsFunc = func(info lib.DeployInfo, cfg config.AWSConfig) []map[string]any {
+			showFailedEventsFunc = func(info lib.DeployInfo, cfg config.AWSConfig, prefixMessage string) []map[string]any {
 				failedEventsShown = true
 				return []map[string]any{
 					{"ResourceType": "AWS::S3::Bucket", "Status": "CREATE_FAILED"},

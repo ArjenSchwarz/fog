@@ -9,6 +9,7 @@ import (
 	"github.com/ArjenSchwarz/fog/config"
 	"github.com/ArjenSchwarz/fog/lib"
 	"github.com/ArjenSchwarz/fog/lib/testutil"
+	output "github.com/ArjenSchwarz/go-output/v2"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
@@ -421,7 +422,7 @@ func TestCreateAndShowChangeset(t *testing.T) {
 				createCalled = true
 				return &lib.ChangesetInfo{Name: "test-changeset"}
 			}
-			showChangesetFunc = func(cs lib.ChangesetInfo, info lib.DeployInfo, cfg config.AWSConfig) {
+			showChangesetFunc = func(cs lib.ChangesetInfo, info lib.DeployInfo, cfg config.AWSConfig, optionalBuilder ...*output.Builder) {
 				showCalled = true
 			}
 			deleteChangesetFunc = func(info lib.DeployInfo, cfg config.AWSConfig) {
@@ -623,7 +624,7 @@ func TestPrintDeploymentResults(t *testing.T) {
 			getFreshStackFunc = func(info *lib.DeployInfo, svc lib.CloudFormationDescribeStacksAPI) (types.Stack, error) {
 				return *resultStack, nil
 			}
-			showFailedEventsFunc = func(info lib.DeployInfo, cfg config.AWSConfig) []map[string]any {
+			showFailedEventsFunc = func(info lib.DeployInfo, cfg config.AWSConfig, prefixMessage string) []map[string]any {
 				return nil
 			}
 			deleteStackIfNewFunc = func(info lib.DeployInfo, cfg config.AWSConfig) {

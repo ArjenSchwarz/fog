@@ -79,11 +79,11 @@ func describeChangeset(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 	changeset := deployment.AddChangeset(rawchangeset)
-	printBasicStackInfo(deployment, false, awsConfig)
-	showChangeset(changeset, deployment, awsConfig)
+	builder := buildBasicStackInfo(deployment, false, awsConfig)
+	showChangeset(changeset, deployment, awsConfig, builder)
 }
 
-func printBasicStackInfo(deployment lib.DeployInfo, showDryRunInfo bool, awsConfig config.AWSConfig) {
+func buildBasicStackInfo(deployment lib.DeployInfo, showDryRunInfo bool, awsConfig config.AWSConfig) *output.Builder {
 	stacktitle := "CloudFormation stack information"
 	keys := []string{"StackName", "Account", "Region", "Action"}
 	if showDryRunInfo {
@@ -101,17 +101,27 @@ func printBasicStackInfo(deployment lib.DeployInfo, showDryRunInfo bool, awsConf
 	}
 	content["Action"] = action
 	if showDryRunInfo {
-		content["Is dry run"] = deployment.IsDryRun
+		// Use emoji directly - EmojiTransformer will handle format-specific rendering
+		dryRunValue := "❌"
+		if deployment.IsDryRun {
+			dryRunValue = "✅"
+		}
+		content["Is dry run"] = dryRunValue
 	}
 
 	// Build document using v2 Builder pattern
-	doc := output.New().
+	return output.New().
 		Table(
 			stacktitle,
 			[]map[string]any{content},
 			output.WithKeys(keys...),
-		).
-		Build()
+		)
+}
+
+// printBasicStackInfo renders the basic stack information table
+func printBasicStackInfo(deployment lib.DeployInfo, showDryRunInfo bool, awsConfig config.AWSConfig) {
+	builder := buildBasicStackInfo(deployment, showDryRunInfo, awsConfig)
+	doc := builder.Build()
 
 	// Render using v2 Output
 	out := output.NewOutput(settings.GetOutputOptions()...)
@@ -120,17 +130,49 @@ func printBasicStackInfo(deployment lib.DeployInfo, showDryRunInfo bool, awsConf
 	}
 }
 
-func showChangeset(changeset lib.ChangesetInfo, deployment lib.DeployInfo, awsConfig config.AWSConfig) {
+func showChangeset(changeset lib.ChangesetInfo, deployment lib.DeployInfo, awsConfig config.AWSConfig, optionalBuilder ...*output.Builder) {
 	changesettitle := fmt.Sprintf("%v %v", texts.DeployChangesetMessageChanges, changeset.Name)
 	changesetsummarytitle := fmt.Sprintf("Summary for %v", changeset.Name)
-	printChangeset(changesettitle, changesetsummarytitle, changeset.Changes, changeset.HasModule)
+
+	// Use provided builder or create a new one
+	var builder *output.Builder
+	if len(optionalBuilder) > 0 {
+		builder = optionalBuilder[0]
+	} else {
+		builder = output.New()
+	}
+
+	// Add changeset tables to the builder
+	builder, hasChanges := buildChangesetDocument(builder, changesettitle, changesetsummarytitle, changeset.Changes, changeset.HasModule)
+
+	if hasChanges {
+		// Render the combined document
+		out := output.NewOutput(settings.GetOutputOptions()...)
+		if err := out.Render(context.Background(), builder.Build()); err != nil {
+			fmt.Printf("ERROR: Failed to render changeset: %v\n", err)
+		}
+	} else {
+		// No changes, just render the stack info
+		out := output.NewOutput(settings.GetOutputOptions()...)
+		if err := out.Render(context.Background(), builder.Build()); err != nil {
+			fmt.Printf("ERROR: Failed to render stack info: %v\n", err)
+		}
+		fmt.Println(texts.DeployChangesetMessageNoResourceChanges)
+	}
 
 	if !deployment.IsDryRun {
-		fmt.Printf("%v %v \r\n", texts.DeployChangesetMessageConsole, changeset.GenerateChangesetUrl(awsConfig))
+		fmt.Printf("\n%v %v \r\n", texts.DeployChangesetMessageConsole, changeset.GenerateChangesetUrl(awsConfig))
 	}
 }
 
-func printChangeset(title string, summaryTitle string, changes []lib.ChangesetChanges, hasModule bool) {
+// buildChangesetDocument creates a document builder with changeset tables.
+// Appends changeset tables to the provided builder.
+// Returns false if there are no changes.
+func buildChangesetDocument(builder *output.Builder, title string, summaryTitle string, changes []lib.ChangesetChanges, hasModule bool) (*output.Builder, bool) {
+	if len(changes) == 0 {
+		return builder, false
+	}
+
 	bold := color.New(color.Bold).SprintFunc()
 	changesetkeys := []string{"Action", "CfnName", "Type", "ID", "Replacement"}
 	if hasModule {
@@ -138,9 +180,7 @@ func printChangeset(title string, summaryTitle string, changes []lib.ChangesetCh
 	}
 	summarykeys, summaryContent := getChangesetSummaryTable()
 
-	if len(changes) == 0 {
-		fmt.Println(texts.DeployChangesetMessageNoResourceChanges)
-	} else {
+	{
 		// Build changeset changes rows
 		changeRows := make([]map[string]any, 0, len(changes))
 		for _, change := range changes {
@@ -161,13 +201,12 @@ func printChangeset(title string, summaryTitle string, changes []lib.ChangesetCh
 			changeRows = append(changeRows, content)
 		}
 
-		// Build document with multiple tables using v2 Builder pattern
-		doc := output.New().
-			Table(
-				title,
-				changeRows,
-				output.WithKeys(changesetkeys...),
-			)
+		// Add changeset changes table to builder
+		builder = builder.Table(
+			title,
+			changeRows,
+			output.WithKeys(changesetkeys...),
+		)
 
 		// Add danger table
 		destructivechanges := "Potentially destructive changes"
@@ -197,10 +236,10 @@ func printChangeset(title string, summaryTitle string, changes []lib.ChangesetCh
 		}
 
 		if len(dangerRows) == 0 {
-			// Add header instead of table
-			doc = doc.Header(output.StylePositive("No dangerous changes"))
+			// Add text instead of header to avoid uppercase and separators
+			builder = builder.Text(output.StylePositive("No dangerous changes") + "\n")
 		} else {
-			doc = doc.Table(
+			builder = builder.Table(
 				destructivechanges,
 				dangerRows,
 				output.WithKeys(dangerKeys...),
@@ -208,17 +247,32 @@ func printChangeset(title string, summaryTitle string, changes []lib.ChangesetCh
 		}
 
 		// Add summary table
-		doc = doc.Table(
+		builder = builder.Table(
 			summaryTitle,
 			[]map[string]any{summaryContent},
 			output.WithKeys(summarykeys...),
 		)
 
-		// Render all tables
-		out := output.NewOutput(settings.GetOutputOptions()...)
-		if err := out.Render(context.Background(), doc.Build()); err != nil {
-			fmt.Printf("ERROR: Failed to render changeset: %v\n", err)
-		}
+		return builder, true
+	}
+}
+
+// printChangeset builds and renders changeset tables.
+func printChangeset(title string, summaryTitle string, changes []lib.ChangesetChanges, hasModule bool) {
+	if len(changes) == 0 {
+		fmt.Println(texts.DeployChangesetMessageNoResourceChanges)
+		return
+	}
+
+	builder, hasChanges := buildChangesetDocument(output.New(), title, summaryTitle, changes, hasModule)
+	if !hasChanges {
+		return
+	}
+
+	// Render all tables
+	out := output.NewOutput(settings.GetOutputOptions()...)
+	if err := out.Render(context.Background(), builder.Build()); err != nil {
+		fmt.Printf("ERROR: Failed to render changeset: %v\n", err)
 	}
 }
 

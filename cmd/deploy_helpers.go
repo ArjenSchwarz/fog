@@ -66,8 +66,7 @@ func prepareDeployment() (lib.DeployInfo, config.AWSConfig, error) {
 		if settings.GetBool("logging.enabled") && settings.GetBool("logging.show-previous") {
 			log := lib.GetLatestSuccessFulLogByDeploymentName(deploymentName)
 			if log.DeploymentName != "" {
-				fmt.Println("INFO: Previous deployment found:")
-				printLog(log)
+				printLog(log, formatInfo("Previous deployment found:"))
 			}
 		}
 	}
@@ -93,27 +92,29 @@ func runPrechecks(info *lib.DeployInfo, logObj *lib.DeploymentLog) string {
 	}
 	var builder strings.Builder
 	precheckMessage := fmt.Sprintf(string(texts.FilePrecheckStarted), len(commands))
-	builder.WriteString("INFO: " + precheckMessage + "\n")
+	builder.WriteString("\n")
+	builder.WriteString(formatInfo(precheckMessage))
 	results, err := lib.RunPrechecks(info)
 	if err != nil {
-		builder.WriteString("ERROR: " + err.Error() + "\n")
+		builder.WriteString(formatError(err.Error()))
 		return builder.String()
 	}
 	if info.PrechecksFailed {
 		logObj.PreChecks = lib.DeploymentLogPreChecksFailed
 		if viper.GetBool("templates.stop-on-failed-prechecks") {
-			builder.WriteString("ERROR: " + string(texts.FilePrecheckFailureStop) + "\n")
+			builder.WriteString(formatError(string(texts.FilePrecheckFailureStop)))
 		} else {
-			builder.WriteString("ERROR: " + string(texts.FilePrecheckFailureContinue) + "\n")
+			builder.WriteString(formatError(string(texts.FilePrecheckFailureContinue)))
 		}
 		for cmd, out := range results {
-			builder.WriteString(cmd + "\n")
+			builder.WriteString(formatBold(cmd))
+			builder.WriteString("\n")
 			builder.WriteString(out)
 			builder.WriteString("\n")
 		}
 	} else {
 		logObj.PreChecks = lib.DeploymentLogPreChecksPassed
-		builder.WriteString("SUCCESS: " + string(texts.FilePrecheckSuccess) + "\n")
+		builder.WriteString(formatPositive(string(texts.FilePrecheckSuccess)))
 	}
 	return builder.String()
 }
@@ -126,7 +127,7 @@ func createAndShowChangeset(info *lib.DeployInfo, cfg config.AWSConfig, logObj *
 	logObj.AddChangeSet(changeset)
 	showChangesetFunc(*changeset, *info, cfg)
 	if info.IsDryRun {
-		fmt.Println("SUCCESS: " + string(texts.DeployChangesetMessageDryrunSuccess))
+		printMessage(formatSuccess(string(texts.DeployChangesetMessageDryrunSuccess)))
 		deleteChangesetFunc(*info, cfg)
 	}
 	return changeset
@@ -137,8 +138,8 @@ func createAndShowChangeset(info *lib.DeployInfo, cfg config.AWSConfig, logObj *
 // deployed.
 func confirmAndDeployChangeset(changeset *lib.ChangesetInfo, info *lib.DeployInfo, cfg config.AWSConfig) bool {
 	if deployFlags.CreateChangeset {
-		fmt.Printf("SUCCESS: %s\n", texts.DeployChangesetMessageSuccess)
-		fmt.Println("INFO: Only created the change set, will now terminate")
+		printMessage(formatSuccess(string(texts.DeployChangesetMessageSuccess)))
+		printMessage(formatInfo("Only created the change set, will now terminate"))
 		return false
 	}
 	var confirm bool
@@ -161,13 +162,17 @@ func printDeploymentResults(info *lib.DeployInfo, cfg config.AWSConfig, logObj *
 	svc := getCfnClient(cfg)
 	resultStack, err := getFreshStackFunc(info, svc)
 	if err != nil {
-		fmt.Printf("ERROR: %s\n", texts.DeployStackMessageRetrievePostFailed)
+		printMessage(formatError(string(texts.DeployStackMessageRetrievePostFailed)))
 		log.Fatalln(err.Error())
 	}
 	switch resultStack.StackStatus {
 	case types.StackStatusCreateComplete, types.StackStatusUpdateComplete:
 		logObj.Success()
-		fmt.Printf("SUCCESS: %s\n", texts.DeployStackMessageSuccess)
+
+		// Build document with success message and optional outputs table
+		builder := output.New().
+			Text(formatSuccess(string(texts.DeployStackMessageSuccess)))
+
 		if len(resultStack.Outputs) > 0 {
 			outputkeys := []string{"Key", "Value", "Description", "ExportName"}
 			outputtitle := fmt.Sprintf("Outputs for stack %v", *resultStack.StackName)
@@ -188,22 +193,23 @@ func printDeploymentResults(info *lib.DeployInfo, cfg config.AWSConfig, logObj *
 				content["ExportName"] = exportName
 				outputRows = append(outputRows, content)
 			}
-			// Render outputs table using v2
-			doc := output.New().
-				Table(
-					outputtitle,
-					outputRows,
-					output.WithKeys(outputkeys...),
-				).
-				Build()
-			out := output.NewOutput(settings.GetOutputOptions()...)
-			if err := out.Render(context.Background(), doc); err != nil {
-				fmt.Printf("ERROR: Failed to render outputs: %v\n", err)
-			}
+			// Add outputs table to the document
+			builder = builder.Table(
+				outputtitle,
+				outputRows,
+				output.WithKeys(outputkeys...),
+			)
 		}
+
+		// Render everything together
+		doc := builder.Build()
+		out := output.NewOutput(settings.GetOutputOptions()...)
+		if err := out.Render(context.Background(), doc); err != nil {
+			fmt.Printf("ERROR: Failed to render outputs: %v\n", err)
+		}
+
 	case types.StackStatusRollbackComplete, types.StackStatusRollbackFailed, types.StackStatusUpdateRollbackComplete, types.StackStatusUpdateRollbackFailed:
-		fmt.Printf("ERROR: %s\n", texts.DeployStackMessageFailed)
-		failures := showFailedEventsFunc(*info, cfg)
+		failures := showFailedEventsFunc(*info, cfg, formatError(string(texts.DeployStackMessageFailed)))
 		logObj.Failed(failures)
 		if info.IsNew {
 			// double verify that the stack can be deleted

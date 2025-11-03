@@ -89,7 +89,7 @@ func history(cmd *cobra.Command, args []string) {
 	}
 }
 
-func printLog(log lib.DeploymentLog) {
+func printLog(log lib.DeploymentLog, prefixMessage ...string) {
 	header := fmt.Sprintf("%v - %v", log.StartedAt.In(settings.GetTimezoneLocation()).Format(time.RFC3339), log.StackName)
 
 	// Create styled header based on status
@@ -113,23 +113,25 @@ func printLog(log lib.DeploymentLog) {
 		},
 	}
 
-	doc := output.New().
-		Header(styledHeader).
-		Table(
-			"Details about the deployment",
-			logData,
-			output.WithKeys("Account", "Region", "Deployer", "Type", "Prechecks", "Started At", "Duration"),
-		).
-		Build()
+	builder := output.New()
 
-	// Render deployment log
-	out := output.NewOutput(settings.GetOutputOptions()...)
-	err := out.Render(context.Background(), doc)
-	if err != nil {
-		failWithError(err)
+	// Add optional prefix message
+	if len(prefixMessage) > 0 && prefixMessage[0] != "" {
+		// Add spacing before the prefix to separate from any previous output
+		builder = builder.Text("\n" + prefixMessage[0])
 	}
 
-	// print change set info
+	// Add styled header as text (not Header to avoid uppercase and separators)
+	builder = builder.Text(styledHeader + "\n")
+
+	// Add table
+	builder = builder.Table(
+		"Details about the deployment",
+		logData,
+		output.WithKeys("Account", "Region", "Deployer", "Type", "Prechecks", "Started At", "Duration"),
+	)
+
+	// Add changeset tables if there are changes
 	changesettitle := "Deployed change set"
 	summaryTitle := "Summary of changes"
 	hasModule := false
@@ -139,7 +141,17 @@ func printLog(log lib.DeploymentLog) {
 			break
 		}
 	}
-	printChangeset(changesettitle, summaryTitle, log.Changes, hasModule)
+
+	builder, _ = buildChangesetDocument(builder, changesettitle, summaryTitle, log.Changes, hasModule)
+
+	doc := builder.Build()
+
+	// Render deployment log with changeset
+	out := output.NewOutput(settings.GetOutputOptions()...)
+	err := out.Render(context.Background(), doc)
+	if err != nil {
+		failWithError(err)
+	}
 
 	// print error info if failed
 	if log.Status == lib.DeploymentLogStatusFailed {
