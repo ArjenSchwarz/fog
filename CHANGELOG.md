@@ -2,6 +2,15 @@ Unreleased
 ===========
 
 ### Added
+- New `addStackInfoSection()` function in describe changeset command that accepts builder parameter and includes console URL as a field in stack information table
+- New `buildChangesetData()` helper function that separates data preparation from rendering logic, returning changeRows, summaryContent, and dangerRows
+- New `addChangesetSections()` function that adds changeset tables to builder using empty table for dangerous changes when none exist
+
+### Changed
+- Stack information table now includes ConsoleURL field when not a dry run, making it accessible in all output formats
+- Dangerous changes section now uses empty table with headers instead of text message when no dangerous changes exist, allowing proper format-specific rendering
+
+### Added
 - Created spec for changeset output format support feature in `specs/changeset-output-format/`
   - Requirements document with 33 acceptance criteria across 7 sections covering output format configuration, content completeness, format-specific rendering, scope limitation, backward compatibility, data structure specification, and error handling
   - Design document with architecture diagrams, component specifications, data structure definitions for JSON/YAML/CSV formats, testing strategy, and implementation checklist

@@ -8,21 +8,21 @@ references:
 
 ## Phase 1: Refactor Output Functions
 
-- [ ] 1. Create addStackInfoSection() from buildBasicStackInfo()
+- [x] 1. Create addStackInfoSection() from buildBasicStackInfo()
   - Accept builder, deployment, awsConfig, changeset, showDryRunInfo parameters
   - Return builder after adding stack info table
   - Include ConsoleURL field when not dry run
   - Requirements: [1.1](requirements.md#1.1), [1.2](requirements.md#1.2), [2.5](requirements.md#2.5), [3.8](requirements.md#3.8)
   - References: cmd/describe_changeset.go
 
-- [ ] 2. Create buildChangesetData() helper for data preparation
+- [x] 2. Create buildChangesetData() helper for data preparation
   - Extract data preparation logic from mixed builder/data code
   - Return changeRows, summaryContent, dangerRows
   - Separate data transformation from rendering logic
   - Requirements: [2.2](requirements.md#2.2), [3.1](requirements.md#3.1)
   - References: cmd/describe_changeset.go
 
-- [ ] 3. Create addChangesetSections() from buildChangesetDocument()
+- [x] 3. Create addChangesetSections() from buildChangesetDocument()
   - Accept builder and changeset parameters
   - Return builder after adding all changeset sections
   - Use empty table for no dangerous changes instead of text message
@@ -30,7 +30,7 @@ references:
   - Requirements: [2.2](requirements.md#2.2), [2.3](requirements.md#2.3), [2.4](requirements.md#2.4), [2.6](requirements.md#2.6), [2.7](requirements.md#2.7), [3.1](requirements.md#3.1), [3.7](requirements.md#3.7), [6.3](requirements.md#6.3), [6.4](requirements.md#6.4)
   - References: cmd/describe_changeset.go
 
-- [ ] 4. Update existing tests to use new functions
+- [x] 4. Update existing tests to use new functions
   - Modify cmd/describe_changeset_test.go to call new functions
   - Ensure tests still pass with new implementation
   - Requirements: [5.1](requirements.md#5.1), [5.2](requirements.md#5.2)
