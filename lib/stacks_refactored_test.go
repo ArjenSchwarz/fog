@@ -99,7 +99,6 @@ func TestGetStack_WithDependencyInjection(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc // capture range variable
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -176,7 +175,6 @@ func TestStackExists_WithDependencyInjection(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc // capture range variable
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -308,7 +306,6 @@ func TestDeployInfo_IsReadyForUpdate(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc // capture range variable
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -401,7 +398,6 @@ func TestDeployInfo_IsOngoing(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc // capture range variable
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -484,7 +480,6 @@ func TestDeployInfo_IsNewStack(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc // capture range variable
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -581,7 +576,6 @@ func TestDeployInfo_CreateChangeSet(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc // capture range variable
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -702,7 +696,6 @@ func TestDeployInfo_GetChangeset(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc // capture range variable
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -765,7 +758,6 @@ func TestDeployInfo_DeleteStack(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc // capture range variable
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -899,7 +891,6 @@ func TestDeployInfo_GetExecutionTimesRefactored(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc // capture range variable
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 

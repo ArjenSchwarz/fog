@@ -1,0 +1,10 @@
++---------------------------------------------------------------------------------------------------------------+
+| All exports in account 123456789012 for region us-east-1                                                      |
++----------------+------------------------------+----------------+---------------------+----------+-------------+
+| EXPORT         | DESCRIPTION                  | STACK          | VALUE               | IMPORTED | IMPORTED BY |
++----------------+------------------------------+----------------+---------------------+----------+-------------+
+| my-db-endpoint | Database connection endpoint | database-stack | db.example.com:5432 | Yes      | api-stack   |
+| my-subnet-id   | Public subnet ID             | vpc-stack      | subnet-87654321     | No       |             |
+| my-vpc-id      | The VPC ID for the network   | vpc-stack      | vpc-12345678        | Yes      | web-stack   |
+|                |                              |                |                     |          | api-stack   |
++----------------+------------------------------+----------------+---------------------+----------+-------------+

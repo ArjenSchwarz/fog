@@ -148,7 +148,6 @@ func TestSampleTemplates(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		// capture range variable
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			tc.validate(t, tc.template)
@@ -229,7 +228,6 @@ func TestSampleConfigs(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		// capture range variable
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			tc.validate(t, tc.config)
@@ -324,7 +322,6 @@ func TestSampleStackResponses(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		// capture range variable
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -387,7 +384,6 @@ func TestSampleChangesets(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		// capture range variable
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -469,7 +465,6 @@ func TestSampleValidationError(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		// capture range variable
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -535,7 +530,6 @@ Resources:
 	}
 
 	for name, tc := range tests {
-		// capture range variable
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -608,7 +602,6 @@ func TestGenerateLargeTemplate(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		// capture range variable
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 

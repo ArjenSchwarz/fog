@@ -22,12 +22,13 @@ THE SOFTWARE.
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"time"
 
 	"github.com/ArjenSchwarz/fog/config"
 	"github.com/ArjenSchwarz/fog/lib"
-	format "github.com/ArjenSchwarz/go-output"
+	output "github.com/ArjenSchwarz/go-output/v2"
 	"github.com/spf13/cobra"
 )
 
@@ -52,8 +53,6 @@ func init() {
 }
 
 func history(cmd *cobra.Command, args []string) {
-	outputsettings = settings.NewOutputSettings()
-	outputsettings.SeparateTables = true
 	awsConfig, err := config.DefaultAwsConfig(*settings)
 	if err != nil {
 		failWithError(err)
@@ -72,41 +71,67 @@ func history(cmd *cobra.Command, args []string) {
 		}
 		printLog(log)
 	}
-	output := format.OutputArray{Keys: []string{}, Settings: settings.NewOutputSettings()}
+
+	// Create final header document
+	var title string
 	if historyFlags.StackName == "" {
-		output.Settings.Title = fmt.Sprintf("Deployments in account %s for region %s", awsConfig.GetAccountAliasID(), awsConfig.Region)
+		title = fmt.Sprintf("Deployments in account %s for region %s", awsConfig.GetAccountAliasID(), awsConfig.Region)
 	} else {
-		output.Settings.Title = fmt.Sprintf("Deployments for stack(s) %s in account %s for region %s", historyFlags.StackName, awsConfig.GetAccountAliasID(), awsConfig.Region)
+		title = fmt.Sprintf("Deployments for stack(s) %s in account %s for region %s", historyFlags.StackName, awsConfig.GetAccountAliasID(), awsConfig.Region)
 	}
-	output.Write()
+
+	// Build and render the final document with header only
+	doc := output.New().Header(title).Build()
+	out := output.NewOutput(settings.GetOutputOptions()...)
+	err = out.Render(context.Background(), doc)
+	if err != nil {
+		failWithError(err)
+	}
 }
 
-func printLog(log lib.DeploymentLog) {
+func printLog(log lib.DeploymentLog, prefixMessage ...string) {
 	header := fmt.Sprintf("%v - %v", log.StartedAt.In(settings.GetTimezoneLocation()).Format(time.RFC3339), log.StackName)
 
-	// print log entry info
-	logkeys := []string{"Account", "Region", "Deployer", "Type", "Prechecks", "Started At", "Duration"}
-	logtitle := "Details about the deployment"
-	output := format.OutputArray{Keys: logkeys, Settings: settings.NewOutputSettings()}
-	output.Settings.Title = logtitle
+	// Create styled header based on status
+	var styledHeader string
 	if log.Status == lib.DeploymentLogStatusSuccess {
-		output.AddHeader(outputsettings.StringPositive("📋 " + header))
+		styledHeader = output.StylePositive("📋 " + header)
 	} else {
-		output.AddHeader(outputsettings.StringWarning("📋 " + header))
+		styledHeader = output.StyleWarning("📋 " + header)
 	}
-	contents := make(map[string]any)
-	contents["Account"] = log.Account
-	contents["Region"] = log.Region
-	contents["Deployer"] = log.Deployer
-	contents["Type"] = string(log.DeploymentType)
-	contents["Prechecks"] = string(log.PreChecks)
-	contents["Started At"] = log.StartedAt.In(settings.GetTimezoneLocation()).Format(time.RFC3339)
-	contents["Duration"] = log.UpdatedAt.Sub(log.StartedAt).Round(time.Second).String()
-	holder := format.OutputHolder{Contents: contents}
-	output.AddHolder(holder)
-	output.AddToBuffer()
 
-	// print change set info
+	// Build deployment log table
+	logData := []map[string]any{
+		{
+			"Account":    log.Account,
+			"Region":     log.Region,
+			"Deployer":   log.Deployer,
+			"Type":       string(log.DeploymentType),
+			"Prechecks":  string(log.PreChecks),
+			"Started At": log.StartedAt.In(settings.GetTimezoneLocation()).Format(time.RFC3339),
+			"Duration":   log.UpdatedAt.Sub(log.StartedAt).Round(time.Second).String(),
+		},
+	}
+
+	builder := output.New()
+
+	// Add optional prefix message
+	if len(prefixMessage) > 0 && prefixMessage[0] != "" {
+		// Add spacing before the prefix to separate from any previous output
+		builder = builder.Text("\n" + prefixMessage[0])
+	}
+
+	// Add styled header as text (not Header to avoid uppercase and separators)
+	builder = builder.Text(styledHeader + "\n")
+
+	// Add table
+	builder = builder.Table(
+		"Details about the deployment",
+		logData,
+		output.WithKeys("Account", "Region", "Deployer", "Type", "Prechecks", "Started At", "Duration"),
+	)
+
+	// Add changeset tables if there are changes
 	changesettitle := "Deployed change set"
 	summaryTitle := "Summary of changes"
 	hasModule := false
@@ -116,19 +141,38 @@ func printLog(log lib.DeploymentLog) {
 			break
 		}
 	}
-	printChangeset(changesettitle, summaryTitle, log.Changes, hasModule)
 
+	builder, _ = buildChangesetDocument(builder, changesettitle, summaryTitle, log.Changes, hasModule)
+
+	doc := builder.Build()
+
+	// Render deployment log with changeset
+	out := output.NewOutput(settings.GetOutputOptions()...)
+	err := out.Render(context.Background(), doc)
+	if err != nil {
+		failWithError(err)
+	}
+
+	// print error info if failed
 	if log.Status == lib.DeploymentLogStatusFailed {
-		// print error info
-		output.AddHeader(outputsettings.StringWarning("Failed with below errors"))
-		eventskeys := []string{"CfnName", "Type", "Status", "Reason"}
-		eventstitle := "Failed events in deployment of change set "
-		output := format.OutputArray{Keys: eventskeys, Settings: settings.NewOutputSettings()}
-		output.Settings.Title = eventstitle
-		for _, event := range log.Failures {
-			holder := format.OutputHolder{Contents: event}
-			output.AddHolder(holder)
+		// Prepare failed events data
+		failedEventsData := append([]map[string]any(nil), log.Failures...)
+
+		// Build failed events document
+		failedDoc := output.New().
+			Header(output.StyleWarning("Failed with below errors")).
+			Table(
+				"Failed events in deployment of change set",
+				failedEventsData,
+				output.WithKeys("CfnName", "Type", "Status", "Reason"),
+			).
+			Build()
+
+		// Render failed events
+		failedOut := output.NewOutput(settings.GetOutputOptions()...)
+		err := failedOut.Render(context.Background(), failedDoc)
+		if err != nil {
+			failWithError(err)
 		}
-		output.AddToBuffer()
 	}
 }

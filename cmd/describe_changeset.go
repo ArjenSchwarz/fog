@@ -22,13 +22,14 @@ THE SOFTWARE.
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 
 	"github.com/ArjenSchwarz/fog/config"
 	"github.com/ArjenSchwarz/fog/lib"
 	"github.com/ArjenSchwarz/fog/lib/texts"
-	format "github.com/ArjenSchwarz/go-output"
+	output "github.com/ArjenSchwarz/go-output/v2"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -53,14 +54,12 @@ func init() {
 
 func describeChangeset(cmd *cobra.Command, args []string) {
 	viper.Set("output", "table") // Enforce table output for deployments
-	outputsettings = settings.NewOutputSettings()
-	outputsettings.SeparateTables = true // Make table output stand out more
 	awsConfig, err := config.DefaultAwsConfig(*settings)
 	if err != nil {
 		failWithError(err)
 	}
 	if describeFlags.ChangesetName != "" && describeFlags.ChangesetUrl != "" {
-		fmt.Println(outputsettings.StringFailure("You can only use one of the following flags: changeset, url"))
+		fmt.Println(output.StyleNegative("You can only use one of the following flags: changeset, url"))
 		os.Exit(1)
 	}
 	if describeFlags.ChangesetUrl != "" {
@@ -76,15 +75,15 @@ func describeChangeset(cmd *cobra.Command, args []string) {
 	rawchangeset, err := deployment.GetChangeset(awsConfig.CloudformationClient())
 	if err != nil {
 		message := fmt.Sprintf(string(texts.DeployChangesetMessageRetrieveFailed), deployment.ChangesetName)
-		fmt.Print(outputsettings.StringFailure(message))
+		fmt.Print(output.StyleNegative(message))
 		os.Exit(1)
 	}
 	changeset := deployment.AddChangeset(rawchangeset)
-	printBasicStackInfo(deployment, false, awsConfig)
-	showChangeset(changeset, deployment, awsConfig)
+	builder := buildBasicStackInfo(deployment, false, awsConfig)
+	showChangeset(changeset, deployment, awsConfig, builder)
 }
 
-func printBasicStackInfo(deployment lib.DeployInfo, showDryRunInfo bool, awsConfig config.AWSConfig) {
+func buildBasicStackInfo(deployment lib.DeployInfo, showDryRunInfo bool, awsConfig config.AWSConfig) *output.Builder {
 	stacktitle := "CloudFormation stack information"
 	keys := []string{"StackName", "Account", "Region", "Action"}
 	if showDryRunInfo {
@@ -92,8 +91,6 @@ func printBasicStackInfo(deployment lib.DeployInfo, showDryRunInfo bool, awsConf
 	}
 	// TODO decide if I want to include the below fields in the output
 	// , "StackStatus", "StackStatusReason", "CreationTime", "StackDescription"
-	output := format.OutputArray{Keys: keys, Settings: outputsettings}
-	output.Settings.Title = stacktitle
 	content := make(map[string]any)
 	content["StackName"] = deployment.GetCleanedStackName()
 	content["Account"] = awsConfig.GetAccountAliasID()
@@ -104,35 +101,88 @@ func printBasicStackInfo(deployment lib.DeployInfo, showDryRunInfo bool, awsConf
 	}
 	content["Action"] = action
 	if showDryRunInfo {
-		content["Is dry run"] = deployment.IsDryRun
+		// Use emoji directly - EmojiTransformer will handle format-specific rendering
+		dryRunValue := "❌"
+		if deployment.IsDryRun {
+			dryRunValue = "✅"
+		}
+		content["Is dry run"] = dryRunValue
 	}
-	output.AddContents(content)
-	output.Write()
+
+	// Build document using v2 Builder pattern
+	return output.New().
+		Table(
+			stacktitle,
+			[]map[string]any{content},
+			output.WithKeys(keys...),
+		)
 }
 
-func showChangeset(changeset lib.ChangesetInfo, deployment lib.DeployInfo, awsConfig config.AWSConfig) {
+// printBasicStackInfo renders the basic stack information table
+func printBasicStackInfo(deployment lib.DeployInfo, showDryRunInfo bool, awsConfig config.AWSConfig) {
+	builder := buildBasicStackInfo(deployment, showDryRunInfo, awsConfig)
+	doc := builder.Build()
+
+	// Render using v2 Output
+	out := output.NewOutput(settings.GetOutputOptions()...)
+	if err := out.Render(context.Background(), doc); err != nil {
+		fmt.Printf("ERROR: Failed to render stack info: %v\n", err)
+	}
+}
+
+func showChangeset(changeset lib.ChangesetInfo, deployment lib.DeployInfo, awsConfig config.AWSConfig, optionalBuilder ...*output.Builder) {
 	changesettitle := fmt.Sprintf("%v %v", texts.DeployChangesetMessageChanges, changeset.Name)
 	changesetsummarytitle := fmt.Sprintf("Summary for %v", changeset.Name)
-	printChangeset(changesettitle, changesetsummarytitle, changeset.Changes, changeset.HasModule)
+
+	// Use provided builder or create a new one
+	var builder *output.Builder
+	if len(optionalBuilder) > 0 {
+		builder = optionalBuilder[0]
+	} else {
+		builder = output.New()
+	}
+
+	// Add changeset tables to the builder
+	builder, hasChanges := buildChangesetDocument(builder, changesettitle, changesetsummarytitle, changeset.Changes, changeset.HasModule)
+
+	if hasChanges {
+		// Render the combined document
+		out := output.NewOutput(settings.GetOutputOptions()...)
+		if err := out.Render(context.Background(), builder.Build()); err != nil {
+			fmt.Printf("ERROR: Failed to render changeset: %v\n", err)
+		}
+	} else {
+		// No changes, just render the stack info
+		out := output.NewOutput(settings.GetOutputOptions()...)
+		if err := out.Render(context.Background(), builder.Build()); err != nil {
+			fmt.Printf("ERROR: Failed to render stack info: %v\n", err)
+		}
+		fmt.Println(texts.DeployChangesetMessageNoResourceChanges)
+	}
 
 	if !deployment.IsDryRun {
-		fmt.Printf("%v %v \r\n", texts.DeployChangesetMessageConsole, changeset.GenerateChangesetUrl(awsConfig))
+		fmt.Printf("\n%v %v \r\n", texts.DeployChangesetMessageConsole, changeset.GenerateChangesetUrl(awsConfig))
 	}
 }
 
-func printChangeset(title string, summaryTitle string, changes []lib.ChangesetChanges, hasModule bool) {
+// buildChangesetDocument creates a document builder with changeset tables.
+// Appends changeset tables to the provided builder.
+// Returns false if there are no changes.
+func buildChangesetDocument(builder *output.Builder, title string, summaryTitle string, changes []lib.ChangesetChanges, hasModule bool) (*output.Builder, bool) {
+	if len(changes) == 0 {
+		return builder, false
+	}
+
 	bold := color.New(color.Bold).SprintFunc()
 	changesetkeys := []string{"Action", "CfnName", "Type", "ID", "Replacement"}
 	if hasModule {
 		changesetkeys = append(changesetkeys, "Module")
 	}
 	summarykeys, summaryContent := getChangesetSummaryTable()
-	output := format.OutputArray{Keys: changesetkeys, Settings: outputsettings}
-	output.Settings.Title = title
-	output.Settings.SortKey = "Type"
-	if len(changes) == 0 {
-		fmt.Println(texts.DeployChangesetMessageNoResourceChanges)
-	} else {
+
+	{
+		// Build changeset changes rows
+		changeRows := make([]map[string]any, 0, len(changes))
 		for _, change := range changes {
 			content := make(map[string]any)
 			action := change.Action
@@ -148,16 +198,81 @@ func printChangeset(title string, summaryTitle string, changes []lib.ChangesetCh
 				content["Module"] = change.Module
 			}
 			addToChangesetSummary(&summaryContent, change)
-			output.AddContents(content)
+			changeRows = append(changeRows, content)
 		}
-		output.AddToBuffer()
+
+		// Add changeset changes table to builder
+		builder = builder.Table(
+			title,
+			changeRows,
+			output.WithKeys(changesetkeys...),
+		)
+
+		// Add danger table
 		destructivechanges := "Potentially destructive changes"
-		printDangerTable(destructivechanges, changes, hasModule)
-		summaryOutput := format.OutputArray{Keys: summarykeys, Settings: outputsettings}
-		summaryOutput.Settings.Title = summaryTitle
-		summaryOutput.AddContents(summaryContent)
-		summaryOutput.AddToBuffer()
-		output.Write()
+		dangerKeys := []string{"Action", "CfnName", "Type", "ID", "Replacement", "Details"}
+		if hasModule {
+			dangerKeys = append(dangerKeys, "Module")
+		}
+		dangerRows := make([]map[string]any, 0)
+		for _, change := range changes {
+			if change.Action == "Remove" || change.Replacement == "Conditional" || change.Replacement == "True" {
+				content := make(map[string]any)
+				action := change.Action
+				if action == eventTypeRemove {
+					action = bold(action)
+				}
+				content["Action"] = action
+				content["Replacement"] = change.Replacement
+				content["CfnName"] = change.LogicalID
+				content["Type"] = change.Type
+				content["ID"] = change.ResourceID
+				content["Details"] = change.GetDangerDetails()
+				if hasModule {
+					content["Module"] = change.Module
+				}
+				dangerRows = append(dangerRows, content)
+			}
+		}
+
+		if len(dangerRows) == 0 {
+			// Add text instead of header to avoid uppercase and separators
+			builder = builder.Text(output.StylePositive("No dangerous changes") + "\n")
+		} else {
+			builder = builder.Table(
+				destructivechanges,
+				dangerRows,
+				output.WithKeys(dangerKeys...),
+			)
+		}
+
+		// Add summary table
+		builder = builder.Table(
+			summaryTitle,
+			[]map[string]any{summaryContent},
+			output.WithKeys(summarykeys...),
+		)
+
+		return builder, true
+	}
+}
+
+// printChangeset builds and renders changeset tables.
+func printChangeset(title string, summaryTitle string, changes []lib.ChangesetChanges, hasModule bool) {
+	if len(changes) == 0 {
+		fmt.Println(texts.DeployChangesetMessageNoResourceChanges)
+		return
+	}
+
+	builder, hasChanges := buildChangesetDocument(output.New(), title, summaryTitle, changes, hasModule)
+	if !hasChanges {
+		return
+	}
+
+	// Render all tables
+	out := output.NewOutput(settings.GetOutputOptions()...)
+	if err := out.Render(context.Background(), builder.Build()); err != nil {
+		fmt.Printf("ERROR: Failed to render changeset: %v\n", err)
 	}
 }
 
@@ -186,44 +301,4 @@ func getChangesetSummaryTable() ([]string, map[string]any) {
 		summaryContent[key] = 0
 	}
 	return summarykeys, summaryContent
-}
-
-func printDangerTable(title string, changes []lib.ChangesetChanges, hasModule bool) {
-	bold := color.New(color.Bold).SprintFunc()
-	changesetkeys := []string{"Action", "CfnName", "Type", "ID", "Replacement", "Details"}
-	if hasModule {
-		changesetkeys = append(changesetkeys, "Module")
-	}
-	output := format.OutputArray{Keys: changesetkeys, Settings: outputsettings}
-	output.Settings.Title = title
-	output.Settings.SortKey = "Type"
-	if len(changes) == 0 {
-		fmt.Println(texts.DeployChangesetMessageNoResourceChanges)
-	} else {
-		for _, change := range changes {
-			if change.Action == "Remove" || change.Replacement == "Conditional" || change.Replacement == "True" {
-				content := make(map[string]any)
-				action := change.Action
-				if action == eventTypeRemove {
-					action = bold(action)
-				}
-				content["Action"] = action
-				content["Replacement"] = change.Replacement
-				content["CfnName"] = change.LogicalID
-				content["Type"] = change.Type
-				content["ID"] = change.ResourceID
-				content["Details"] = change.GetDangerDetails()
-				if hasModule {
-					content["Module"] = change.Module
-				}
-				holder := format.OutputHolder{Contents: content}
-				output.AddHolder(holder)
-			}
-		}
-		if len(output.Contents) == 0 {
-			output.AddHeader(output.Settings.StringPositive("No dangerous changes"))
-		} else {
-			output.AddToBuffer()
-		}
-	}
 }

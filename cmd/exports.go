@@ -22,12 +22,12 @@ THE SOFTWARE.
 package cmd
 
 import (
+	"context"
 	"fmt"
-	"strings"
 
 	"github.com/ArjenSchwarz/fog/config"
 	"github.com/ArjenSchwarz/fog/lib"
-	format "github.com/ArjenSchwarz/go-output"
+	output "github.com/ArjenSchwarz/go-output/v2"
 	"github.com/spf13/cobra"
 )
 
@@ -63,35 +63,46 @@ func listExports(cmd *cobra.Command, args []string) {
 		failWithError(err)
 	}
 	exports := lib.GetExports(&exportsFlags.StackName, &exportsFlags.ExportName, awsConfig.CloudformationClient())
-	keys := []string{"Export", "Description", "Stack", "Value", "Imported"}
+
+	// Build column keys based on verbose flag
+	keys := []string{"Export", "Value"}
 	if settings.GetBool("verbose") {
 		keys = append(keys, "Imported By")
 	}
+
+	// Build title
 	subtitle := "All exports"
 	if exportsFlags.StackName != "" {
 		subtitle = fmt.Sprintf("Exports for %v", exportsFlags.StackName)
 	}
 	title := fmt.Sprintf("%v in account %v for region %v", subtitle, awsConfig.AccountID, awsConfig.Region)
-	output := format.OutputArray{Keys: keys, Settings: settings.NewOutputSettings()}
-	output.Settings.Title = title
-	output.Settings.SortKey = "Export"
+
+	// Build export data for v2 output
+	data := make([]map[string]any, 0, len(exports))
 	for _, resource := range exports {
-		content := make(map[string]any)
-		content["Export"] = resource.ExportName
-		content["Value"] = resource.OutputValue
-		content["Description"] = resource.Description
-		content["Stack"] = resource.StackName
-		if resource.Imported {
-			content["Imported"] = "Yes"
-		} else {
-			content["Imported"] = "No"
+		row := map[string]any{
+			"Export": resource.ExportName,
+			"Value":  resource.OutputValue,
 		}
 		if settings.GetBool("verbose") {
-			content["Imported By"] = strings.Join(resource.ImportedBy, settings.GetSeparator())
+			// Pass array directly - v2 handles array rendering automatically
+			row["Imported By"] = resource.ImportedBy
 		}
-		holder := format.OutputHolder{Contents: content}
-		output.AddHolder(holder)
+		data = append(data, row)
 	}
-	output.Write()
 
+	// Create document using v2 Builder pattern
+	doc := output.New().
+		Table(
+			title,
+			data,
+			output.WithKeys(keys...),
+		).
+		Build()
+
+	// Create output with configured options
+	out := output.NewOutput(settings.GetOutputOptions()...)
+	if err := out.Render(context.Background(), doc); err != nil {
+		failWithError(err)
+	}
 }

@@ -1,10 +1,12 @@
 package config
 
 import (
+	"log"
+	"path/filepath"
 	"strings"
 	"time"
 
-	format "github.com/ArjenSchwarz/go-output"
+	output "github.com/ArjenSchwarz/go-output/v2"
 	"github.com/spf13/viper"
 )
 
@@ -49,18 +51,6 @@ func (config *Config) GetInt(setting string) int {
 	return 0
 }
 
-// GetSeparator returns the appropriate separator string based on the output format
-func (config *Config) GetSeparator() string {
-	switch config.GetLCString("output") {
-	case "table":
-		return "\r\n"
-	case "dot":
-		return ","
-	default:
-		return ", "
-	}
-}
-
 // GetFieldOrEmptyValue returns the value if not empty, otherwise returns an appropriate empty value based on output format
 func (config *Config) GetFieldOrEmptyValue(value string) string {
 	if value != "" {
@@ -84,16 +74,93 @@ func (config *Config) GetTimezoneLocation() *time.Location {
 	return location
 }
 
-// NewOutputSettings creates a new OutputSettings object with configuration values applied
-func (config *Config) NewOutputSettings() *format.OutputSettings {
-	settings := format.NewOutputSettings()
-	settings.UseEmoji = true
-	settings.UseColors = true
-	settings.SetOutputFormat(config.GetLCString("output"))
-	settings.OutputFile = config.GetLCString("output-file")
-	settings.OutputFileFormat = config.GetLCString("output-file-format")
-	// settings.ShouldAppend = config.GetBool("output.append")
-	settings.TableStyle = format.TableStyles[config.GetString("table.style")]
-	settings.TableMaxColumnWidth = config.GetInt("table.max-column-width")
-	return settings
+// GetTableFormat creates a v2 Format object for table output with configured style and max column width
+func (config *Config) GetTableFormat() output.Format {
+	styleName := config.GetString("table.style")
+	maxWidth := config.GetInt("table.max-column-width")
+
+	// v2 API accepts style name directly as string
+	return output.TableWithStyleAndMaxColumnWidth(styleName, maxWidth)
+}
+
+// getFormatForOutput maps format name to v2 Format object
+func (config *Config) getFormatForOutput(formatName string) output.Format {
+	switch formatName {
+	case "csv":
+		return output.CSV()
+	case "json":
+		return output.JSON()
+	case "dot":
+		return output.DOT()
+	case "markdown":
+		return output.Markdown()
+	case "html":
+		return output.HTML()
+	case "yaml":
+		return output.YAML()
+	default:
+		return config.GetTableFormat()
+	}
+}
+
+// GetOutputOptions creates v2 functional options from config settings
+func (config *Config) GetOutputOptions() []output.OutputOption {
+	opts := []output.OutputOption{}
+	formats := []output.Format{}
+
+	// Console output format
+	consoleFormatName := config.GetLCString("output")
+	consoleFormat := config.getFormatForOutput(consoleFormatName)
+	formats = append(formats, consoleFormat)
+
+	// Console writer
+	opts = append(opts, output.WithWriter(output.NewStdoutWriter()))
+
+	// File output if configured
+	if outputFile := config.GetLCString("output-file"); outputFile != "" {
+		fileFormatName := config.GetLCString("output-file-format")
+		// If file format not specified, use console format name
+		if fileFormatName == "" {
+			fileFormatName = consoleFormatName
+		}
+		fileFormat := config.getFormatForOutput(fileFormatName)
+
+		// Only add file format if different from console format
+		addFileFormat := true
+		if fileFormatName == consoleFormatName {
+			addFileFormat = false
+		}
+
+		dir, pattern := filepath.Split(outputFile)
+		// If no directory specified, default to current directory
+		if dir == "" {
+			dir = "."
+		}
+		fileWriter, err := output.NewFileWriter(dir, pattern)
+		if err != nil {
+			// Log warning message with file path and error details
+			// Continue with console output even if file writer fails
+			log.Printf("Warning: Failed to create file writer for %s: %v", outputFile, err)
+		} else {
+			if addFileFormat {
+				formats = append(formats, fileFormat)
+			}
+			opts = append(opts, output.WithWriter(fileWriter))
+		}
+	}
+
+	// Add all formats at once
+	opts = append(opts, output.WithFormats(formats...))
+
+	// Transformers
+	if config.GetBool("use-emoji") {
+		opts = append(opts, output.WithTransformer(&output.EmojiTransformer{}))
+	}
+	if config.GetBool("use-colors") {
+		// Use EnhancedColorTransformer for format-aware color handling
+		// This automatically strips ANSI codes from JSON, CSV, and other non-terminal formats
+		opts = append(opts, output.WithTransformer(output.NewEnhancedColorTransformer()))
+	}
+
+	return opts
 }

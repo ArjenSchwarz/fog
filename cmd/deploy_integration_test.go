@@ -1,5 +1,4 @@
 //go:build integration
-// +build integration
 
 package cmd
 
@@ -244,8 +243,6 @@ func TestDeploymentWorkflow_EndToEnd(t *testing.T) {
 				deployFlags.Tags = strings.Join(tagStrs, ",")
 			}
 
-			outputsettings = settings.NewOutputSettings()
-
 			// Execute deployment workflow
 			info, awsCfg, err := prepareDeployment()
 
@@ -372,8 +369,6 @@ func TestDeploymentWorkflow_WithPrechecks(t *testing.T) {
 				Template:       "../examples/templates/basicvpc.yaml",
 				NonInteractive: true,
 			}
-
-			outputsettings = settings.NewOutputSettings()
 
 			// Prepare deployment
 			info, awsCfg, err := prepareDeployment()
@@ -612,7 +607,7 @@ func TestDeploymentWorkflow_RollbackHandling(t *testing.T) {
 				return *stack, nil
 			}
 
-			showFailedEventsFunc = func(info lib.DeployInfo, cfg config.AWSConfig) []map[string]any {
+			showFailedEventsFunc = func(info lib.DeployInfo, cfg config.AWSConfig, prefixMessage string) []map[string]any {
 				failedEventsShown = true
 				return []map[string]any{
 					{"ResourceType": "AWS::S3::Bucket", "Status": "CREATE_FAILED"},
@@ -630,7 +625,6 @@ func TestDeploymentWorkflow_RollbackHandling(t *testing.T) {
 			}
 
 			viper.Set("logging.enabled", false)
-			outputsettings = settings.NewOutputSettings()
 
 			info := &lib.DeployInfo{
 				StackName: "test-stack",

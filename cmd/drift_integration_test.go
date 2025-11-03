@@ -1,5 +1,4 @@
 //go:build integration
-// +build integration
 
 package cmd
 
@@ -10,7 +9,7 @@ import (
 	"github.com/ArjenSchwarz/fog/config"
 	"github.com/ArjenSchwarz/fog/lib"
 	"github.com/ArjenSchwarz/fog/lib/testutil"
-	format "github.com/ArjenSchwarz/go-output"
+	format "github.com/ArjenSchwarz/go-output/v2"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
@@ -112,7 +111,7 @@ func TestTransitGatewayDrift_LibraryFunctions(t *testing.T) {
 	for name, tc := range tests {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
-			t.Parallel()
+			// NOTE: Cannot use t.Parallel() because viper uses global state
 
 			// Build template with Transit Gateway routes
 			template := buildTGWTemplate(tc.routeTableLogicalID, tc.templateRoutes)
@@ -286,7 +285,7 @@ func TestTransitGatewayDrift_PropagatedRoutesHandling(t *testing.T) {
 	for name, tc := range tests {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
-			t.Parallel()
+			// NOTE: Cannot use t.Parallel() because viper uses global state
 
 			template := buildTGWTemplate("TGWRouteTable1", tc.templateRoutes)
 			templateRouteMap := lib.FilterTGWRoutesByLogicalId("TGWRouteTable1", template, []types.Parameter{}, map[string]string{})
@@ -348,7 +347,7 @@ func TestTransitGatewayDrift_TransientStatesFiltered(t *testing.T) {
 	for _, state := range transientStates {
 		state := state
 		t.Run(string(state), func(t *testing.T) {
-			t.Parallel()
+			// NOTE: Cannot use t.Parallel() because viper uses global state
 
 			awsRoutes := []ec2types.TransitGatewayRoute{
 				{
@@ -396,8 +395,6 @@ func TestTransitGatewayDrift_SeparatePropertiesFlag(t *testing.T) {
 	// Test with separate-properties enabled
 	t.Run("separate properties enabled", func(t *testing.T) {
 		driftFlags.SeparateProperties = true
-		outputsettings = settings.NewOutputSettings()
-		output := format.OutputArray{Keys: []string{"LogicalId", "Type", "ChangeType", "Details"}, Settings: outputsettings}
 
 		// Simulate multiple route changes
 		rulechanges := []string{
@@ -406,29 +403,29 @@ func TestTransitGatewayDrift_SeparatePropertiesFlag(t *testing.T) {
 			"Modified route: 10.3.0.0/16",
 		}
 
-		// This is the logic from checkTransitGatewayRouteTableRoutes
+		// When separate-properties is enabled, each change would be a separate row
+		rows := []map[string]any{}
 		if driftFlags.SeparateProperties {
 			for _, change := range rulechanges {
-				content := make(map[string]any)
-				content["LogicalId"] = "Route for TransitGatewayRouteTable TGWRouteTable1"
-				content["Type"] = "AWS::EC2::TransitGatewayRoute"
-				content["ChangeType"] = string(types.StackResourceDriftStatusModified)
-				content["Details"] = change
-				output.AddContents(content)
+				row := map[string]any{
+					"LogicalId":  "Route for TransitGatewayRouteTable TGWRouteTable1",
+					"Type":       "AWS::EC2::TransitGatewayRoute",
+					"ChangeType": string(types.StackResourceDriftStatusModified),
+					"Details":    change,
+				}
+				rows = append(rows, row)
 			}
 		}
 
-		require.Len(t, output.Contents, 3, "Should create separate entries for each change")
-		for i, holder := range output.Contents {
-			assert.Equal(t, rulechanges[i], holder.Contents["Details"], "Details should match individual change")
+		require.Len(t, rows, 3, "Should create separate entries for each change")
+		for i, row := range rows {
+			assert.Equal(t, rulechanges[i], row["Details"], "Details should match individual change")
 		}
 	})
 
 	// Test with separate-properties disabled
 	t.Run("separate properties disabled", func(t *testing.T) {
 		driftFlags.SeparateProperties = false
-		outputsettings = settings.NewOutputSettings()
-		output := format.OutputArray{Keys: []string{"LogicalId", "Type", "ChangeType", "Details"}, Settings: outputsettings}
 
 		rulechanges := []string{
 			"Unmanaged route: 10.1.0.0/16: tgw-attach-11111",
@@ -436,20 +433,20 @@ func TestTransitGatewayDrift_SeparatePropertiesFlag(t *testing.T) {
 			"Modified route: 10.3.0.0/16",
 		}
 
-		// This is the logic from checkTransitGatewayRouteTableRoutes
-		if driftFlags.SeparateProperties {
-			// Not executed in this test
-		} else {
-			content := make(map[string]any)
-			content["LogicalId"] = "Routes for TransitGatewayRouteTable TGWRouteTable1"
-			content["Type"] = "AWS::EC2::TransitGatewayRoute"
-			content["ChangeType"] = string(types.StackResourceDriftStatusModified)
-			content["Details"] = rulechanges
-			output.AddContents(content)
+		// When separate-properties is disabled, all changes combined in one row
+		rows := []map[string]any{}
+		if !driftFlags.SeparateProperties {
+			row := map[string]any{
+				"LogicalId":  "Routes for TransitGatewayRouteTable TGWRouteTable1",
+				"Type":       "AWS::EC2::TransitGatewayRoute",
+				"ChangeType": string(types.StackResourceDriftStatusModified),
+				"Details":    rulechanges,
+			}
+			rows = append(rows, row)
 		}
 
-		require.Len(t, output.Contents, 1, "Should create single entry for all changes")
-		assert.Equal(t, rulechanges, output.Contents[0].Contents["Details"], "Details should contain all changes")
+		require.Len(t, rows, 1, "Should create single entry for all changes")
+		assert.Equal(t, rulechanges, rows[0]["Details"], "Details should contain all changes")
 	})
 }
 
@@ -603,7 +600,7 @@ func TestTransitGatewayDrift_PrefixListHandling(t *testing.T) {
 	for name, tc := range tests {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
-			t.Parallel()
+			// NOTE: Cannot use t.Parallel() because viper uses global state
 
 			template := buildTGWTemplate("TGWRouteTable1", tc.templateRoutes)
 			templateRouteMap := lib.FilterTGWRoutesByLogicalId("TGWRouteTable1", template, []types.Parameter{}, map[string]string{})
@@ -733,7 +730,7 @@ func TestTransitGatewayDrift_ECMPRoutes(t *testing.T) {
 	for name, tc := range tests {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
-			t.Parallel()
+			// NOTE: Cannot use t.Parallel() because viper uses global state
 
 			template := buildTGWTemplate("TGWRouteTable1", tc.templateRoutes)
 			templateRouteMap := lib.FilterTGWRoutesByLogicalId("TGWRouteTable1", template, []types.Parameter{}, map[string]string{})

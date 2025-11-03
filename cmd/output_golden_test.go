@@ -75,8 +75,8 @@ func TestShowDeploymentInfo_GoldenFiles(t *testing.T) {
 					method, tc.deployment.StackName, tc.awsConfig.Region, tc.awsConfig.AccountID))
 			}
 
-			// Assert against golden file
-			golden.AssertString(name, buf.String())
+			// Assert against golden file (strip ANSI codes to test data correctness, not formatting)
+			golden.AssertStringWithoutAnsi(name, buf.String())
 		})
 	}
 }
