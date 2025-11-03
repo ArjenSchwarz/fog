@@ -32,7 +32,11 @@ import (
 	output "github.com/ArjenSchwarz/go-output/v2"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
+)
+
+const (
+	replacementConditional = "Conditional"
+	replacementTrue        = "True"
 )
 
 // changesetCmd represents the changeset command
@@ -53,7 +57,6 @@ func init() {
 }
 
 func describeChangeset(cmd *cobra.Command, args []string) {
-	viper.Set("output", "table") // Enforce table output for deployments
 	awsConfig, err := config.DefaultAwsConfig(*settings)
 	if err != nil {
 		failWithError(err)
@@ -79,8 +82,7 @@ func describeChangeset(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 	changeset := deployment.AddChangeset(rawchangeset)
-	builder := buildBasicStackInfo(deployment, false, awsConfig)
-	showChangeset(changeset, deployment, awsConfig, builder)
+	buildAndRenderChangeset(changeset, deployment, awsConfig)
 }
 
 func buildBasicStackInfo(deployment lib.DeployInfo, showDryRunInfo bool, awsConfig config.AWSConfig) *output.Builder {
@@ -202,9 +204,9 @@ func buildChangesetData(
 		addToChangesetSummary(&summaryContent, change)
 
 		// Add to danger rows if dangerous
-		if change.Action == "Remove" ||
-			change.Replacement == "Conditional" ||
-			change.Replacement == "True" {
+		if change.Action == eventTypeRemove ||
+			change.Replacement == replacementConditional ||
+			change.Replacement == replacementTrue {
 			dangerContent := make(map[string]any)
 			dangerContent["Action"] = action // Already bolded if Remove
 			dangerContent["Replacement"] = change.Replacement
@@ -289,6 +291,30 @@ func addChangesetSections(
 	)
 
 	return builder
+}
+
+// buildAndRenderChangeset creates a complete changeset document and renders it
+func buildAndRenderChangeset(
+	changeset lib.ChangesetInfo,
+	deployment lib.DeployInfo,
+	awsConfig config.AWSConfig,
+) {
+	// Create single builder for entire document
+	builder := output.New()
+
+	// Add stack information section (includes console URL)
+	builder = addStackInfoSection(builder, deployment, awsConfig, changeset, false)
+
+	// Add changeset sections (changes, dangerous changes, summary)
+	builder = addChangesetSections(builder, changeset)
+
+	// Build and render the complete document
+	doc := builder.Build()
+	out := output.NewOutput(settings.GetOutputOptions()...)
+	if err := out.Render(context.Background(), doc); err != nil {
+		fmt.Printf("ERROR: Failed to render changeset: %v\n", err)
+		os.Exit(1)
+	}
 }
 
 // printBasicStackInfo renders the basic stack information table
@@ -389,7 +415,7 @@ func buildChangesetDocument(builder *output.Builder, title string, summaryTitle 
 		}
 		dangerRows := make([]map[string]any, 0)
 		for _, change := range changes {
-			if change.Action == "Remove" || change.Replacement == "Conditional" || change.Replacement == "True" {
+			if change.Action == eventTypeRemove || change.Replacement == replacementConditional || change.Replacement == replacementTrue {
 				content := make(map[string]any)
 				action := change.Action
 				if action == eventTypeRemove {
@@ -460,9 +486,9 @@ func addToChangesetSummary(summaryContent *map[string]any, change lib.ChangesetC
 		addToField(summaryContent, "Modified", 1)
 	}
 	switch change.Replacement {
-	case "True":
+	case replacementTrue:
 		addToField(summaryContent, "Replacements", 1)
-	case "Conditional":
+	case replacementConditional:
 		addToField(summaryContent, "Conditionals", 1)
 	}
 }

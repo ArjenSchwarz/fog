@@ -1,6 +1,15 @@
 Unreleased
 ===========
 
+### Changed
+- Describe changeset command now respects global `--output` flag instead of enforcing table format
+- Refactored describe changeset command to use `buildAndRenderChangeset()` orchestration function for single document rendering
+- Replacement type string literals replaced with constants (`replacementConditional`, `replacementTrue`) for better maintainability
+
+### Removed
+- Hardcoded `viper.Set("output", "table")` enforcement in describe changeset command
+- Unused `viper` import from describe_changeset.go
+
 ### Added
 - New `addStackInfoSection()` function in describe changeset command that accepts builder parameter and includes console URL as a field in stack information table
 - New `buildChangesetData()` helper function that separates data preparation from rendering logic, returning changeRows, summaryContent, and dangerRows

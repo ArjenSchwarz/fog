@@ -38,14 +38,14 @@ references:
 
 ## Phase 2: Update Command Function
 
-- [ ] 5. Remove viper.Set("output", "table") from describeChangeset()
+- [x] 5. Remove viper.Set("output", "table") from describeChangeset()
   - Delete line 56 in cmd/describe_changeset.go
   - Allows respecting global output flag
   - Core change enabling multi-format support
   - Requirements: [1.1](requirements.md#1.1), [1.2](requirements.md#1.2), [1.3](requirements.md#1.3), [1.4](requirements.md#1.4)
   - References: cmd/describe_changeset.go
 
-- [ ] 6. Create buildAndRenderChangeset() function
+- [x] 6. Create buildAndRenderChangeset() function
   - Create orchestration function
   - Build complete document with addStackInfoSection() and addChangesetSections()
   - Render and handle errors with clear messages
@@ -53,13 +53,13 @@ references:
   - Requirements: [3.1](requirements.md#3.1), [7.1](requirements.md#7.1), [7.2](requirements.md#7.2)
   - References: cmd/describe_changeset.go
 
-- [ ] 7. Update describeChangeset() to call new function
+- [x] 7. Update describeChangeset() to call new function
   - Replace lines 82-83 with call to buildAndRenderChangeset()
   - Remove the builder variable
   - Requirements: [4.1](requirements.md#4.1)
   - References: cmd/describe_changeset.go
 
-- [ ] 8. Test with table format (verify backward compatibility)
+- [x] 8. Test with table format (verify backward compatibility)
   - Run existing tests
   - Manually verify table output matches current behavior exactly
   - Check spacing, newlines, and formatting
