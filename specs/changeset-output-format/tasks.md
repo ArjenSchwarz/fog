@@ -76,7 +76,7 @@ references:
   - Requirements: [1.3](requirements.md#1.3), [3.1](requirements.md#3.1), [3.2](requirements.md#3.2), [3.3](requirements.md#3.3), [3.4](requirements.md#3.4)
   - References: cmd/describe_changeset_test.go
 
-- [ ] 10. Add tests for empty changesets
+- [x] 10. Add tests for empty changesets
   - Test each format with zero changes
   - Verify text for table/markdown/html
   - Verify empty arrays for JSON/YAML

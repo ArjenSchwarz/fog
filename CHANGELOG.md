@@ -2,6 +2,7 @@ Unreleased
 ===========
 
 ### Added
+- Unit tests for empty changesets across all output formats (table, CSV, JSON, YAML, Markdown, HTML) verifying proper handling of zero-change scenarios with format-appropriate empty indicators
 - Unit tests for all output formats in describe changeset command covering table, CSV, JSON, YAML, Markdown, and HTML rendering
 - Unit tests for empty changeset handling across all formats
 - Unit tests for ANSI code behavior verification in structured formats

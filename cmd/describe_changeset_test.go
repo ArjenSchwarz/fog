@@ -928,7 +928,9 @@ func TestOutputFormats_EmptyChangeset(t *testing.T) {
 					t.Error("Output should contain stack name")
 				}
 				// Empty changesets add text message for table format
-				// Just verify it doesn't crash - text content varies
+				if !contains(output, "No changes to resources") {
+					t.Error("Table output should contain 'No changes to resources' message")
+				}
 			},
 		},
 		"json_empty": {
@@ -945,6 +947,11 @@ func TestOutputFormats_EmptyChangeset(t *testing.T) {
 				if len(result) == 0 {
 					t.Error("JSON output should contain at least one table")
 				}
+				// Verify empty arrays for changes
+				// The first table is stack info, second should be text with no changes message
+				if len(result) < 2 {
+					t.Error("JSON output should contain stack info and no changes message")
+				}
 			},
 		},
 		"yaml_empty": {
@@ -957,6 +964,10 @@ func TestOutputFormats_EmptyChangeset(t *testing.T) {
 				if !contains(output, "-") {
 					t.Error("YAML output should contain array structure")
 				}
+				// Should contain stack name
+				if !contains(output, "test-stack") {
+					t.Error("YAML output should contain stack name")
+				}
 			},
 		},
 		"csv_empty": {
@@ -968,6 +979,52 @@ func TestOutputFormats_EmptyChangeset(t *testing.T) {
 				// Should have stack info headers
 				if !contains(output, "StackName") {
 					t.Error("CSV output should contain StackName header")
+				}
+				// Should have no data rows after headers (only headers for empty changeset)
+				lines := strings.Split(strings.TrimSpace(output), "\n")
+				// Should have at least title and header row for stack info
+				if len(lines) < 2 {
+					t.Error("CSV output should contain at least title and header row")
+				}
+			},
+		},
+		"markdown_empty": {
+			format: "markdown",
+			validateOutput: func(t *testing.T, output string) {
+				if output == "" {
+					t.Error("Markdown output should not be empty for empty changeset")
+				}
+				// Should contain stack info
+				if !contains(output, "test-stack") {
+					t.Error("Markdown output should contain stack name")
+				}
+				// Markdown should contain pipe characters for tables
+				if !contains(output, "|") {
+					t.Error("Markdown output should contain table formatting")
+				}
+				// Empty changesets add text message
+				if !contains(output, "No changes to resources") {
+					t.Error("Markdown output should contain 'No changes to resources' message")
+				}
+			},
+		},
+		"html_empty": {
+			format: "html",
+			validateOutput: func(t *testing.T, output string) {
+				if output == "" {
+					t.Error("HTML output should not be empty for empty changeset")
+				}
+				// Should contain stack info
+				if !contains(output, "test-stack") {
+					t.Error("HTML output should contain stack name")
+				}
+				// HTML should contain table tags
+				if !contains(output, "<table") {
+					t.Error("HTML output should contain table tags")
+				}
+				// Empty changesets add text message
+				if !contains(output, "No changes to resources") {
+					t.Error("HTML output should contain 'No changes to resources' message")
 				}
 			},
 		},
