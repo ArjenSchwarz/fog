@@ -169,6 +169,10 @@ func addStackInfoSection(
 
 // buildChangesetData prepares changeset data for rendering
 // Returns: (changeRows, summaryContent, dangerRows)
+//
+// Note: ANSI codes are applied to Remove actions for visual emphasis in table output.
+// The EnhancedColorTransformer in GetOutputOptions() automatically strips these codes
+// from non-terminal formats (JSON, CSV, YAML), ensuring clean structured output.
 func buildChangesetData(
 	changes []lib.ChangesetChanges,
 	hasModule bool,
@@ -453,25 +457,6 @@ func buildChangesetDocument(builder *output.Builder, title string, summaryTitle 
 		)
 
 		return builder, true
-	}
-}
-
-// printChangeset builds and renders changeset tables.
-func printChangeset(title string, summaryTitle string, changes []lib.ChangesetChanges, hasModule bool) {
-	if len(changes) == 0 {
-		fmt.Println(texts.DeployChangesetMessageNoResourceChanges)
-		return
-	}
-
-	builder, hasChanges := buildChangesetDocument(output.New(), title, summaryTitle, changes, hasModule)
-	if !hasChanges {
-		return
-	}
-
-	// Render all tables
-	out := output.NewOutput(settings.GetOutputOptions()...)
-	if err := out.Render(context.Background(), builder.Build()); err != nil {
-		fmt.Printf("ERROR: Failed to render changeset: %v\n", err)
 	}
 }
 
