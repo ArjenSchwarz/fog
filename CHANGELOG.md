@@ -2,6 +2,40 @@ Unreleased
 ===========
 
 ### Added
+- Unit tests for empty changesets across all output formats (table, CSV, JSON, YAML, Markdown, HTML) verifying proper handling of zero-change scenarios with format-appropriate empty indicators
+- Unit tests for all output formats in describe changeset command covering table, CSV, JSON, YAML, Markdown, and HTML rendering
+- Unit tests for empty changeset handling across all formats
+- Unit tests for ANSI code behavior verification in structured formats
+- Unit tests for JSON structure validation matching go-output v2 array format
+- Unit tests for dangerous changes detection with Remove actions, Conditional replacements, and True replacements
+- Helper functions `contains()` and `captureStdout()` in describe_changeset_test.go for test validation
+
+### Changed
+- Describe changeset command now respects global `--output` flag instead of enforcing table format
+- Refactored describe changeset command to use `buildAndRenderChangeset()` orchestration function for single document rendering
+- Replacement type string literals replaced with constants (`replacementConditional`, `replacementTrue`) for better maintainability
+
+### Removed
+- Hardcoded `viper.Set("output", "table")` enforcement in describe changeset command
+- Unused `viper` import from describe_changeset.go
+
+### Added
+- New `addStackInfoSection()` function in describe changeset command that accepts builder parameter and includes console URL as a field in stack information table
+- New `buildChangesetData()` helper function that separates data preparation from rendering logic, returning changeRows, summaryContent, and dangerRows
+- New `addChangesetSections()` function that adds changeset tables to builder using empty table for dangerous changes when none exist
+
+### Changed
+- Stack information table now includes ConsoleURL field when not a dry run, making it accessible in all output formats
+- Dangerous changes section now uses empty table with headers instead of text message when no dangerous changes exist, allowing proper format-specific rendering
+
+### Added
+- Created spec for changeset output format support feature in `specs/changeset-output-format/`
+  - Requirements document with 33 acceptance criteria across 7 sections covering output format configuration, content completeness, format-specific rendering, scope limitation, backward compatibility, data structure specification, and error handling
+  - Design document with architecture diagrams, component specifications, data structure definitions for JSON/YAML/CSV formats, testing strategy, and implementation checklist
+  - Decision log documenting 10 key design decisions including removal of DOT format, console URL as table field, acceptance of go-output v2's tables array structure, and preservation of shared functions
+  - Task list with 20 implementation tasks organized into 4 phases: refactor output functions, update command function, testing, and cleanup
+
+### Added
 - Created `cmd/output_helpers.go` with formatting helper functions (formatInfo, formatSuccess, formatError, formatPositive, formatBold) that replicate v1 output styling behavior with emojis and colors
 - Added `printMessage()` helper function for rendering formatted messages through go-output document builder
 
