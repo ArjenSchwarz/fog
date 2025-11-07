@@ -271,8 +271,15 @@ func createChangeset(deployment *lib.DeployInfo, awsConfig config.AWSConfig) *li
 	if changeset.Status != string(types.ChangeSetStatusCreateComplete) {
 		// When the creation fails because there are no changes, say so and complete successfully
 		if changeset.StatusReason == string(texts.DeployReceivedErrorMessagesNoChanges) || changeset.StatusReason == string(texts.DeployReceivedErrorMessagesNoUpdates) {
-			message := fmt.Sprintf(string(texts.DeployChangesetMessageNoChanges), deployment.StackName)
-			printMessage(formatSuccess(message))
+			// Output no-changes message to stderr (streaming output)
+			if !deployFlags.Quiet {
+				message := fmt.Sprintf(string(texts.DeployChangesetMessageNoChanges), deployment.StackName)
+				printMessage(formatSuccess(message))
+			}
+			// Output final no-changes result to stdout
+			if err := outputNoChangesResult(deployment); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: Failed to generate output: %v\n", err)
+			}
 			os.Exit(0)
 		}
 		// Otherwise, show the error and clean up

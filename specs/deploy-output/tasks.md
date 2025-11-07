@@ -113,7 +113,7 @@ references:
 
 ## Phase 4: Final Output Builders
 
-- [ ] 16. Create outputSuccessResult() function
+- [x] 16. Create outputSuccessResult() function
   - Create outputSuccessResult() function in cmd/deploy_output.go
   - Call os.Stderr.Sync() and print header before output
   - Build DeploymentSummary struct with status, ARN, changeset ID, planned changes, outputs, timestamps
@@ -124,7 +124,7 @@ references:
   - Requirements: [7.1](requirements.md#7.1), [7.2](requirements.md#7.2), [7.3](requirements.md#7.3), [7.4](requirements.md#7.4), [7.5](requirements.md#7.5), [7.6](requirements.md#7.6), [10.5](requirements.md#10.5), [10.6](requirements.md#10.6)
   - References: cmd/deploy_output.go, specs/deploy-output/design.md
 
-- [ ] 17. Create outputNoChangesResult() function
+- [x] 17. Create outputNoChangesResult() function
   - Create outputNoChangesResult() function in cmd/deploy_output.go
   - Call os.Stderr.Sync() and print header before output
   - Build NoChangesResult struct with message, stack name, status, ARN, last updated time
@@ -135,7 +135,7 @@ references:
   - Requirements: [8.1](requirements.md#8.1), [8.2](requirements.md#8.2), [8.3](requirements.md#8.3), [8.4](requirements.md#8.4), [10.5](requirements.md#10.5), [10.6](requirements.md#10.6)
   - References: cmd/deploy_output.go, specs/deploy-output/design.md
 
-- [ ] 18. Create outputFailureResult() function
+- [x] 18. Create outputFailureResult() function
   - Create outputFailureResult() function in cmd/deploy_output.go
   - Call os.Stderr.Sync() and print header before output
   - Build DeploymentFailure struct with error message, stack status, status reason, failed resources, ARN, timestamp
@@ -146,7 +146,7 @@ references:
   - Requirements: [9.1](requirements.md#9.1), [9.2](requirements.md#9.2), [9.3](requirements.md#9.3), [9.4](requirements.md#9.4), [9.5](requirements.md#9.5), [9.6](requirements.md#9.6), [10.5](requirements.md#10.5), [10.6](requirements.md#10.6)
   - References: cmd/deploy_output.go, specs/deploy-output/design.md
 
-- [ ] 19. Create helper function extractFailedResources()
+- [x] 19. Create helper function extractFailedResources()
   - Create extractFailedResources() helper function in cmd/deploy_output.go
   - Function takes DeployInfo as input and returns []FailedResource
   - Query stack events to find resources with failed statuses
@@ -156,7 +156,7 @@ references:
   - Requirements: [9.3](requirements.md#9.3)
   - References: cmd/deploy_output.go, lib/stacks.go, specs/deploy-output/design.md
 
-- [ ] 20. Integrate outputDryRunResult() into deployment flow
+- [x] 20. Integrate outputDryRunResult() into deployment flow
   - Modify deployTemplate() in cmd/deploy.go to call outputDryRunResult()
   - Call after changeset creation when deployment.IsDryRun is true
   - Pass awsConfig to outputDryRunResult()

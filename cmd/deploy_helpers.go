@@ -1,18 +1,17 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
+	"log"
+	"os"
 	"strings"
 
 	"github.com/ArjenSchwarz/fog/config"
 	"github.com/ArjenSchwarz/fog/lib"
 	"github.com/ArjenSchwarz/fog/lib/texts"
-	output "github.com/ArjenSchwarz/go-output/v2"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
 	"github.com/fatih/color"
 	"github.com/spf13/viper"
-	"log"
 )
 
 // loadAWSConfig allows tests to replace the default config loader.
@@ -177,51 +176,29 @@ func printDeploymentResults(info *lib.DeployInfo, cfg config.AWSConfig, logObj *
 	case types.StackStatusCreateComplete, types.StackStatusUpdateComplete:
 		logObj.Success()
 
-		// Build document with success message and optional outputs table
-		builder := output.New().
-			Text(formatSuccess(string(texts.DeployStackMessageSuccess)))
-
-		if len(resultStack.Outputs) > 0 {
-			outputkeys := []string{"Key", "Value", "Description", "ExportName"}
-			outputtitle := fmt.Sprintf("Outputs for stack %v", *resultStack.StackName)
-			outputRows := make([]map[string]any, 0)
-			for _, outputresult := range resultStack.Outputs {
-				exportName := ""
-				if outputresult.ExportName != nil {
-					exportName = *outputresult.ExportName
-				}
-				description := ""
-				if outputresult.Description != nil {
-					description = *outputresult.Description
-				}
-				content := make(map[string]any)
-				content["Key"] = *outputresult.OutputKey
-				content["Value"] = *outputresult.OutputValue
-				content["Description"] = description
-				content["ExportName"] = exportName
-				outputRows = append(outputRows, content)
-			}
-			// Add outputs table to the document
-			builder = builder.Table(
-				outputtitle,
-				outputRows,
-				output.WithKeys(outputkeys...),
-			)
+		// Output success message to stderr (streaming output)
+		if !deployFlags.Quiet {
+			printMessage(formatSuccess(string(texts.DeployStackMessageSuccess)))
 		}
 
-		// Render everything together
-		doc := builder.Build()
-		out := output.NewOutput(settings.GetOutputOptions()...)
-		if err := out.Render(context.Background(), doc); err != nil {
-			fmt.Printf("ERROR: Failed to render outputs: %v\n", err)
+		// Output final deployment summary to stdout
+		if err := outputSuccessResult(info); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: Failed to generate output: %v\n", err)
 		}
 
 	case types.StackStatusRollbackComplete, types.StackStatusRollbackFailed, types.StackStatusUpdateRollbackComplete, types.StackStatusUpdateRollbackFailed:
 		// Capture deployment error
 		info.DeploymentError = fmt.Errorf("deployment failed with status: %s", resultStack.StackStatus)
 
+		// Show failed events to stderr (streaming output)
 		failures := showFailedEventsFunc(*info, cfg, formatError(string(texts.DeployStackMessageFailed)))
 		logObj.Failed(failures)
+
+		// Output failure summary to stdout
+		if err := outputFailureResult(info, cfg); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: Failed to generate output: %v\n", err)
+		}
+
 		if info.IsNew {
 			// double verify that the stack can be deleted
 			deleteStackIfNewFunc(*info, cfg)

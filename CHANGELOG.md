@@ -2,6 +2,20 @@ Unreleased
 ===========
 
 ### Added
+- `outputSuccessResult()` function in `cmd/deploy_output.go` to output deployment summary for successful deployments with deployment metadata, planned changes, and stack outputs tables
+- `outputNoChangesResult()` function in `cmd/deploy_output.go` to output no-changes message with stack information when CloudFormation determines there are no changes to apply
+- `outputFailureResult()` function in `cmd/deploy_output.go` to output deployment failure details with error messages, stack status, and failed resources information
+- `extractFailedResources()` helper function in `cmd/deploy_output.go` to query stack events and extract failed resource details (LogicalID, ResourceStatus, StatusReason, ResourceType)
+- `FailedResource` struct to represent resources that failed during deployment
+
+### Changed
+- `printDeploymentResults()` in `cmd/deploy_helpers.go` now calls `outputSuccessResult()` for successful deployments to output formatted summary to stdout after printing success message to stderr
+- `printDeploymentResults()` now calls `outputFailureResult()` for failed deployments to output formatted failure details to stdout after showing failed events to stderr
+- No-changes scenario in `createChangeset()` now calls `outputNoChangesResult()` to output formatted message to stdout before exiting
+- Success and failure paths now write progress messages to stderr (if not quiet) and final formatted output to stdout, completing stream separation for all deployment outcomes
+- Output generation errors are now treated as warnings written to stderr rather than command failures
+
+### Added
 - `outputDryRunResult()` function in `cmd/deploy_output.go` to output changeset results for dry-run and create-changeset modes
 - Changeset data capture in `createAndShowChangeset()` function, storing changeset in both `CapturedChangeset` and `Changeset` fields for backwards compatibility
 - Final stack state capture in `printDeploymentResults()` function, storing in `FinalStackState` field
