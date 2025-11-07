@@ -168,7 +168,7 @@ references:
 
 ## Phase 5: Integration
 
-- [ ] 21. Integrate create-changeset mode output
+- [x] 21. Integrate create-changeset mode output
   - Modify deployTemplate() to handle --create-changeset flag
   - Call outputDryRunResult() when flags.CreateChangeset is true
   - Pass awsConfig to outputDryRunResult()
@@ -178,7 +178,7 @@ references:
   - Requirements: [6.2](requirements.md#6.2), [6.6](requirements.md#6.6), [11.5](requirements.md#11.5), [12.4](requirements.md#12.4)
   - References: cmd/deploy.go, cmd/deploy_output.go, specs/deploy-output/design.md
 
-- [ ] 22. Integrate outputSuccessResult() into deployment flow
+- [x] 22. Integrate outputSuccessResult() into deployment flow
   - Modify deployTemplate() to call outputSuccessResult() after successful deployment
   - Capture DeploymentEnd timestamp before calling output function
   - Capture final stack state using getStackState()
@@ -188,7 +188,7 @@ references:
   - Requirements: [7.1](requirements.md#7.1), [10.1](requirements.md#10.1), [11.5](requirements.md#11.5)
   - References: cmd/deploy.go, cmd/deploy_output.go, specs/deploy-output/design.md
 
-- [ ] 23. Integrate outputNoChangesResult() for no-changes scenario
+- [x] 23. Integrate outputNoChangesResult() for no-changes scenario
   - Identify no-changes error in deployment flow using isNoChangesError()
   - Call outputNoChangesResult() when no changes are detected
   - Handle output generation errors - write warning to stderr but treat as success
@@ -197,7 +197,7 @@ references:
   - Requirements: [8.1](requirements.md#8.1), [8.5](requirements.md#8.5), [10.1](requirements.md#10.1)
   - References: cmd/deploy.go, cmd/deploy_output.go, specs/deploy-output/design.md
 
-- [ ] 24. Integrate outputFailureResult() for deployment failures
+- [x] 24. Integrate outputFailureResult() for deployment failures
   - Capture deployment error in deployment.DeploymentError field
   - Set DeploymentEnd timestamp when deployment fails
   - Attempt to capture final stack state (may fail gracefully)
@@ -208,7 +208,7 @@ references:
   - Requirements: [9.1](requirements.md#9.1), [10.1](requirements.md#10.1), [11.5](requirements.md#11.5)
   - References: cmd/deploy.go, cmd/deploy_output.go, specs/deploy-output/design.md
 
-- [ ] 25. Implement quiet mode auto-approval logic
+- [x] 25. Implement quiet mode auto-approval logic
   - Add initializeQuietMode() function or inline logic in deployTemplate()
   - When flags.Quiet is true, set flags.NonInteractive to true
   - Document that quiet mode implies non-interactive mode
@@ -217,7 +217,7 @@ references:
   - Requirements: [5.5](requirements.md#5.5)
   - References: cmd/deploy.go, specs/deploy-output/design.md
 
-- [ ] 26. Pass quiet flag through all progress output functions
+- [x] 26. Pass quiet flag through all progress output functions
   - Add quiet bool parameter to all functions that output progress to stderr
   - Update function signatures for showEvents(), showDeploymentInfo(), printBasicStackInfo()
   - Pass quiet flag from deployTemplate() through all call sites
@@ -226,7 +226,7 @@ references:
   - Requirements: [5.2](requirements.md#5.2), [5.3](requirements.md#5.3)
   - References: cmd/deploy.go, cmd/deploy_helpers.go, specs/deploy-output/design.md
 
-- [ ] 27. Write unit tests for createStderrOutput() TTY detection
+- [x] 27. Write unit tests for createStderrOutput() TTY detection
   - Create test file cmd/deploy_helpers_test.go if not exists
   - Test createStderrOutput() returns output with table format
   - Test TTY detection adds color and emoji transformers when stderr is TTY

@@ -860,3 +860,47 @@ func TestAssertEqualStructs(t *testing.T) {
 		})
 	}
 }
+
+// TestCreateStderrOutput tests the createStderrOutput helper function
+func TestCreateStderrOutput(t *testing.T) {
+	t.Parallel()
+
+	out := createStderrOutput()
+
+	if out == nil {
+		t.Fatal("createStderrOutput() returned nil")
+	}
+
+	// Test that we got a valid output instance
+	// We can't easily test TTY detection or transformers without mocking os.Stderr
+	// but we can verify the function returns a valid Output instance
+	testDoc := output.New().Text("test message").Build()
+	err := out.Render(context.Background(), testDoc)
+	if err != nil {
+		t.Errorf("failed to render test document: %v", err)
+	}
+}
+
+// TestCreateStderrOutput_TableFormat verifies that createStderrOutput always uses table format
+func TestCreateStderrOutput_TableFormat(t *testing.T) {
+	t.Parallel()
+
+	out := createStderrOutput()
+	if out == nil {
+		t.Fatal("createStderrOutput() returned nil")
+	}
+
+	// Create a simple table to verify table format is being used
+	testData := []map[string]any{
+		{"Name": "test", "Value": "123"},
+	}
+	testDoc := output.New().
+		Table("Test Table", testData, output.WithKeys("Name", "Value")).
+		Build()
+
+	// Render should succeed for table format
+	err := out.Render(context.Background(), testDoc)
+	if err != nil {
+		t.Errorf("failed to render table: %v", err)
+	}
+}

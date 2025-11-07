@@ -2,6 +2,9 @@ Unreleased
 ===========
 
 ### Added
+- Unit tests for `createStderrOutput()` helper function in `cmd/deploy_helpers_test.go` verifying basic functionality and table format usage
+
+### Added
 - `outputSuccessResult()` function in `cmd/deploy_output.go` to output deployment summary for successful deployments with deployment metadata, planned changes, and stack outputs tables
 - `outputNoChangesResult()` function in `cmd/deploy_output.go` to output no-changes message with stack information when CloudFormation determines there are no changes to apply
 - `outputFailureResult()` function in `cmd/deploy_output.go` to output deployment failure details with error messages, stack status, and failed resources information
