@@ -238,7 +238,7 @@ references:
 
 ## Phase 6: Testing
 
-- [ ] 28. Write unit tests for output builder functions
+- [x] 28. Write unit tests for output builder functions
   - Create test file cmd/deploy_output_test.go
   - Test outputSuccessResult() with mock deployment data
   - Test outputNoChangesResult() with mock stack data
@@ -250,7 +250,7 @@ references:
   - Requirements: [7.6](requirements.md#7.6), [8.4](requirements.md#8.4), [9.6](requirements.md#9.6), [11.5](requirements.md#11.5)
   - References: cmd/deploy_output_test.go, cmd/deploy_output.go, specs/deploy-output/design.md
 
-- [ ] 29. Create golden files for output formats
+- [x] 29. Create golden files for output formats
   - Create testdata directory for golden files
   - Generate golden files for successful deployment: success-output.json, success-output.yaml, success-output.csv, success-output.md
   - Generate golden files for failed deployment: failure-output.json, failure-output.yaml
@@ -261,7 +261,7 @@ references:
   - Requirements: [7.6](requirements.md#7.6), [8.4](requirements.md#8.4), [9.6](requirements.md#9.6)
   - References: cmd/testdata/, specs/deploy-output/design.md
 
-- [ ] 30. Write golden file tests for all output formats
+- [x] 30. Write golden file tests for all output formats
   - Add golden file test functions to cmd/deploy_output_test.go
   - Test each output format against corresponding golden file
   - Use testutil.AssertGolden() or implement golden file comparison

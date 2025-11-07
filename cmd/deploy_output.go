@@ -209,13 +209,19 @@ func outputFailureResult(deployment *lib.DeployInfo, awsConfig config.AWSConfig)
 		statusReason = aws.ToString(deployment.FinalStackState.StackStatusReason)
 	}
 
+	// Use DeploymentEnd if available, otherwise current time
+	timestamp := time.Now()
+	if !deployment.DeploymentEnd.IsZero() {
+		timestamp = deployment.DeploymentEnd
+	}
+
 	// Build stack status table
 	statusData := []map[string]any{
 		{
 			"Stack ARN":     deployment.StackArn,
 			"Status":        stackStatus,
 			"Status Reason": statusReason,
-			"Timestamp":     time.Now().Format(time.RFC3339),
+			"Timestamp":     timestamp.Format(time.RFC3339),
 		},
 	}
 

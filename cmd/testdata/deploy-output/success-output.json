@@ -1,0 +1,153 @@
+
+=== Deployment Summary ===
+[
+  {
+    "data": [
+      {
+        "Changeset": "arn:aws:cloudformation:us-east-1:123456789012:changeSet/test-changeset/def456",
+        "Duration": "5m30s",
+        "End Time": "2025-11-07T10:05:30Z",
+        "Stack ARN": "arn:aws:cloudformation:us-east-1:123456789012:stack/test-stack/abc123",
+        "Start Time": "2025-11-07T10:00:00Z",
+        "Status": "UPDATE_COMPLETE"
+      }
+    ],
+    "schema": {
+      "fields": [
+        {
+          "hidden": false,
+          "name": "Status",
+          "type": ""
+        },
+        {
+          "hidden": false,
+          "name": "Stack ARN",
+          "type": ""
+        },
+        {
+          "hidden": false,
+          "name": "Changeset",
+          "type": ""
+        },
+        {
+          "hidden": false,
+          "name": "Start Time",
+          "type": ""
+        },
+        {
+          "hidden": false,
+          "name": "End Time",
+          "type": ""
+        },
+        {
+          "hidden": false,
+          "name": "Duration",
+          "type": ""
+        }
+      ],
+      "keys": [
+        "Status",
+        "Stack ARN",
+        "Changeset",
+        "Start Time",
+        "End Time",
+        "Duration"
+      ]
+    },
+    "title": "Deployment Summary"
+  },
+  {
+    "data": [
+      {
+        "Action": "Add",
+        "LogicalID": "MyBucket",
+        "Replacement": "False",
+        "ResourceID": "my-test-bucket-123",
+        "Type": "AWS::S3::Bucket"
+      },
+      {
+        "Action": "Modify",
+        "LogicalID": "MyFunction",
+        "Replacement": "False",
+        "ResourceID": "test-stack-MyFunction-ABC123",
+        "Type": "AWS::Lambda::Function"
+      }
+    ],
+    "schema": {
+      "fields": [
+        {
+          "hidden": false,
+          "name": "Action",
+          "type": ""
+        },
+        {
+          "hidden": false,
+          "name": "LogicalID",
+          "type": ""
+        },
+        {
+          "hidden": false,
+          "name": "Type",
+          "type": ""
+        },
+        {
+          "hidden": false,
+          "name": "ResourceID",
+          "type": ""
+        },
+        {
+          "hidden": false,
+          "name": "Replacement",
+          "type": ""
+        }
+      ],
+      "keys": [
+        "Action",
+        "LogicalID",
+        "Type",
+        "ResourceID",
+        "Replacement"
+      ]
+    },
+    "title": "Planned Changes"
+  },
+  {
+    "data": [
+      {
+        "Description": "The S3 bucket name",
+        "OutputKey": "BucketName",
+        "OutputValue": "my-test-bucket-123"
+      },
+      {
+        "Description": "The Lambda function ARN",
+        "OutputKey": "FunctionArn",
+        "OutputValue": "arn:aws:lambda:us-east-1:123456789012:function:test-stack-MyFunction-ABC123"
+      }
+    ],
+    "schema": {
+      "fields": [
+        {
+          "hidden": false,
+          "name": "OutputKey",
+          "type": ""
+        },
+        {
+          "hidden": false,
+          "name": "OutputValue",
+          "type": ""
+        },
+        {
+          "hidden": false,
+          "name": "Description",
+          "type": ""
+        }
+      ],
+      "keys": [
+        "OutputKey",
+        "OutputValue",
+        "Description"
+      ]
+    },
+    "title": "Stack Outputs"
+  }
+]

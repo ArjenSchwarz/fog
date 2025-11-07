@@ -1,0 +1,29 @@
+
+=== Deployment Summary ===
+- content: 'Deployment failed: The following resource(s) failed to create: [MyDatabase]'
+  type: text
+- data:
+    - Stack ARN: arn:aws:cloudformation:us-east-1:123456789012:stack/test-stack/abc123
+      Status: ROLLBACK_COMPLETE
+      Status Reason: Resource creation cancelled
+      Timestamp: 2025-11-07T10:03:45Z
+  schema:
+    fields:
+        - hidden: false
+          name: Stack ARN
+          type: null
+        - hidden: false
+          name: Status
+          type: null
+        - hidden: false
+          name: Status Reason
+          type: null
+        - hidden: false
+          name: Timestamp
+          type: null
+    keys:
+        - Stack ARN
+        - Status
+        - Status Reason
+        - Timestamp
+  title: Stack Status
