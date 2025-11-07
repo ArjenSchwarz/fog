@@ -20,8 +20,8 @@ func askForConfirmation(s string) bool {
 	reader := bufio.NewReader(os.Stdin)
 
 	for {
-		fmt.Println("")
-		fmt.Printf("🔔 %s [y/n]: ", s)
+		fmt.Fprintln(os.Stderr, "")
+		fmt.Fprintf(os.Stderr, "🔔 %s [y/n]: ", s)
 
 		response, err := reader.ReadString('\n')
 		if err != nil {

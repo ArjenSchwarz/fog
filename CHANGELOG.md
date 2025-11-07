@@ -1,6 +1,21 @@
 Unreleased
 ===========
 
+### Changed
+- Deploy command progress output (stack information, changeset overview, deployment status messages, event streaming, interactive prompts) now writes to stderr instead of stdout following Unix conventions
+- `showDeploymentInfo()` function now accepts `quiet` parameter and returns early when quiet mode is enabled, suppressing all output to stderr
+- `showEvents()` function now accepts `quiet` parameter for conditional event streaming suppression
+- `printBasicStackInfo()` now uses `createStderrOutput()` helper for stderr rendering with TTY detection
+- `printMessage()` helper now uses `createStderrOutput()` for stderr rendering instead of stdout
+- Interactive confirmation prompts in `askForConfirmation()` now write to stderr using `fmt.Fprintf(os.Stderr, ...)`
+- Error messages and progress indicators throughout deployment flow now consistently use stderr via `fmt.Fprintln(os.Stderr, ...)` and `fmt.Fprintf(os.Stderr, ...)`
+- Quiet mode (`--quiet` flag) now automatically enables non-interactive mode to auto-approve all prompts
+- `showFailedEvents()` now uses `createStderrOutput()` for rendering failed events table to stderr
+
+### Added
+- Deployment start timestamp capture in `deployTemplate()` function using `deployment.DeploymentStart = time.Now()` before any AWS operations
+- Quiet mode checks in deployment progress functions (`deployChangeset()`, `createChangeset()`) to suppress informational messages when `--quiet` flag is enabled
+
 ### Added
 - Comprehensive user documentation in `docs/user-guide/` directory including:
   - Complete user guide with installation, quick start, feature overview, and best practices

@@ -40,6 +40,11 @@ func prepareDeployment() (lib.DeployInfo, config.AWSConfig, error) {
 	if err := deployFlags.Validate(); err != nil {
 		return lib.DeployInfo{}, config.AWSConfig{}, err
 	}
+
+	// Auto-enable non-interactive mode when quiet mode is enabled
+	if deployFlags.Quiet {
+		deployFlags.NonInteractive = true
+	}
 	deployment := lib.DeployInfo{StackName: deployFlags.StackName}
 	deployment.ChangesetName = deployFlags.ChangesetName
 	if deployment.ChangesetName == "" {
@@ -60,7 +65,7 @@ func prepareDeployment() (lib.DeployInfo, config.AWSConfig, error) {
 	}
 	deployment.IsDryRun = deployFlags.Dryrun
 
-	showDeploymentInfo(deployment, awsCfg)
+	showDeploymentInfo(deployment, awsCfg, deployFlags.Quiet)
 	if !deployment.IsNew {
 		deploymentName := lib.GenerateDeploymentName(awsCfg, deployment.StackName)
 		if settings.GetBool("logging.enabled") && settings.GetBool("logging.show-previous") {

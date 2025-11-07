@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"os"
 
 	output "github.com/ArjenSchwarz/go-output/v2"
 )
@@ -46,8 +47,8 @@ func formatBold(text string) string {
 // This ensures proper table separation when messages are followed by tables.
 func printMessage(message string) {
 	doc := output.New().Text(message).Build()
-	out := output.NewOutput(settings.GetOutputOptions()...)
+	out := createStderrOutput()
 	if err := out.Render(context.Background(), doc); err != nil {
-		fmt.Printf("ERROR: Failed to render message: %v\n", err)
+		fmt.Fprintf(os.Stderr, "ERROR: Failed to render message: %v\n", err)
 	}
 }

@@ -326,10 +326,10 @@ func printBasicStackInfo(deployment lib.DeployInfo, showDryRunInfo bool, awsConf
 	builder := buildBasicStackInfo(deployment, showDryRunInfo, awsConfig)
 	doc := builder.Build()
 
-	// Render using v2 Output
-	out := output.NewOutput(settings.GetOutputOptions()...)
+	// Render to stderr using createStderrOutput helper
+	out := createStderrOutput()
 	if err := out.Render(context.Background(), doc); err != nil {
-		fmt.Printf("ERROR: Failed to render stack info: %v\n", err)
+		fmt.Fprintf(os.Stderr, "ERROR: Failed to render stack info: %v\n", err)
 	}
 }
 
