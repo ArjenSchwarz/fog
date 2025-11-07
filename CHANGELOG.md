@@ -1,6 +1,26 @@
 Unreleased
 ===========
 
+### Added
+- `outputDryRunResult()` function in `cmd/deploy_output.go` to output changeset results for dry-run and create-changeset modes
+- Changeset data capture in `createAndShowChangeset()` function, storing changeset in both `CapturedChangeset` and `Changeset` fields for backwards compatibility
+- Final stack state capture in `printDeploymentResults()` function, storing in `FinalStackState` field
+- Deployment error capture in failure path, storing in `DeploymentError` field
+- Deployment end timestamp capture after deployment completes (both success and failure)
+
+### Changed
+- `createAndShowChangeset()` function now accepts `quiet` parameter to suppress stderr output when quiet mode is enabled
+- Changeset overview is now shown to stderr only when not in quiet mode
+- Dry-run mode now calls `outputDryRunResult()` for formatted output after changeset creation
+- Create-changeset mode now calls `outputDryRunResult()` for formatted output after changeset creation
+- Changeset deletion for dry-run mode now happens in main deployment flow after output generation
+- `confirmAndDeployChangeset()` function no longer handles create-changeset mode (moved to main flow)
+- Deployment flow now captures final stack state and deployment end timestamp for both success and failure paths
+
+### Fixed
+- Test `TestCreateAndShowChangeset` updated to reflect new behavior where changeset deletion is handled in main flow
+- Test `TestConfirmAndDeployChangeset` updated to remove create-changeset mode test case (now handled in main flow)
+
 ### Changed
 - Deploy command progress output (stack information, changeset overview, deployment status messages, event streaming, interactive prompts) now writes to stderr instead of stdout following Unix conventions
 - `showDeploymentInfo()` function now accepts `quiet` parameter and returns early when quiet mode is enabled, suppressing all output to stderr

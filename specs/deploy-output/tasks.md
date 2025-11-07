@@ -73,7 +73,7 @@ references:
 
 ## Phase 3: Data Capture
 
-- [ ] 12. Modify createAndShowChangeset() to capture changeset data
+- [x] 12. Modify createAndShowChangeset() to capture changeset data
   - Modify createAndShowChangeset() function to capture changeset immediately after creation
   - Store changeset in deployment.CapturedChangeset field
   - Maintain existing deployment.Changeset field for backwards compatibility
@@ -82,7 +82,7 @@ references:
   - Requirements: [12.2](requirements.md#12.2), [6.3](requirements.md#6.3)
   - References: cmd/deploy_helpers.go, lib/stacks.go, specs/deploy-output/design.md
 
-- [ ] 13. Capture deployment end timestamp and final stack state on success
+- [x] 13. Capture deployment end timestamp and final stack state on success
   - Add DeploymentEnd and FinalStackState fields to DeployInfo struct
   - Set DeploymentEnd timestamp when deployment completes successfully
   - Call getStackState() to fetch final stack information
@@ -91,7 +91,7 @@ references:
   - Requirements: [7.4](requirements.md#7.4), [12.6](requirements.md#12.6)
   - References: lib/stacks.go, cmd/deploy.go, specs/deploy-output/design.md
 
-- [ ] 14. Capture error details and stack state on deployment failure
+- [x] 14. Capture error details and stack state on deployment failure
   - Add DeploymentError field to DeployInfo struct
   - Set DeploymentError when deployment fails
   - Set DeploymentEnd timestamp on failure
@@ -101,7 +101,7 @@ references:
   - Requirements: [9.2](requirements.md#9.2), [9.4](requirements.md#9.4), [12.6](requirements.md#12.6)
   - References: lib/stacks.go, cmd/deploy.go, specs/deploy-output/design.md
 
-- [ ] 15. Create outputDryRunResult() function
+- [x] 15. Create outputDryRunResult() function
   - Create new outputDryRunResult() function in cmd/deploy_output.go
   - Call os.Stderr.Sync() to flush stderr before stdout output
   - Reuse buildAndRenderChangeset() from cmd/describe_changeset.go

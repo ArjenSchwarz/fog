@@ -125,16 +125,20 @@ func runPrechecks(info *lib.DeployInfo, logObj *lib.DeploymentLog) string {
 }
 
 // createAndShowChangeset creates a change set, displays it and
-// appends it to the deployment log. When running in dry-run mode the
-// change set is deleted again.
-func createAndShowChangeset(info *lib.DeployInfo, cfg config.AWSConfig, logObj *lib.DeploymentLog) *lib.ChangesetInfo {
+// appends it to the deployment log.
+func createAndShowChangeset(info *lib.DeployInfo, cfg config.AWSConfig, logObj *lib.DeploymentLog, quiet bool) *lib.ChangesetInfo {
 	changeset := createChangesetFunc(info, cfg)
 	logObj.AddChangeSet(changeset)
-	showChangesetFunc(*changeset, *info, cfg)
-	if info.IsDryRun {
-		printMessage(formatSuccess(string(texts.DeployChangesetMessageDryrunSuccess)))
-		deleteChangesetFunc(*info, cfg)
+
+	// Capture changeset immediately for final output
+	info.CapturedChangeset = changeset
+	info.Changeset = changeset // Maintain existing field for backwards compatibility
+
+	// Show changeset overview to stderr only when not in quiet mode
+	if !quiet {
+		showChangesetFunc(*changeset, *info, cfg)
 	}
+
 	return changeset
 }
 
@@ -142,11 +146,6 @@ func createAndShowChangeset(info *lib.DeployInfo, cfg config.AWSConfig, logObj *
 // the deployment if approved. It returns true when the stack was actually
 // deployed.
 func confirmAndDeployChangeset(changeset *lib.ChangesetInfo, info *lib.DeployInfo, cfg config.AWSConfig) bool {
-	if deployFlags.CreateChangeset {
-		printMessage(formatSuccess(string(texts.DeployChangesetMessageSuccess)))
-		printMessage(formatInfo("Only created the change set, will now terminate"))
-		return false
-	}
 	var confirm bool
 	if deployFlags.NonInteractive {
 		confirm = true
@@ -170,6 +169,10 @@ func printDeploymentResults(info *lib.DeployInfo, cfg config.AWSConfig, logObj *
 		printMessage(formatError(string(texts.DeployStackMessageRetrievePostFailed)))
 		log.Fatalln(err.Error())
 	}
+
+	// Capture final stack state for output generation
+	info.FinalStackState = &resultStack
+
 	switch resultStack.StackStatus {
 	case types.StackStatusCreateComplete, types.StackStatusUpdateComplete:
 		logObj.Success()
@@ -214,6 +217,9 @@ func printDeploymentResults(info *lib.DeployInfo, cfg config.AWSConfig, logObj *
 		}
 
 	case types.StackStatusRollbackComplete, types.StackStatusRollbackFailed, types.StackStatusUpdateRollbackComplete, types.StackStatusUpdateRollbackFailed:
+		// Capture deployment error
+		info.DeploymentError = fmt.Errorf("deployment failed with status: %s", resultStack.StackStatus)
+
 		failures := showFailedEventsFunc(*info, cfg, formatError(string(texts.DeployStackMessageFailed)))
 		logObj.Failed(failures)
 		if info.IsNew {

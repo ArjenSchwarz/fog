@@ -385,11 +385,11 @@ func TestCreateAndShowChangeset(t *testing.T) {
 		isDryRun           bool
 		expectDeleteCalled bool
 	}{
-		"dry run deletes changeset": {
+		"dry run creates changeset (deletion handled in main flow)": {
 			isDryRun:           true,
-			expectDeleteCalled: true,
+			expectDeleteCalled: false,
 		},
-		"normal run keeps changeset": {
+		"normal run creates changeset": {
 			isDryRun:           false,
 			expectDeleteCalled: false,
 		},
@@ -437,7 +437,7 @@ func TestCreateAndShowChangeset(t *testing.T) {
 			}
 			logObj := lib.DeploymentLog{}
 
-			cs := createAndShowChangeset(&info, config.AWSConfig{}, &logObj)
+			cs := createAndShowChangeset(&info, config.AWSConfig{}, &logObj, false)
 
 			if cs == nil || cs.Name != "test-changeset" {
 				t.Errorf("unexpected changeset: %+v", cs)
@@ -464,23 +464,13 @@ func TestConfirmAndDeployChangeset(t *testing.T) {
 	// t.Parallel()
 
 	tests := map[string]struct {
-		createOnly     bool
 		nonInteractive bool
 		userConfirm    bool
 		expectDeploy   bool
 		expectDelete   bool
 		expectReturn   bool
 	}{
-		"create only mode": {
-			createOnly:     true,
-			nonInteractive: false,
-			userConfirm:    false,
-			expectDeploy:   false,
-			expectDelete:   false,
-			expectReturn:   false,
-		},
 		"non-interactive auto-deploy": {
-			createOnly:     false,
 			nonInteractive: true,
 			userConfirm:    false,
 			expectDeploy:   true,
@@ -488,7 +478,6 @@ func TestConfirmAndDeployChangeset(t *testing.T) {
 			expectReturn:   true,
 		},
 		"user confirms deployment": {
-			createOnly:     false,
 			nonInteractive: false,
 			userConfirm:    true,
 			expectDeploy:   true,
@@ -496,7 +485,6 @@ func TestConfirmAndDeployChangeset(t *testing.T) {
 			expectReturn:   true,
 		},
 		"user declines deployment": {
-			createOnly:     false,
 			nonInteractive: false,
 			userConfirm:    false,
 			expectDeploy:   false,
@@ -535,8 +523,7 @@ func TestConfirmAndDeployChangeset(t *testing.T) {
 			}
 
 			deployFlags = DeployFlags{
-				CreateChangeset: tc.createOnly,
-				NonInteractive:  tc.nonInteractive,
+				NonInteractive: tc.nonInteractive,
 			}
 
 			result := confirmAndDeployChangeset(&lib.ChangesetInfo{}, &lib.DeployInfo{}, config.AWSConfig{})

@@ -93,9 +93,27 @@ func deployTemplate(cmd *cobra.Command, args []string) {
 		printMessage(precheckOutput)
 	}
 
-	changeset := createAndShowChangeset(&deployment, awsConfig, &deploymentLog)
+	changeset := createAndShowChangeset(&deployment, awsConfig, &deploymentLog, deployFlags.Quiet)
+
+	// Handle dry-run mode
+	if deployment.IsDryRun {
+		outputDryRunResult(&deployment, awsConfig)
+		// Delete changeset after output for dry-run
+		deleteChangeset(deployment, awsConfig)
+		return
+	}
+
+	// Handle create-changeset mode
+	if deployFlags.CreateChangeset {
+		outputDryRunResult(&deployment, awsConfig)
+		// Do NOT delete changeset for --create-changeset mode
+		return
+	}
+
 	if confirmAndDeployChangeset(changeset, &deployment, awsConfig) {
 		printDeploymentResults(&deployment, awsConfig, &deploymentLog)
+		// Set deployment end timestamp after deployment completes (success or failure)
+		deployment.DeploymentEnd = time.Now()
 	}
 }
 
