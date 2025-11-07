@@ -1,5 +1,5 @@
-github.com/ArjenSchwarz/go-output/v2 v2.5.0 h1:+0BHBuY/ELP0PCc4nepKQJ3BktuwJqXnktS1Nrjx8zM=
-github.com/ArjenSchwarz/go-output/v2 v2.5.0/go.mod h1:6hL6FT0dlf8taBCy2fSqLJgBdFbiTMjT2FfFm6a6t1Y=
+github.com/ArjenSchwarz/go-output/v2 v2.6.0 h1:7Ti94oTa9vOkgd91JZcMR8Bj/CDQG64nmKHn7qWaRYE=
+github.com/ArjenSchwarz/go-output/v2 v2.6.0/go.mod h1:6hL6FT0dlf8taBCy2fSqLJgBdFbiTMjT2FfFm6a6t1Y=
 github.com/aws/aws-lambda-go v1.50.0 h1:0GzY18vT4EsCvIyk3kn3ZH5Jg30NRlgYaai1w0aGPMU=
 github.com/aws/aws-lambda-go v1.50.0/go.mod h1:dpMpZgvWx5vuQJfBt0zqBha60q7Dd7RfgJv23DymV8A=
 github.com/aws/aws-sdk-go-v2 v1.39.3 h1:h7xSsanJ4EQJXG5iuW4UqgP7qBopLpj84mpkNx3wPjM=

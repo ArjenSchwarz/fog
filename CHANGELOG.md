@@ -13,6 +13,12 @@ Unreleased
   - `configuration-flow.drawio.svg` showing configuration precedence flow
 - Documentation section in main README.md with quick links to all user guides
 - "Getting Help" section in README.md with documentation links, built-in help commands, and community support information
+- Created specification for deploy command multi-format output support feature in `specs/deploy-output/`
+  - Requirements document with 13 user stories and 70+ acceptance criteria covering stream separation, output formats, quiet mode, error handling, backwards compatibility, and testing
+  - Design document with output flow diagram, dual-output architecture (stderr for progress, stdout for data), component specifications, data models, error handling strategy, and 7-phase implementation plan
+  - Decision log documenting 8 key design decisions including stream separation, format consistency, backwards compatibility acknowledgment, quiet mode behavior, and output generation error handling
+  - Task list with 40 implementation tasks organized into 7 phases: infrastructure setup, stream separation, data capture, final output builders, integration, testing, and cleanup
+- Enhanced go-output v2 API documentation with details on StderrWriter and StdoutWriter support from v2.6.0
 - Unit tests for empty changesets across all output formats (table, CSV, JSON, YAML, Markdown, HTML) verifying proper handling of zero-change scenarios with format-appropriate empty indicators
 - Unit tests for all output formats in describe changeset command covering table, CSV, JSON, YAML, Markdown, and HTML rendering
 - Unit tests for empty changeset handling across all formats
