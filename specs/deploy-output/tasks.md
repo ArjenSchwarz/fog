@@ -349,7 +349,7 @@ references:
 
 ## Phase 7: Cleanup
 
-- [ ] 37. Verify all output paths use correct streams
+- [x] 37. Verify all output paths use correct streams
   - Audit all output calls in cmd/deploy.go and cmd/deploy_helpers.go
   - Verify progress output goes to stderr using createStderrOutput()
   - Verify final formatted output goes to stdout
@@ -360,7 +360,7 @@ references:
   - Requirements: [3.1](requirements.md#3.1), [3.2](requirements.md#3.2), [3.4](requirements.md#3.4), [10.5](requirements.md#10.5)
   - References: cmd/deploy.go, cmd/deploy_helpers.go, specs/deploy-output/design.md
 
-- [ ] 38. Run go fmt on all modified files
+- [x] 38. Run go fmt on all modified files
   - Run go fmt ./cmd/... on command files
   - Run go fmt ./lib/... on library files
   - Verify all code follows Go formatting standards
@@ -368,7 +368,7 @@ references:
   - Ensure consistent spacing and indentation
   - References: cmd/, lib/
 
-- [ ] 39. Run go test ./... to verify all tests pass
+- [x] 39. Run go test ./... to verify all tests pass
   - Run go test ./... without INTEGRATION flag for unit tests
   - Run INTEGRATION=1 go test ./... for integration tests
   - Verify all unit tests pass
@@ -378,7 +378,7 @@ references:
   - Run tests with -v flag to see detailed output if needed
   - References: cmd/, lib/
 
-- [ ] 40. Run golangci-lint to ensure code quality
+- [x] 40. Run golangci-lint to ensure code quality
   - Run golangci-lint run to check for code quality issues
   - Fix any linting errors reported
   - Address any warnings that are relevant

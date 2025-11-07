@@ -2,6 +2,10 @@ Unreleased
 ===========
 
 ### Added
+- Stream separation test suite in `cmd/stream_separation_test.go` with comprehensive tests for stderr/stdout separation covering printMessage, createStderrOutput, output functions, stream separation, format helpers, quiet mode, and stderr sync behavior
+- Stream verification report documenting audit of all output paths in deploy command (`specs/deploy-output/stream_verification.md`) confirming correct stderr/stdout usage, edge cases, and providing manual verification commands
+
+### Added
 - Integration tests for deployment output scenarios in `cmd/deploy_output_integration_test.go` covering successful deployment with JSON output, failed deployment with formatted output, quiet mode, dry-run with multiple formats, and no-changes scenario
 - Unit tests for deploy output builder functions in `cmd/deploy_output_test.go` covering success, failure, and no-changes scenarios across all output formats (JSON, YAML, CSV, Markdown, table)
 - Golden file test infrastructure for deploy output validation with generator test in `cmd/generate_golden_files_test.go` and golden files in `cmd/testdata/deploy-output/`
