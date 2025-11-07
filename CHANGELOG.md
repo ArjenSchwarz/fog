@@ -13,6 +13,10 @@ Unreleased
   - `configuration-flow.drawio.svg` showing configuration precedence flow
 - Documentation section in main README.md with quick links to all user guides
 - "Getting Help" section in README.md with documentation links, built-in help commands, and community support information
+- `--quiet` flag to DeployFlags struct for suppressing progress output (stderr) while showing only final result
+- New fields to DeployInfo struct for deployment tracking: CapturedChangeset, FinalStackState, DeploymentError, DeploymentStart, and DeploymentEnd
+- `createStderrOutput()` helper function with TTY detection that conditionally enables colors and emojis based on whether stderr is a TTY, preventing ANSI codes in redirected output
+- `go-isatty` dependency (v0.0.20) for terminal detection functionality
 - Created specification for deploy command multi-format output support feature in `specs/deploy-output/`
   - Requirements document with 13 user stories and 70+ acceptance criteria covering stream separation, output formats, quiet mode, error handling, backwards compatibility, and testing
   - Design document with output flow diagram, dual-output architecture (stderr for progress, stdout for data), component specifications, data models, error handling strategy, and 7-phase implementation plan

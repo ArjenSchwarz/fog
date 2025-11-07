@@ -31,6 +31,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/mattn/go-isatty"
 	"github.com/spf13/viper"
 
 	"path/filepath"
@@ -427,3 +428,26 @@ type ReverseEvents []types.StackEvent
 func (a ReverseEvents) Len() int           { return len(a) }
 func (a ReverseEvents) Less(i, j int) bool { return a[i].Timestamp.Before(*a[j].Timestamp) }
 func (a ReverseEvents) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+
+// createStderrOutput creates an output writer for stderr with TTY detection
+// This enables conditional formatting based on whether stderr is a TTY.
+// When stderr is redirected to a file, ANSI codes are avoided.
+func createStderrOutput() *output.Output {
+	opts := []output.OutputOption{
+		output.WithFormat(output.Table()),
+		output.WithWriter(output.NewStderrWriter()),
+	}
+
+	// Only add colors and emojis if stderr is a TTY
+	// When stderr is redirected to a file, avoid ANSI codes
+	if isatty.IsTerminal(os.Stderr.Fd()) || isatty.IsCygwinTerminal(os.Stderr.Fd()) {
+		opts = append(opts,
+			output.WithTransformers(
+				&output.EnhancedEmojiTransformer{},
+				&output.EnhancedColorTransformer{},
+			),
+		)
+	}
+
+	return output.NewOutput(opts...)
+}

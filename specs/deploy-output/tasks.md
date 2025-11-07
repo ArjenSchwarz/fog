@@ -6,18 +6,18 @@ references:
 ---
 # Deploy Output Feature - Multi-Format Output Support
 
-- [ ] 1. Add go-isatty dependency for TTY detection
+- [x] 1. Add go-isatty dependency for TTY detection
   - This enables conditional formatting based on whether stderr is a TTY
 
 ## Phase 1: Infrastructure Setup
 
-- [ ] 2. Add --quiet flag to DeployFlags struct
+- [x] 2. Add --quiet flag to DeployFlags struct
 
-- [ ] 3. Register --quiet flag in deploy command
+- [x] 3. Register --quiet flag in deploy command
 
-- [ ] 4. Add new fields to DeployInfo struct for data capture
+- [x] 4. Add new fields to DeployInfo struct for data capture
 
-- [ ] 5. Create createStderrOutput() helper with TTY detection
+- [x] 5. Create createStderrOutput() helper with TTY detection
 
 ## Phase 2: Stream Separation
 
