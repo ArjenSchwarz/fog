@@ -75,8 +75,6 @@ func init() {
 }
 
 func deployTemplate(cmd *cobra.Command, args []string) {
-	viper.Set("output", "table") // Enforce table output for deployments
-
 	deployment, awsConfig, err := prepareDeployment()
 	if err != nil {
 		printMessage(formatError(err.Error()))

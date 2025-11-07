@@ -2,6 +2,7 @@ Unreleased
 ===========
 
 ### Added
+- Integration tests for deployment output scenarios in `cmd/deploy_output_integration_test.go` covering successful deployment with JSON output, failed deployment with formatted output, quiet mode, dry-run with multiple formats, and no-changes scenario
 - Unit tests for deploy output builder functions in `cmd/deploy_output_test.go` covering success, failure, and no-changes scenarios across all output formats (JSON, YAML, CSV, Markdown, table)
 - Golden file test infrastructure for deploy output validation with generator test in `cmd/generate_golden_files_test.go` and golden files in `cmd/testdata/deploy-output/`
 - Golden file tests for deployment output covering success (JSON, YAML, CSV, Markdown), failure (JSON, YAML), and no-changes (JSON) scenarios
@@ -10,6 +11,7 @@ Unreleased
 - Support for `UPDATE_GOLDEN=1` environment variable to regenerate golden files when output format changes
 
 ### Changed
+- Deploy command no longer enforces table output format, allowing users to specify output format via `--output` flag while maintaining table as default
 - `outputFailureResult()` now uses `DeploymentEnd` timestamp when available instead of always using `time.Now()` for consistent golden file testing
 
 ### Added

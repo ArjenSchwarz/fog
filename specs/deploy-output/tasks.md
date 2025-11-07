@@ -274,7 +274,7 @@ references:
   - Requirements: [7.6](requirements.md#7.6), [8.4](requirements.md#8.4), [9.6](requirements.md#9.6), [12.1](requirements.md#12.1)
   - References: cmd/deploy_output_test.go, cmd/testdata/, specs/deploy-output/design.md
 
-- [ ] 31. Write integration test for successful deployment with JSON output
+- [x] 31. Write integration test for successful deployment with JSON output
   - Create or update cmd/deploy_integration_test.go with integration build tag
   - Create test function TestDeploy_SuccessfulWithJSONOutput
   - Use mock CloudFormation client from lib/testutil
@@ -287,7 +287,7 @@ references:
   - Requirements: [1.3](requirements.md#1.3), [3.2](requirements.md#3.2), [7.1](requirements.md#7.1), [7.6](requirements.md#7.6)
   - References: cmd/deploy_integration_test.go, lib/testutil/, specs/deploy-output/design.md
 
-- [ ] 32. Write integration test for failed deployment with formatted output
+- [x] 32. Write integration test for failed deployment with formatted output
   - Create test function TestDeploy_FailureWithFormattedOutput in cmd/deploy_integration_test.go
   - Use mock CloudFormation client that simulates deployment failure
   - Set up test stack that will fail during deployment
@@ -300,7 +300,7 @@ references:
   - Requirements: [3.2](requirements.md#3.2), [9.1](requirements.md#9.1), [9.2](requirements.md#9.2), [9.6](requirements.md#9.6)
   - References: cmd/deploy_integration_test.go, lib/testutil/, specs/deploy-output/design.md
 
-- [ ] 33. Write integration test for quiet mode
+- [x] 33. Write integration test for quiet mode
   - Create test function TestDeploy_QuietMode in cmd/deploy_integration_test.go
   - Use mock CloudFormation client
   - Execute deployment with --quiet flag
@@ -313,7 +313,7 @@ references:
   - Requirements: [5.1](requirements.md#5.1), [5.2](requirements.md#5.2), [5.3](requirements.md#5.3), [5.4](requirements.md#5.4), [5.5](requirements.md#5.5), [5.6](requirements.md#5.6)
   - References: cmd/deploy_integration_test.go, specs/deploy-output/design.md
 
-- [ ] 34. Write integration test for dry-run with multiple formats
+- [x] 34. Write integration test for dry-run with multiple formats
   - Create test function TestDeploy_DryRunMultipleFormats in cmd/deploy_integration_test.go
   - Use mock CloudFormation client
   - Test dry-run with JSON, YAML, CSV, and Markdown formats
@@ -325,7 +325,7 @@ references:
   - Requirements: [6.1](requirements.md#6.1), [6.3](requirements.md#6.3), [6.5](requirements.md#6.5), [12.3](requirements.md#12.3)
   - References: cmd/deploy_integration_test.go, specs/deploy-output/design.md
 
-- [ ] 35. Write integration test for no-changes scenario
+- [x] 35. Write integration test for no-changes scenario
   - Create test function TestDeploy_NoChanges in cmd/deploy_integration_test.go
   - Use mock CloudFormation client that returns no changes
   - Execute deployment
@@ -337,7 +337,7 @@ references:
   - Requirements: [8.1](requirements.md#8.1), [8.2](requirements.md#8.2), [8.3](requirements.md#8.3), [8.5](requirements.md#8.5)
   - References: cmd/deploy_integration_test.go, specs/deploy-output/design.md
 
-- [ ] 36. Remove viper.Set("output", "table") override
+- [x] 36. Remove viper.Set("output", "table") override
   - Locate viper.Set("output", "table") call in cmd/deploy.go (around line 77)
   - Remove this override to allow user format preferences
   - Verify default format is still "table" through configuration
