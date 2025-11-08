@@ -31,10 +31,12 @@ func outputDryRunResult(deployment *lib.DeployInfo, awsConfig config.AWSConfig) 
 func outputSuccessResult(deployment *lib.DeployInfo) error {
 	// Flush stderr before stdout output
 	os.Stderr.Sync()
-	fmt.Println("\n=== Deployment Summary ===")
 
-	// Calculate duration and round to seconds
-	duration := deployment.DeploymentEnd.Sub(deployment.DeploymentStart).Round(time.Second)
+	// Calculate duration and round to seconds, handling zero times
+	var duration time.Duration
+	if !deployment.DeploymentStart.IsZero() && !deployment.DeploymentEnd.IsZero() {
+		duration = deployment.DeploymentEnd.Sub(deployment.DeploymentStart).Round(time.Second)
+	}
 
 	// Get changeset ID if available
 	changesetID := ""
@@ -42,10 +44,16 @@ func outputSuccessResult(deployment *lib.DeployInfo) error {
 		changesetID = deployment.CapturedChangeset.ID
 	}
 
+	// Get stack status, handling nil FinalStackState
+	stackStatus := ""
+	if deployment.FinalStackState != nil {
+		stackStatus = string(deployment.FinalStackState.StackStatus)
+	}
+
 	// Build deployment summary table
 	summaryData := []map[string]any{
 		{
-			"Status":     string(deployment.FinalStackState.StackStatus),
+			"Status":     stackStatus,
 			"Stack ARN":  deployment.StackArn,
 			"Changeset":  changesetID,
 			"Start Time": deployment.DeploymentStart.Format(time.RFC3339),
@@ -112,7 +120,6 @@ func outputSuccessResult(deployment *lib.DeployInfo) error {
 func outputNoChangesResult(deployment *lib.DeployInfo) error {
 	// Flush stderr before stdout output
 	os.Stderr.Sync()
-	fmt.Println("\n=== Deployment Summary ===")
 
 	// Extract last updated time from RawStack
 	var lastUpdated time.Time
@@ -202,7 +209,6 @@ func extractFailedResources(deployment *lib.DeployInfo, awsConfig config.AWSConf
 func outputFailureResult(deployment *lib.DeployInfo, awsConfig config.AWSConfig) error {
 	// Flush stderr before stdout output
 	os.Stderr.Sync()
-	fmt.Println("\n=== Deployment Summary ===")
 
 	errorMessage := "Deployment failed"
 	if deployment.DeploymentError != nil {
@@ -216,10 +222,10 @@ func outputFailureResult(deployment *lib.DeployInfo, awsConfig config.AWSConfig)
 		statusReason = aws.ToString(deployment.FinalStackState.StackStatusReason)
 	}
 
-	// Use DeploymentEnd if available, otherwise current time
-	timestamp := time.Now()
+	// Format timestamp - use DeploymentEnd if available, otherwise use "N/A"
+	timestampStr := "N/A"
 	if !deployment.DeploymentEnd.IsZero() {
-		timestamp = deployment.DeploymentEnd
+		timestampStr = deployment.DeploymentEnd.Format(time.RFC3339)
 	}
 
 	// Build stack status table
@@ -228,7 +234,7 @@ func outputFailureResult(deployment *lib.DeployInfo, awsConfig config.AWSConfig)
 			"Stack ARN":     deployment.StackArn,
 			"Status":        stackStatus,
 			"Status Reason": statusReason,
-			"Timestamp":     timestamp.Format(time.RFC3339),
+			"Timestamp":     timestampStr,
 		},
 	}
 

@@ -106,7 +106,7 @@ func TestOutputNoChangesResult_UsesStdout(t *testing.T) {
 
 	// Verify stdout contains the output
 	assert.Contains(t, stdout, "No changes to deploy")
-	assert.Contains(t, stdout, "Deployment Summary")
+	assert.Contains(t, stdout, "Stack Information")
 
 	// Verify stderr doesn't contain the final output
 	assert.NotContains(t, stderr, "No changes to deploy")
@@ -127,7 +127,7 @@ func TestOutputFailureResult_UsesStdout(t *testing.T) {
 	// Verify stdout contains the error output
 	assert.Contains(t, stdout, "Deployment failed")
 	assert.Contains(t, stdout, "test deployment error")
-	assert.Contains(t, stdout, "Deployment Summary")
+	assert.Contains(t, stdout, "Stack Status")
 
 	// Verify stderr doesn't contain the final output
 	assert.NotContains(t, stderr, "Deployment failed")

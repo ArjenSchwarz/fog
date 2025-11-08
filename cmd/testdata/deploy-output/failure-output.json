@@ -1,5 +1,3 @@
-
-=== Deployment Summary ===
 [
   {
     "content": "Deployment failed: The following resource(s) failed to create: [MyDatabase]",

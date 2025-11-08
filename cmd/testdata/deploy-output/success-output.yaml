@@ -1,5 +1,3 @@
-
-=== Deployment Summary ===
 - data:
     - Changeset: arn:aws:cloudformation:us-east-1:123456789012:changeSet/test-changeset/def456
       Duration: 5m30s

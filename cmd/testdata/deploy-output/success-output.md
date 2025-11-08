@@ -1,5 +1,3 @@
-
-=== Deployment Summary ===
 ### Deployment Summary
 
 | Status | Stack ARN | Changeset | Start Time | End Time | Duration |
