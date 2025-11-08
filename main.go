@@ -19,6 +19,18 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
+
+// Package main provides the entry point for the fog CLI tool and AWS Lambda handler.
+//
+// Fog is a command-line tool for managing AWS CloudFormation stacks. It provides
+// functionality for deploying, reporting, drift detection, and managing CloudFormation
+// resources. The application can run both as a CLI tool and as an AWS Lambda function
+// for automated reporting.
+//
+// When run as a CLI tool, fog provides various commands for stack management.
+// When deployed as a Lambda function (detected via AWS_LAMBDA_FUNCTION_NAME environment
+// variable), it processes EventBridge messages for CloudFormation events and generates
+// reports that are stored in S3.
 package main
 
 import (
@@ -29,6 +41,32 @@ import (
 	"github.com/aws/aws-lambda-go/lambda"
 )
 
+// EventBridgeMessage represents an AWS EventBridge message for CloudFormation stack events.
+//
+// This structure is used to parse EventBridge notifications when fog runs as a Lambda function.
+// It captures CloudFormation stack state changes and provides the necessary information to
+// generate deployment reports. The message follows the standard EventBridge event format
+// with CloudFormation-specific details in the Detail field.
+//
+// Example EventBridge message:
+//
+//	{
+//	  "version": "0",
+//	  "source": "aws.cloudformation",
+//	  "account": "123456789012",
+//	  "id": "abc-def-ghi",
+//	  "region": "us-east-1",
+//	  "detail-type": "CloudFormation Stack Status Change",
+//	  "time": "2024-01-01T12:00:00Z",
+//	  "resources": ["arn:aws:cloudformation:..."],
+//	  "detail": {
+//	    "stack-id": "arn:aws:cloudformation:us-east-1:123456789012:stack/my-stack/...",
+//	    "status-details": {
+//	      "status": "CREATE_COMPLETE",
+//	      "status-reason": ""
+//	    }
+//	  }
+//	}
 type EventBridgeMessage struct {
 	Version    string    `json:"version"`
 	Source     string    `json:"source"`

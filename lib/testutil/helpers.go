@@ -1,3 +1,91 @@
+// Package testutil provides testing utilities and helpers for the fog project.
+//
+// This package contains mock implementations of AWS services, test builders,
+// assertion helpers, and utilities for managing test fixtures and golden files.
+// It is designed to make testing fog's CloudFormation operations easier and more
+// consistent across the codebase.
+//
+// # Mock AWS Clients
+//
+// The package provides mock implementations for AWS service clients:
+//   - MockCFNClient: Mock CloudFormation client for stack operations
+//   - MockS3Client: Mock S3 client for template upload/download
+//   - MockEC2Client: Mock EC2 client for VPC and subnet operations
+//
+// These mocks allow testing without making actual AWS API calls and support
+// configuring responses for different test scenarios.
+//
+// # Test Builders
+//
+// Builder types provide a fluent interface for constructing test data:
+//   - StackBuilder: Create CloudFormation stack objects with custom attributes
+//   - StackEventBuilder: Create stack event objects for testing event handling
+//
+// Builders support method chaining and provide sensible defaults.
+//
+// # Assertions
+//
+// Helper functions for common test assertions:
+//   - AssertError/AssertNoError: Verify error conditions
+//   - AssertStackStatus: Check stack status values
+//   - AssertContains/AssertNotContains: String content checks
+//   - AssertEqual: Value equality checks
+//
+// These assertions provide clear, consistent error messages when tests fail.
+//
+// # Test Fixtures
+//
+// Utilities for managing test data files:
+//   - LoadFixture: Read fixture files from the testdata directory
+//   - LoadFixtureString: Read fixture files as strings
+//   - LoadJSONFixture: Load and unmarshal JSON fixtures
+//
+// # Golden Files
+//
+// Golden file testing for comparing output against expected results:
+//   - GoldenFile: Manage golden file comparisons
+//   - Assert/AssertString: Compare actual output against golden file
+//   - Update: Force update of golden files
+//
+// Golden files are stored in testdata/golden/ and can be updated with
+// the -update flag when running tests.
+//
+// # Test Context
+//
+// The TestContext type provides a standard setup for tests including:
+//   - Context with cancellation
+//   - Mock AWS clients
+//   - Golden file management
+//   - Temporary directory handling
+//
+// # Examples
+//
+// Using mock clients:
+//
+//	mockCFN := testutil.NewMockCFNClient()
+//	stack := testutil.NewStackBuilder("my-stack").WithStatus(types.StackStatusCreateComplete).Build()
+//	mockCFN.WithStack(stack)
+//
+// Using builders:
+//
+//	stack := testutil.NewStackBuilder("my-stack").
+//	    WithStatus(types.StackStatusCreateComplete).
+//	    WithTag("Environment", "test").
+//	    Build()
+//
+// Using assertions:
+//
+//	testutil.AssertNoError(t, err)
+//	testutil.AssertEqual(t, expected, actual)
+//
+// Loading fixtures:
+//
+//	data := testutil.LoadFixture(t, "testdata/sample.json")
+//
+// Using golden files:
+//
+//	gf := testutil.NewGoldenFile(t)
+//	gf.AssertString("output", actualOutput)
 package testutil
 
 import (
