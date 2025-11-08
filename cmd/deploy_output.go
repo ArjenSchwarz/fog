@@ -89,7 +89,7 @@ func outputSuccessResult(deployment *lib.DeployInfo) error {
 	}
 
 	// Build stack outputs table
-	if len(deployment.FinalStackState.Outputs) > 0 {
+	if deployment.FinalStackState != nil && len(deployment.FinalStackState.Outputs) > 0 {
 		outputsData := make([]map[string]any, 0, len(deployment.FinalStackState.Outputs))
 		for _, outputItem := range deployment.FinalStackState.Outputs {
 			description := ""

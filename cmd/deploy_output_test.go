@@ -389,10 +389,16 @@ func TestOutputBuilders_MissingFieldHandling(t *testing.T) {
 		viper.Set("output", "json")
 		defer viper.Reset()
 
-		// This should panic or error because FinalStackState is required
-		assert.Panics(t, func() {
-			_ = outputSuccessResult(deployment)
+		// Should handle gracefully with empty status and no outputs
+		output := captureStdout(func() {
+			err := outputSuccessResult(deployment)
+			assert.NoError(t, err)
 		})
+
+		assert.Contains(t, output, "Deployment Summary")
+		assert.Contains(t, output, "Planned Changes")
+		// Should not contain Stack Outputs section since FinalStackState is nil
+		assert.NotContains(t, output, "Stack Outputs")
 	})
 
 	t.Run("no changes without RawStack", func(t *testing.T) {

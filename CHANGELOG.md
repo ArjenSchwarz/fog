@@ -3,7 +3,7 @@ Unreleased
 
 ### Fixed
 - Removed hardcoded `=== Deployment Summary ===` headers from deploy output functions that were breaking JSON/YAML parsing
-- Added nil check for `FinalStackState` to prevent potential nil pointer dereference in success output
+- Added nil checks for `FinalStackState` before accessing `StackStatus` and `Outputs` to prevent potential nil pointer dereference in success output
 - Improved duration calculation with zero-time validation to avoid incorrect time calculations
 - Changed failure output timestamp handling to use "N/A" instead of `time.Now()` when `DeploymentEnd` is not available for more accurate output
 
