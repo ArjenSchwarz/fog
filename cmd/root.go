@@ -32,7 +32,7 @@ THE SOFTWARE.
 //   - services/: Business logic services (deployment, AWS operations)
 //   - ui/: Output formatting and user interaction
 //
-// Commands
+// # Commands
 //
 // The CLI provides commands organized into logical groups:
 //
@@ -43,7 +43,7 @@ THE SOFTWARE.
 // Many commonly-used subcommands have root-level aliases for convenience
 // (e.g., 'fog deploy' is an alias for 'fog stack deploy').
 //
-// Configuration
+// # Configuration
 //
 // The package uses Viper for configuration management, supporting:
 //
@@ -62,13 +62,13 @@ THE SOFTWARE.
 //   - --timezone: Set timezone for time display
 //   - --debug: Enable debug mode
 //
-// Error Handling
+// # Error Handling
 //
 // Commands use a structured error system with FogError types that provide
 // consistent error codes and categories. Errors are handled through middleware
 // that formats them appropriately for CLI output.
 //
-// Examples
+// # Examples
 //
 // Deploy a stack:
 //

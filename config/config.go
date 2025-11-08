@@ -4,7 +4,7 @@
 // configuration files, managing AWS settings, and providing a unified interface
 // for accessing configuration values throughout the application.
 //
-// Configuration Sources
+// # Configuration Sources
 //
 // The package supports multiple configuration sources with the following precedence
 // (highest to lowest):
@@ -13,7 +13,7 @@
 //   - Configuration files (fog.yaml, fog.json, fog.toml)
 //   - Default values
 //
-// Configuration Files
+// # Configuration Files
 //
 // Fog looks for configuration files in the following locations:
 //   - Current directory: ./fog.yaml, ./fog.json, ./fog.toml
@@ -29,14 +29,14 @@
 //   - Logging configuration
 //   - Table display options
 //
-// AWS Configuration
+// # AWS Configuration
 //
 // AWS-specific settings are managed through the AWSConfig type and include:
 //   - Profile selection for AWS credentials
 //   - Region override for API calls
 //   - Retry and timeout configurations
 //
-// Configuration Values
+// # Configuration Values
 //
 // The Config type provides methods to retrieve configuration values with
 // type safety and default handling:
@@ -46,7 +46,7 @@
 //   - GetStringSlice: Array values
 //   - GetStringMap/GetStringMapString: Map values
 //
-// Examples
+// # Examples
 //
 // Reading a string configuration value:
 //

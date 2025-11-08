@@ -4,7 +4,7 @@
 // including stack operations, changeset management, drift detection, resource tracking,
 // and template processing. It serves as the foundation for the fog CLI tool.
 //
-// Core Components
+// # Core Components
 //
 // Stack Operations:
 //   - Stack creation, updates, and deletion
@@ -41,7 +41,7 @@
 //   - EC2: VPC, subnet, and transit gateway operations
 //   - Identity Center: Permission set management
 //
-// Data Types
+// # Data Types
 //
 // Key types defined in this package:
 //   - DeployInfo: Complete deployment configuration and state
@@ -51,12 +51,12 @@
 //   - CfnResource: CloudFormation resource with status and properties
 //   - StackDeploymentFile: Deployment file configuration
 //
-// Error Handling
+// # Error Handling
 //
 // Functions return standard Go errors. AWS API errors are propagated with
 // appropriate context. Callers should check errors and handle them appropriately.
 //
-// Examples
+// # Examples
 //
 // Get a stack:
 //

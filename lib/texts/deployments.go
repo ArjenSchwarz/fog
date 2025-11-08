@@ -5,7 +5,7 @@
 // update text content. Messages are organized by category and use typed constants
 // for type safety.
 //
-// Message Categories
+// # Message Categories
 //
 // The package defines several message type categories:
 //
@@ -17,7 +17,7 @@
 // Each category is represented by a custom type, and individual messages are defined
 // as constants of that type.
 //
-// Usage
+// # Usage
 //
 // Messages are designed to be used directly in code where user-facing text is needed:
 //
@@ -27,7 +27,7 @@
 // Some messages contain format specifiers (e.g., %v) and should be used with
 // string formatting functions like fmt.Printf or fmt.Sprintf.
 //
-// Design Rationale
+// # Design Rationale
 //
 // Centralizing messages in this package provides several benefits:
 //   - Consistency: All similar messages use the same wording
@@ -36,7 +36,7 @@
 //   - Discoverability: All messages for a category are grouped together
 //   - i18n Ready: Centralized messages make future internationalization easier
 //
-// Examples
+// # Examples
 //
 // Using a simple message:
 //

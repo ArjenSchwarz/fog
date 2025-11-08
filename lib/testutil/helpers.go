@@ -5,7 +5,7 @@
 // It is designed to make testing fog's CloudFormation operations easier and more
 // consistent across the codebase.
 //
-// Mock AWS Clients
+// # Mock AWS Clients
 //
 // The package provides mock implementations for AWS service clients:
 //   - MockCFNClient: Mock CloudFormation client for stack operations
@@ -15,7 +15,7 @@
 // These mocks allow testing without making actual AWS API calls and support
 // configuring responses for different test scenarios.
 //
-// Test Builders
+// # Test Builders
 //
 // Builder types provide a fluent interface for constructing test data:
 //   - StackBuilder: Create CloudFormation stack objects with custom attributes
@@ -24,7 +24,7 @@
 //
 // Builders support method chaining and provide sensible defaults.
 //
-// Assertions
+// # Assertions
 //
 // Helper functions for common test assertions:
 //   - AssertError/AssertNoError: Verify error conditions
@@ -34,14 +34,14 @@
 //
 // These assertions provide clear, consistent error messages when tests fail.
 //
-// Test Fixtures
+// # Test Fixtures
 //
 // Utilities for managing test data files:
 //   - LoadFixture: Read fixture files from the testdata directory
 //   - SaveFixture: Write test data for debugging
 //   - FixturePath: Resolve paths to fixture files
 //
-// Golden Files
+// # Golden Files
 //
 // Golden file testing for comparing output against expected results:
 //   - GoldenFile: Manage golden file comparisons
@@ -51,7 +51,7 @@
 // Golden files are stored in testdata/golden/ and can be updated with
 // the -update flag when running tests.
 //
-// Test Context
+// # Test Context
 //
 // The TestContext type provides a standard setup for tests including:
 //   - Context with cancellation
@@ -59,7 +59,7 @@
 //   - Golden file management
 //   - Temporary directory handling
 //
-// Examples
+// # Examples
 //
 // Using mock clients:
 //
