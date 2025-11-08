@@ -20,7 +20,6 @@
 // Builder types provide a fluent interface for constructing test data:
 //   - StackBuilder: Create CloudFormation stack objects with custom attributes
 //   - StackEventBuilder: Create stack event objects for testing event handling
-//   - ChangesetBuilder: Create changeset objects for deployment tests
 //
 // Builders support method chaining and provide sensible defaults.
 //
@@ -38,15 +37,15 @@
 //
 // Utilities for managing test data files:
 //   - LoadFixture: Read fixture files from the testdata directory
-//   - SaveFixture: Write test data for debugging
-//   - FixturePath: Resolve paths to fixture files
+//   - LoadFixtureString: Read fixture files as strings
+//   - LoadJSONFixture: Load and unmarshal JSON fixtures
 //
 // # Golden Files
 //
 // Golden file testing for comparing output against expected results:
 //   - GoldenFile: Manage golden file comparisons
-//   - UpdateGolden: Update golden files when output changes
-//   - CompareGolden: Compare actual output against golden file
+//   - Assert/AssertString: Compare actual output against golden file
+//   - Update: Force update of golden files
 //
 // Golden files are stored in testdata/golden/ and can be updated with
 // the -update flag when running tests.
@@ -63,19 +62,15 @@
 //
 // Using mock clients:
 //
-//	mockCFN := &testutil.MockCFNClient{
-//	    DescribeStacksFunc: func(ctx context.Context, params *cloudformation.DescribeStacksInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStacksOutput, error) {
-//	        return &cloudformation.DescribeStacksOutput{
-//	            Stacks: []types.Stack{/* ... */},
-//	        }, nil
-//	    },
-//	}
+//	mockCFN := testutil.NewMockCFNClient()
+//	stack := testutil.NewStackBuilder("my-stack").WithStatus(types.StackStatusCreateComplete).Build()
+//	mockCFN.WithStack(stack)
 //
 // Using builders:
 //
-//	stack := testutil.NewStackBuilder().
-//	    WithName("my-stack").
+//	stack := testutil.NewStackBuilder("my-stack").
 //	    WithStatus(types.StackStatusCreateComplete).
+//	    WithTag("Environment", "test").
 //	    Build()
 //
 // Using assertions:
@@ -83,10 +78,14 @@
 //	testutil.AssertNoError(t, err)
 //	testutil.AssertEqual(t, expected, actual)
 //
+// Loading fixtures:
+//
+//	data := testutil.LoadFixture(t, "testdata/sample.json")
+//
 // Using golden files:
 //
-//	gf := testutil.NewGoldenFile(t, "output.json")
-//	gf.Compare(actualOutput)
+//	gf := testutil.NewGoldenFile(t)
+//	gf.AssertString("output", actualOutput)
 package testutil
 
 import (

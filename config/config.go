@@ -55,7 +55,8 @@
 //
 // Getting AWS configuration:
 //
-//	awsCfg, err := config.DefaultAwsConfig(ctx, profile, region)
+//	cfg := &config.Config{}
+//	awsCfg, err := config.DefaultAwsConfig(*cfg)
 //	if err != nil {
 //	    log.Fatal(err)
 //	}

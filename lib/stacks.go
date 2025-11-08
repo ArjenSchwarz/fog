@@ -60,24 +60,29 @@
 //
 // Get a stack:
 //
-//	stack, err := lib.GetStack(ctx, client, "my-stack")
+//	stackName := aws.String("my-stack")
+//	stack, err := lib.GetStack(stackName, cfnClient)
 //	if err != nil {
 //	    log.Fatal(err)
 //	}
 //
 // Create a changeset:
 //
-//	changesetID, err := lib.CreateChangeSet(ctx, client, deployInfo)
+//	deployment := &lib.DeployInfo{
+//	    StackName: "my-stack",
+//	    Template:  templateContent,
+//	}
+//	changesetID, err := deployment.CreateChangeSet(cfnClient)
 //	if err != nil {
 //	    log.Fatal(err)
 //	}
 //
 // Detect drift:
 //
-//	driftInfo, err := lib.GetDrift(ctx, client, "my-stack")
-//	if err != nil {
-//	    log.Fatal(err)
-//	}
+//	stackName := aws.String("my-stack")
+//	driftID := lib.StartDriftDetection(stackName, cfnClient)
+//	status := lib.WaitForDriftDetectionToFinish(driftID, cfnClient)
+//	drifts := lib.GetDefaultStackDrift(stackName, cfnClient)
 package lib
 
 import (
