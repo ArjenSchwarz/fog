@@ -610,8 +610,12 @@ func isEventStart(eventName string) bool {
 
 // createNewStackEvent creates a new StackEvent from a CloudFormation event
 func createNewStackEvent(event types.StackEvent) StackEvent {
+	var startDate time.Time
+	if event.Timestamp != nil {
+		startDate = *event.Timestamp
+	}
 	stackEvent := StackEvent{
-		StartDate:  *event.Timestamp,
+		StartDate:  startDate,
 		Milestones: map[time.Time]string{},
 	}
 	stackEvent.Type = determineStackEventType(string(event.ResourceStatus))
@@ -638,7 +642,9 @@ func determineStackEventType(status string) string {
 func finalizeStackEvent(event types.StackEvent, stackEvent StackEvent,
 	resources map[string]ResourceEvent, stackEvents []StackEvent) (StackEvent, []StackEvent) {
 
-	stackEvent.EndDate = *event.Timestamp
+	if event.Timestamp != nil {
+		stackEvent.EndDate = *event.Timestamp
+	}
 	resourceSlice := make([]ResourceEvent, 0)
 	for _, revent := range resources {
 		resourceSlice = append(resourceSlice, revent)

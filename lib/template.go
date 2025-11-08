@@ -452,9 +452,18 @@ func extractPortRange(properties map[string]any) *types.PortRange {
 		return nil
 	}
 
-	ports := properties["PortRange"].(map[string]any)
+	ports, ok := properties["PortRange"].(map[string]any)
+	if !ok {
+		return nil
+	}
+
 	fromport := extractInt32Value(ports["From"])
 	toport := extractInt32Value(ports["To"])
+
+	// Validate that we have meaningful port values
+	if fromport == 0 && toport == 0 && ports["From"] == nil && ports["To"] == nil {
+		return nil
+	}
 
 	return &types.PortRange{
 		From: &fromport,
@@ -468,7 +477,11 @@ func extractIcmpTypeCode(properties map[string]any) *types.IcmpTypeCode {
 		return nil
 	}
 
-	icmptypecodedata := properties["Icmp"].(map[string]any)
+	icmptypecodedata, ok := properties["Icmp"].(map[string]any)
+	if !ok {
+		return nil
+	}
+
 	icmpcode := extractInt32Value(icmptypecodedata["Code"])
 	icmptype := extractInt32Value(icmptypecodedata["Type"])
 
