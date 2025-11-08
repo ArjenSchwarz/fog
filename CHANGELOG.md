@@ -6,6 +6,7 @@ Unreleased
 - Added nil checks for `FinalStackState` before accessing `StackStatus` and `Outputs` to prevent potential nil pointer dereference in success output
 - Improved duration calculation with zero-time validation to avoid incorrect time calculations
 - Changed failure output timestamp handling to use "N/A" instead of `time.Now()` when `DeploymentEnd` is not available for more accurate output
+- Replaced deprecated `github.com/mitchellh/go-homedir` dependency with standard library `os.UserHomeDir()` (Audit Issue 11.1)
 
 ## BREAKING CHANGES
 
