@@ -344,14 +344,14 @@ func FilterRoutesByLogicalId(logicalId string, template CfnTemplateBody, params 
 // NaclResourceToNaclEntry converts a CloudFormation NACL resource to an EC2 NetworkAclEntry
 func NaclResourceToNaclEntry(resource CfnTemplateResource, params []cfntypes.Parameter) types.NetworkAclEntry {
 	protocol := extractProtocol(resource.Properties)
-	rulenr := int32(resource.Properties["RuleNumber"].(float64))
+	rulenr := extractRuleNumber(resource.Properties)
 	cidrblock := extractCidrBlock(resource.Properties, "CidrBlock", params)
 	ipv6cidrblock := ""
 	if cidrblock == "" {
 		ipv6cidrblock = extractCidrBlock(resource.Properties, "Ipv6CidrBlock", params)
 	}
 	ruleaction := extractRuleAction(resource.Properties)
-	egress := resource.Properties["Egress"].(bool)
+	egress := extractEgressFlag(resource.Properties)
 
 	result := types.NetworkAclEntry{
 		Egress:     &egress,
@@ -374,6 +374,22 @@ func NaclResourceToNaclEntry(resource CfnTemplateResource, params []cfntypes.Par
 	}
 
 	return result
+}
+
+// extractRuleNumber safely extracts the rule number from NACL properties
+func extractRuleNumber(properties map[string]any) int32 {
+	if ruleNum, ok := properties["RuleNumber"].(float64); ok {
+		return int32(ruleNum)
+	}
+	return 0
+}
+
+// extractEgressFlag safely extracts the egress flag from NACL properties
+func extractEgressFlag(properties map[string]any) bool {
+	if egress, ok := properties["Egress"].(bool); ok {
+		return egress
+	}
+	return false
 }
 
 // extractProtocol extracts the protocol from NACL properties
@@ -422,9 +438,10 @@ func resolveParameterValue(refname string, params []cfntypes.Parameter) string {
 
 // extractRuleAction extracts the rule action from NACL properties
 func extractRuleAction(properties map[string]any) types.RuleAction {
-	ruleactionprop := properties["RuleAction"].(string)
-	if ruleactionprop == string(types.RuleActionDeny) {
-		return types.RuleActionDeny
+	if ruleactionprop, ok := properties["RuleAction"].(string); ok {
+		if ruleactionprop == string(types.RuleActionDeny) {
+			return types.RuleActionDeny
+		}
 	}
 	return types.RuleActionAllow
 }

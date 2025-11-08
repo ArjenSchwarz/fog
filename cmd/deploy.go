@@ -181,14 +181,28 @@ func calculateTemplateLocalPath(path string) string {
 
 	if cfgFile != "" {
 		confdir := filepath.Dir(cfgFile)
-		confpath, _ = filepath.Abs(fmt.Sprintf("%s%s%s", confdir, string(os.PathSeparator), viper.GetString("rootdir")))
+		confpath, err = filepath.Abs(fmt.Sprintf("%s%s%s", confdir, string(os.PathSeparator), viper.GetString("rootdir")))
+		if err != nil {
+			log.Printf("Warning: failed to get absolute config path: %v", err)
+			return path
+		}
 	} else {
-		confpath, _ = filepath.Abs(viper.GetString("rootdir"))
+		confpath, err = filepath.Abs(viper.GetString("rootdir"))
+		if err != nil {
+			log.Printf("Warning: failed to get absolute root path: %v", err)
+			return path
+		}
 	}
 
-	localpath, _ = filepath.Abs(path)
+	localpath, err = filepath.Abs(path)
+	if err != nil {
+		log.Printf("Warning: failed to get absolute path for template: %v", err)
+		return path
+	}
+
 	relativePath, err := filepath.Rel(confpath, localpath)
 	if err != nil {
+		log.Printf("Warning: failed to calculate relative path: %v", err)
 		return path
 	}
 	return relativePath

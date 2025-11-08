@@ -597,7 +597,9 @@ func handleStackLevelEvent(event types.StackEvent, eventName string, stackEvent 
 		stackEvent, stackEvents = finalizeStackEvent(event, stackEvent, resources, stackEvents)
 		eventName = string(event.ResourceStatus)
 	}
-	stackEvent.Milestones[*event.Timestamp] = string(event.ResourceStatus)
+	if event.Timestamp != nil {
+		stackEvent.Milestones[*event.Timestamp] = string(event.ResourceStatus)
+	}
 	return stackEvent, resources, eventName, stackEvents
 }
 
@@ -729,7 +731,9 @@ func determineResourceEventType(status, resourceName string) (string, string) {
 func updateExistingResourceEvent(resource ResourceEvent, event types.StackEvent,
 	name string, finishedEvents, failedEvents []string) (ResourceEvent, []string, []string) {
 
-	resource.EndDate = *event.Timestamp
+	if event.Timestamp != nil {
+		resource.EndDate = *event.Timestamp
+	}
 	resource.EndStatus = string(event.ResourceStatus)
 
 	if strings.Contains(string(event.ResourceStatus), "COMPLETE") {
@@ -737,12 +741,15 @@ func updateExistingResourceEvent(resource ResourceEvent, event types.StackEvent,
 	}
 	if strings.Contains(string(event.ResourceStatus), "FAILED") {
 		failedEvents = append(failedEvents, name)
-		resource.EndStatusReason = *event.ResourceStatusReason
+		resource.EndStatusReason = aws.ToString(event.ResourceStatusReason)
 	}
 
 	resource.Resource.ResourceID = updateResourceId(
 		resource.Resource.ResourceID,
 		aws.ToString(event.PhysicalResourceId))
+
+	// Append event to RawInfo for audit trail
+	resource.RawInfo = append(resource.RawInfo, event)
 
 	return resource, finishedEvents, failedEvents
 }
