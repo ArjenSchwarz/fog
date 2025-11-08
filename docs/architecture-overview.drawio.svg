@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="800" height="600" viewBox="0 0 800 600">
+  <defs>
+    <style>
+      .title { font-family: Arial, sans-serif; font-size: 20px; font-weight: bold; fill: #333; }
+      .heading { font-family: Arial, sans-serif; font-size: 14px; font-weight: bold; fill: #333; }
+      .text { font-family: Arial, sans-serif; font-size: 12px; fill: #333; }
+      .box { fill: #e1f5fe; stroke: #0277bd; stroke-width: 2; }
+      .layer-box { fill: #fff3e0; stroke: #e65100; stroke-width: 2; }
+      .component-box { fill: #f1f8e9; stroke: #558b2f; stroke-width: 2; }
+      .arrow { stroke: #666; stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
+      .label { font-family: Arial, sans-serif; font-size: 11px; fill: #666; }
+    </style>
+    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#666" />
+    </marker>
+  </defs>
+
+  <!-- Title -->
+  <text x="400" y="30" text-anchor="middle" class="title">Fog Architecture Overview</text>
+
+  <!-- User Layer -->
+  <rect x="50" y="60" width="700" height="80" class="box" rx="5"/>
+  <text x="400" y="85" text-anchor="middle" class="heading">User Interface Layer</text>
+
+  <rect x="80" y="95" width="150" height="35" class="component-box" rx="3"/>
+  <text x="155" y="118" text-anchor="middle" class="text">CLI Commands</text>
+
+  <rect x="250" y="95" width="150" height="35" class="component-box" rx="3"/>
+  <text x="325" y="118" text-anchor="middle" class="text">Flags &amp; Arguments</text>
+
+  <rect x="420" y="95" width="150" height="35" class="component-box" rx="3"/>
+  <text x="495" y="118" text-anchor="middle" class="text">Output Formatting</text>
+
+  <rect x="590" y="95" width="140" height="35" class="component-box" rx="3"/>
+  <text x="660" y="118" text-anchor="middle" class="text">Config Files</text>
+
+  <!-- Command Layer -->
+  <rect x="50" y="160" width="700" height="120" class="layer-box" rx="5"/>
+  <text x="400" y="185" text-anchor="middle" class="heading">Command Layer (cmd/)</text>
+
+  <rect x="80" y="200" width="100" height="35" class="component-box" rx="3"/>
+  <text x="130" y="223" text-anchor="middle" class="text">deploy</text>
+
+  <rect x="200" y="200" width="100" height="35" class="component-box" rx="3"/>
+  <text x="250" y="223" text-anchor="middle" class="text">report</text>
+
+  <rect x="320" y="200" width="100" height="35" class="component-box" rx="3"/>
+  <text x="370" y="223" text-anchor="middle" class="text">drift</text>
+
+  <rect x="440" y="200" width="100" height="35" class="component-box" rx="3"/>
+  <text x="490" y="223" text-anchor="middle" class="text">exports</text>
+
+  <rect x="560" y="200" width="100" height="35" class="component-box" rx="3"/>
+  <text x="610" y="223" text-anchor="middle" class="text">resources</text>
+
+  <rect x="200" y="240" width="100" height="35" class="component-box" rx="3"/>
+  <text x="250" y="263" text-anchor="middle" class="text">Middleware</text>
+
+  <rect x="320" y="240" width="100" height="35" class="component-box" rx="3"/>
+  <text x="370" y="263" text-anchor="middle" class="text">Registry</text>
+
+  <!-- Service Layer -->
+  <rect x="50" y="300" width="700" height="100" class="layer-box" rx="5"/>
+  <text x="400" y="325" text-anchor="middle" class="heading">Service Layer (cmd/services/)</text>
+
+  <rect x="80" y="340" width="140" height="35" class="component-box" rx="3"/>
+  <text x="150" y="363" text-anchor="middle" class="text">Deployment Service</text>
+
+  <rect x="240" y="340" width="140" height="35" class="component-box" rx="3"/>
+  <text x="310" y="363" text-anchor="middle" class="text">AWS Clients</text>
+
+  <rect x="400" y="340" width="140" height="35" class="component-box" rx="3"/>
+  <text x="470" y="363" text-anchor="middle" class="text">Template Processing</text>
+
+  <rect x="560" y="340" width="140" height="35" class="component-box" rx="3"/>
+  <text x="630" y="363" text-anchor="middle" class="text">Validation</text>
+
+  <!-- Core Library Layer -->
+  <rect x="50" y="420" width="700" height="100" class="layer-box" rx="5"/>
+  <text x="400" y="445" text-anchor="middle" class="heading">Core Library (lib/)</text>
+
+  <rect x="80" y="460" width="100" height="35" class="component-box" rx="3"/>
+  <text x="130" y="483" text-anchor="middle" class="text">Stacks</text>
+
+  <rect x="200" y="460" width="100" height="35" class="component-box" rx="3"/>
+  <text x="250" y="483" text-anchor="middle" class="text">Changesets</text>
+
+  <rect x="320" y="460" width="100" height="35" class="component-box" rx="3"/>
+  <text x="370" y="483" text-anchor="middle" class="text">Drift</text>
+
+  <rect x="440" y="460" width="100" height="35" class="component-box" rx="3"/>
+  <text x="490" y="483" text-anchor="middle" class="text">Resources</text>
+
+  <rect x="560" y="460" width="100" height="35" class="component-box" rx="3"/>
+  <text x="610" y="483" text-anchor="middle" class="text">Exports</text>
+
+  <!-- AWS Layer -->
+  <rect x="50" y="540" width="700" height="50" class="box" rx="5"/>
+  <text x="400" y="570" text-anchor="middle" class="heading">AWS CloudFormation Service</text>
+
+  <!-- Arrows -->
+  <path d="M 155 130 L 155 200" class="arrow"/>
+  <path d="M 325 130 L 325 200" class="arrow"/>
+  <path d="M 495 130 L 495 200" class="arrow"/>
+
+  <path d="M 250 235 L 250 300" class="arrow"/>
+  <path d="M 370 235 L 370 300" class="arrow"/>
+
+  <path d="M 150 375 L 150 420" class="arrow"/>
+  <path d="M 310 375 L 310 420" class="arrow"/>
+  <path d="M 470 375 L 470 420" class="arrow"/>
+
+  <path d="M 130 495 L 130 540" class="arrow"/>
+  <path d="M 250 495 L 250 540" class="arrow"/>
+  <path d="M 370 495 L 370 540" class="arrow"/>
+  <path d="M 490 495 L 490 540" class="arrow"/>
+  <path d="M 610 495 L 610 540" class="arrow"/>
+
+  <!-- Side annotations -->
+  <text x="20" y="100" class="label">User</text>
+  <text x="20" y="220" class="label">Commands</text>
+  <text x="20" y="360" class="label">Services</text>
+  <text x="20" y="480" class="label">Core</text>
+  <text x="20" y="565" class="label">AWS</text>
+</svg>
