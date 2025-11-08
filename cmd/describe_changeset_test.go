@@ -928,8 +928,8 @@ func TestOutputFormats_EmptyChangeset(t *testing.T) {
 					t.Error("Output should contain stack name")
 				}
 				// Empty changesets add text message for table format
-				if !contains(output, "No changes to resources") {
-					t.Error("Table output should contain 'No changes to resources' message")
+				if !contains(output, "no resource changes") {
+					t.Error("Table output should contain 'no resource changes' message")
 				}
 			},
 		},
@@ -1003,8 +1003,8 @@ func TestOutputFormats_EmptyChangeset(t *testing.T) {
 					t.Error("Markdown output should contain table formatting")
 				}
 				// Empty changesets add text message
-				if !contains(output, "No changes to resources") {
-					t.Error("Markdown output should contain 'No changes to resources' message")
+				if !contains(output, "no resource changes") {
+					t.Error("Markdown output should contain 'no resource changes' message")
 				}
 			},
 		},
@@ -1023,8 +1023,8 @@ func TestOutputFormats_EmptyChangeset(t *testing.T) {
 					t.Error("HTML output should contain table tags")
 				}
 				// Empty changesets add text message
-				if !contains(output, "No changes to resources") {
-					t.Error("HTML output should contain 'No changes to resources' message")
+				if !contains(output, "no resource changes") {
+					t.Error("HTML output should contain 'no resource changes' message")
 				}
 			},
 		},

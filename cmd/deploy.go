@@ -110,8 +110,6 @@ func deployTemplate(cmd *cobra.Command, args []string) {
 
 	if confirmAndDeployChangeset(changeset, &deployment, awsConfig) {
 		printDeploymentResults(&deployment, awsConfig, &deploymentLog)
-		// Set deployment end timestamp after deployment completes (success or failure)
-		deployment.DeploymentEnd = time.Now()
 	}
 }
 
@@ -475,7 +473,7 @@ func (a ReverseEvents) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 // When stderr is redirected to a file, ANSI codes are avoided.
 func createStderrOutput() *output.Output {
 	opts := []output.OutputOption{
-		output.WithFormat(output.Table()),
+		output.WithFormat(settings.GetTableFormat()),
 		output.WithWriter(output.NewStderrWriter()),
 	}
 

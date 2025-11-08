@@ -67,14 +67,14 @@ const (
 	DeployChangesetMessageDeleteConfirm     DeployChangesetMessage = "Do you want to delete this change set?"
 	DeployChangesetMessageDeleteFailed      DeployChangesetMessage = "Something went wrong while trying to delete the change set"
 	DeployChangesetMessageDeployConfirm     DeployChangesetMessage = "Do you want to deploy this change set?"
-	DeployChangesetMessageWillDeploy        DeployChangesetMessage = "OK. Deploying this Changeset."
+	DeployChangesetMessageWillDeploy        DeployChangesetMessage = "Deploying this Changeset."
 	DeployChangesetMessageDryrunDelete      DeployChangesetMessage = "Dry run: Automatically deleting the change set for you."
 	DeployChangesetMessageDryrunSuccess     DeployChangesetMessage = "Dry run: Change set has been successfully created."
 	DeployChangesetMessageSuccess           DeployChangesetMessage = "Change set has been successfully created."
-	DeployChangesetMessageNoChanges         DeployChangesetMessage = "No changes have been found in the change set for %v"
-	DeployChangesetMessageNoResourceChanges DeployChangesetMessage = "No changes to resources have been found, but there are still changes to other parts of the stack"
+	DeployChangesetMessageNoChanges         DeployChangesetMessage = "The change set for %v contains no changes"
+	DeployChangesetMessageNoResourceChanges DeployChangesetMessage = "The change set contains no resource changes, but there are still changes to other parts of the stack"
 	DeployChangesetMessageChanges           DeployChangesetMessage = "Changes found in change set"
-	DeployChangesetMessageWillDelete        DeployChangesetMessage = "OK. I will now delete this change set for you."
+	DeployChangesetMessageWillDelete        DeployChangesetMessage = "Deleting this change set for you."
 )
 
 // DeployStackMessage represents deployment stack message types
@@ -84,7 +84,7 @@ type DeployStackMessage string
 const (
 	DeployStackMessageNewStackDryrunDelete  DeployStackMessage = "Dry run: Automatically deleting the empty stack for you."
 	DeployStackMessageNewStackAutoDelete    DeployStackMessage = "Non-interactive mode: Automatically deleting the empty stack for you."
-	DeployStackMessageNewStackDeleteSuccess DeployStackMessage = "OK. I have deleted the stack. You can try to deploy it again."
+	DeployStackMessageNewStackDeleteSuccess DeployStackMessage = "The stack has been deleted. You can try to deploy it again."
 	DeployStackMessageNewStackDeleteInfo    DeployStackMessage = "It looks like this was a new stack and doesn't have any resources. You can't deploy a stack with the same name until this one has been deleted."
 	DeployStackMessageSuccess               DeployStackMessage = "Deployment completed successfully."
 	DeployStackMessageFailed                DeployStackMessage = "The deployment had a problem, please look at the error messages below to figure out what happened."

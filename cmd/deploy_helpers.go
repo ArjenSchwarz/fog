@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/ArjenSchwarz/fog/config"
 	"github.com/ArjenSchwarz/fog/lib"
@@ -65,12 +66,12 @@ func prepareDeployment() (lib.DeployInfo, config.AWSConfig, error) {
 	deployment.IsDryRun = deployFlags.Dryrun
 
 	showDeploymentInfo(deployment, awsCfg, deployFlags.Quiet)
-	if !deployment.IsNew {
+	if !deployment.IsNew && !deployFlags.Quiet {
 		deploymentName := lib.GenerateDeploymentName(awsCfg, deployment.StackName)
 		if settings.GetBool("logging.enabled") && settings.GetBool("logging.show-previous") {
 			log := lib.GetLatestSuccessFulLogByDeploymentName(deploymentName)
 			if log.DeploymentName != "" {
-				printLog(log, formatInfo("Previous deployment found:"))
+				printLog(log, true, formatInfo("Previous deployment found:"))
 			}
 		}
 	}
@@ -162,6 +163,9 @@ func confirmAndDeployChangeset(changeset *lib.ChangesetInfo, info *lib.DeployInf
 // printDeploymentResults fetches the final stack state and prints the
 // results. Success or failure information is written to the deployment log.
 func printDeploymentResults(info *lib.DeployInfo, cfg config.AWSConfig, logObj *lib.DeploymentLog) {
+	// Set deployment end timestamp before generating output
+	info.DeploymentEnd = time.Now()
+
 	svc := getCfnClient(cfg)
 	resultStack, err := getFreshStackFunc(info, svc)
 	if err != nil {

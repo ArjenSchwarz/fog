@@ -32,8 +32,8 @@ func outputSuccessResult(deployment *lib.DeployInfo) error {
 	os.Stderr.Sync()
 	fmt.Println("\n=== Deployment Summary ===")
 
-	// Calculate duration
-	duration := deployment.DeploymentEnd.Sub(deployment.DeploymentStart)
+	// Calculate duration and round to seconds
+	duration := deployment.DeploymentEnd.Sub(deployment.DeploymentStart).Round(time.Second)
 
 	// Get changeset ID if available
 	changesetID := ""
@@ -128,12 +128,18 @@ func outputNoChangesResult(deployment *lib.DeployInfo) error {
 		stackStatus = string(deployment.RawStack.StackStatus)
 	}
 
+	// Format last updated time, or use "N/A" if not available
+	lastUpdatedStr := "N/A"
+	if !lastUpdated.IsZero() {
+		lastUpdatedStr = lastUpdated.Format(time.RFC3339)
+	}
+
 	stackData := []map[string]any{
 		{
 			"Stack Name":   deployment.StackName,
 			"Status":       stackStatus,
 			"ARN":          deployment.StackArn,
-			"Last Updated": lastUpdated.Format(time.RFC3339),
+			"Last Updated": lastUpdatedStr,
 		},
 	}
 

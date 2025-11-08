@@ -349,22 +349,22 @@ func showChangeset(changeset lib.ChangesetInfo, deployment lib.DeployInfo, awsCo
 	builder, hasChanges := buildChangesetDocument(builder, changesettitle, changesetsummarytitle, changeset.Changes, changeset.HasModule)
 
 	if hasChanges {
-		// Render the combined document
-		out := output.NewOutput(settings.GetOutputOptions()...)
+		// Render the combined document to stderr using table format
+		out := createStderrOutput()
 		if err := out.Render(context.Background(), builder.Build()); err != nil {
-			fmt.Printf("ERROR: Failed to render changeset: %v\n", err)
+			fmt.Fprintf(os.Stderr, "ERROR: Failed to render changeset: %v\n", err)
 		}
 	} else {
-		// No changes, just render the stack info
-		out := output.NewOutput(settings.GetOutputOptions()...)
+		// No changes, just render the stack info to stderr using table format
+		out := createStderrOutput()
 		if err := out.Render(context.Background(), builder.Build()); err != nil {
-			fmt.Printf("ERROR: Failed to render stack info: %v\n", err)
+			fmt.Fprintf(os.Stderr, "ERROR: Failed to render stack info: %v\n", err)
 		}
-		fmt.Println(texts.DeployChangesetMessageNoResourceChanges)
+		fmt.Fprintln(os.Stderr, texts.DeployChangesetMessageNoResourceChanges)
 	}
 
 	if !deployment.IsDryRun {
-		fmt.Printf("\n%v %v \r\n", texts.DeployChangesetMessageConsole, changeset.GenerateChangesetUrl(awsConfig))
+		fmt.Fprintf(os.Stderr, "\n%v %v \r\n", texts.DeployChangesetMessageConsole, changeset.GenerateChangesetUrl(awsConfig))
 	}
 }
 
@@ -440,7 +440,8 @@ func buildChangesetDocument(builder *output.Builder, title string, summaryTitle 
 
 		if len(dangerRows) == 0 {
 			// Add text instead of header to avoid uppercase and separators
-			builder = builder.Text(output.StylePositive("No dangerous changes") + "\n")
+			// Use "All changes are safe" instead of "No dangerous changes" to avoid emoji replacement
+			builder = builder.Text(output.StylePositive("All changes are safe") + "\n")
 		} else {
 			builder = builder.Table(
 				destructivechanges,

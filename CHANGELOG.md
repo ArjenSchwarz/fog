@@ -1,6 +1,16 @@
 Unreleased
 ===========
 
+### Changed
+- Updated deployment output to write all changeset and deployment information to stderr while reserving stdout for structured JSON results
+- Moved deployment end timestamp setting from deploy.go to printDeploymentResults() for more accurate timing
+- Modified all output operations in showChangeset() and related functions to use stderr with table format
+- Updated printLog() to conditionally use stderr for deploy context while maintaining stdout for history command
+- Added time rounding to deployment duration calculation for cleaner output
+- Improved error handling for zero-value timestamps in deployment output
+- Refined deployment messages to be more concise and less conversational
+- Updated test assertions to match new message formats
+
 ### Added
 - Stream separation test suite in `cmd/stream_separation_test.go` with comprehensive tests for stderr/stdout separation covering printMessage, createStderrOutput, output functions, stream separation, format helpers, quiet mode, and stderr sync behavior
 - Stream verification report documenting audit of all output paths in deploy command (`specs/deploy-output/stream_verification.md`) confirming correct stderr/stdout usage, edge cases, and providing manual verification commands
