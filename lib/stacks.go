@@ -530,8 +530,20 @@ func (stack *CfnStack) GetEvents(svc *cloudformation.Client) ([]StackEvent, erro
 	if len(stack.Events) != 0 {
 		return stack.Events, nil
 	}
+
+	allevents, err := fetchAllStackEvents(stack.Id, svc)
+	if err != nil {
+		return nil, err
+	}
+
+	stack.Events = processStackEvents(allevents, stack.Name)
+	return stack.Events, nil
+}
+
+// fetchAllStackEvents retrieves all stack events from AWS using pagination
+func fetchAllStackEvents(stackId string, svc *cloudformation.Client) ([]types.StackEvent, error) {
 	input := &cloudformation.DescribeStackEventsInput{
-		StackName: &stack.Id,
+		StackName: &stackId,
 	}
 	paginator := cloudformation.NewDescribeStackEventsPaginator(svc, input)
 	allevents := make([]types.StackEvent, 0)
@@ -543,111 +555,207 @@ func (stack *CfnStack) GetEvents(svc *cloudformation.Client) ([]StackEvent, erro
 		allevents = append(allevents, output.StackEvents...)
 	}
 	sort.Sort(ReverseEvents(allevents))
+	return allevents, nil
+}
+
+// processStackEvents organizes raw events into structured stack events
+func processStackEvents(allevents []types.StackEvent, stackName string) []StackEvent {
 	var resources map[string]ResourceEvent
 	var stackEvent StackEvent
 	eventName := ""
 	finishedEvents := make([]string, 0)
 	failedEvents := make([]string, 0)
+	stackEvents := make([]StackEvent, 0)
+
 	for _, event := range allevents {
-		if aws.ToString(event.LogicalResourceId) == stack.Name && aws.ToString(event.ResourceType) == "AWS::CloudFormation::Stack" {
-			if eventName == "" || strings.HasSuffix(eventName, "COMPLETE") || strings.HasSuffix(eventName, "FAILED") {
-				stackEvent = StackEvent{
-					StartDate:  *event.Timestamp,
-					Milestones: map[time.Time]string{},
-				}
-				switch string(event.ResourceStatus) {
-				case "REVIEW_IN_PROGRESS":
-					fallthrough
-				case "CREATE_IN_PROGRESS":
-					stackEvent.Type = "Create"
-				case "UPDATE_IN_PROGRESS":
-					stackEvent.Type = "Update"
-				case "DELETE_IN_PROGRESS":
-					stackEvent.Type = "Delete"
-				case "IMPORT_IN_PROGRESS":
-					stackEvent.Type = "Import"
-				}
-				resources = make(map[string]ResourceEvent)
-				eventName = string(event.ResourceStatus)
-			} else {
-				stackEvent.EndDate = *event.Timestamp
-				resourceSlice := make([]ResourceEvent, 0)
-				for _, revent := range resources {
-					resourceSlice = append(resourceSlice, revent)
-				}
-				stackEvent.ResourceEvents = resourceSlice
-				if !strings.Contains(string(event.ResourceStatus), "IN_PROGRESS") {
-					if stringInSlice(string(event.ResourceStatus), GetSuccessStates()) {
-						stackEvent.Success = true
-					} else {
-						stackEvent.Success = false
-					}
-					stack.Events = append(stack.Events, stackEvent)
-				}
-				eventName = string(event.ResourceStatus)
-			}
-			stackEvent.Milestones[*event.Timestamp] = string(event.ResourceStatus)
+		if isStackLevelEvent(event, stackName) {
+			stackEvent, resources, eventName, stackEvents = handleStackLevelEvent(
+				event, eventName, stackEvent, resources, stackEvents)
 		} else {
-			name := fmt.Sprintf("%s-%s-%s", slug.Make(*event.ResourceType), *event.LogicalResourceId, stackEvent.StartDate.Format(time.RFC3339))
-			if stringInSlice(name, finishedEvents) {
-				name += "-replacement"
-			}
-			if stringInSlice(name, failedEvents) {
-				name += "-cleanup"
-			}
-			var resource ResourceEvent
-			if _, ok := resources[name]; !ok {
-				resitem := CfnResource{
-					StackName:  stack.Name,
-					Type:       aws.ToString(event.ResourceType),
-					ResourceID: aws.ToString(event.PhysicalResourceId),
-					LogicalID:  aws.ToString(event.LogicalResourceId),
-				}
-				resource = ResourceEvent{
-					Resource:    resitem,
-					StartDate:   *event.Timestamp,
-					StartStatus: string(event.ResourceStatus),
-					EndDate:     *event.Timestamp,
-					EndStatus:   string(event.ResourceStatus),
-					RawInfo:     []types.StackEvent{event},
-				}
-				switch {
-				case strings.Contains(string(event.ResourceStatus), "CREATE"):
-					resource.EventType = "Add"
-					resource.ExpectedEndStatus = string(types.ResourceStatusCreateComplete)
-				case strings.Contains(string(event.ResourceStatus), "UPDATE"):
-					resource.EventType = "Modify"
-					resource.ExpectedEndStatus = string(types.ResourceStatusUpdateComplete)
-				case strings.Contains(string(event.ResourceStatus), "DELETE"):
-					if strings.HasSuffix(name, "-replacement") || strings.HasSuffix(name, "-cleanup") {
-						resource.EventType = "Cleanup"
-					} else {
-						resource.EventType = "Remove"
-					}
-					resource.ExpectedEndStatus = string(types.ResourceStatusDeleteComplete)
-				}
-			} else {
-				resource = resources[name]
-				resource.EndDate = *event.Timestamp
-				resource.EndStatus = string(event.ResourceStatus)
-				if strings.Contains(string(event.ResourceStatus), "COMPLETE") {
-					finishedEvents = append(finishedEvents, name)
-				}
-				if strings.Contains(string(event.ResourceStatus), "FAILED") {
-					failedEvents = append(failedEvents, name)
-					resource.EndStatusReason = *event.ResourceStatusReason
-				}
-				if resource.Resource.ResourceID == "" && *event.PhysicalResourceId != "" {
-					resource.Resource.ResourceID = *event.PhysicalResourceId
-				}
-				if resource.Resource.ResourceID != "" && *event.PhysicalResourceId != "" && !strings.Contains(resource.Resource.ResourceID, *event.PhysicalResourceId) {
-					resource.Resource.ResourceID = fmt.Sprintf("%s => %s", resource.Resource.ResourceID, *event.PhysicalResourceId)
-				}
-			}
-			resources[name] = resource
+			resources, finishedEvents, failedEvents = handleResourceEvent(
+				event, stackEvent, resources, finishedEvents, failedEvents, stackName)
 		}
 	}
-	return stack.Events, nil
+	return stackEvents
+}
+
+// isStackLevelEvent checks if an event is a stack-level event
+func isStackLevelEvent(event types.StackEvent, stackName string) bool {
+	return aws.ToString(event.LogicalResourceId) == stackName &&
+		aws.ToString(event.ResourceType) == "AWS::CloudFormation::Stack"
+}
+
+// handleStackLevelEvent processes a stack-level event
+func handleStackLevelEvent(event types.StackEvent, eventName string, stackEvent StackEvent,
+	resources map[string]ResourceEvent, stackEvents []StackEvent) (StackEvent, map[string]ResourceEvent, string, []StackEvent) {
+
+	if isEventStart(eventName) {
+		stackEvent = createNewStackEvent(event)
+		resources = make(map[string]ResourceEvent)
+		eventName = string(event.ResourceStatus)
+	} else {
+		stackEvent, stackEvents = finalizeStackEvent(event, stackEvent, resources, stackEvents)
+		eventName = string(event.ResourceStatus)
+	}
+	stackEvent.Milestones[*event.Timestamp] = string(event.ResourceStatus)
+	return stackEvent, resources, eventName, stackEvents
+}
+
+// isEventStart checks if we're at the start of a new event
+func isEventStart(eventName string) bool {
+	return eventName == "" || strings.HasSuffix(eventName, "COMPLETE") || strings.HasSuffix(eventName, "FAILED")
+}
+
+// createNewStackEvent creates a new StackEvent from a CloudFormation event
+func createNewStackEvent(event types.StackEvent) StackEvent {
+	stackEvent := StackEvent{
+		StartDate:  *event.Timestamp,
+		Milestones: map[time.Time]string{},
+	}
+	stackEvent.Type = determineStackEventType(string(event.ResourceStatus))
+	return stackEvent
+}
+
+// determineStackEventType determines the type of stack event
+func determineStackEventType(status string) string {
+	switch status {
+	case "REVIEW_IN_PROGRESS", "CREATE_IN_PROGRESS":
+		return "Create"
+	case "UPDATE_IN_PROGRESS":
+		return "Update"
+	case "DELETE_IN_PROGRESS":
+		return "Delete"
+	case "IMPORT_IN_PROGRESS":
+		return "Import"
+	default:
+		return ""
+	}
+}
+
+// finalizeStackEvent completes a stack event and adds it to the events list
+func finalizeStackEvent(event types.StackEvent, stackEvent StackEvent,
+	resources map[string]ResourceEvent, stackEvents []StackEvent) (StackEvent, []StackEvent) {
+
+	stackEvent.EndDate = *event.Timestamp
+	resourceSlice := make([]ResourceEvent, 0)
+	for _, revent := range resources {
+		resourceSlice = append(resourceSlice, revent)
+	}
+	stackEvent.ResourceEvents = resourceSlice
+
+	if !strings.Contains(string(event.ResourceStatus), "IN_PROGRESS") {
+		stackEvent.Success = stringInSlice(string(event.ResourceStatus), GetSuccessStates())
+		stackEvents = append(stackEvents, stackEvent)
+	}
+	return stackEvent, stackEvents
+}
+
+// handleResourceEvent processes a resource-level event
+func handleResourceEvent(event types.StackEvent, stackEvent StackEvent,
+	resources map[string]ResourceEvent, finishedEvents, failedEvents []string, stackName string) (map[string]ResourceEvent, []string, []string) {
+
+	name := generateResourceEventName(event, stackEvent, finishedEvents, failedEvents)
+
+	if _, ok := resources[name]; !ok {
+		resources[name] = createNewResourceEvent(event, stackName, name)
+	} else {
+		resource, updatedFinished, updatedFailed := updateExistingResourceEvent(
+			resources[name], event, name, finishedEvents, failedEvents)
+		resources[name] = resource
+		finishedEvents = updatedFinished
+		failedEvents = updatedFailed
+	}
+	return resources, finishedEvents, failedEvents
+}
+
+// generateResourceEventName creates a unique name for a resource event
+func generateResourceEventName(event types.StackEvent, stackEvent StackEvent,
+	finishedEvents, failedEvents []string) string {
+
+	name := fmt.Sprintf("%s-%s-%s",
+		slug.Make(*event.ResourceType),
+		*event.LogicalResourceId,
+		stackEvent.StartDate.Format(time.RFC3339))
+
+	if stringInSlice(name, finishedEvents) {
+		name += "-replacement"
+	}
+	if stringInSlice(name, failedEvents) {
+		name += "-cleanup"
+	}
+	return name
+}
+
+// createNewResourceEvent creates a new ResourceEvent from a CloudFormation event
+func createNewResourceEvent(event types.StackEvent, stackName, resourceName string) ResourceEvent {
+	resitem := CfnResource{
+		StackName:  stackName,
+		Type:       aws.ToString(event.ResourceType),
+		ResourceID: aws.ToString(event.PhysicalResourceId),
+		LogicalID:  aws.ToString(event.LogicalResourceId),
+	}
+	resource := ResourceEvent{
+		Resource:    resitem,
+		StartDate:   *event.Timestamp,
+		StartStatus: string(event.ResourceStatus),
+		EndDate:     *event.Timestamp,
+		EndStatus:   string(event.ResourceStatus),
+		RawInfo:     []types.StackEvent{event},
+	}
+	resource.EventType, resource.ExpectedEndStatus = determineResourceEventType(
+		string(event.ResourceStatus), resourceName)
+	return resource
+}
+
+// determineResourceEventType determines the type and expected end status for a resource event
+func determineResourceEventType(status, resourceName string) (string, string) {
+	switch {
+	case strings.Contains(status, "CREATE"):
+		return "Add", string(types.ResourceStatusCreateComplete)
+	case strings.Contains(status, "UPDATE"):
+		return "Modify", string(types.ResourceStatusUpdateComplete)
+	case strings.Contains(status, "DELETE"):
+		eventType := "Remove"
+		if strings.HasSuffix(resourceName, "-replacement") || strings.HasSuffix(resourceName, "-cleanup") {
+			eventType = "Cleanup"
+		}
+		return eventType, string(types.ResourceStatusDeleteComplete)
+	default:
+		return "", ""
+	}
+}
+
+// updateExistingResourceEvent updates an existing resource event with new information
+func updateExistingResourceEvent(resource ResourceEvent, event types.StackEvent,
+	name string, finishedEvents, failedEvents []string) (ResourceEvent, []string, []string) {
+
+	resource.EndDate = *event.Timestamp
+	resource.EndStatus = string(event.ResourceStatus)
+
+	if strings.Contains(string(event.ResourceStatus), "COMPLETE") {
+		finishedEvents = append(finishedEvents, name)
+	}
+	if strings.Contains(string(event.ResourceStatus), "FAILED") {
+		failedEvents = append(failedEvents, name)
+		resource.EndStatusReason = *event.ResourceStatusReason
+	}
+
+	resource.Resource.ResourceID = updateResourceId(
+		resource.Resource.ResourceID,
+		aws.ToString(event.PhysicalResourceId))
+
+	return resource, finishedEvents, failedEvents
+}
+
+// updateResourceId updates the resource ID, handling replacements
+func updateResourceId(currentId, newId string) string {
+	if currentId == "" && newId != "" {
+		return newId
+	}
+	if currentId != "" && newId != "" && !strings.Contains(currentId, newId) {
+		return fmt.Sprintf("%s => %s", currentId, newId)
+	}
+	return currentId
 }
 
 // GetSuccessStates returns a list of CloudFormation stack statuses that indicate successful completion

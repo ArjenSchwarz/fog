@@ -133,81 +133,128 @@ func showDeploymentInfo(deployment lib.DeployInfo, awsConfig config.AWSConfig, q
 }
 
 func setDeployTemplate(deployment *lib.DeployInfo, awsConfig config.AWSConfig) {
+	template, path := readTemplateFromSource(deployment)
+	deployment.TemplateRelativePath = path
+	deployment.Template = template
+
+	if deployFlags.Bucket != "" {
+		deployment.TemplateUrl = uploadTemplateToS3(template, awsConfig)
+	}
+
+	deployment.TemplateLocalPath = calculateTemplateLocalPath(path)
+}
+
+// readTemplateFromSource reads the template from either a deployment file or template flag
+func readTemplateFromSource(deployment *lib.DeployInfo) (string, string) {
 	var template string
 	var path string
 	var err error
+
 	if deployment.StackDeploymentFile != nil {
-		// The deployment file has the path relative to that file
 		template, path, err = lib.ReadFile(&deployment.StackDeploymentFile.TemplateFilePath, "templates")
 	} else {
 		template, path, err = lib.ReadTemplate(&deployFlags.Template)
 	}
-	deployment.TemplateRelativePath = path
+
 	if err != nil {
 		printMessage(formatError(string(texts.FileTemplateReadFailure)))
 		log.Fatalln(err)
 	}
-	if deployFlags.Bucket != "" {
-		objectname, err := lib.UploadTemplate(&deployFlags.Template, template, &deployFlags.Bucket, awsConfig.S3Client())
-		if err != nil {
-			printMessage(formatError("Failed to upload template to S3"))
-			log.Fatalln(err)
-		}
-		url := fmt.Sprintf("https://%v.s3-%v.amazonaws.com/%v", deployFlags.Bucket, awsConfig.Region, objectname)
-		deployment.TemplateUrl = url
+
+	return template, path
+}
+
+// uploadTemplateToS3 uploads the template to S3 and returns the URL
+func uploadTemplateToS3(template string, awsConfig config.AWSConfig) string {
+	objectname, err := lib.UploadTemplate(&deployFlags.Template, template, &deployFlags.Bucket, awsConfig.S3Client())
+	if err != nil {
+		printMessage(formatError("Failed to upload template to S3"))
+		log.Fatalln(err)
 	}
-	// Use the root path to correctly get the relative path of the templates
+	return fmt.Sprintf("https://%v.s3-%v.amazonaws.com/%v", deployFlags.Bucket, awsConfig.Region, objectname)
+}
+
+// calculateTemplateLocalPath calculates the relative path from the root directory
+func calculateTemplateLocalPath(path string) string {
+	var confpath, localpath string
+	var err error
+
 	if cfgFile != "" {
 		confdir := filepath.Dir(cfgFile)
-		confpath, _ := filepath.Abs(fmt.Sprintf("%s%s%s", confdir, string(os.PathSeparator), viper.GetString("rootdir")))
-		localpath, _ := filepath.Abs(path)
-		path, _ = filepath.Rel(confpath, localpath)
+		confpath, _ = filepath.Abs(fmt.Sprintf("%s%s%s", confdir, string(os.PathSeparator), viper.GetString("rootdir")))
 	} else {
-		confpath, _ := filepath.Abs(viper.GetString("rootdir"))
-		localpath, _ := filepath.Abs(path)
-		path, _ = filepath.Rel(confpath, localpath)
+		confpath, _ = filepath.Abs(viper.GetString("rootdir"))
 	}
-	deployment.TemplateLocalPath = path
-	deployment.Template = template
+
+	localpath, _ = filepath.Abs(path)
+	relativePath, err := filepath.Rel(confpath, localpath)
+	if err != nil {
+		return path
+	}
+	return relativePath
 }
 
 func setDeployTags(deployment *lib.DeployInfo) {
 	tagresult := make([]types.Tag, 0)
+
 	if deployFlags.DefaultTags {
-		for key, value := range viper.GetStringMapString("tags.default") {
-			tag := types.Tag{
-				Key:   aws.String(key),
-				Value: aws.String(placeholderParser(value, deployment)),
-			}
-			tagresult = append(tagresult, tag)
-		}
+		tagresult = append(tagresult, loadDefaultTags(deployment)...)
 	}
+
 	if deployment.StackDeploymentFile != nil {
-		for key, value := range deployment.StackDeploymentFile.Tags {
-			tag := types.Tag{
-				Key:   aws.String(key),
-				Value: aws.String(placeholderParser(value, deployment)),
-			}
-			tagresult = append(tagresult, tag)
-		}
+		tagresult = append(tagresult, loadDeploymentFileTags(deployment)...)
 	} else if deployFlags.Tags != "" {
-		for tagfile := range strings.SplitSeq(deployFlags.Tags, ",") {
-			tags, _, err := lib.ReadTagsfile(tagfile)
-			if err != nil {
-				message := fmt.Sprintf("%v '%v'", texts.FileTagsReadFailure, tagfile)
-				printMessage(formatError(message))
-				log.Fatalln(err)
-			}
-			parsedtags, err := lib.ParseTagString(tags)
-			if err != nil {
-				message := fmt.Sprintf("%v '%v'", texts.FileTagsParseFailure, tagfile)
-				printMessage(formatError(message))
-				log.Fatalln(err)
-			}
-			tagresult = append(tagresult, parsedtags...)
-		}
+		tagresult = append(tagresult, loadTagsFromFiles(deployFlags.Tags, deployment)...)
 	}
+
 	deployment.Tags = tagresult
+}
+
+// loadDefaultTags loads tags from the default configuration
+func loadDefaultTags(deployment *lib.DeployInfo) []types.Tag {
+	tags := make([]types.Tag, 0)
+	for key, value := range viper.GetStringMapString("tags.default") {
+		tag := types.Tag{
+			Key:   aws.String(key),
+			Value: aws.String(placeholderParser(value, deployment)),
+		}
+		tags = append(tags, tag)
+	}
+	return tags
+}
+
+// loadDeploymentFileTags loads tags from the stack deployment file
+func loadDeploymentFileTags(deployment *lib.DeployInfo) []types.Tag {
+	tags := make([]types.Tag, 0)
+	for key, value := range deployment.StackDeploymentFile.Tags {
+		tag := types.Tag{
+			Key:   aws.String(key),
+			Value: aws.String(placeholderParser(value, deployment)),
+		}
+		tags = append(tags, tag)
+	}
+	return tags
+}
+
+// loadTagsFromFiles loads and parses tags from comma-separated file list
+func loadTagsFromFiles(tagFiles string, deployment *lib.DeployInfo) []types.Tag {
+	tags := make([]types.Tag, 0)
+	for tagfile := range strings.SplitSeq(tagFiles, ",") {
+		tagContent, _, err := lib.ReadTagsfile(tagfile)
+		if err != nil {
+			message := fmt.Sprintf("%v '%v'", texts.FileTagsReadFailure, tagfile)
+			printMessage(formatError(message))
+			log.Fatalln(err)
+		}
+		parsedtags, err := lib.ParseTagString(tagContent)
+		if err != nil {
+			message := fmt.Sprintf("%v '%v'", texts.FileTagsParseFailure, tagfile)
+			printMessage(formatError(message))
+			log.Fatalln(err)
+		}
+		tags = append(tags, parsedtags...)
+	}
+	return tags
 }
 
 func placeholderParser(value string, deployment *lib.DeployInfo) string {
@@ -221,32 +268,48 @@ func placeholderParser(value string, deployment *lib.DeployInfo) string {
 
 func setDeployParameters(deployment *lib.DeployInfo) {
 	parameterresult := make([]types.Parameter, 0)
+
 	if deployment.StackDeploymentFile != nil {
-		for key, value := range deployment.StackDeploymentFile.Parameters {
-			parameter := types.Parameter{
-				ParameterKey:   aws.String(key),
-				ParameterValue: aws.String(value),
-			}
-			parameterresult = append(parameterresult, parameter)
-		}
+		parameterresult = append(parameterresult, loadDeploymentFileParameters(deployment)...)
 	} else if deployFlags.Parameters != "" {
-		for parameterfile := range strings.SplitSeq(deployFlags.Parameters, ",") {
-			parameters, _, err := lib.ReadParametersfile(parameterfile)
-			if err != nil {
-				message := fmt.Sprintf("%v '%v'", texts.FileParametersReadFailure, parameterfile)
-				printMessage(formatError(message))
-				log.Fatalln(err)
-			}
-			parsedparameters, err := lib.ParseParameterString(parameters)
-			if err != nil {
-				message := fmt.Sprintf("%v '%v'", texts.FileParametersParseFailure, parameterfile)
-				printMessage(formatError(message))
-				log.Fatalln(err)
-			}
-			parameterresult = append(parameterresult, parsedparameters...)
-		}
+		parameterresult = append(parameterresult, loadParametersFromFiles(deployFlags.Parameters)...)
 	}
+
 	deployment.Parameters = parameterresult
+}
+
+// loadDeploymentFileParameters loads parameters from the stack deployment file
+func loadDeploymentFileParameters(deployment *lib.DeployInfo) []types.Parameter {
+	parameters := make([]types.Parameter, 0)
+	for key, value := range deployment.StackDeploymentFile.Parameters {
+		parameter := types.Parameter{
+			ParameterKey:   aws.String(key),
+			ParameterValue: aws.String(value),
+		}
+		parameters = append(parameters, parameter)
+	}
+	return parameters
+}
+
+// loadParametersFromFiles loads and parses parameters from comma-separated file list
+func loadParametersFromFiles(parameterFiles string) []types.Parameter {
+	parameters := make([]types.Parameter, 0)
+	for parameterfile := range strings.SplitSeq(parameterFiles, ",") {
+		paramContent, _, err := lib.ReadParametersfile(parameterfile)
+		if err != nil {
+			message := fmt.Sprintf("%v '%v'", texts.FileParametersReadFailure, parameterfile)
+			printMessage(formatError(message))
+			log.Fatalln(err)
+		}
+		parsedparameters, err := lib.ParseParameterString(paramContent)
+		if err != nil {
+			message := fmt.Sprintf("%v '%v'", texts.FileParametersParseFailure, parameterfile)
+			printMessage(formatError(message))
+			log.Fatalln(err)
+		}
+		parameters = append(parameters, parsedparameters...)
+	}
+	return parameters
 }
 
 func createChangeset(deployment *lib.DeployInfo, awsConfig config.AWSConfig) *lib.ChangesetInfo {
