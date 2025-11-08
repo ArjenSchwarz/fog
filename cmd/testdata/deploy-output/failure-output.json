@@ -1,0 +1,47 @@
+[
+  {
+    "content": "Deployment failed: The following resource(s) failed to create: [MyDatabase]",
+    "type": "text"
+  },
+  {
+    "data": [
+      {
+        "Stack ARN": "arn:aws:cloudformation:us-east-1:123456789012:stack/test-stack/abc123",
+        "Status": "ROLLBACK_COMPLETE",
+        "Status Reason": "Resource creation cancelled",
+        "Timestamp": "2025-11-07T10:03:45Z"
+      }
+    ],
+    "schema": {
+      "fields": [
+        {
+          "hidden": false,
+          "name": "Stack ARN",
+          "type": ""
+        },
+        {
+          "hidden": false,
+          "name": "Status",
+          "type": ""
+        },
+        {
+          "hidden": false,
+          "name": "Status Reason",
+          "type": ""
+        },
+        {
+          "hidden": false,
+          "name": "Timestamp",
+          "type": ""
+        }
+      ],
+      "keys": [
+        "Stack ARN",
+        "Status",
+        "Status Reason",
+        "Timestamp"
+      ]
+    },
+    "title": "Stack Status"
+  }
+]

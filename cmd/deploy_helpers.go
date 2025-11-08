@@ -1,18 +1,18 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
+	"log"
+	"os"
 	"strings"
+	"time"
 
 	"github.com/ArjenSchwarz/fog/config"
 	"github.com/ArjenSchwarz/fog/lib"
 	"github.com/ArjenSchwarz/fog/lib/texts"
-	output "github.com/ArjenSchwarz/go-output/v2"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
 	"github.com/fatih/color"
 	"github.com/spf13/viper"
-	"log"
 )
 
 // loadAWSConfig allows tests to replace the default config loader.
@@ -40,6 +40,11 @@ func prepareDeployment() (lib.DeployInfo, config.AWSConfig, error) {
 	if err := deployFlags.Validate(); err != nil {
 		return lib.DeployInfo{}, config.AWSConfig{}, err
 	}
+
+	// Auto-enable non-interactive mode when quiet mode is enabled
+	if deployFlags.Quiet {
+		deployFlags.NonInteractive = true
+	}
 	deployment := lib.DeployInfo{StackName: deployFlags.StackName}
 	deployment.ChangesetName = deployFlags.ChangesetName
 	if deployment.ChangesetName == "" {
@@ -60,13 +65,13 @@ func prepareDeployment() (lib.DeployInfo, config.AWSConfig, error) {
 	}
 	deployment.IsDryRun = deployFlags.Dryrun
 
-	showDeploymentInfo(deployment, awsCfg)
-	if !deployment.IsNew {
+	showDeploymentInfo(deployment, awsCfg, deployFlags.Quiet)
+	if !deployment.IsNew && !deployFlags.Quiet {
 		deploymentName := lib.GenerateDeploymentName(awsCfg, deployment.StackName)
 		if settings.GetBool("logging.enabled") && settings.GetBool("logging.show-previous") {
 			log := lib.GetLatestSuccessFulLogByDeploymentName(deploymentName)
 			if log.DeploymentName != "" {
-				printLog(log, formatInfo("Previous deployment found:"))
+				printLog(log, true, formatInfo("Previous deployment found:"))
 			}
 		}
 	}
@@ -120,16 +125,20 @@ func runPrechecks(info *lib.DeployInfo, logObj *lib.DeploymentLog) string {
 }
 
 // createAndShowChangeset creates a change set, displays it and
-// appends it to the deployment log. When running in dry-run mode the
-// change set is deleted again.
-func createAndShowChangeset(info *lib.DeployInfo, cfg config.AWSConfig, logObj *lib.DeploymentLog) *lib.ChangesetInfo {
+// appends it to the deployment log.
+func createAndShowChangeset(info *lib.DeployInfo, cfg config.AWSConfig, logObj *lib.DeploymentLog, quiet bool) *lib.ChangesetInfo {
 	changeset := createChangesetFunc(info, cfg)
 	logObj.AddChangeSet(changeset)
-	showChangesetFunc(*changeset, *info, cfg)
-	if info.IsDryRun {
-		printMessage(formatSuccess(string(texts.DeployChangesetMessageDryrunSuccess)))
-		deleteChangesetFunc(*info, cfg)
+
+	// Capture changeset immediately for final output
+	info.CapturedChangeset = changeset
+	info.Changeset = changeset // Maintain existing field for backwards compatibility
+
+	// Show changeset overview to stderr only when not in quiet mode
+	if !quiet {
+		showChangesetFunc(*changeset, *info, cfg)
 	}
+
 	return changeset
 }
 
@@ -137,11 +146,6 @@ func createAndShowChangeset(info *lib.DeployInfo, cfg config.AWSConfig, logObj *
 // the deployment if approved. It returns true when the stack was actually
 // deployed.
 func confirmAndDeployChangeset(changeset *lib.ChangesetInfo, info *lib.DeployInfo, cfg config.AWSConfig) bool {
-	if deployFlags.CreateChangeset {
-		printMessage(formatSuccess(string(texts.DeployChangesetMessageSuccess)))
-		printMessage(formatInfo("Only created the change set, will now terminate"))
-		return false
-	}
 	var confirm bool
 	if deployFlags.NonInteractive {
 		confirm = true
@@ -159,58 +163,46 @@ func confirmAndDeployChangeset(changeset *lib.ChangesetInfo, info *lib.DeployInf
 // printDeploymentResults fetches the final stack state and prints the
 // results. Success or failure information is written to the deployment log.
 func printDeploymentResults(info *lib.DeployInfo, cfg config.AWSConfig, logObj *lib.DeploymentLog) {
+	// Set deployment end timestamp before generating output
+	info.DeploymentEnd = time.Now()
+
 	svc := getCfnClient(cfg)
 	resultStack, err := getFreshStackFunc(info, svc)
 	if err != nil {
 		printMessage(formatError(string(texts.DeployStackMessageRetrievePostFailed)))
 		log.Fatalln(err.Error())
 	}
+
+	// Capture final stack state for output generation
+	info.FinalStackState = &resultStack
+
 	switch resultStack.StackStatus {
 	case types.StackStatusCreateComplete, types.StackStatusUpdateComplete:
 		logObj.Success()
 
-		// Build document with success message and optional outputs table
-		builder := output.New().
-			Text(formatSuccess(string(texts.DeployStackMessageSuccess)))
-
-		if len(resultStack.Outputs) > 0 {
-			outputkeys := []string{"Key", "Value", "Description", "ExportName"}
-			outputtitle := fmt.Sprintf("Outputs for stack %v", *resultStack.StackName)
-			outputRows := make([]map[string]any, 0)
-			for _, outputresult := range resultStack.Outputs {
-				exportName := ""
-				if outputresult.ExportName != nil {
-					exportName = *outputresult.ExportName
-				}
-				description := ""
-				if outputresult.Description != nil {
-					description = *outputresult.Description
-				}
-				content := make(map[string]any)
-				content["Key"] = *outputresult.OutputKey
-				content["Value"] = *outputresult.OutputValue
-				content["Description"] = description
-				content["ExportName"] = exportName
-				outputRows = append(outputRows, content)
-			}
-			// Add outputs table to the document
-			builder = builder.Table(
-				outputtitle,
-				outputRows,
-				output.WithKeys(outputkeys...),
-			)
+		// Output success message to stderr (streaming output)
+		if !deployFlags.Quiet {
+			printMessage(formatSuccess(string(texts.DeployStackMessageSuccess)))
 		}
 
-		// Render everything together
-		doc := builder.Build()
-		out := output.NewOutput(settings.GetOutputOptions()...)
-		if err := out.Render(context.Background(), doc); err != nil {
-			fmt.Printf("ERROR: Failed to render outputs: %v\n", err)
+		// Output final deployment summary to stdout
+		if err := outputSuccessResult(info); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: Failed to generate output: %v\n", err)
 		}
 
 	case types.StackStatusRollbackComplete, types.StackStatusRollbackFailed, types.StackStatusUpdateRollbackComplete, types.StackStatusUpdateRollbackFailed:
+		// Capture deployment error
+		info.DeploymentError = fmt.Errorf("deployment failed with status: %s", resultStack.StackStatus)
+
+		// Show failed events to stderr (streaming output)
 		failures := showFailedEventsFunc(*info, cfg, formatError(string(texts.DeployStackMessageFailed)))
 		logObj.Failed(failures)
+
+		// Output failure summary to stdout
+		if err := outputFailureResult(info, cfg); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: Failed to generate output: %v\n", err)
+		}
+
 		if info.IsNew {
 			// double verify that the stack can be deleted
 			deleteStackIfNewFunc(*info, cfg)

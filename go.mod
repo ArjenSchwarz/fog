@@ -1,6 +1,6 @@
 module github.com/ArjenSchwarz/fog
 
-go 1.25.2
+go 1.25.3
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.39.3
@@ -43,7 +43,7 @@ require (
 )
 
 require (
-	github.com/ArjenSchwarz/go-output/v2 v2.5.0
+	github.com/ArjenSchwarz/go-output/v2 v2.6.0
 	github.com/aws/aws-lambda-go v1.50.0
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.254.1
 	github.com/aws/aws-sdk-go-v2/service/organizations v1.45.3

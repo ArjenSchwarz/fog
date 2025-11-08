@@ -31,6 +31,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/mattn/go-isatty"
 	"github.com/spf13/viper"
 
 	"path/filepath"
@@ -74,13 +75,14 @@ func init() {
 }
 
 func deployTemplate(cmd *cobra.Command, args []string) {
-	viper.Set("output", "table") // Enforce table output for deployments
-
 	deployment, awsConfig, err := prepareDeployment()
 	if err != nil {
 		printMessage(formatError(err.Error()))
 		os.Exit(1)
 	}
+
+	// Capture deployment start timestamp before any AWS operations
+	deployment.DeploymentStart = time.Now()
 
 	deploymentLog := lib.NewDeploymentLog(awsConfig, deployment)
 
@@ -89,22 +91,43 @@ func deployTemplate(cmd *cobra.Command, args []string) {
 		printMessage(precheckOutput)
 	}
 
-	changeset := createAndShowChangeset(&deployment, awsConfig, &deploymentLog)
+	changeset := createAndShowChangeset(&deployment, awsConfig, &deploymentLog, deployFlags.Quiet)
+
+	// Handle dry-run mode
+	if deployment.IsDryRun {
+		outputDryRunResult(&deployment, awsConfig)
+		// Delete changeset after output for dry-run
+		deleteChangeset(deployment, awsConfig)
+		return
+	}
+
+	// Handle create-changeset mode
+	if deployFlags.CreateChangeset {
+		outputDryRunResult(&deployment, awsConfig)
+		// Do NOT delete changeset for --create-changeset mode
+		return
+	}
+
 	if confirmAndDeployChangeset(changeset, &deployment, awsConfig) {
 		printDeploymentResults(&deployment, awsConfig, &deploymentLog)
 	}
 }
 
 // showDeploymentInfo shows what kind of deployment this (New/Update) and where it's happening
-func showDeploymentInfo(deployment lib.DeployInfo, awsConfig config.AWSConfig) {
+func showDeploymentInfo(deployment lib.DeployInfo, awsConfig config.AWSConfig, quiet bool) {
+	// Return early if quiet mode is enabled
+	if quiet {
+		return
+	}
+
 	bold := color.New(color.Bold).SprintFunc()
 	method := determineDeploymentMethod(deployment.IsNew, deployFlags.Dryrun)
 	account := formatAccountDisplay(awsConfig.AccountID, awsConfig.AccountAlias)
 
 	if deployment.IsNew {
-		fmt.Printf("%v new stack '%v' to region %v of account %v\n\n", method, bold(deployFlags.StackName), awsConfig.Region, account)
+		fmt.Fprintf(os.Stderr, "%v new stack '%v' to region %v of account %v\n\n", method, bold(deployFlags.StackName), awsConfig.Region, account)
 	} else {
-		fmt.Printf("%v stack '%v' in region %v of account %v\n\n", method, bold(deployFlags.StackName), awsConfig.Region, awsConfig.AccountID)
+		fmt.Fprintf(os.Stderr, "%v stack '%v' in region %v of account %v\n\n", method, bold(deployFlags.StackName), awsConfig.Region, awsConfig.AccountID)
 	}
 	printBasicStackInfo(deployment, true, awsConfig)
 }
@@ -227,7 +250,7 @@ func setDeployParameters(deployment *lib.DeployInfo) {
 }
 
 func createChangeset(deployment *lib.DeployInfo, awsConfig config.AWSConfig) *lib.ChangesetInfo {
-	if deployment.TemplateUrl != "" {
+	if deployment.TemplateUrl != "" && !deployFlags.Quiet {
 		text := fmt.Sprintf("Using template uploaded as %v", deployment.TemplateUrl)
 		printMessage(formatInfo(text))
 	}
@@ -244,14 +267,21 @@ func createChangeset(deployment *lib.DeployInfo, awsConfig config.AWSConfig) *li
 	if changeset.Status != string(types.ChangeSetStatusCreateComplete) {
 		// When the creation fails because there are no changes, say so and complete successfully
 		if changeset.StatusReason == string(texts.DeployReceivedErrorMessagesNoChanges) || changeset.StatusReason == string(texts.DeployReceivedErrorMessagesNoUpdates) {
-			message := fmt.Sprintf(string(texts.DeployChangesetMessageNoChanges), deployment.StackName)
-			printMessage(formatSuccess(message))
+			// Output no-changes message to stderr (streaming output)
+			if !deployFlags.Quiet {
+				message := fmt.Sprintf(string(texts.DeployChangesetMessageNoChanges), deployment.StackName)
+				printMessage(formatSuccess(message))
+			}
+			// Output final no-changes result to stdout
+			if err := outputNoChangesResult(deployment); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: Failed to generate output: %v\n", err)
+			}
 			os.Exit(0)
 		}
 		// Otherwise, show the error and clean up
 		printMessage(formatError(string(texts.DeployChangesetMessageCreationFailed)))
-		fmt.Println(changeset.StatusReason)
-		fmt.Printf("\n%v %v\n", texts.DeployChangesetMessageConsole, changeset.GenerateChangesetUrl(awsConfig))
+		fmt.Fprintln(os.Stderr, changeset.StatusReason)
+		fmt.Fprintf(os.Stderr, "\n%v %v\n", texts.DeployChangesetMessageConsole, changeset.GenerateChangesetUrl(awsConfig))
 		var deleteChangesetConfirmation bool
 		if deployFlags.NonInteractive {
 			deleteChangesetConfirmation = true
@@ -292,7 +322,7 @@ func deleteChangeset(deployment lib.DeployInfo, awsConfig config.AWSConfig) {
 }
 
 func deleteStackIfNew(deployment lib.DeployInfo, awsConfig config.AWSConfig) {
-	fmt.Println(texts.DeployStackMessageNewStackDeleteInfo)
+	fmt.Fprintln(os.Stderr, texts.DeployStackMessageNewStackDeleteInfo)
 	var deleteStackConfirmation bool
 	if deployFlags.Dryrun || deployFlags.NonInteractive {
 		deleteStackConfirmation = true
@@ -313,39 +343,49 @@ func deleteStackIfNew(deployment lib.DeployInfo, awsConfig config.AWSConfig) {
 			}
 		}
 	} else {
-		fmt.Println("No problem. I have left the stack intact, please delete it manually once you're done.")
+		fmt.Fprintln(os.Stderr, "No problem. I have left the stack intact, please delete it manually once you're done.")
 	}
 }
 
 func deployChangeset(deployment lib.DeployInfo, awsConfig config.AWSConfig) {
-	if deployFlags.NonInteractive {
-		printMessage(formatInfo(string(texts.DeployChangesetMessageAutoDeploy)))
-	} else {
-		printMessage(formatSuccess(string(texts.DeployChangesetMessageWillDeploy)))
+	if !deployFlags.Quiet {
+		if deployFlags.NonInteractive {
+			printMessage(formatInfo(string(texts.DeployChangesetMessageAutoDeploy)))
+		} else {
+			printMessage(formatSuccess(string(texts.DeployChangesetMessageWillDeploy)))
+		}
 	}
 	err := deployment.Changeset.DeployChangeset(awsConfig.CloudformationClient())
 	if err != nil {
 		printMessage(formatError("Could not execute changeset! See details below"))
-		fmt.Println(err)
+		fmt.Fprintln(os.Stderr, err)
 	}
 	latest := deployment.Changeset.CreationTime
 	time.Sleep(3 * time.Second)
-	fmt.Println(formatBold("Showing the events for the deployment:"))
+	if !deployFlags.Quiet {
+		fmt.Fprintln(os.Stderr, formatBold("Showing the events for the deployment:"))
+	}
 	ongoing := true
 	for ongoing {
-		latest = showEvents(deployment, latest, awsConfig)
+		latest = showEvents(deployment, latest, awsConfig, deployFlags.Quiet)
 		time.Sleep(3 * time.Second)
 		ongoing = deployment.IsOngoing(awsConfig.CloudformationClient())
 	}
 	// One last time after the deployment finished in case of a timing mismatch
-	showEvents(deployment, latest, awsConfig)
+	showEvents(deployment, latest, awsConfig, deployFlags.Quiet)
 }
 
-func showEvents(deployment lib.DeployInfo, latest time.Time, awsConfig config.AWSConfig) time.Time {
+func showEvents(deployment lib.DeployInfo, latest time.Time, awsConfig config.AWSConfig, quiet bool) time.Time {
+	// Return early if quiet mode is enabled
+	if quiet {
+		return latest
+	}
+
 	events, err := deployment.GetEvents(awsConfig.CloudformationClient())
 	if err != nil {
 		printMessage(formatError("Something went wrong trying to get the events of the stack"))
-		fmt.Println(err)
+		fmt.Fprintln(os.Stderr, err)
+		return latest
 	}
 	sort.Sort(ReverseEvents(events))
 	for _, event := range events {
@@ -355,12 +395,12 @@ func showEvents(deployment lib.DeployInfo, latest time.Time, awsConfig config.AW
 			switch event.ResourceStatus {
 			case types.ResourceStatusCreateFailed, types.ResourceStatusImportFailed, types.ResourceStatusDeleteFailed, types.ResourceStatusUpdateFailed, types.ResourceStatusImportRollbackComplete, types.ResourceStatus(types.StackStatusRollbackComplete), types.ResourceStatus(types.StackStatusUpdateRollbackComplete):
 				// For streaming logs, just apply color without extra spacing
-				fmt.Println(output.StyleWarning(message))
+				fmt.Fprintln(os.Stderr, output.StyleWarning(message))
 			case types.ResourceStatusCreateComplete, types.ResourceStatusImportComplete, types.ResourceStatusUpdateComplete, types.ResourceStatusDeleteComplete:
 				// For streaming logs, just apply color without extra spacing
-				fmt.Println(output.StylePositive(message))
+				fmt.Fprintln(os.Stderr, output.StylePositive(message))
 			default:
-				fmt.Println(message)
+				fmt.Fprintln(os.Stderr, message)
 			}
 		}
 	}
@@ -371,7 +411,7 @@ func showFailedEvents(deployment lib.DeployInfo, awsConfig config.AWSConfig, pre
 	events, err := deployment.GetEvents(awsConfig.CloudformationClient())
 	if err != nil {
 		printMessage(formatError("Something went wrong trying to get the events of the stack"))
-		fmt.Println(err)
+		fmt.Fprintln(os.Stderr, err)
 		return nil
 	}
 	changesetkeys := []string{"CfnName", "Type", "Status", "Reason"}
@@ -409,9 +449,9 @@ func showFailedEvents(deployment lib.DeployInfo, awsConfig config.AWSConfig, pre
 		)
 
 		doc := builder.Build()
-		out := output.NewOutput(settings.GetOutputOptions()...)
+		out := createStderrOutput()
 		if err := out.Render(context.Background(), doc); err != nil {
-			fmt.Printf("ERROR: Failed to render failed events: %v\n", err)
+			fmt.Fprintf(os.Stderr, "ERROR: Failed to render failed events: %v\n", err)
 		}
 	} else if prefixMessage != "" {
 		// If no failed events but we have a prefix message, still show it
@@ -427,3 +467,26 @@ type ReverseEvents []types.StackEvent
 func (a ReverseEvents) Len() int           { return len(a) }
 func (a ReverseEvents) Less(i, j int) bool { return a[i].Timestamp.Before(*a[j].Timestamp) }
 func (a ReverseEvents) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+
+// createStderrOutput creates an output writer for stderr with TTY detection
+// This enables conditional formatting based on whether stderr is a TTY.
+// When stderr is redirected to a file, ANSI codes are avoided.
+func createStderrOutput() *output.Output {
+	opts := []output.OutputOption{
+		output.WithFormat(settings.GetTableFormat()),
+		output.WithWriter(output.NewStderrWriter()),
+	}
+
+	// Only add colors and emojis if stderr is a TTY
+	// When stderr is redirected to a file, avoid ANSI codes
+	if isatty.IsTerminal(os.Stderr.Fd()) || isatty.IsCygwinTerminal(os.Stderr.Fd()) {
+		opts = append(opts,
+			output.WithTransformers(
+				&output.EnhancedEmojiTransformer{},
+				&output.EnhancedColorTransformer{},
+			),
+		)
+	}
+
+	return output.NewOutput(opts...)
+}

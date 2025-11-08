@@ -1010,6 +1010,9 @@ Pre-implemented writers:
 // StdoutWriter writes to standard output
 func NewStdoutWriter() Writer
 
+// StderrWriter writes to standard error
+func NewStderrWriter() Writer
+
 // FileWriter writes to files with pattern support
 func NewFileWriter(rootDir, pattern string) (Writer, error)
 
@@ -1019,6 +1022,19 @@ func NewS3Writer(client S3PutObjectAPI, bucket, keyPattern string) *S3Writer
 // MultiWriter writes to multiple destinations
 func NewMultiWriter(writers ...Writer) Writer
 ```
+
+**Output Stream Selection**:
+
+The library provides separate writers for stdout and stderr, enabling proper separation of normal output from error/diagnostic messages:
+
+- **StdoutWriter**: Use for normal application output, data results, and user-facing information
+- **StderrWriter**: Use for error messages, warnings, diagnostic information, and logging
+
+This separation follows Unix conventions and is particularly valuable for:
+- CLI tools that need to distinguish errors from results
+- Streaming applications where errors should not pollute data output
+- Scripts that need to separately capture output and errors
+- Logging and diagnostic output that should be routed differently from results
 
 **File Pattern Examples**:
 - `"report.{format}"` → `report.json`, `report.csv`
@@ -2134,6 +2150,59 @@ out := output.NewOutput(
 err := out.Render(context.Background(), doc)
 ```
 
+### Separating Output and Error Streams
+
+```go
+// Separate normal output from error messages
+normalData := []map[string]any{
+    {"Name": "Alice", "Status": "Success", "Count": 150},
+    {"Name": "Bob", "Status": "Success", "Count": 200},
+}
+
+errorData := []map[string]any{
+    {"Name": "Charlie", "Status": "Failed", "Error": "Connection timeout"},
+    {"Name": "David", "Status": "Failed", "Error": "Invalid credentials"},
+}
+
+// Create normal output document
+normalDoc := output.New().
+    Table("Successful Operations", normalData,
+        output.WithKeys("Name", "Status", "Count")).
+    Build()
+
+// Create error output document
+errorDoc := output.New().
+    Table("Failed Operations", errorData,
+        output.WithKeys("Name", "Status", "Error")).
+    Build()
+
+// Normal output goes to stdout
+normalOutput := output.NewOutput(
+    output.WithFormat(output.JSON()),
+    output.WithWriter(output.NewStdoutWriter()),
+)
+
+// Errors go to stderr
+errorOutput := output.NewOutput(
+    output.WithFormat(output.JSON()),
+    output.WithWriter(output.NewStderrWriter()),
+)
+
+// Render separately
+ctx := context.Background()
+if err := normalOutput.Render(ctx, normalDoc); err != nil {
+    log.Fatal(err)
+}
+if err := errorOutput.Render(ctx, errorDoc); err != nil {
+    log.Fatal(err)
+}
+
+// This enables proper stream separation for:
+// - Shell pipelines: command | processOutput 2> errors.log
+// - Script automation: capture stdout and stderr separately
+// - Logging: route diagnostics to stderr, data to stdout
+```
+
 ### Mixed Content Document
 
 ```go
@@ -2575,7 +2644,8 @@ The v2 API is designed for extensibility:
 ### Writer Constructors
 | Constructor | Purpose | Example |
 |-------------|---------|---------|
-| `NewStdoutWriter()` | Write to console | `NewStdoutWriter()` |
+| `NewStdoutWriter()` | Write to standard output | `NewStdoutWriter()` |
+| `NewStderrWriter()` | Write to standard error | `NewStderrWriter()` |
 | `NewFileWriter(dir, pattern)` | Write to files | `NewFileWriter("./out", "report.{format}")` |
 | `NewS3Writer(client, bucket, key)` | Write to S3 (AWS SDK v2) | `NewS3Writer(s3Client, "bucket", "key.{format}")` |
 | `NewMultiWriter(writers...)` | Multiple outputs | `NewMultiWriter(stdout, file)` |

@@ -41,6 +41,7 @@ type DeployFlags struct {
 	DeployChangeset bool
 	DefaultTags     bool
 	DeploymentFile  string
+	Quiet           bool
 }
 
 // Validate validates the deploy flags
@@ -70,6 +71,7 @@ func (f *DeployFlags) RegisterFlags(cmd *cobra.Command) {
 	cmd.Flags().BoolVar(&f.DeployChangeset, "deploy-changeset", false, "Deploy a specific change set")
 	cmd.Flags().BoolVar(&f.DefaultTags, "default-tags", true, "Add any default tags that are specified in your config file")
 	cmd.Flags().StringVarP(&f.DeploymentFile, "deployment-file", "d", "", "The file to use for the deployment")
+	cmd.Flags().BoolVar(&f.Quiet, "quiet", false, "Suppress progress output (stderr), show only final result")
 }
 
 // DriftFlags groups all flags used by the drift command

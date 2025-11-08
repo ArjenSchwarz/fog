@@ -1,6 +1,124 @@
 Unreleased
 ===========
 
+### Fixed
+- Removed hardcoded `=== Deployment Summary ===` headers from deploy output functions that were breaking JSON/YAML parsing
+- Added nil checks for `FinalStackState` before accessing `StackStatus` and `Outputs` to prevent potential nil pointer dereference in success output
+- Improved duration calculation with zero-time validation to avoid incorrect time calculations
+- Changed failure output timestamp handling to use "N/A" instead of `time.Now()` when `DeploymentEnd` is not available for more accurate output
+
+## BREAKING CHANGES
+
+**Stream Separation for Deploy Command**
+
+The `fog deploy` command now follows Unix conventions by separating progress output from structured data output:
+
+- **Progress output** (stack information, changeset details, deployment status, interactive prompts) → **stderr**
+- **Structured results** (deployment summary in JSON/YAML/CSV/etc.) → **stdout**
+
+**Impact on existing scripts:**
+- Scripts using `fog deploy ... | grep` will see different content (only final results, not progress)
+- Scripts using `fog deploy ... > file` will only capture results, not progress messages
+- CI/CD pipelines parsing combined output need updates
+
+**Migration examples:**
+```bash
+# Old (v1.x) - combined output to stdout
+fog deploy --stack mystack | grep "Status"
+
+# New (v2.x) - Option 1: Combine streams
+fog deploy --stack mystack 2>&1 | grep "Status"
+
+# New (v2.x) - Option 2: Parse structured output (recommended)
+fog deploy --stack mystack --output json | jq '.status'
+
+# New (v2.x) - Option 3: Suppress progress with --quiet
+fog deploy --stack mystack --quiet --output json | jq '.status'
+```
+
+For more details, see the [deployment output specification](specs/deploy-output/design.md).
+
+---
+
+### Changed
+- Updated deployment output to write all changeset and deployment information to stderr while reserving stdout for structured JSON results
+- Moved deployment end timestamp setting from deploy.go to printDeploymentResults() for more accurate timing
+- Modified all output operations in showChangeset() and related functions to use stderr with table format
+- Updated printLog() to conditionally use stderr for deploy context while maintaining stdout for history command
+- Added time rounding to deployment duration calculation for cleaner output
+- Improved error handling for zero-value timestamps in deployment output
+- Refined deployment messages to be more concise and less conversational
+- Updated test assertions to match new message formats
+
+### Added
+- Stream separation test suite in `cmd/stream_separation_test.go` with comprehensive tests for stderr/stdout separation covering printMessage, createStderrOutput, output functions, stream separation, format helpers, quiet mode, and stderr sync behavior
+- Stream verification report documenting audit of all output paths in deploy command (`specs/deploy-output/stream_verification.md`) confirming correct stderr/stdout usage, edge cases, and providing manual verification commands
+
+### Added
+- Integration tests for deployment output scenarios in `cmd/deploy_output_integration_test.go` covering successful deployment with JSON output, failed deployment with formatted output, quiet mode, dry-run with multiple formats, and no-changes scenario
+- Unit tests for deploy output builder functions in `cmd/deploy_output_test.go` covering success, failure, and no-changes scenarios across all output formats (JSON, YAML, CSV, Markdown, table)
+- Golden file test infrastructure for deploy output validation with generator test in `cmd/generate_golden_files_test.go` and golden files in `cmd/testdata/deploy-output/`
+- Golden file tests for deployment output covering success (JSON, YAML, CSV, Markdown), failure (JSON, YAML), and no-changes (JSON) scenarios
+- Helper functions `compareWithGolden()`, `createGoldenTestDeployment()`, `createGoldenFailedDeploymentTest()`, and `createGoldenNoChangesDeploymentTest()` for golden file testing
+- Golden file README documenting structure, update process, and data format conventions
+- Support for `UPDATE_GOLDEN=1` environment variable to regenerate golden files when output format changes
+
+### Changed
+- Deploy command no longer enforces table output format, allowing users to specify output format via `--output` flag while maintaining table as default
+- `outputFailureResult()` now uses `DeploymentEnd` timestamp when available instead of always using `time.Now()` for consistent golden file testing
+
+### Added
+- Unit tests for `createStderrOutput()` helper function in `cmd/deploy_helpers_test.go` verifying basic functionality and table format usage
+
+### Added
+- `outputSuccessResult()` function in `cmd/deploy_output.go` to output deployment summary for successful deployments with deployment metadata, planned changes, and stack outputs tables
+- `outputNoChangesResult()` function in `cmd/deploy_output.go` to output no-changes message with stack information when CloudFormation determines there are no changes to apply
+- `outputFailureResult()` function in `cmd/deploy_output.go` to output deployment failure details with error messages, stack status, and failed resources information
+- `extractFailedResources()` helper function in `cmd/deploy_output.go` to query stack events and extract failed resource details (LogicalID, ResourceStatus, StatusReason, ResourceType)
+- `FailedResource` struct to represent resources that failed during deployment
+
+### Changed
+- `printDeploymentResults()` in `cmd/deploy_helpers.go` now calls `outputSuccessResult()` for successful deployments to output formatted summary to stdout after printing success message to stderr
+- `printDeploymentResults()` now calls `outputFailureResult()` for failed deployments to output formatted failure details to stdout after showing failed events to stderr
+- No-changes scenario in `createChangeset()` now calls `outputNoChangesResult()` to output formatted message to stdout before exiting
+- Success and failure paths now write progress messages to stderr (if not quiet) and final formatted output to stdout, completing stream separation for all deployment outcomes
+- Output generation errors are now treated as warnings written to stderr rather than command failures
+
+### Added
+- `outputDryRunResult()` function in `cmd/deploy_output.go` to output changeset results for dry-run and create-changeset modes
+- Changeset data capture in `createAndShowChangeset()` function, storing changeset in both `CapturedChangeset` and `Changeset` fields for backwards compatibility
+- Final stack state capture in `printDeploymentResults()` function, storing in `FinalStackState` field
+- Deployment error capture in failure path, storing in `DeploymentError` field
+- Deployment end timestamp capture after deployment completes (both success and failure)
+
+### Changed
+- `createAndShowChangeset()` function now accepts `quiet` parameter to suppress stderr output when quiet mode is enabled
+- Changeset overview is now shown to stderr only when not in quiet mode
+- Dry-run mode now calls `outputDryRunResult()` for formatted output after changeset creation
+- Create-changeset mode now calls `outputDryRunResult()` for formatted output after changeset creation
+- Changeset deletion for dry-run mode now happens in main deployment flow after output generation
+- `confirmAndDeployChangeset()` function no longer handles create-changeset mode (moved to main flow)
+- Deployment flow now captures final stack state and deployment end timestamp for both success and failure paths
+
+### Fixed
+- Test `TestCreateAndShowChangeset` updated to reflect new behavior where changeset deletion is handled in main flow
+- Test `TestConfirmAndDeployChangeset` updated to remove create-changeset mode test case (now handled in main flow)
+
+### Changed
+- Deploy command progress output (stack information, changeset overview, deployment status messages, event streaming, interactive prompts) now writes to stderr instead of stdout following Unix conventions
+- `showDeploymentInfo()` function now accepts `quiet` parameter and returns early when quiet mode is enabled, suppressing all output to stderr
+- `showEvents()` function now accepts `quiet` parameter for conditional event streaming suppression
+- `printBasicStackInfo()` now uses `createStderrOutput()` helper for stderr rendering with TTY detection
+- `printMessage()` helper now uses `createStderrOutput()` for stderr rendering instead of stdout
+- Interactive confirmation prompts in `askForConfirmation()` now write to stderr using `fmt.Fprintf(os.Stderr, ...)`
+- Error messages and progress indicators throughout deployment flow now consistently use stderr via `fmt.Fprintln(os.Stderr, ...)` and `fmt.Fprintf(os.Stderr, ...)`
+- Quiet mode (`--quiet` flag) now automatically enables non-interactive mode to auto-approve all prompts
+- `showFailedEvents()` now uses `createStderrOutput()` for rendering failed events table to stderr
+
+### Added
+- Deployment start timestamp capture in `deployTemplate()` function using `deployment.DeploymentStart = time.Now()` before any AWS operations
+- Quiet mode checks in deployment progress functions (`deployChangeset()`, `createChangeset()`) to suppress informational messages when `--quiet` flag is enabled
+
 ### Added
 - Comprehensive user documentation in `docs/user-guide/` directory including:
   - Complete user guide with installation, quick start, feature overview, and best practices
@@ -13,6 +131,16 @@ Unreleased
   - `configuration-flow.drawio.svg` showing configuration precedence flow
 - Documentation section in main README.md with quick links to all user guides
 - "Getting Help" section in README.md with documentation links, built-in help commands, and community support information
+- `--quiet` flag to DeployFlags struct for suppressing progress output (stderr) while showing only final result
+- New fields to DeployInfo struct for deployment tracking: CapturedChangeset, FinalStackState, DeploymentError, DeploymentStart, and DeploymentEnd
+- `createStderrOutput()` helper function with TTY detection that conditionally enables colors and emojis based on whether stderr is a TTY, preventing ANSI codes in redirected output
+- `go-isatty` dependency (v0.0.20) for terminal detection functionality
+- Created specification for deploy command multi-format output support feature in `specs/deploy-output/`
+  - Requirements document with 13 user stories and 70+ acceptance criteria covering stream separation, output formats, quiet mode, error handling, backwards compatibility, and testing
+  - Design document with output flow diagram, dual-output architecture (stderr for progress, stdout for data), component specifications, data models, error handling strategy, and 7-phase implementation plan
+  - Decision log documenting 8 key design decisions including stream separation, format consistency, backwards compatibility acknowledgment, quiet mode behavior, and output generation error handling
+  - Task list with 40 implementation tasks organized into 7 phases: infrastructure setup, stream separation, data capture, final output builders, integration, testing, and cleanup
+- Enhanced go-output v2 API documentation with details on StderrWriter and StdoutWriter support from v2.6.0
 - Unit tests for empty changesets across all output formats (table, CSV, JSON, YAML, Markdown, HTML) verifying proper handling of zero-change scenarios with format-appropriate empty indicators
 - Unit tests for all output formats in describe changeset command covering table, CSV, JSON, YAML, Markdown, and HTML rendering
 - Unit tests for empty changeset handling across all formats

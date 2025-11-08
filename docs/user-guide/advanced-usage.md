@@ -524,6 +524,178 @@ pipeline {
 }
 ```
 
+### Scripting with Fog
+
+When using fog in scripts and CI/CD pipelines, understanding output streams and quiet mode is essential for robust automation.
+
+#### Stream Separation
+
+Fog follows Unix conventions by separating output into two streams:
+
+- **stderr**: Progress messages, status updates, interactive prompts, and informational output
+- **stdout**: Structured data output (JSON, YAML, CSV, etc.) when using `--output` flag
+
+This separation allows you to:
+- Pipe structured output to other commands without noise
+- Redirect progress logs separately from data
+- Parse machine-readable output reliably
+
+**Examples:**
+
+```bash
+# Capture only JSON output, show progress on terminal
+fog deploy --stackname myapp --output json > deployment.json
+
+# Hide progress, capture only data
+fog deploy --stackname myapp --output json 2>/dev/null > deployment.json
+
+# Capture both streams separately
+fog deploy --stackname myapp --output json > deployment.json 2> deployment.log
+
+# Combine streams for grep/searching
+fog deploy --stackname myapp 2>&1 | grep "ERROR"
+
+# Parse JSON output with jq
+fog deploy --stackname myapp --output json | jq '.status'
+```
+
+#### Quiet Mode
+
+The `--quiet` flag suppresses all progress output (stderr), showing only the final structured result:
+
+```bash
+# Suppress progress messages, show only final result
+fog deploy --stackname myapp --quiet --output json
+
+# Perfect for CI/CD where you only want the result
+fog deploy --stackname myapp --quiet --output json > result.json
+```
+
+**Quiet Mode Behavior:**
+- ✅ Suppresses: Progress indicators, status updates, changeset details, interactive prompts
+- ⚠️ Still shows: Warning messages, error messages (critical information)
+- 📝 Auto-enables: Non-interactive mode (no prompts, auto-approve changes)
+
+**Use Cases:**
+- CI/CD pipelines where progress clutters logs
+- Scripts that parse structured output
+- Automated deployments without human oversight
+- Cron jobs and scheduled tasks
+
+**Example CI/CD Usage:**
+
+```bash
+#!/bin/bash
+# deploy-production.sh
+
+set -euo pipefail
+
+echo "Starting deployment..."
+
+# Deploy with quiet mode, capture JSON output
+if result=$(fog deploy \
+    --stackname production-app \
+    --deployment-file app-production \
+    --quiet \
+    --output json 2>&1); then
+
+    echo "Deployment successful!"
+    echo "$result" | jq -r '.outputs[] | "\(.OutputKey): \(.OutputValue)"'
+
+    # Extract specific outputs for downstream use
+    export API_URL=$(echo "$result" | jq -r '.outputs[] | select(.OutputKey=="ApiUrl") | .OutputValue')
+
+else
+    echo "Deployment failed!"
+    echo "$result"
+    exit 1
+fi
+```
+
+#### Output Format Selection
+
+Choose output formats based on your use case:
+
+- **table** (default): Human-readable, good for terminal viewing and logs
+- **json**: Machine-readable, perfect for parsing with `jq` or scripts
+- **yaml**: Human-readable structured data, good for configs
+- **csv**: Spreadsheet-compatible, good for bulk data
+- **markdown**: Documentation-friendly, good for reports
+
+```bash
+# For manual review
+fog deploy --stackname myapp --dry-run
+
+# For parsing in scripts
+fog deploy --stackname myapp --output json | jq '.changeset'
+
+# For documentation
+fog deploy --stackname myapp --output markdown > deployment-report.md
+
+# For spreadsheet import
+fog describe changeset --changeset-name my-changeset --output csv > changes.csv
+```
+
+#### Error Handling in Scripts
+
+Always check exit codes and handle errors appropriately:
+
+```bash
+#!/bin/bash
+set -e  # Exit on error
+
+# Capture output and check success
+if fog deploy --stackname myapp --quiet --output json > /tmp/result.json 2>&1; then
+    echo "✅ Deployment succeeded"
+    cat /tmp/result.json | jq '.status'
+else
+    exit_code=$?
+    echo "❌ Deployment failed with exit code $exit_code"
+    cat /tmp/result.json
+    exit $exit_code
+fi
+```
+
+#### Best Practices for CI/CD
+
+1. **Always use `--output json`** for machine-readable results
+2. **Use `--quiet`** to reduce log noise in CI/CD
+3. **Capture both streams** when debugging (omit in production)
+4. **Check exit codes** explicitly
+5. **Use `--create-changeset`** for review workflows
+6. **Set timeouts** for long-running operations
+7. **Store outputs** as artifacts for auditing
+
+**Complete GitHub Actions Example:**
+
+```yaml
+- name: Deploy Stack
+  id: deploy
+  run: |
+    set -e
+    fog deploy \
+      --stackname ${{ env.STACK_NAME }} \
+      --deployment-file ${{ env.DEPLOYMENT_FILE }} \
+      --quiet \
+      --output json > deployment-result.json 2>&1
+
+    # Extract outputs for later steps
+    API_URL=$(jq -r '.outputs[] | select(.OutputKey=="ApiUrl") | .OutputValue' deployment-result.json)
+    echo "api_url=$API_URL" >> $GITHUB_OUTPUT
+
+- name: Upload Deployment Result
+  uses: actions/upload-artifact@v3
+  if: always()
+  with:
+    name: deployment-result
+    path: deployment-result.json
+
+- name: Use Deployment Output
+  run: |
+    echo "API URL: ${{ steps.deploy.outputs.api_url }}"
+    curl -f "${{ steps.deploy.outputs.api_url }}/health"
+```
+
 ## Advanced Drift Detection
 
 ### Automated Drift Detection

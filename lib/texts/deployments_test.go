@@ -55,7 +55,7 @@ func TestDeployChangesetMessage(t *testing.T) {
 		{
 			name:     "WillDeploy",
 			message:  DeployChangesetMessageWillDeploy,
-			expected: "OK. Deploying this Changeset.",
+			expected: "Deploying this Changeset.",
 		},
 		{
 			name:     "DryrunDelete",
@@ -75,12 +75,12 @@ func TestDeployChangesetMessage(t *testing.T) {
 		{
 			name:     "NoChanges",
 			message:  DeployChangesetMessageNoChanges,
-			expected: "No changes have been found in the change set for %v",
+			expected: "The change set for %v contains no changes",
 		},
 		{
 			name:     "NoResourceChanges",
 			message:  DeployChangesetMessageNoResourceChanges,
-			expected: "No changes to resources have been found, but there are still changes to other parts of the stack",
+			expected: "The change set contains no resource changes, but there are still changes to other parts of the stack",
 		},
 		{
 			name:     "Changes",
@@ -90,7 +90,7 @@ func TestDeployChangesetMessage(t *testing.T) {
 		{
 			name:     "WillDelete",
 			message:  DeployChangesetMessageWillDelete,
-			expected: "OK. I will now delete this change set for you.",
+			expected: "Deleting this change set for you.",
 		},
 	}
 
@@ -123,7 +123,7 @@ func TestDeployStackMessage(t *testing.T) {
 		{
 			name:     "NewStackDeleteSuccess",
 			message:  DeployStackMessageNewStackDeleteSuccess,
-			expected: "OK. I have deleted the stack. You can try to deploy it again.",
+			expected: "The stack has been deleted. You can try to deploy it again.",
 		},
 		{
 			name:     "NewStackDeleteInfo",
@@ -252,7 +252,7 @@ func TestMessageFormatting(t *testing.T) {
 	// Test that messages with format specifiers can be formatted correctly
 	stackName := "test-stack"
 	formatted := string(DeployChangesetMessageNoChanges)
-	expected := "No changes have been found in the change set for %v"
+	expected := "The change set for %v contains no changes"
 
 	if formatted != expected {
 		t.Errorf("Before formatting: got %q, want %q", formatted, expected)
@@ -261,7 +261,7 @@ func TestMessageFormatting(t *testing.T) {
 	// Format the message
 	formatted = string(DeployChangesetMessageNoChanges)
 	formatted = fmt.Sprintf(formatted, stackName)
-	expected = "No changes have been found in the change set for test-stack"
+	expected = "The change set for test-stack contains no changes"
 
 	if formatted != expected {
 		t.Errorf("After formatting: got %q, want %q", formatted, expected)

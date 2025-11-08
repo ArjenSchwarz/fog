@@ -954,6 +954,60 @@ Macros:
 
 ---
 
+### 5.7 Color and Style Control
+
+**Description:** Configurable color and styling control for terminal output with support for different color schemes and environments.
+
+**Benefits:**
+- Better accessibility for users with color blindness
+- Support for different terminal themes
+- Consistent behavior across environments
+- Compliance with NO_COLOR standard
+- Force colors for CI/CD logs
+
+**Implementation Difficulty:** Easy
+
+**Technical Details:**
+- Implement `--color` flag with options: `always`, `never`, `auto` (default)
+- Support `NO_COLOR` environment variable
+- Support `CLICOLOR` and `CLICOLOR_FORCE` environment variables
+- Detect TTY automatically for `auto` mode
+- Disable colors when output is redirected (unless `always`)
+- Apply to both stderr (progress) and stdout (data) appropriately
+
+**Commands:**
+```bash
+fog deploy --stackname myapp --color always
+fog deploy --stackname myapp --color never
+fog deploy --stackname myapp --color auto  # default
+
+# Environment variable support
+NO_COLOR=1 fog deploy --stackname myapp
+CLICOLOR_FORCE=1 fog deploy --stackname myapp
+```
+
+**Configuration Example:**
+```yaml
+# fog.yaml
+output:
+  color: auto  # always, never, auto
+  emoji: true  # enable/disable emoji in output
+```
+
+**Features:**
+- Configurable via CLI flag
+- Configurable via environment variables
+- Configurable via config file
+- Standard precedence: CLI > env > config
+- Independent control of colors and emojis
+- Theme support (future enhancement)
+
+**Priority:** Low-Medium
+
+**Estimated Effort:** 1-2 days
+
+---
+
 ## Monitoring & Observability
 
 ### 6.1 Real-time Event Streaming
@@ -2237,21 +2291,21 @@ fog snapshots cleanup --older-than 30d
 
 ### Feature Distribution by Difficulty:
 
-- **Easy:** 3 features
+- **Easy:** 4 features
 - **Easy-Medium:** 6 features
 - **Medium:** 26 features
 - **Medium-Hard:** 9 features
 - **Hard:** 11 features
 - **Very Hard:** 3 features
 
-**Total:** 58 feature ideas
+**Total:** 59 feature ideas
 
 ### Feature Distribution by Priority:
 
 - **High:** 8 features
 - **Medium:** 18 features
 - **Medium-High:** 1 feature
-- **Low-Medium:** 17 features
+- **Low-Medium:** 18 features
 - **Low:** 14 features
 
 ### Estimated Total Effort:

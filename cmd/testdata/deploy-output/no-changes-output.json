@@ -1,0 +1,47 @@
+[
+  {
+    "content": "No changes to deploy - stack is already up to date",
+    "type": "text"
+  },
+  {
+    "data": [
+      {
+        "ARN": "arn:aws:cloudformation:us-east-1:123456789012:stack/test-stack/abc123",
+        "Last Updated": "2025-11-06T14:30:00Z",
+        "Stack Name": "test-stack",
+        "Status": "UPDATE_COMPLETE"
+      }
+    ],
+    "schema": {
+      "fields": [
+        {
+          "hidden": false,
+          "name": "Stack Name",
+          "type": ""
+        },
+        {
+          "hidden": false,
+          "name": "Status",
+          "type": ""
+        },
+        {
+          "hidden": false,
+          "name": "ARN",
+          "type": ""
+        },
+        {
+          "hidden": false,
+          "name": "Last Updated",
+          "type": ""
+        }
+      ],
+      "keys": [
+        "Stack Name",
+        "Status",
+        "ARN",
+        "Last Updated"
+      ]
+    },
+    "title": "Stack Information"
+  }
+]

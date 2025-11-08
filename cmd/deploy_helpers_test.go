@@ -385,11 +385,11 @@ func TestCreateAndShowChangeset(t *testing.T) {
 		isDryRun           bool
 		expectDeleteCalled bool
 	}{
-		"dry run deletes changeset": {
+		"dry run creates changeset (deletion handled in main flow)": {
 			isDryRun:           true,
-			expectDeleteCalled: true,
+			expectDeleteCalled: false,
 		},
-		"normal run keeps changeset": {
+		"normal run creates changeset": {
 			isDryRun:           false,
 			expectDeleteCalled: false,
 		},
@@ -437,7 +437,7 @@ func TestCreateAndShowChangeset(t *testing.T) {
 			}
 			logObj := lib.DeploymentLog{}
 
-			cs := createAndShowChangeset(&info, config.AWSConfig{}, &logObj)
+			cs := createAndShowChangeset(&info, config.AWSConfig{}, &logObj, false)
 
 			if cs == nil || cs.Name != "test-changeset" {
 				t.Errorf("unexpected changeset: %+v", cs)
@@ -464,23 +464,13 @@ func TestConfirmAndDeployChangeset(t *testing.T) {
 	// t.Parallel()
 
 	tests := map[string]struct {
-		createOnly     bool
 		nonInteractive bool
 		userConfirm    bool
 		expectDeploy   bool
 		expectDelete   bool
 		expectReturn   bool
 	}{
-		"create only mode": {
-			createOnly:     true,
-			nonInteractive: false,
-			userConfirm:    false,
-			expectDeploy:   false,
-			expectDelete:   false,
-			expectReturn:   false,
-		},
 		"non-interactive auto-deploy": {
-			createOnly:     false,
 			nonInteractive: true,
 			userConfirm:    false,
 			expectDeploy:   true,
@@ -488,7 +478,6 @@ func TestConfirmAndDeployChangeset(t *testing.T) {
 			expectReturn:   true,
 		},
 		"user confirms deployment": {
-			createOnly:     false,
 			nonInteractive: false,
 			userConfirm:    true,
 			expectDeploy:   true,
@@ -496,7 +485,6 @@ func TestConfirmAndDeployChangeset(t *testing.T) {
 			expectReturn:   true,
 		},
 		"user declines deployment": {
-			createOnly:     false,
 			nonInteractive: false,
 			userConfirm:    false,
 			expectDeploy:   false,
@@ -535,8 +523,7 @@ func TestConfirmAndDeployChangeset(t *testing.T) {
 			}
 
 			deployFlags = DeployFlags{
-				CreateChangeset: tc.createOnly,
-				NonInteractive:  tc.nonInteractive,
+				NonInteractive: tc.nonInteractive,
 			}
 
 			result := confirmAndDeployChangeset(&lib.ChangesetInfo{}, &lib.DeployInfo{}, config.AWSConfig{})
@@ -871,5 +858,49 @@ func TestAssertEqualStructs(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestCreateStderrOutput tests the createStderrOutput helper function
+func TestCreateStderrOutput(t *testing.T) {
+	t.Parallel()
+
+	out := createStderrOutput()
+
+	if out == nil {
+		t.Fatal("createStderrOutput() returned nil")
+	}
+
+	// Test that we got a valid output instance
+	// We can't easily test TTY detection or transformers without mocking os.Stderr
+	// but we can verify the function returns a valid Output instance
+	testDoc := output.New().Text("test message").Build()
+	err := out.Render(context.Background(), testDoc)
+	if err != nil {
+		t.Errorf("failed to render test document: %v", err)
+	}
+}
+
+// TestCreateStderrOutput_TableFormat verifies that createStderrOutput always uses table format
+func TestCreateStderrOutput_TableFormat(t *testing.T) {
+	t.Parallel()
+
+	out := createStderrOutput()
+	if out == nil {
+		t.Fatal("createStderrOutput() returned nil")
+	}
+
+	// Create a simple table to verify table format is being used
+	testData := []map[string]any{
+		{"Name": "test", "Value": "123"},
+	}
+	testDoc := output.New().
+		Table("Test Table", testData, output.WithKeys("Name", "Value")).
+		Build()
+
+	// Render should succeed for table format
+	err := out.Render(context.Background(), testDoc)
+	if err != nil {
+		t.Errorf("failed to render table: %v", err)
 	}
 }

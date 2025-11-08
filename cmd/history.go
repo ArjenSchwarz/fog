@@ -69,7 +69,7 @@ func history(cmd *cobra.Command, args []string) {
 				continue
 			}
 		}
-		printLog(log)
+		printLog(log, false)
 	}
 
 	// Create final header document
@@ -89,7 +89,7 @@ func history(cmd *cobra.Command, args []string) {
 	}
 }
 
-func printLog(log lib.DeploymentLog, prefixMessage ...string) {
+func printLog(log lib.DeploymentLog, useStderr bool, prefixMessage ...string) {
 	header := fmt.Sprintf("%v - %v", log.StartedAt.In(settings.GetTimezoneLocation()).Format(time.RFC3339), log.StackName)
 
 	// Create styled header based on status
@@ -146,8 +146,13 @@ func printLog(log lib.DeploymentLog, prefixMessage ...string) {
 
 	doc := builder.Build()
 
-	// Render deployment log with changeset
-	out := output.NewOutput(settings.GetOutputOptions()...)
+	// Render deployment log - use stderr for deploy context, stdout for history command
+	var out *output.Output
+	if useStderr {
+		out = createStderrOutput()
+	} else {
+		out = output.NewOutput(settings.GetOutputOptions()...)
+	}
 	err := out.Render(context.Background(), doc)
 	if err != nil {
 		failWithError(err)

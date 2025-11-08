@@ -135,6 +135,16 @@ type DeployInfo struct {
 	TemplateRelativePath string
 	// TemplateUrl holds the S3 URL where the template has been uploaded to
 	TemplateUrl string
+	// CapturedChangeset holds the changeset data captured immediately after creation for final output
+	CapturedChangeset *ChangesetInfo
+	// FinalStackState holds the final state of the stack after deployment
+	FinalStackState *types.Stack
+	// DeploymentError holds error details if deployment failed
+	DeploymentError error
+	// DeploymentStart holds the deployment start timestamp
+	DeploymentStart time.Time
+	// DeploymentEnd holds the deployment completion timestamp
+	DeploymentEnd time.Time
 }
 
 // CfnStack represents a CloudFormation stack with its associated resources and metadata
