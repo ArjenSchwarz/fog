@@ -46,23 +46,34 @@ Welcome to the comprehensive user guide for Fog, a tool for managing CloudFormat
 
 ### Download Pre-built Binary
 
-Download the latest release for your platform:
+Download the latest release from the [releases page](https://github.com/ArjenSchwarz/fog/releases/latest).
 
-- **Linux (amd64)**: `wget https://github.com/ArjenSchwarz/fog/releases/latest/download/fog-linux-amd64`
-- **macOS (amd64)**: `wget https://github.com/ArjenSchwarz/fog/releases/latest/download/fog-darwin-amd64`
-- **macOS (arm64)**: `wget https://github.com/ArjenSchwarz/fog/releases/latest/download/fog-darwin-arm64`
-- **Windows (amd64)**: Download `fog-windows-amd64.exe`
+Available platforms:
+- **Linux (amd64)**: `fog-{version}-linux-amd64.tar.gz`
+- **macOS (amd64)**: `fog-{version}-darwin-amd64.tar.gz`
+- **macOS (arm64)**: `fog-{version}-darwin-arm64.tar.gz`
+- **Windows (amd64)**: `fog-{version}-windows-amd64.zip`
 
-Make it executable (Linux/macOS):
+Example for Linux:
 ```bash
-chmod +x fog-*
-sudo mv fog-* /usr/local/bin/fog
+# Download and extract (replace {version} with actual version, e.g., 1.11.0)
+wget https://github.com/ArjenSchwarz/fog/releases/download/{version}/fog-{version}-linux-amd64.tar.gz
+tar -xzf fog-{version}-linux-amd64.tar.gz
+sudo mv fog /usr/local/bin/fog
+```
+
+Example for macOS:
+```bash
+# Download and extract (replace {version} with actual version, e.g., 1.11.0)
+wget https://github.com/ArjenSchwarz/fog/releases/download/{version}/fog-{version}-darwin-amd64.tar.gz
+tar -xzf fog-{version}-darwin-amd64.tar.gz
+sudo mv fog /usr/local/bin/fog
 ```
 
 ### Build from Source
 
 Requirements:
-- Go 1.21 or later
+- Go 1.25 or later
 
 ```bash
 git clone https://github.com/ArjenSchwarz/fog.git
