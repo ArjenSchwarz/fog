@@ -477,11 +477,11 @@ Fog supports multiple output formats for different use cases:
 |----------|-----------------------------------|------------------------------|
 | table    | Interactive terminal viewing      | All commands                 |
 | json     | Programmatic processing, CI/CD    | All commands                 |
-| csv      | Spreadsheet import, data analysis | exports, resources           |
-| markdown | Documentation, reports            | report                       |
-| html     | Web viewing, sharing              | report                       |
+| csv      | Spreadsheet import, data analysis | All commands                 |
+| markdown | Documentation, reports            | All commands                 |
+| html     | Web viewing, sharing              | All commands                 |
+| yaml     | Configuration export              | All commands                 |
 | dot      | Visual graphs                     | dependencies                 |
-| yaml     | Configuration export              | Selected commands            |
 
 ### Examples
 
