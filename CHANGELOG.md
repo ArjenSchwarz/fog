@@ -1,6 +1,39 @@
 Unreleased
 ===========
 
+## BREAKING CHANGES
+
+**Stream Separation for Deploy Command**
+
+The `fog deploy` command now follows Unix conventions by separating progress output from structured data output:
+
+- **Progress output** (stack information, changeset details, deployment status, interactive prompts) → **stderr**
+- **Structured results** (deployment summary in JSON/YAML/CSV/etc.) → **stdout**
+
+**Impact on existing scripts:**
+- Scripts using `fog deploy ... | grep` will see different content (only final results, not progress)
+- Scripts using `fog deploy ... > file` will only capture results, not progress messages
+- CI/CD pipelines parsing combined output need updates
+
+**Migration examples:**
+```bash
+# Old (v1.x) - combined output to stdout
+fog deploy --stack mystack | grep "Status"
+
+# New (v2.x) - Option 1: Combine streams
+fog deploy --stack mystack 2>&1 | grep "Status"
+
+# New (v2.x) - Option 2: Parse structured output (recommended)
+fog deploy --stack mystack --output json | jq '.status'
+
+# New (v2.x) - Option 3: Suppress progress with --quiet
+fog deploy --stack mystack --quiet --output json | jq '.status'
+```
+
+For more details, see the [deployment output specification](specs/deploy-output/design.md).
+
+---
+
 ### Changed
 - Updated deployment output to write all changeset and deployment information to stderr while reserving stdout for structured JSON results
 - Moved deployment end timestamp setting from deploy.go to printDeploymentResults() for more accurate timing

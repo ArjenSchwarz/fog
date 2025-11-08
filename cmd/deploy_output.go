@@ -10,6 +10,7 @@ import (
 	"github.com/ArjenSchwarz/fog/lib"
 	output "github.com/ArjenSchwarz/go-output/v2"
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
 )
 
 // outputDryRunResult outputs the changeset result for dry-run and create-changeset modes.
@@ -181,7 +182,7 @@ func extractFailedResources(deployment *lib.DeployInfo, awsConfig config.AWSConf
 		if deployment.CapturedChangeset != nil && event.Timestamp.After(deployment.CapturedChangeset.CreationTime) {
 			// Check if this is a failed status
 			switch event.ResourceStatus {
-			case "CREATE_FAILED", "UPDATE_FAILED", "DELETE_FAILED", "IMPORT_FAILED":
+			case types.ResourceStatusCreateFailed, types.ResourceStatusUpdateFailed, types.ResourceStatusDeleteFailed, types.ResourceStatusImportFailed:
 				failedResource := FailedResource{
 					LogicalID:      aws.ToString(event.LogicalResourceId),
 					ResourceStatus: string(event.ResourceStatus),
