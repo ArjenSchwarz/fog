@@ -1,3 +1,83 @@
+// Package lib provides core functionality for managing AWS CloudFormation stacks.
+//
+// This package contains the business logic for interacting with AWS CloudFormation,
+// including stack operations, changeset management, drift detection, resource tracking,
+// and template processing. It serves as the foundation for the fog CLI tool.
+//
+// Core Components
+//
+// Stack Operations:
+//   - Stack creation, updates, and deletion
+//   - Stack status monitoring and event tracking
+//   - Stack dependency analysis
+//   - Stack export management
+//
+// Changeset Management:
+//   - Creating and executing changesets
+//   - Analyzing changeset changes and impact
+//   - Changeset validation and status tracking
+//
+// Drift Detection:
+//   - Detecting configuration drift in stacks
+//   - Analyzing drift status for resources
+//   - Reporting drift details
+//
+// Resource Management:
+//   - Listing and describing stack resources
+//   - Resource status and property tracking
+//   - Resource type filtering
+//
+// Template Processing:
+//   - Reading and validating CloudFormation templates
+//   - Template preprocessing and placeholder replacement
+//   - S3 upload for large templates
+//   - Support for YAML, JSON, and deployment file formats
+//
+// AWS Service Integration:
+//
+// The package integrates with multiple AWS services:
+//   - CloudFormation: Core stack and changeset operations
+//   - S3: Template storage and retrieval
+//   - EC2: VPC, subnet, and transit gateway operations
+//   - Identity Center: Permission set management
+//
+// Data Types
+//
+// Key types defined in this package:
+//   - DeployInfo: Complete deployment configuration and state
+//   - CfnStack: CloudFormation stack representation with metadata
+//   - ChangesetInfo: Changeset details and changes
+//   - StackEvent/ResourceEvent: Event tracking for deployments
+//   - CfnResource: CloudFormation resource with status and properties
+//   - StackDeploymentFile: Deployment file configuration
+//
+// Error Handling
+//
+// Functions return standard Go errors. AWS API errors are propagated with
+// appropriate context. Callers should check errors and handle them appropriately.
+//
+// Examples
+//
+// Get a stack:
+//
+//	stack, err := lib.GetStack(ctx, client, "my-stack")
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//
+// Create a changeset:
+//
+//	changesetID, err := lib.CreateChangeSet(ctx, client, deployInfo)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//
+// Detect drift:
+//
+//	driftInfo, err := lib.GetDrift(ctx, client, "my-stack")
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
 package lib
 
 import (

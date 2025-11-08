@@ -19,6 +19,68 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
+
+// Package cmd implements the command-line interface for fog using Cobra.
+//
+// This package contains all CLI commands, flags, middleware, and services for managing
+// AWS CloudFormation stacks. The architecture is organized into several sub-packages:
+//
+//   - commands/: Individual command implementations (deploy, report, drift, etc.)
+//   - flags/: Modular flag system with validation groups
+//   - middleware/: Request validation, error handling, and recovery
+//   - registry/: Command registration and dependency injection
+//   - services/: Business logic services (deployment, AWS operations)
+//   - ui/: Output formatting and user interaction
+//
+// Commands
+//
+// The CLI provides commands organized into logical groups:
+//
+//   - Stack operations: deploy, describe, drift, history, dependencies, report
+//   - Changeset operations: create, execute, describe
+//   - Resource operations: list resources and their details
+//
+// Many commonly-used subcommands have root-level aliases for convenience
+// (e.g., 'fog deploy' is an alias for 'fog stack deploy').
+//
+// Configuration
+//
+// The package uses Viper for configuration management, supporting:
+//
+//   - Config files: fog.yaml, fog.json, or fog.toml in current directory or $HOME
+//   - Environment variables: All settings can be overridden via environment
+//   - Command-line flags: Persistent and command-specific flags
+//
+// Global flags available to all commands:
+//
+//   - --config: Specify config file location
+//   - --verbose/-v: Enable verbose output
+//   - --output: Set output format (table, csv, json, dot)
+//   - --file: Save output to a file
+//   - --profile: Use specific AWS profile
+//   - --region: Use specific AWS region
+//   - --timezone: Set timezone for time display
+//   - --debug: Enable debug mode
+//
+// Error Handling
+//
+// Commands use a structured error system with FogError types that provide
+// consistent error codes and categories. Errors are handled through middleware
+// that formats them appropriately for CLI output.
+//
+// Examples
+//
+// Deploy a stack:
+//
+//	fog deploy mystack --template template.yaml
+//
+// Check for drift:
+//
+//	fog drift mystack
+//
+// Generate a report:
+//
+//	fog report mystack --output json
 package cmd
 
 import (

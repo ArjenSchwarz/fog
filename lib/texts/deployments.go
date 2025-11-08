@@ -1,3 +1,57 @@
+// Package texts provides standardized user-facing message constants for the fog CLI.
+//
+// This package centralizes all user-facing text messages used throughout the fog
+// application, ensuring consistent messaging and making it easier to maintain and
+// update text content. Messages are organized by category and use typed constants
+// for type safety.
+//
+// Message Categories
+//
+// The package defines several message type categories:
+//
+//   - DeployChangesetMessage: Messages related to changeset operations (create, deploy, delete)
+//   - DeployStackMessage: Messages for stack deployment operations
+//   - FileMessage: Messages for file operations and template processing
+//   - DeployReceivedErrorMessage: Error messages received during deployment
+//
+// Each category is represented by a custom type, and individual messages are defined
+// as constants of that type.
+//
+// Usage
+//
+// Messages are designed to be used directly in code where user-facing text is needed:
+//
+//	fmt.Println(texts.DeployChangesetMessageSuccess)
+//	fmt.Printf(string(texts.DeployChangesetMessageRetrieveFailed), changesetID)
+//
+// Some messages contain format specifiers (e.g., %v) and should be used with
+// string formatting functions like fmt.Printf or fmt.Sprintf.
+//
+// Design Rationale
+//
+// Centralizing messages in this package provides several benefits:
+//   - Consistency: All similar messages use the same wording
+//   - Maintainability: Text changes require updates in only one location
+//   - Type Safety: Custom types prevent mixing message categories
+//   - Discoverability: All messages for a category are grouped together
+//   - i18n Ready: Centralized messages make future internationalization easier
+//
+// Examples
+//
+// Using a simple message:
+//
+//	fmt.Println(texts.DeployStackMessageSuccess)
+//	// Output: Deployment completed successfully.
+//
+// Using a formatted message:
+//
+//	changesetID := "my-changeset"
+//	msg := fmt.Sprintf(string(texts.DeployChangesetMessageRetrieveFailed), changesetID)
+//	// Output: Something went wrong when trying to retrieve change set my-changeset
+//
+// Checking message type:
+//
+//	var msg texts.DeployChangesetMessage = texts.DeployChangesetMessageSuccess
 package texts
 
 // DeployChangesetMessage represents deployment changeset message types

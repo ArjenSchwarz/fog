@@ -1,3 +1,70 @@
+// Package config provides configuration management for the fog CLI tool.
+//
+// This package handles all configuration-related functionality including reading
+// configuration files, managing AWS settings, and providing a unified interface
+// for accessing configuration values throughout the application.
+//
+// Configuration Sources
+//
+// The package supports multiple configuration sources with the following precedence
+// (highest to lowest):
+//   - Command-line flags
+//   - Environment variables
+//   - Configuration files (fog.yaml, fog.json, fog.toml)
+//   - Default values
+//
+// Configuration Files
+//
+// Fog looks for configuration files in the following locations:
+//   - Current directory: ./fog.yaml, ./fog.json, ./fog.toml
+//   - Home directory: ~/fog.yaml, ~/fog.json, ~/fog.toml
+//   - Custom location: via --config flag
+//
+// The configuration file can contain settings for:
+//   - AWS profile and region selection
+//   - Output formatting preferences
+//   - Template file locations and extensions
+//   - Parameter and tag file locations
+//   - Deployment file settings
+//   - Logging configuration
+//   - Table display options
+//
+// AWS Configuration
+//
+// AWS-specific settings are managed through the AWSConfig type and include:
+//   - Profile selection for AWS credentials
+//   - Region override for API calls
+//   - Retry and timeout configurations
+//
+// Configuration Values
+//
+// The Config type provides methods to retrieve configuration values with
+// type safety and default handling:
+//   - GetString/GetLCString: String values (lowercase variant available)
+//   - GetBool: Boolean values
+//   - GetInt: Integer values
+//   - GetStringSlice: Array values
+//   - GetStringMap/GetStringMapString: Map values
+//
+// Examples
+//
+// Reading a string configuration value:
+//
+//	cfg := &config.Config{}
+//	outputFormat := cfg.GetString("output")
+//
+// Getting AWS configuration:
+//
+//	awsCfg, err := config.DefaultAwsConfig(ctx, profile, region)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//
+// Checking a boolean flag:
+//
+//	if cfg.GetBool("verbose") {
+//	    // Enable verbose output
+//	}
 package config
 
 import (
