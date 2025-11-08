@@ -4,6 +4,23 @@
 
 Fog is a tool to manage your CloudFormation deployments and ensure you have all your config as code. Please note, fog is **not** a DSL. It only works with standard CloudFormation files and doesn't do anything you can't do using the AWS CLI (and some hacking around with jq). It just makes it easier by combining functionality and preventing you from needing to deal with unnecessary overhead like different commands for creating a new stack or updating an existing one. In addition, it has little helper functionalities like offering to remove an empty stack for you.
 
+## Documentation
+
+📚 **[Complete User Guide](docs/user-guide/README.md)** - Start here for comprehensive documentation
+
+### Quick Links
+
+- **[Configuration Reference](docs/user-guide/configuration-reference.md)** - All configuration options explained
+- **[Deployment Files](docs/user-guide/deployment-files.md)** - Deployment file format specification
+- **[Advanced Usage](docs/user-guide/advanced-usage.md)** - Complex scenarios and CI/CD integration
+- **[Troubleshooting Guide](docs/user-guide/troubleshooting.md)** - Solutions to common problems
+
+### Diagrams
+
+- [Architecture Overview](docs/architecture-overview.drawio.svg) - System architecture
+- [Configuration Flow](docs/configuration-flow.drawio.svg) - Configuration precedence
+- [Deployment Flow](docs/deployment-flow.drawio.svg) - Deployment workflow
+
 ## Deployments
 
 The main functionality for fog is to carry out deployments of CloudFormation templates. The logic is based on bash scripts I've written and used with multiple clients over a number of years. You can do a deployment using the `fog deploy` command. You can see the help functionality for this and other commands by adding the `--help` flag.
@@ -106,6 +123,8 @@ As per the AWS documentation, a stack deployment file supports the following fie
 - parameters: key-value pairs of parameters
 - tags: key-value pairs of tags
 
+📖 **See [Deployment Files Documentation](docs/user-guide/deployment-files.md) for complete details, examples, and best practices.**
+
 ### Configuration
 
 As you can see higher up, you can influence what is deployed using CLI arguments. For example, the `--non-interactive` flag will assume that you always say "yes" to questions like doing a deployment or deleting an empty stack on failure while `--create-changeset` will only create the change set so you can show it for review in your CI/CD tool before it is deployed after a manual approval.
@@ -119,6 +138,8 @@ You can find an annotated example config in [example-fog.yaml](example-fog.yaml)
 * Set a standard name format for the change sets
 * Set standard tags that need to be applied to every template you wish to deploy
 * Set the root directory from which the `$TEMPLATEPATH` placeholder should be calculated
+
+📖 **See [Configuration Reference](docs/user-guide/configuration-reference.md) for a complete list of all configuration options with detailed explanations and examples.**
 
 ### Prechecks
 
@@ -347,6 +368,36 @@ drift:
 * `--separate-properties` (`-s`): Put every property difference on its own line for better readability
 * `--ignore-tags` (`-i`): Comma-separated list of additional tags to ignore
 * `--verbose` (`-v`): Show prefix list changes in routes (excluding AWS-managed prefix lists)
+
+## Getting Help
+
+### Documentation
+
+- 📚 **[User Guide](docs/user-guide/README.md)** - Comprehensive documentation
+- 🔧 **[Troubleshooting Guide](docs/user-guide/troubleshooting.md)** - Solutions to common problems
+- ⚙️ **[Configuration Reference](docs/user-guide/configuration-reference.md)** - All configuration options
+- 🚀 **[Advanced Usage](docs/user-guide/advanced-usage.md)** - Complex scenarios and CI/CD
+
+### Built-in Help
+
+```bash
+# General help
+fog --help
+
+# Command-specific help
+fog deploy --help
+fog drift --help
+fog report --help
+
+# Demo commands
+fog demo tables    # See all table styles
+fog demo settings  # View example configuration
+```
+
+### Community & Support
+
+- **Issues**: Report bugs or request features at [GitHub Issues](https://github.com/ArjenSchwarz/fog/issues)
+- **Discussions**: Ask questions at [GitHub Discussions](https://github.com/ArjenSchwarz/fog/discussions)
 
 ## TODO
 

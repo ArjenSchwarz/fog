@@ -2,6 +2,17 @@ Unreleased
 ===========
 
 ### Added
+- Comprehensive user documentation in `docs/user-guide/` directory including:
+  - Complete user guide with installation, quick start, feature overview, and best practices
+  - Configuration reference documenting all configuration options with examples for development, production, and CI/CD scenarios
+  - Deployment files specification with field reference, examples, and best practices
+  - Advanced usage guide covering multi-stack deployments, cross-stack references, multi-region deployments, CI/CD integration (GitHub Actions, GitLab CI, Jenkins), advanced drift detection, template preprocessing, complex tagging strategies, and environment management
+  - Troubleshooting guide with solutions for deployment issues, configuration problems, AWS credentials and permissions, template and parameter issues, drift detection issues, output and display issues, and debug mode usage
+- Architecture diagrams in `docs/`:
+  - `architecture-overview.drawio.svg` visualizing the layered system architecture
+  - `configuration-flow.drawio.svg` showing configuration precedence flow
+- Documentation section in main README.md with quick links to all user guides
+- "Getting Help" section in README.md with documentation links, built-in help commands, and community support information
 - Unit tests for empty changesets across all output formats (table, CSV, JSON, YAML, Markdown, HTML) verifying proper handling of zero-change scenarios with format-appropriate empty indicators
 - Unit tests for all output formats in describe changeset command covering table, CSV, JSON, YAML, Markdown, and HTML rendering
 - Unit tests for empty changeset handling across all formats

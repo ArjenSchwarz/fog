@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="700" height="800" viewBox="0 0 700 800">
+  <defs>
+    <style>
+      .title { font-family: Arial, sans-serif; font-size: 18px; font-weight: bold; fill: #333; }
+      .heading { font-family: Arial, sans-serif; font-size: 13px; font-weight: bold; fill: #333; }
+      .text { font-family: Arial, sans-serif; font-size: 11px; fill: #333; }
+      .box { fill: #e8f5e9; stroke: #2e7d32; stroke-width: 2; }
+      .decision { fill: #fff3e0; stroke: #e65100; stroke-width: 2; }
+      .process { fill: #e1f5fe; stroke: #0277bd; stroke-width: 2; }
+      .output { fill: #f3e5f5; stroke: #6a1b9a; stroke-width: 2; }
+      .arrow { stroke: #333; stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
+      .label { font-family: Arial, sans-serif; font-size: 10px; fill: #666; font-style: italic; }
+    </style>
+    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#333" />
+    </marker>
+  </defs>
+
+  <!-- Title -->
+  <text x="350" y="30" text-anchor="middle" class="title">Fog Configuration Precedence Flow</text>
+
+  <!-- Start -->
+  <ellipse cx="350" cy="70" rx="50" ry="25" class="box"/>
+  <text x="350" y="77" text-anchor="middle" class="heading">Start</text>
+
+  <!-- Step 1: Default Values -->
+  <rect x="250" y="110" width="200" height="50" class="box" rx="5"/>
+  <text x="350" y="130" text-anchor="middle" class="heading">1. Load Default Values</text>
+  <text x="350" y="147" text-anchor="middle" class="text">Built-in defaults</text>
+  <path d="M 350 95 L 350 110" class="arrow"/>
+
+  <!-- Step 2: Search for Config File -->
+  <rect x="225" y="180" width="250" height="50" class="process" rx="5"/>
+  <text x="350" y="200" text-anchor="middle" class="heading">2. Search for Config File</text>
+  <text x="350" y="217" text-anchor="middle" class="text">./fog.yaml, ~/fog.yaml, --config</text>
+  <path d="M 350 160 L 350 180" class="arrow"/>
+
+  <!-- Decision: Config Found? -->
+  <path d="M 350 250 L 420 290 L 350 330 L 280 290 Z" class="decision"/>
+  <text x="350" y="295" text-anchor="middle" class="heading">Config File</text>
+  <text x="350" y="310" text-anchor="middle" class="heading">Found?</text>
+  <path d="M 350 230 L 350 250" class="arrow"/>
+
+  <!-- Yes: Load Config File -->
+  <rect x="475" y="265" width="180" height="50" class="process" rx="5"/>
+  <text x="565" y="285" text-anchor="middle" class="heading">Load Config File</text>
+  <text x="565" y="302" text-anchor="middle" class="text">Merge with defaults</text>
+  <path d="M 420 290 L 475 290" class="arrow"/>
+  <text x="445" y="285" text-anchor="middle" class="label">Yes</text>
+
+  <!-- No path -->
+  <path d="M 280 290 L 220 290 L 220 360 L 280 360" class="arrow"/>
+  <text x="230" y="285" text-anchor="middle" class="label">No</text>
+
+  <!-- Step 3: Check Environment Variables -->
+  <rect x="225" y="360" width="250" height="70" class="process" rx="5"/>
+  <text x="350" y="385" text-anchor="middle" class="heading">3. Check Environment Variables</text>
+  <text x="350" y="402" text-anchor="middle" class="text">AWS_PROFILE, AWS_REGION,</text>
+  <text x="350" y="417" text-anchor="middle" class="text">AWS_ACCESS_KEY_ID, etc.</text>
+  <path d="M 565 315 L 565 395 L 475 395" class="arrow"/>
+  <path d="M 350 330 L 350 360" class="arrow"/>
+
+  <!-- Step 4: Apply CLI Flags -->
+  <rect x="225" y="450" width="250" height="70" class="process" rx="5"/>
+  <text x="350" y="475" text-anchor="middle" class="heading">4. Apply CLI Flags</text>
+  <text x="350" y="492" text-anchor="middle" class="text">--region, --profile, --output,</text>
+  <text x="350" y="507" text-anchor="middle" class="text">--verbose, etc.</text>
+  <path d="M 350 430 L 350 450" class="arrow"/>
+
+  <!-- Final Config -->
+  <rect x="250" y="540" width="200" height="50" class="output" rx="5"/>
+  <text x="350" y="560" text-anchor="middle" class="heading">Final Configuration</text>
+  <text x="350" y="577" text-anchor="middle" class="text">Ready for use</text>
+  <path d="M 350 520 L 350 540" class="arrow"/>
+
+  <!-- Example boxes -->
+  <rect x="50" y="620" width="600" height="160" class="box" rx="5" fill="#fafafa" stroke="#999"/>
+  <text x="350" y="645" text-anchor="middle" class="heading">Configuration Precedence Example</text>
+
+  <text x="70" y="670" class="text">Default:         output = "table"</text>
+  <text x="70" y="690" class="text">Config File:     output = "json"  (overrides default)</text>
+  <text x="70" y="710" class="text">Environment:     AWS_REGION = "us-west-2"  (adds to config)</text>
+  <text x="70" y="730" class="text">CLI Flag:        --output csv  (overrides config file)</text>
+  <text x="70" y="755" class="heading">Final Result:    output = "csv", region = "us-west-2"</text>
+
+  <!-- Legend -->
+  <rect x="50" y="50" width="140" height="110" fill="white" stroke="#ccc" stroke-width="1"/>
+  <text x="120" y="67" text-anchor="middle" class="heading">Legend</text>
+
+  <rect x="60" y="75" width="40" height="15" class="box" rx="2"/>
+  <text x="110" y="87" class="text">Default/Start</text>
+
+  <rect x="60" y="95" width="40" height="15" class="process" rx="2"/>
+  <text x="110" y="107" class="text">Process</text>
+
+  <rect x="60" y="115" width="40" height="15" class="decision" rx="2"/>
+  <text x="110" y="127" class="text">Decision</text>
+
+  <rect x="60" y="135" width="40" height="15" class="output" rx="2"/>
+  <text x="110" y="147" class="text">Output</text>
+</svg>
