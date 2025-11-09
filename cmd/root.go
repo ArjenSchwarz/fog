@@ -84,10 +84,10 @@ THE SOFTWARE.
 package cmd
 
 import (
+	"os"
+
 	"github.com/ArjenSchwarz/fog/config"
 	"github.com/spf13/cobra"
-
-	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/viper"
 )
 
@@ -193,7 +193,7 @@ func initConfig() {
 		viper.SetConfigFile(cfgFile)
 	} else {
 		// Find home directory.
-		home, err := homedir.Dir()
+		home, err := os.UserHomeDir()
 		cobra.CheckErr(err)
 		// Default to local config file
 		viper.AddConfigPath(".")

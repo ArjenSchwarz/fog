@@ -106,7 +106,7 @@ func initConfig() {
         viper.SetConfigFile(cfgFile)
     } else {
         // Find home directory.
-        home, err := homedir.Dir()
+        home, err := os.UserHomeDir()
         cobra.CheckErr(err)
         // Default to local config file
         viper.AddConfigPath(".")

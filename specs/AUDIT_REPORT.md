@@ -1003,11 +1003,20 @@ Large CloudFormation templates are loaded entirely into memory and parsed. This 
 **Severity:** LOW
 **Priority:** LOW
 **Difficulty:** LOW
+**Status:** ✅ **COMPLETED**
 
 **Location:** `go.mod:17`
 
 **Description:**
 Using `github.com/mitchellh/go-homedir` which is deprecated. Should use `os.UserHomeDir()` from standard library (Go 1.12+).
+
+**Resolution:**
+Replaced the deprecated `github.com/mitchellh/go-homedir` dependency with the standard library's `os.UserHomeDir()`:
+- Updated `cmd/root.go` to use `os.UserHomeDir()` instead of `homedir.Dir()`
+- Removed the `homedir` import
+- Removed the dependency from `go.mod`
+
+The change is functionally equivalent and uses Go's built-in home directory detection (available since Go 1.12).
 
 **Recommendation:**
 1. Replace go-homedir with os.UserHomeDir()
