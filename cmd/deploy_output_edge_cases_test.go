@@ -23,8 +23,8 @@ func TestOutputSuccessResult_EdgeCases(t *testing.T) {
 			deployment: &lib.DeployInfo{
 				StackName:       "test-stack",
 				FinalStackState: nil, // Edge case: nil final stack state
-				ChangesetResponse: &cfntypes.DescribeChangeSetOutput{
-					ChangeSetName: aws.String("test-changeset"),
+				Changeset: &lib.ChangesetInfo{
+					ChangesetName: aws.String("test-changeset"),
 					Changes:       []cfntypes.Change{},
 				},
 			},
@@ -34,12 +34,12 @@ func TestOutputSuccessResult_EdgeCases(t *testing.T) {
 		"FinalStackState with nil outputs": {
 			deployment: &lib.DeployInfo{
 				StackName: "test-stack",
-				FinalStackState: &lib.CfnStack{
+				FinalStackState: &cfntypes.Stack{
 					StackName: aws.String("test-stack"),
 					Outputs:   nil, // Edge case: nil outputs
 				},
-				ChangesetResponse: &cfntypes.DescribeChangeSetOutput{
-					ChangeSetName: aws.String("test-changeset"),
+				Changeset: &lib.ChangesetInfo{
+					ChangesetName: aws.String("test-changeset"),
 				},
 			},
 			shouldPanic: false,
@@ -48,36 +48,36 @@ func TestOutputSuccessResult_EdgeCases(t *testing.T) {
 		"FinalStackState with empty outputs": {
 			deployment: &lib.DeployInfo{
 				StackName: "test-stack",
-				FinalStackState: &lib.CfnStack{
+				FinalStackState: &cfntypes.Stack{
 					StackName: aws.String("test-stack"),
 					Outputs:   []cfntypes.Output{}, // Edge case: empty outputs
 				},
-				ChangesetResponse: &cfntypes.DescribeChangeSetOutput{
-					ChangeSetName: aws.String("test-changeset"),
+				Changeset: &lib.ChangesetInfo{
+					ChangesetName: aws.String("test-changeset"),
 				},
 			},
 			shouldPanic: false,
 			description: "Empty outputs should be handled gracefully",
 		},
-		"nil ChangesetResponse": {
+		"nil Changeset": {
 			deployment: &lib.DeployInfo{
 				StackName: "test-stack",
-				FinalStackState: &lib.CfnStack{
+				FinalStackState: &cfntypes.Stack{
 					StackName: aws.String("test-stack"),
 				},
-				ChangesetResponse: nil, // Edge case: nil changeset response
+				Changeset: nil, // Edge case: nil changeset
 			},
 			shouldPanic: false,
-			description: "Nil ChangesetResponse should be handled gracefully",
+			description: "Nil Changeset should be handled gracefully",
 		},
 		"empty changeset with zero changes": {
 			deployment: &lib.DeployInfo{
 				StackName: "test-stack",
-				FinalStackState: &lib.CfnStack{
+				FinalStackState: &cfntypes.Stack{
 					StackName: aws.String("test-stack"),
 				},
-				ChangesetResponse: &cfntypes.DescribeChangeSetOutput{
-					ChangeSetName: aws.String("test-changeset"),
+				Changeset: &lib.ChangesetInfo{
+					ChangesetName: aws.String("test-changeset"),
 					Changes:       []cfntypes.Change{}, // Edge case: zero changes
 				},
 			},
@@ -87,11 +87,11 @@ func TestOutputSuccessResult_EdgeCases(t *testing.T) {
 		"large changeset with many changes": {
 			deployment: &lib.DeployInfo{
 				StackName: "test-stack",
-				FinalStackState: &lib.CfnStack{
+				FinalStackState: &cfntypes.Stack{
 					StackName: aws.String("test-stack"),
 				},
-				ChangesetResponse: &cfntypes.DescribeChangeSetOutput{
-					ChangeSetName: aws.String("test-changeset"),
+				Changeset: &lib.ChangesetInfo{
+					ChangesetName: aws.String("test-changeset"),
 					Changes:       generateManyChanges(150), // Edge case: large changeset
 				},
 			},
@@ -101,7 +101,7 @@ func TestOutputSuccessResult_EdgeCases(t *testing.T) {
 		"nil StackName in FinalStackState": {
 			deployment: &lib.DeployInfo{
 				StackName: "test-stack",
-				FinalStackState: &lib.CfnStack{
+				FinalStackState: &cfntypes.Stack{
 					StackName: nil, // Edge case: nil stack name
 				},
 			},
@@ -111,7 +111,7 @@ func TestOutputSuccessResult_EdgeCases(t *testing.T) {
 		"deployment with only empty strings": {
 			deployment: &lib.DeployInfo{
 				StackName: "",
-				FinalStackState: &lib.CfnStack{
+				FinalStackState: &cfntypes.Stack{
 					StackName: aws.String(""),
 				},
 			},
@@ -160,7 +160,7 @@ func TestOutputFailureResult_EdgeCases(t *testing.T) {
 		"nil error parameter": {
 			deployment: &lib.DeployInfo{
 				StackName: "test-stack",
-				FinalStackState: &lib.CfnStack{
+				FinalStackState: &cfntypes.Stack{
 					StackName: aws.String("test-stack"),
 				},
 			},
@@ -323,11 +323,11 @@ func TestDeploymentOutput_ConcurrentAccess(t *testing.T) {
 
 	deployment := &lib.DeployInfo{
 		StackName: "test-stack",
-		FinalStackState: &lib.CfnStack{
+		FinalStackState: &cfntypes.Stack{
 			StackName: aws.String("test-stack"),
 		},
-		ChangesetResponse: &cfntypes.DescribeChangeSetOutput{
-			ChangeSetName: aws.String("test-changeset"),
+		Changeset: &lib.ChangesetInfo{
+			ChangesetName: aws.String("test-changeset"),
 		},
 	}
 
@@ -365,7 +365,7 @@ func TestDeploymentOutput_MemoryUsage(t *testing.T) {
 		"large number of outputs": {
 			deployment: &lib.DeployInfo{
 				StackName: "test-stack",
-				FinalStackState: &lib.CfnStack{
+				FinalStackState: &cfntypes.Stack{
 					StackName: aws.String("test-stack"),
 					Outputs:   generateManyOutputs(200),
 				},
@@ -375,7 +375,7 @@ func TestDeploymentOutput_MemoryUsage(t *testing.T) {
 		"large number of parameters": {
 			deployment: &lib.DeployInfo{
 				StackName: "test-stack",
-				FinalStackState: &lib.CfnStack{
+				FinalStackState: &cfntypes.Stack{
 					StackName:  aws.String("test-stack"),
 					Parameters: generateManyParameters(200),
 				},
@@ -385,7 +385,7 @@ func TestDeploymentOutput_MemoryUsage(t *testing.T) {
 		"very long output values": {
 			deployment: &lib.DeployInfo{
 				StackName: "test-stack",
-				FinalStackState: &lib.CfnStack{
+				FinalStackState: &cfntypes.Stack{
 					StackName: aws.String("test-stack"),
 					Outputs: []cfntypes.Output{
 						{

@@ -1,6 +1,16 @@
 Unreleased
 ===========
 
+### Added
+- **Comprehensive unit test coverage improvements** (Audit Issues 4.1, 4.5, 5.3, 6.1)
+  - `main_test.go` - Lambda handler tests for EventBridge message handling, environment variable validation, and Lambda vs CLI mode detection
+  - `config/config_edge_cases_test.go` - Configuration edge case tests for timezone loading, output options, field values, table formats, and type conversions
+  - `lib/template_edge_cases_test.go` - Template parsing edge case tests for malformed JSON/YAML, empty templates, circular references, large templates, and parameter unmarshaling
+  - `lib/error_paths_test.go` - Error handling path tests for nil pointer safety across DeployInfo, CfnStack, StackEvent, ChangesetInfo, CfnResource, and other core types
+  - `cmd/deploy_output_edge_cases_test.go` - Deploy output edge case tests for nil states, empty outputs, large changesets (150+ changes), concurrent access safety, and memory usage with large data structures (200+ outputs/parameters)
+  - All tests follow Go best practices with table-driven tests, proper use of t.Parallel(), and comprehensive documentation
+  - Total: 5 new test files with 2,328 lines of test code
+
 ### Refactored
 - **Major code refactoring for Issue 7.3: Long and Complex Functions**
   - Decomposed `lib/stacks.go:GetEvents` (~120 lines) into 15 focused helper functions for better maintainability
