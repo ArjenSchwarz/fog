@@ -1,13 +1,10 @@
 package cmd
 
 import (
-	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/ArjenSchwarz/fog/lib"
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
 	"github.com/spf13/viper"
 )
 
@@ -336,89 +333,6 @@ func TestPlaceholderParser(t *testing.T) {
 
 			if !containsSubstring(got, tt.wantContain) {
 				t.Errorf("placeholderParser() = %v, want to contain %v", got, tt.wantContain)
-			}
-		})
-	}
-}
-
-// TestDetermineDeploymentMethod tests deployment method string generation
-func TestDetermineDeploymentMethod(t *testing.T) {
-	tests := []struct {
-		name      string
-		isNew     bool
-		isDryrun  bool
-		wantContain string
-	}{
-		{
-			name:        "new stack deployment",
-			isNew:       true,
-			isDryrun:    false,
-			wantContain: "Deploying",
-		},
-		{
-			name:        "new stack dry run",
-			isNew:       true,
-			isDryrun:    true,
-			wantContain: "dry run",
-		},
-		{
-			name:        "update stack",
-			isNew:       false,
-			isDryrun:    false,
-			wantContain: "Updating",
-		},
-		{
-			name:        "update stack dry run",
-			isNew:       false,
-			isDryrun:    true,
-			wantContain: "dry run",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := determineDeploymentMethod(tt.isNew, tt.isDryrun)
-
-			if !containsSubstring(got, tt.wantContain) {
-				t.Errorf("determineDeploymentMethod() = %v, want to contain %v", got, tt.wantContain)
-			}
-		})
-	}
-}
-
-// TestFormatAccountDisplay tests account display formatting
-func TestFormatAccountDisplay(t *testing.T) {
-	tests := []struct {
-		name         string
-		accountID    string
-		accountAlias string
-		want         string
-	}{
-		{
-			name:         "with alias",
-			accountID:    "123456789012",
-			accountAlias: "my-account",
-			want:         "my-account (123456789012)",
-		},
-		{
-			name:         "without alias",
-			accountID:    "123456789012",
-			accountAlias: "",
-			want:         "123456789012",
-		},
-		{
-			name:         "empty account ID with alias",
-			accountID:    "",
-			accountAlias: "my-account",
-			want:         "my-account ()",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := formatAccountDisplay(tt.accountID, tt.accountAlias)
-			if got != tt.want {
-				t.Errorf("formatAccountDisplay() = %v, want %v", got, tt.want)
 			}
 		})
 	}

@@ -292,7 +292,7 @@ func TestCreateNewStackEvent(t *testing.T) {
 			name: "CREATE_IN_PROGRESS with timestamp",
 			event: types.StackEvent{
 				Timestamp:      &now,
-				ResourceStatus: types.StackStatusCreateInProgress,
+				ResourceStatus: types.ResourceStatusCreateInProgress,
 			},
 			wantType: "Create",
 			wantDate: now,
@@ -301,7 +301,7 @@ func TestCreateNewStackEvent(t *testing.T) {
 			name: "UPDATE_IN_PROGRESS with timestamp",
 			event: types.StackEvent{
 				Timestamp:      &now,
-				ResourceStatus: types.StackStatusUpdateInProgress,
+				ResourceStatus: types.ResourceStatusUpdateInProgress,
 			},
 			wantType: "Update",
 			wantDate: now,
@@ -310,7 +310,7 @@ func TestCreateNewStackEvent(t *testing.T) {
 			name: "nil timestamp",
 			event: types.StackEvent{
 				Timestamp:      nil,
-				ResourceStatus: types.StackStatusCreateInProgress,
+				ResourceStatus: types.ResourceStatusCreateInProgress,
 			},
 			wantType: "Create",
 			wantDate: time.Time{},
