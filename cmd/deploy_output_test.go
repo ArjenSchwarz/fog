@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ArjenSchwarz/fog/config"
 	"github.com/ArjenSchwarz/fog/lib"
 	output "github.com/ArjenSchwarz/go-output/v2"
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -183,7 +182,7 @@ func TestOutputFailureResult(t *testing.T) {
 	tests := map[string]struct {
 		format       string
 		deployment   *lib.DeployInfo
-		awsConfig    config.AWSConfig
+		eventsClient lib.CloudFormationDescribeStackEventsAPI
 		validateFunc func(t *testing.T, output string)
 	}{
 		"failed deployment with error": {
@@ -197,7 +196,7 @@ func TestOutputFailureResult(t *testing.T) {
 				}
 				return d
 			}(),
-			awsConfig: config.AWSConfig{},
+			eventsClient: &mockStackEventsClient{},
 			validateFunc: func(t *testing.T, output string) {
 				assert.Contains(t, output, "Deployment failed")
 				assert.Contains(t, output, "ROLLBACK_COMPLETE")
@@ -212,7 +211,7 @@ func TestOutputFailureResult(t *testing.T) {
 				d.FinalStackState = nil
 				return d
 			}(),
-			awsConfig: config.AWSConfig{},
+			eventsClient: nil,
 			validateFunc: func(t *testing.T, output string) {
 				assert.Contains(t, output, "Deployment failed")
 			},
@@ -227,7 +226,7 @@ func TestOutputFailureResult(t *testing.T) {
 
 			// Capture stdout
 			output := captureStdout(func() {
-				err := outputFailureResult(tc.deployment, tc.awsConfig)
+				err := outputFailureResult(tc.deployment, tc.eventsClient)
 				assert.NoError(t, err)
 			})
 
@@ -316,6 +315,11 @@ func TestExtractFailedResources(t *testing.T) {
 		client     lib.CloudFormationDescribeStackEventsAPI
 		want       []FailedResource
 	}{
+		"returns empty slice when client is nil": {
+			deployment: deploymentWithChangeset,
+			client:     nil,
+			want:       []FailedResource{},
+		},
 		"returns empty slice on API error": {
 			deployment: deploymentWithChangeset,
 			client: &mockStackEventsClient{
@@ -392,7 +396,7 @@ func TestOutputFailureResult_TimestampFallback(t *testing.T) {
 	deployment.DeploymentEnd = time.Time{}
 
 	output := captureStdout(func() {
-		err := outputFailureResult(deployment, config.AWSConfig{})
+		err := outputFailureResult(deployment, &mockStackEventsClient{})
 		assert.NoError(t, err)
 	})
 
@@ -583,7 +587,7 @@ func TestOutputBuilders_MissingFieldHandling(t *testing.T) {
 
 		// Should use default message
 		output := captureStdout(func() {
-			err := outputFailureResult(deployment, config.AWSConfig{})
+			err := outputFailureResult(deployment, &mockStackEventsClient{})
 			assert.NoError(t, err)
 		})
 
@@ -685,7 +689,7 @@ func TestGoldenFile_FailureOutput(t *testing.T) {
 
 			// Capture output
 			actual := captureStdout(func() {
-				err := outputFailureResult(deployment, config.AWSConfig{})
+				err := outputFailureResult(deployment, &mockStackEventsClient{})
 				require.NoError(t, err)
 			})
 

@@ -17,6 +17,7 @@ Unreleased
 - Added nil checks for `FinalStackState` before accessing `StackStatus` and `Outputs` to prevent potential nil pointer dereference in success output
 - Improved duration calculation with zero-time validation to avoid incorrect time calculations
 - Changed failure output timestamp handling to use "N/A" instead of `time.Now()` when `DeploymentEnd` is not available for more accurate output
+- Updated `outputFailureResult()` to accept injected CloudFormation events clients and fall back gracefully when none is provided, preventing unintended live AWS calls in tests and completing coverage for Audit Issue 4.5
 - Replaced deprecated `github.com/mitchellh/go-homedir` dependency with standard library `os.UserHomeDir()` (Audit Issue 11.1)
 - Added nil checks for `event.Timestamp` in stack event processing functions to prevent panics
 - Fixed nil pointer dereference in `createNewResourceEvent` and `createNewStackEvent`

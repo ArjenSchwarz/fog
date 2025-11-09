@@ -118,10 +118,8 @@ func TestOutputFailureResult_UsesStdout(t *testing.T) {
 	deployment.DeploymentError = fmt.Errorf("test deployment error")
 	deployment.FinalStackState.StackStatus = types.StackStatusRollbackComplete
 
-	awsConfig := createMockAWSConfig()
-
 	stdout, stderr := captureBothStreams(func() {
-		_ = outputFailureResult(deployment, awsConfig)
+		_ = outputFailureResult(deployment, nil)
 	})
 
 	// Verify stdout contains the error output
@@ -254,8 +252,6 @@ func TestStderrSync_CalledBeforeStdout(t *testing.T) {
 	// by checking that output functions don't panic when called
 
 	deployment := createTestDeployment()
-	awsConfig := createMockAWSConfig()
-
 	tests := map[string]func(){
 		"outputSuccessResult": func() {
 			_ = outputSuccessResult(deployment)
@@ -264,7 +260,7 @@ func TestStderrSync_CalledBeforeStdout(t *testing.T) {
 			_ = outputNoChangesResult(deployment)
 		},
 		"outputFailureResult": func() {
-			_ = outputFailureResult(deployment, awsConfig)
+			_ = outputFailureResult(deployment, nil)
 		},
 		"outputDryRunResult": func() {
 			outputDryRunResult(deployment, awsConfig)
