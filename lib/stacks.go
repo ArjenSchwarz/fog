@@ -702,11 +702,17 @@ func createNewResourceEvent(event types.StackEvent, stackName, resourceName stri
 		ResourceID: aws.ToString(event.PhysicalResourceId),
 		LogicalID:  aws.ToString(event.LogicalResourceId),
 	}
+
+	var timestamp time.Time
+	if event.Timestamp != nil {
+		timestamp = *event.Timestamp
+	}
+
 	resource := ResourceEvent{
 		Resource:    resitem,
-		StartDate:   *event.Timestamp,
+		StartDate:   timestamp,
 		StartStatus: string(event.ResourceStatus),
-		EndDate:     *event.Timestamp,
+		EndDate:     timestamp,
 		EndStatus:   string(event.ResourceStatus),
 		RawInfo:     []types.StackEvent{event},
 	}

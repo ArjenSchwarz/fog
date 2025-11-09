@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 
@@ -493,6 +494,10 @@ func extractIcmpTypeCode(properties map[string]any) *types.IcmpTypeCode {
 
 // extractInt32Value extracts an int32 value from either a float64 or string
 func extractInt32Value(value any) int32 {
+	if value == nil {
+		return 0
+	}
+
 	switch v := value.(type) {
 	case float64:
 		return int32(v)
@@ -500,6 +505,12 @@ func extractInt32Value(value any) int32 {
 		if intVal, err := strconv.Atoi(v); err == nil {
 			return int32(intVal)
 		}
+		// Log conversion failures for debugging, but return 0 as default
+		// This helps identify data quality issues in templates
+		fmt.Fprintf(os.Stderr, "Warning: failed to convert string '%s' to int32, using 0 as default\n", v)
+	default:
+		// Log unexpected types for debugging
+		fmt.Fprintf(os.Stderr, "Warning: unexpected type %T for int32 conversion, using 0 as default\n", v)
 	}
 	return 0
 }
