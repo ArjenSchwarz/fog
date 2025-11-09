@@ -276,16 +276,18 @@ func TestNaclResourceToNaclEntry_EdgeCases(t *testing.T) {
 // TestRouteResourceToRoute_EdgeCases tests edge cases for route conversion
 func TestRouteResourceToRoute_EdgeCases(t *testing.T) {
 	tests := map[string]struct {
-		resource   CfnTemplateResource
-		params     []cfntypes.Parameter
-		validateFn func(*testing.T, any)
+		resource          CfnTemplateResource
+		params            []cfntypes.Parameter
+		logicalToPhysical map[string]string
+		validateFn        func(*testing.T, any)
 	}{
 		"empty properties": {
 			resource: CfnTemplateResource{
 				Type:       "AWS::EC2::Route",
 				Properties: map[string]any{},
 			},
-			params: []cfntypes.Parameter{},
+			params:            []cfntypes.Parameter{},
+			logicalToPhysical: map[string]string{},
 			validateFn: func(t *testing.T, route any) {
 				assert.NotNil(t, route)
 			},
@@ -298,7 +300,8 @@ func TestRouteResourceToRoute_EdgeCases(t *testing.T) {
 					"GatewayId":            "igw-123",
 				},
 			},
-			params: []cfntypes.Parameter{},
+			params:            []cfntypes.Parameter{},
+			logicalToPhysical: map[string]string{},
 			validateFn: func(t *testing.T, route any) {
 				assert.NotNil(t, route)
 			},
@@ -312,7 +315,8 @@ func TestRouteResourceToRoute_EdgeCases(t *testing.T) {
 					"GatewayId":                "igw-123",
 				},
 			},
-			params: []cfntypes.Parameter{},
+			params:            []cfntypes.Parameter{},
+			logicalToPhysical: map[string]string{},
 			validateFn: func(t *testing.T, route any) {
 				assert.NotNil(t, route)
 			},
@@ -321,7 +325,7 @@ func TestRouteResourceToRoute_EdgeCases(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			result := RouteResourceToRoute(tc.resource, tc.params)
+			result := RouteResourceToRoute(tc.resource, tc.params, tc.logicalToPhysical)
 			tc.validateFn(t, result)
 		})
 	}
@@ -330,63 +334,50 @@ func TestRouteResourceToRoute_EdgeCases(t *testing.T) {
 // TestCfnTemplateBody_ShouldHaveResource_EdgeCases tests edge cases for resource checking
 func TestCfnTemplateBody_ShouldHaveResource_EdgeCases(t *testing.T) {
 	tests := map[string]struct {
-		body         *CfnTemplateBody
-		logicalIDs   []string
-		resourceType string
-		expected     bool
+		body     CfnTemplateBody
+		resource CfnTemplateResource
+		expected bool
 	}{
-		"empty resources map": {
-			body: &CfnTemplateBody{
-				Resources: map[string]CfnTemplateResource{},
+		"no condition": {
+			body: CfnTemplateBody{
+				Conditions: map[string]bool{},
 			},
-			logicalIDs:   []string{"Resource1"},
-			resourceType: "AWS::S3::Bucket",
-			expected:     false,
+			resource: CfnTemplateResource{},
+			expected: true,
 		},
-		"nil resources map": {
-			body: &CfnTemplateBody{
-				Resources: nil,
+		"condition true": {
+			body: CfnTemplateBody{
+				Conditions: map[string]bool{"Create": true},
 			},
-			logicalIDs:   []string{"Resource1"},
-			resourceType: "AWS::S3::Bucket",
-			expected:     false,
+			resource: CfnTemplateResource{Condition: "Create"},
+			expected: true,
 		},
-		"empty logical IDs": {
-			body: &CfnTemplateBody{
-				Resources: map[string]CfnTemplateResource{
-					"Resource1": {Type: "AWS::S3::Bucket"},
-				},
+		"condition false": {
+			body: CfnTemplateBody{
+				Conditions: map[string]bool{"Skip": false},
 			},
-			logicalIDs:   []string{},
-			resourceType: "AWS::S3::Bucket",
-			expected:     false,
+			resource: CfnTemplateResource{Condition: "Skip"},
+			expected: false,
 		},
-		"case sensitive resource type": {
-			body: &CfnTemplateBody{
-				Resources: map[string]CfnTemplateResource{
-					"Resource1": {Type: "AWS::S3::Bucket"},
-				},
+		"condition missing": {
+			body: CfnTemplateBody{
+				Conditions: map[string]bool{},
 			},
-			logicalIDs:   []string{"Resource1"},
-			resourceType: "aws::s3::bucket", // Wrong case
-			expected:     false,
+			resource: CfnTemplateResource{Condition: "Unknown"},
+			expected: false,
 		},
-		"partial match": {
-			body: &CfnTemplateBody{
-				Resources: map[string]CfnTemplateResource{
-					"Resource1": {Type: "AWS::S3::Bucket"},
-					"Resource2": {Type: "AWS::Lambda::Function"},
-				},
+		"nil conditions map": {
+			body: CfnTemplateBody{
+				Conditions: nil,
 			},
-			logicalIDs:   []string{"Resource1", "Resource3"},
-			resourceType: "AWS::S3::Bucket",
-			expected:     false, // Resource3 doesn't exist
+			resource: CfnTemplateResource{Condition: "Test"},
+			expected: false,
 		},
 	}
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			result := tc.body.ShouldHaveResource(tc.logicalIDs, tc.resourceType)
+			result := tc.body.ShouldHaveResource(tc.resource)
 			assert.Equal(t, tc.expected, result)
 		})
 	}
@@ -395,52 +386,52 @@ func TestCfnTemplateBody_ShouldHaveResource_EdgeCases(t *testing.T) {
 // TestFilterNaclEntriesByLogicalId_EdgeCases tests edge cases for NACL filtering
 func TestFilterNaclEntriesByLogicalId_EdgeCases(t *testing.T) {
 	tests := map[string]struct {
-		body       *CfnTemplateBody
-		logicalIDs []string
-		params     []cfntypes.Parameter
-		expected   int
+		logicalID string
+		body      CfnTemplateBody
+		params    []cfntypes.Parameter
+		expected  int
 	}{
 		"empty template": {
-			body:       &CfnTemplateBody{Resources: map[string]CfnTemplateResource{}},
-			logicalIDs: []string{"Entry1"},
-			params:     []cfntypes.Parameter{},
-			expected:   0,
+			logicalID: "TestNacl",
+			body:      CfnTemplateBody{Resources: map[string]CfnTemplateResource{}},
+			params:    []cfntypes.Parameter{},
+			expected:  0,
 		},
-		"nil logical IDs": {
-			body: &CfnTemplateBody{
+		"empty logical ID": {
+			logicalID: "",
+			body: CfnTemplateBody{
 				Resources: map[string]CfnTemplateResource{
-					"Entry1": {Type: "AWS::EC2::NetworkAclEntry"},
+					"Entry1": {
+						Type: "AWS::EC2::NetworkAclEntry",
+						Properties: map[string]any{
+							"NetworkAclId": "REF: TestNacl",
+						},
+					},
 				},
 			},
-			logicalIDs: nil,
-			params:     []cfntypes.Parameter{},
-			expected:   0,
-		},
-		"empty logical IDs": {
-			body: &CfnTemplateBody{
-				Resources: map[string]CfnTemplateResource{
-					"Entry1": {Type: "AWS::EC2::NetworkAclEntry"},
-				},
-			},
-			logicalIDs: []string{},
-			params:     []cfntypes.Parameter{},
-			expected:   0,
+			params:   []cfntypes.Parameter{},
+			expected: 0,
 		},
 		"wrong resource type": {
-			body: &CfnTemplateBody{
+			logicalID: "TestNacl",
+			body: CfnTemplateBody{
 				Resources: map[string]CfnTemplateResource{
-					"Entry1": {Type: "AWS::S3::Bucket"},
+					"Entry1": {
+						Type: "AWS::S3::Bucket",
+						Properties: map[string]any{
+							"NetworkAclId": "REF: TestNacl",
+						},
+					},
 				},
 			},
-			logicalIDs: []string{"Entry1"},
-			params:     []cfntypes.Parameter{},
-			expected:   0,
+			params:   []cfntypes.Parameter{},
+			expected: 0,
 		},
 	}
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			result := FilterNaclEntriesByLogicalId(tc.body, tc.logicalIDs, tc.params)
+			result := FilterNaclEntriesByLogicalId(tc.logicalID, tc.body, tc.params)
 			assert.Len(t, result, tc.expected)
 		})
 	}
@@ -450,19 +441,21 @@ func TestFilterNaclEntriesByLogicalId_EdgeCases(t *testing.T) {
 func TestCfnTemplateTransform_EdgeCases(t *testing.T) {
 	tests := map[string]struct {
 		input      string
-		expectNil  bool
 		validateFn func(*testing.T, *CfnTemplateTransform)
 	}{
 		"empty string": {
-			input:     "",
-			expectNil: true,
+			input: "",
+			validateFn: func(t *testing.T, transform *CfnTemplateTransform) {
+				// Transform can be empty
+				assert.NotNil(t, transform)
+			},
 		},
 		"whitespace only": {
-			input:     "   ",
-			expectNil: false,
+			input: "   ",
 			validateFn: func(t *testing.T, transform *CfnTemplateTransform) {
 				// Whitespace should be preserved
 				assert.NotNil(t, transform)
+				assert.NotNil(t, transform.String)
 			},
 		},
 		"very long transform name": {
@@ -473,20 +466,17 @@ func TestCfnTemplateTransform_EdgeCases(t *testing.T) {
 				}
 				return result
 			}(),
-			expectNil: false,
 			validateFn: func(t *testing.T, transform *CfnTemplateTransform) {
 				assert.NotNil(t, transform)
+				assert.NotNil(t, transform.String)
 			},
 		},
 	}
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			transform := CfnTemplateTransform(tc.input)
-			if tc.expectNil {
-				// String transforms can't be nil, but can be empty
-				assert.Empty(t, string(transform))
-			} else if tc.validateFn != nil {
+			transform := CfnTemplateTransform{String: &tc.input}
+			if tc.validateFn != nil {
 				tc.validateFn(t, &transform)
 			}
 		})

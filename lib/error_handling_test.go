@@ -146,8 +146,9 @@ func TestNaclResourceToNaclEntry_ErrorPaths(t *testing.T) {
 // TestRouteResourceToRoute_ErrorPaths tests error handling in route conversion
 func TestRouteResourceToRoute_ErrorPaths(t *testing.T) {
 	tests := map[string]struct {
-		resource CfnTemplateResource
-		params   []cfntypes.Parameter
+		resource          CfnTemplateResource
+		params            []cfntypes.Parameter
+		logicalToPhysical map[string]string
 	}{
 		"missing all destination types": {
 			resource: CfnTemplateResource{
@@ -156,7 +157,8 @@ func TestRouteResourceToRoute_ErrorPaths(t *testing.T) {
 					"GatewayId": "igw-123",
 				},
 			},
-			params: []cfntypes.Parameter{},
+			params:            []cfntypes.Parameter{},
+			logicalToPhysical: map[string]string{},
 		},
 		"invalid reference type": {
 			resource: CfnTemplateResource{
@@ -168,7 +170,8 @@ func TestRouteResourceToRoute_ErrorPaths(t *testing.T) {
 					"GatewayId": "igw-123",
 				},
 			},
-			params: []cfntypes.Parameter{},
+			params:            []cfntypes.Parameter{},
+			logicalToPhysical: map[string]string{},
 		},
 		"reference to missing parameter": {
 			resource: CfnTemplateResource{
@@ -180,7 +183,8 @@ func TestRouteResourceToRoute_ErrorPaths(t *testing.T) {
 					"GatewayId": "igw-123",
 				},
 			},
-			params: []cfntypes.Parameter{},
+			params:            []cfntypes.Parameter{},
+			logicalToPhysical: map[string]string{},
 		},
 		"nil gateway ID": {
 			resource: CfnTemplateResource{
@@ -190,14 +194,15 @@ func TestRouteResourceToRoute_ErrorPaths(t *testing.T) {
 					"GatewayId":            nil,
 				},
 			},
-			params: []cfntypes.Parameter{},
+			params:            []cfntypes.Parameter{},
+			logicalToPhysical: map[string]string{},
 		},
 	}
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			assert.NotPanics(t, func() {
-				result := RouteResourceToRoute(tc.resource, tc.params)
+				result := RouteResourceToRoute(tc.resource, tc.params, tc.logicalToPhysical)
 				assert.NotNil(t, result)
 			})
 		})
@@ -207,17 +212,18 @@ func TestRouteResourceToRoute_ErrorPaths(t *testing.T) {
 // TestFilterNaclEntriesByLogicalId_ErrorPaths tests error handling in NACL filtering
 func TestFilterNaclEntriesByLogicalId_ErrorPaths(t *testing.T) {
 	tests := map[string]struct {
-		body       *CfnTemplateBody
-		logicalIDs []string
-		params     []cfntypes.Parameter
+		logicalID string
+		body      CfnTemplateBody
+		params    []cfntypes.Parameter
 	}{
-		"nil template body": {
-			body:       nil,
-			logicalIDs: []string{"Entry1"},
-			params:     []cfntypes.Parameter{},
+		"empty template body": {
+			logicalID: "TestNacl",
+			body:      CfnTemplateBody{},
+			params:    []cfntypes.Parameter{},
 		},
 		"resource with invalid properties": {
-			body: &CfnTemplateBody{
+			logicalID: "TestNacl",
+			body: CfnTemplateBody{
 				Resources: map[string]CfnTemplateResource{
 					"Entry1": {
 						Type:       "AWS::EC2::NetworkAclEntry",
@@ -225,30 +231,30 @@ func TestFilterNaclEntriesByLogicalId_ErrorPaths(t *testing.T) {
 					},
 				},
 			},
-			logicalIDs: []string{"Entry1"},
-			params:     []cfntypes.Parameter{},
+			params: []cfntypes.Parameter{},
 		},
-		"duplicate logical IDs": {
-			body: &CfnTemplateBody{
+		"resource with NetworkAclId pointing to logicalID": {
+			logicalID: "TestNacl",
+			body: CfnTemplateBody{
 				Resources: map[string]CfnTemplateResource{
 					"Entry1": {
 						Type: "AWS::EC2::NetworkAclEntry",
 						Properties: map[string]any{
-							"Protocol":   6.0,
-							"RuleNumber": 100.0,
+							"NetworkAclId": "REF: TestNacl",
+							"Protocol":     6.0,
+							"RuleNumber":   100.0,
 						},
 					},
 				},
 			},
-			logicalIDs: []string{"Entry1", "Entry1", "Entry1"},
-			params:     []cfntypes.Parameter{},
+			params: []cfntypes.Parameter{},
 		},
 	}
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			assert.NotPanics(t, func() {
-				result := FilterNaclEntriesByLogicalId(tc.body, tc.logicalIDs, tc.params)
+				result := FilterNaclEntriesByLogicalId(tc.logicalID, tc.body, tc.params)
 				// Result may be empty or have items, but should not panic
 				_ = result
 			})
@@ -259,50 +265,54 @@ func TestFilterNaclEntriesByLogicalId_ErrorPaths(t *testing.T) {
 // TestFilterRoutesByLogicalId_ErrorPaths tests error handling in route filtering
 func TestFilterRoutesByLogicalId_ErrorPaths(t *testing.T) {
 	tests := map[string]struct {
-		body       *CfnTemplateBody
-		logicalIDs []string
-		params     []cfntypes.Parameter
+		logicalID         string
+		body              CfnTemplateBody
+		params            []cfntypes.Parameter
+		logicalToPhysical map[string]string
 	}{
-		"nil template body": {
-			body:       nil,
-			logicalIDs: []string{"Route1"},
-			params:     []cfntypes.Parameter{},
+		"empty template body": {
+			logicalID:         "TestRouteTable",
+			body:              CfnTemplateBody{},
+			params:            []cfntypes.Parameter{},
+			logicalToPhysical: map[string]string{},
 		},
 		"resource with malformed properties": {
-			body: &CfnTemplateBody{
+			logicalID: "TestRouteTable",
+			body: CfnTemplateBody{
 				Resources: map[string]CfnTemplateResource{
 					"Route1": {
 						Type: "AWS::EC2::Route",
 						Properties: map[string]any{
+							"RouteTableId":         "REF: TestRouteTable",
 							"DestinationCidrBlock": []int{1, 2, 3}, // Invalid type
 						},
 					},
 				},
 			},
-			logicalIDs: []string{"Route1"},
-			params:     []cfntypes.Parameter{},
+			params:            []cfntypes.Parameter{},
+			logicalToPhysical: map[string]string{},
 		},
-		"very long logical ID list": {
-			body: &CfnTemplateBody{
+		"empty logical ID": {
+			logicalID: "",
+			body: CfnTemplateBody{
 				Resources: map[string]CfnTemplateResource{
-					"Route1": {Type: "AWS::EC2::Route"},
+					"Route1": {
+						Type: "AWS::EC2::Route",
+						Properties: map[string]any{
+							"RouteTableId": "REF: TestRouteTable",
+						},
+					},
 				},
 			},
-			logicalIDs: func() []string {
-				ids := make([]string, 10000)
-				for i := 0; i < 10000; i++ {
-					ids[i] = "Route1"
-				}
-				return ids
-			}(),
-			params: []cfntypes.Parameter{},
+			params:            []cfntypes.Parameter{},
+			logicalToPhysical: map[string]string{},
 		},
 	}
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			assert.NotPanics(t, func() {
-				result := FilterRoutesByLogicalId(tc.body, tc.logicalIDs, tc.params)
+				result := FilterRoutesByLogicalId(tc.logicalID, tc.body, tc.params, tc.logicalToPhysical)
 				_ = result
 			})
 		})
