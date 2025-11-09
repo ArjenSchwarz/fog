@@ -4,7 +4,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
 	cfntypes "github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -136,10 +135,9 @@ func TestParseTemplateString_EdgeCases(t *testing.T) {
 			}
 
 			body := ParseTemplateString(tc.template, tc.overrides)
-			require.NotNil(t, body)
 
 			if tc.validateFn != nil {
-				tc.validateFn(t, body)
+				tc.validateFn(t, &body)
 			}
 		})
 	}
@@ -573,8 +571,7 @@ Resources:
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			body := ParseTemplateString(tc.template, &map[string]any{})
-			require.NotNil(t, body)
-			tc.validateFn(t, body)
+			tc.validateFn(t, &body)
 		})
 	}
 }

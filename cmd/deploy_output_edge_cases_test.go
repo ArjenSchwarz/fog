@@ -245,7 +245,7 @@ func TestOutputFailureResult_EdgeCases(t *testing.T) {
 			defer viper.Reset()
 
 			output := captureStdout(func() {
-				err := outputFailureResult(deployment, nil)
+				err := outputFailureResult(deployment, config.AWSConfig{})
 				assert.NoError(t, err, tc.description)
 			})
 
