@@ -175,8 +175,12 @@ type FailedResource struct {
 
 // extractFailedResources queries stack events to find resources with failed statuses
 // and returns them as a slice of FailedResource structs.
-func extractFailedResources(deployment *lib.DeployInfo, awsConfig config.AWSConfig) []FailedResource {
-	events, err := deployment.GetEvents(awsConfig.CloudformationClient())
+func extractFailedResources(deployment *lib.DeployInfo, client lib.CloudFormationDescribeStackEventsAPI) []FailedResource {
+	if deployment.CapturedChangeset == nil {
+		return []FailedResource{}
+	}
+
+	events, err := deployment.GetEvents(client)
 	if err != nil {
 		// Return empty slice if events are unavailable
 		return []FailedResource{}
@@ -247,7 +251,7 @@ func outputFailureResult(deployment *lib.DeployInfo, awsConfig config.AWSConfig)
 		)
 
 	// Extract and add failed resources table
-	failedResources := extractFailedResources(deployment, awsConfig)
+	failedResources := extractFailedResources(deployment, awsConfig.CloudformationClient())
 	if len(failedResources) > 0 {
 		failedData := make([]map[string]any, 0, len(failedResources))
 		for _, resource := range failedResources {
