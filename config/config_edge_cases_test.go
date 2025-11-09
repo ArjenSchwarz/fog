@@ -9,9 +9,8 @@ import (
 
 // TestConfig_GetTimezoneLocation_EdgeCases tests additional edge cases for timezone handling.
 // These tests address Issue 6.1 from the audit report regarding configuration loading panics.
+// NOTE: Cannot use t.Parallel() at function level because viper uses global state
 func TestConfig_GetTimezoneLocation_EdgeCases(t *testing.T) {
-	t.Parallel()
-
 	tests := map[string]struct {
 		setup       func()
 		shouldPanic bool
@@ -227,9 +226,8 @@ func TestConfig_GetOutputOptions_EdgeCases(t *testing.T) {
 }
 
 // TestConfig_GetFieldOrEmptyValue_EdgeCases tests edge cases for field value handling.
+// NOTE: Cannot use t.Parallel() at function level because viper uses global state
 func TestConfig_GetFieldOrEmptyValue_EdgeCases(t *testing.T) {
-	t.Parallel()
-
 	tests := map[string]struct {
 		setup func()
 		value string
@@ -293,9 +291,8 @@ func TestConfig_GetFieldOrEmptyValue_EdgeCases(t *testing.T) {
 }
 
 // TestConfig_GetTableFormat_EdgeCases tests edge cases for table format configuration.
+// NOTE: Cannot use t.Parallel() at function level because viper uses global state
 func TestConfig_GetTableFormat_EdgeCases(t *testing.T) {
-	t.Parallel()
-
 	tests := map[string]struct {
 		setup func()
 	}{
@@ -349,9 +346,8 @@ func TestConfig_GetTableFormat_EdgeCases(t *testing.T) {
 }
 
 // TestConfig_GetString_EdgeCases tests edge cases for string value retrieval.
+// NOTE: Cannot use t.Parallel() at function level because viper uses global state
 func TestConfig_GetString_EdgeCases(t *testing.T) {
-	t.Parallel()
-
 	tests := map[string]struct {
 		setup func()
 		key   string
@@ -408,9 +404,8 @@ func TestConfig_GetString_EdgeCases(t *testing.T) {
 }
 
 // TestConfig_GetInt_EdgeCases tests edge cases for integer value retrieval.
+// NOTE: Cannot use t.Parallel() at function level because viper uses global state
 func TestConfig_GetInt_EdgeCases(t *testing.T) {
-	t.Parallel()
-
 	tests := map[string]struct {
 		setup func()
 		key   string
@@ -466,21 +461,20 @@ func TestConfig_GetInt_EdgeCases(t *testing.T) {
 }
 
 // TestConfig_GetStringSlice_EdgeCases tests edge cases for string slice retrieval.
+// NOTE: Cannot use t.Parallel() at function level because viper uses global state
 func TestConfig_GetStringSlice_EdgeCases(t *testing.T) {
-	t.Parallel()
-
 	tests := map[string]struct {
 		setup func()
 		key   string
 		want  []string
 	}{
-		"single string becomes slice": {
+		"single string converted to slice by viper": {
 			setup: func() {
 				viper.Reset()
 				viper.Set("single", "value")
 			},
 			key:  "single",
-			want: []string{}, // Viper doesn't auto-convert single string to slice
+			want: []string{"value"}, // Viper auto-converts single string to slice with one element
 		},
 		"slice with empty strings": {
 			setup: func() {

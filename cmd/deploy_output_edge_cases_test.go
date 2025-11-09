@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"strconv"
 	"testing"
 
+	"github.com/ArjenSchwarz/fog/config"
 	"github.com/ArjenSchwarz/fog/lib"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	cfntypes "github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
@@ -24,8 +26,8 @@ func TestOutputSuccessResult_EdgeCases(t *testing.T) {
 				StackName:       "test-stack",
 				FinalStackState: nil, // Edge case: nil final stack state
 				Changeset: &lib.ChangesetInfo{
-					ChangesetName: aws.String("test-changeset"),
-					Changes:       []cfntypes.Change{},
+					Name:    "test-changeset",
+					Changes: []lib.ChangesetChanges{},
 				},
 			},
 			shouldPanic: false,
@@ -39,7 +41,7 @@ func TestOutputSuccessResult_EdgeCases(t *testing.T) {
 					Outputs:   nil, // Edge case: nil outputs
 				},
 				Changeset: &lib.ChangesetInfo{
-					ChangesetName: aws.String("test-changeset"),
+					Name: "test-changeset",
 				},
 			},
 			shouldPanic: false,
@@ -53,7 +55,7 @@ func TestOutputSuccessResult_EdgeCases(t *testing.T) {
 					Outputs:   []cfntypes.Output{}, // Edge case: empty outputs
 				},
 				Changeset: &lib.ChangesetInfo{
-					ChangesetName: aws.String("test-changeset"),
+					Name: "test-changeset",
 				},
 			},
 			shouldPanic: false,
@@ -77,8 +79,8 @@ func TestOutputSuccessResult_EdgeCases(t *testing.T) {
 					StackName: aws.String("test-stack"),
 				},
 				Changeset: &lib.ChangesetInfo{
-					ChangesetName: aws.String("test-changeset"),
-					Changes:       []cfntypes.Change{}, // Edge case: zero changes
+					Name:    "test-changeset",
+					Changes: []lib.ChangesetChanges{}, // Edge case: zero changes
 				},
 			},
 			shouldPanic: false,
@@ -91,8 +93,8 @@ func TestOutputSuccessResult_EdgeCases(t *testing.T) {
 					StackName: aws.String("test-stack"),
 				},
 				Changeset: &lib.ChangesetInfo{
-					ChangesetName: aws.String("test-changeset"),
-					Changes:       generateManyChanges(150), // Edge case: large changeset
+					Name:    "test-changeset",
+					Changes: generateManyChanges(150), // Edge case: large changeset
 				},
 			},
 			shouldPanic: false,
@@ -142,9 +144,11 @@ func TestOutputSuccessResult_EdgeCases(t *testing.T) {
 func TestOutputFailureResult_EdgeCases(t *testing.T) {
 	t.Parallel()
 
+	// Create a minimal AWS config for testing
+	testConfig := config.AWSConfig{}
+
 	tests := map[string]struct {
 		deployment  *lib.DeployInfo
-		err         error
 		shouldPanic bool
 		description string
 	}{
@@ -152,35 +156,35 @@ func TestOutputFailureResult_EdgeCases(t *testing.T) {
 			deployment: &lib.DeployInfo{
 				StackName:       "test-stack",
 				FinalStackState: nil,
+				DeploymentError: assert.AnError,
 			},
-			err:         assert.AnError,
 			shouldPanic: false,
 			description: "Nil FinalStackState with error should be handled",
 		},
-		"nil error parameter": {
+		"nil DeploymentError": {
 			deployment: &lib.DeployInfo{
 				StackName: "test-stack",
 				FinalStackState: &cfntypes.Stack{
 					StackName: aws.String("test-stack"),
 				},
+				DeploymentError: nil, // Edge case: nil error
 			},
-			err:         nil, // Edge case: nil error
 			shouldPanic: false,
-			description: "Nil error should be handled gracefully",
+			description: "Nil DeploymentError should be handled gracefully",
 		},
 		"empty error message": {
 			deployment: &lib.DeployInfo{
-				StackName: "test-stack",
+				StackName:       "test-stack",
+				DeploymentError: &emptyError{},
 			},
-			err:         &emptyError{},
 			shouldPanic: false,
 			description: "Empty error message should be handled",
 		},
 		"very long error message": {
 			deployment: &lib.DeployInfo{
-				StackName: "test-stack",
+				StackName:       "test-stack",
+				DeploymentError: &longError{msg: generateLongString(10000)},
 			},
-			err:         &longError{msg: generateLongString(10000)},
 			shouldPanic: false,
 			description: "Very long error messages should be handled",
 		},
@@ -192,11 +196,11 @@ func TestOutputFailureResult_EdgeCases(t *testing.T) {
 
 			if tc.shouldPanic {
 				assert.Panics(t, func() {
-					outputFailureResult(tc.deployment, tc.err)
+					outputFailureResult(tc.deployment, testConfig)
 				}, tc.description)
 			} else {
 				assert.NotPanics(t, func() {
-					_ = outputFailureResult(tc.deployment, tc.err)
+					_ = outputFailureResult(tc.deployment, testConfig)
 				}, tc.description)
 			}
 		})
@@ -276,16 +280,13 @@ func TestOutputNoChangesResult_EdgeCases(t *testing.T) {
 // Helper functions for test data generation
 
 // generateManyChanges creates a slice of changes for testing large changesets.
-func generateManyChanges(count int) []cfntypes.Change {
-	changes := make([]cfntypes.Change, count)
+func generateManyChanges(count int) []lib.ChangesetChanges {
+	changes := make([]lib.ChangesetChanges, count)
 	for i := 0; i < count; i++ {
-		changes[i] = cfntypes.Change{
-			Type: cfntypes.ChangeTypeResource,
-			ResourceChange: &cfntypes.ResourceChange{
-				Action:            cfntypes.ChangeActionAdd,
-				LogicalResourceId: aws.String("Resource" + string(rune(i))),
-				ResourceType:      aws.String("AWS::S3::Bucket"),
-			},
+		changes[i] = lib.ChangesetChanges{
+			Action:    "Add",
+			LogicalID: "Resource" + strconv.Itoa(i),
+			Type:      "AWS::S3::Bucket",
 		}
 	}
 	return changes
@@ -327,7 +328,7 @@ func TestDeploymentOutput_ConcurrentAccess(t *testing.T) {
 			StackName: aws.String("test-stack"),
 		},
 		Changeset: &lib.ChangesetInfo{
-			ChangesetName: aws.String("test-changeset"),
+			Name: "test-changeset",
 		},
 	}
 
@@ -415,8 +416,8 @@ func generateManyOutputs(count int) []cfntypes.Output {
 	outputs := make([]cfntypes.Output, count)
 	for i := 0; i < count; i++ {
 		outputs[i] = cfntypes.Output{
-			OutputKey:   aws.String("Output" + string(rune(i))),
-			OutputValue: aws.String("Value" + string(rune(i))),
+			OutputKey:   aws.String("Output" + strconv.Itoa(i)),
+			OutputValue: aws.String("Value" + strconv.Itoa(i)),
 		}
 	}
 	return outputs
@@ -427,8 +428,8 @@ func generateManyParameters(count int) []cfntypes.Parameter {
 	params := make([]cfntypes.Parameter, count)
 	for i := 0; i < count; i++ {
 		params[i] = cfntypes.Parameter{
-			ParameterKey:   aws.String("Param" + string(rune(i))),
-			ParameterValue: aws.String("Value" + string(rune(i))),
+			ParameterKey:   aws.String("Param" + strconv.Itoa(i)),
+			ParameterValue: aws.String("Value" + strconv.Itoa(i)),
 		}
 	}
 	return params
