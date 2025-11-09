@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 
@@ -343,115 +344,175 @@ func FilterRoutesByLogicalId(logicalId string, template CfnTemplateBody, params 
 
 // NaclResourceToNaclEntry converts a CloudFormation NACL resource to an EC2 NetworkAclEntry
 func NaclResourceToNaclEntry(resource CfnTemplateResource, params []cfntypes.Parameter) types.NetworkAclEntry {
-	protocol := ""
-	switch value := resource.Properties["Protocol"].(type) {
-	case string:
-		protocol = value
-		// break statement removed as it's redundant at the end of a case
-	case float64:
-		protocol = strconv.Itoa(int(value))
-	}
-	rulenr := int32(resource.Properties["RuleNumber"].(float64))
-	cidrblock := ""
-	switch value := resource.Properties["CidrBlock"].(type) {
-	case string:
-		cidrblock = value
-	case map[string]any:
-		refname := value["Ref"].(string)
-		for _, parameter := range params {
-			if *parameter.ParameterKey == refname {
-				if parameter.ResolvedValue != nil {
-					cidrblock = *parameter.ResolvedValue
-				} else {
-					cidrblock = *parameter.ParameterValue
-				}
-			}
-		}
-	}
+	protocol := extractProtocol(resource.Properties)
+	rulenr := extractRuleNumber(resource.Properties)
+	cidrblock := extractCidrBlock(resource.Properties, "CidrBlock", params)
 	ipv6cidrblock := ""
 	if cidrblock == "" {
-		switch value := resource.Properties["Ipv6CidrBlock"].(type) {
-		case string:
-			ipv6cidrblock = value
-		case map[string]any:
-			refname := value["Ref"].(string)
-			for _, parameter := range params {
-				if *parameter.ParameterKey == refname {
-					if parameter.ResolvedValue != nil {
-						ipv6cidrblock = *parameter.ResolvedValue
-					} else {
-						ipv6cidrblock = *parameter.ParameterValue
-					}
-				}
-			}
-		}
+		ipv6cidrblock = extractCidrBlock(resource.Properties, "Ipv6CidrBlock", params)
 	}
-	ruleaction := types.RuleActionAllow
-	ruleactionprop := resource.Properties["RuleAction"].(string)
-	if ruleactionprop == string(types.RuleActionDeny) {
-		ruleaction = types.RuleActionDeny
-	}
-	egress := resource.Properties["Egress"].(bool)
+	ruleaction := extractRuleAction(resource.Properties)
+	egress := extractEgressFlag(resource.Properties)
+
 	result := types.NetworkAclEntry{
 		Egress:     &egress,
 		Protocol:   &protocol,
 		RuleAction: ruleaction,
 		RuleNumber: &rulenr,
 	}
+
 	if cidrblock != "" {
 		result.CidrBlock = &cidrblock
 	}
 	if ipv6cidrblock != "" {
 		result.Ipv6CidrBlock = &ipv6cidrblock
 	}
-	if resource.Properties["PortRange"] != nil {
-		ports := resource.Properties["PortRange"].(map[string]any)
-		var fromport, toport int32
-		switch value := ports["From"].(type) {
-		case float64:
-			fromport = int32(value)
-		case string:
-			fromporta, _ := strconv.Atoi(value)
-			fromport = int32(fromporta)
-		}
-		switch value := ports["To"].(type) {
-		case float64:
-			toport = int32(value)
-		case string:
-			toporta, _ := strconv.Atoi(value)
-			toport = int32(toporta)
-		}
-		portrange := types.PortRange{
-			From: &fromport,
-			To:   &toport,
-		}
-		result.PortRange = &portrange
+	if portRange := extractPortRange(resource.Properties); portRange != nil {
+		result.PortRange = portRange
 	}
-	// In CloudFormation the IcmpTypeCode is just called Icmp
-	if resource.Properties["Icmp"] != nil {
-		icmptypecodedata := resource.Properties["Icmp"].(map[string]any)
-		var icmptype, icmpcode int32
-		switch value := icmptypecodedata["Code"].(type) {
-		case float64:
-			icmpcode = int32(value)
-		case string:
-			icmpcodea, _ := strconv.Atoi(value)
-			icmpcode = int32(icmpcodea)
-		}
-		switch value := icmptypecodedata["Type"].(type) {
-		case float64:
-			icmptype = int32(value)
-		case string:
-			icmptypea, _ := strconv.Atoi(value)
-			icmptype = int32(icmptypea)
-		}
-		icmptypecode := types.IcmpTypeCode{
-			Code: &icmpcode,
-			Type: &icmptype,
-		}
-		result.IcmpTypeCode = &icmptypecode
+	if icmpTypeCode := extractIcmpTypeCode(resource.Properties); icmpTypeCode != nil {
+		result.IcmpTypeCode = icmpTypeCode
 	}
+
 	return result
+}
+
+// extractRuleNumber safely extracts the rule number from NACL properties
+func extractRuleNumber(properties map[string]any) int32 {
+	if ruleNum, ok := properties["RuleNumber"].(float64); ok {
+		return int32(ruleNum)
+	}
+	return 0
+}
+
+// extractEgressFlag safely extracts the egress flag from NACL properties
+func extractEgressFlag(properties map[string]any) bool {
+	if egress, ok := properties["Egress"].(bool); ok {
+		return egress
+	}
+	return false
+}
+
+// extractProtocol extracts the protocol from NACL properties
+func extractProtocol(properties map[string]any) string {
+	switch value := properties["Protocol"].(type) {
+	case string:
+		return value
+	case float64:
+		return strconv.Itoa(int(value))
+	default:
+		return ""
+	}
+}
+
+// extractCidrBlock extracts a CIDR block from properties, resolving parameter references
+func extractCidrBlock(properties map[string]any, key string, params []cfntypes.Parameter) string {
+	if properties[key] == nil {
+		return ""
+	}
+
+	switch value := properties[key].(type) {
+	case string:
+		return value
+	case map[string]any:
+		if refname, ok := value["Ref"].(string); ok {
+			return resolveParameterValue(refname, params)
+		}
+	}
+	return ""
+}
+
+// resolveParameterValue resolves a parameter reference to its actual value
+func resolveParameterValue(refname string, params []cfntypes.Parameter) string {
+	for _, parameter := range params {
+		if *parameter.ParameterKey == refname {
+			if parameter.ResolvedValue != nil {
+				return *parameter.ResolvedValue
+			}
+			if parameter.ParameterValue != nil {
+				return *parameter.ParameterValue
+			}
+		}
+	}
+	return ""
+}
+
+// extractRuleAction extracts the rule action from NACL properties
+func extractRuleAction(properties map[string]any) types.RuleAction {
+	if ruleactionprop, ok := properties["RuleAction"].(string); ok {
+		if ruleactionprop == string(types.RuleActionDeny) {
+			return types.RuleActionDeny
+		}
+	}
+	return types.RuleActionAllow
+}
+
+// extractPortRange extracts port range from NACL properties
+func extractPortRange(properties map[string]any) *types.PortRange {
+	if properties["PortRange"] == nil {
+		return nil
+	}
+
+	ports, ok := properties["PortRange"].(map[string]any)
+	if !ok {
+		return nil
+	}
+
+	fromport := extractInt32Value(ports["From"])
+	toport := extractInt32Value(ports["To"])
+
+	// Validate that we have meaningful port values
+	if fromport == 0 && toport == 0 && ports["From"] == nil && ports["To"] == nil {
+		return nil
+	}
+
+	return &types.PortRange{
+		From: &fromport,
+		To:   &toport,
+	}
+}
+
+// extractIcmpTypeCode extracts ICMP type code from NACL properties
+func extractIcmpTypeCode(properties map[string]any) *types.IcmpTypeCode {
+	if properties["Icmp"] == nil {
+		return nil
+	}
+
+	icmptypecodedata, ok := properties["Icmp"].(map[string]any)
+	if !ok {
+		return nil
+	}
+
+	icmpcode := extractInt32Value(icmptypecodedata["Code"])
+	icmptype := extractInt32Value(icmptypecodedata["Type"])
+
+	return &types.IcmpTypeCode{
+		Code: &icmpcode,
+		Type: &icmptype,
+	}
+}
+
+// extractInt32Value extracts an int32 value from either a float64 or string
+func extractInt32Value(value any) int32 {
+	if value == nil {
+		return 0
+	}
+
+	switch v := value.(type) {
+	case float64:
+		return int32(v)
+	case string:
+		if intVal, err := strconv.Atoi(v); err == nil {
+			return int32(intVal)
+		}
+		// Log conversion failures for debugging, but return 0 as default
+		// This helps identify data quality issues in templates
+		fmt.Fprintf(os.Stderr, "Warning: failed to convert string '%s' to int32, using 0 as default\n", v)
+	default:
+		// Log unexpected types for debugging
+		fmt.Fprintf(os.Stderr, "Warning: unexpected type %T for int32 conversion, using 0 as default\n", v)
+	}
+	return 0
 }
 
 // RouteResourceToRoute converts a CloudFormation route resource to an EC2 Route

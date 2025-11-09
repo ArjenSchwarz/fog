@@ -1,12 +1,26 @@
 Unreleased
 ===========
 
+### Refactored
+- **Major code refactoring for Issue 7.3: Long and Complex Functions**
+  - Decomposed `lib/stacks.go:GetEvents` (~120 lines) into 15 focused helper functions for better maintainability
+  - Broke down `lib/template.go:NaclResourceToNaclEntry` (~110 lines) into 8 specialized helper functions
+  - Extracted 11 helper functions from `cmd/deploy.go` deployment workflow
+  - All refactored functions now under 50 lines with reduced cyclomatic complexity
+  - Added comprehensive defensive programming: nil pointer checks, type assertion safety, error visibility
+  - Improved error handling with logging to stderr for template parsing failures
+  - Added audit trail maintenance in event processing (RawInfo updates)
+  - See PR #66 for complete details
+
 ### Fixed
 - Removed hardcoded `=== Deployment Summary ===` headers from deploy output functions that were breaking JSON/YAML parsing
 - Added nil checks for `FinalStackState` before accessing `StackStatus` and `Outputs` to prevent potential nil pointer dereference in success output
 - Improved duration calculation with zero-time validation to avoid incorrect time calculations
 - Changed failure output timestamp handling to use "N/A" instead of `time.Now()` when `DeploymentEnd` is not available for more accurate output
 - Replaced deprecated `github.com/mitchellh/go-homedir` dependency with standard library `os.UserHomeDir()` (Audit Issue 11.1)
+- Added nil checks for `event.Timestamp` in stack event processing functions to prevent panics
+- Fixed nil pointer dereference in `createNewResourceEvent` and `createNewStackEvent`
+- Improved error visibility in `extractInt32Value` with warnings for type conversion failures
 
 ## BREAKING CHANGES
 
