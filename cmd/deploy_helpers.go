@@ -199,7 +199,7 @@ func printDeploymentResults(info *lib.DeployInfo, cfg config.AWSConfig, logObj *
 		logObj.Failed(failures)
 
 		// Output failure summary to stdout
-		if err := outputFailureResult(info, cfg); err != nil {
+		if err := outputFailureResult(info, cfg.CloudformationClient()); err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: Failed to generate output: %v\n", err)
 		}
 

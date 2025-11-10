@@ -110,7 +110,7 @@ func TestDeploy_FailureWithFormattedOutput(t *testing.T) {
 
 	// Capture stdout for error output validation
 	output := captureStdout(func() {
-		err := outputFailureResult(deployment, config.AWSConfig{})
+		err := outputFailureResult(deployment, &mockStackEventsClient{})
 		if err != nil {
 			t.Errorf("outputFailureResult failed: %v", err)
 		}

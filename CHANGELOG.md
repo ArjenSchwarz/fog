@@ -14,6 +14,7 @@ Unreleased
 
 ### Fixed
 - Removed hardcoded `=== Deployment Summary ===` headers from deploy output functions that were breaking JSON/YAML parsing
+- Fixed stream separation tests to use dedicated mock AWS config helpers, restoring `go test ./cmd` compilation
 - Added nil checks for `FinalStackState` before accessing `StackStatus` and `Outputs` to prevent potential nil pointer dereference in success output
 - Improved duration calculation with zero-time validation to avoid incorrect time calculations
 - Changed failure output timestamp handling to use "N/A" instead of `time.Now()` when `DeploymentEnd` is not available for more accurate output
@@ -64,10 +65,12 @@ For more details, see the [deployment output specification](specs/deploy-output/
 - Improved error handling for zero-value timestamps in deployment output
 - Refined deployment messages to be more concise and less conversational
 - Updated test assertions to match new message formats
+- `outputFailureResult()` now accepts an injected CloudFormation events client and safely skips stack event lookups when no client is supplied, eliminating unintended AWS calls during unit tests
 
 ### Added
 - Stream separation test suite in `cmd/stream_separation_test.go` with comprehensive tests for stderr/stdout separation covering printMessage, createStderrOutput, output functions, stream separation, format helpers, quiet mode, and stderr sync behavior
 - Stream verification report documenting audit of all output paths in deploy command (`specs/deploy-output/stream_verification.md`) confirming correct stderr/stdout usage, edge cases, and providing manual verification commands
+- Additional deploy output unit tests covering failed resource extraction, deterministic timestamps, and nil CloudFormation clients to validate failure summaries without external dependencies
 
 ### Added
 - Integration tests for deployment output scenarios in `cmd/deploy_output_integration_test.go` covering successful deployment with JSON output, failed deployment with formatted output, quiet mode, dry-run with multiple formats, and no-changes scenario
