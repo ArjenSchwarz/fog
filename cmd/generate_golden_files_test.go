@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ArjenSchwarz/fog/config"
 	"github.com/ArjenSchwarz/fog/lib"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
@@ -149,7 +148,7 @@ func TestGenerateGoldenFiles(t *testing.T) {
 			format:     "json",
 			deployment: createGoldenFailedDeployment(),
 			outputFunc: func(d *lib.DeployInfo) error {
-				return outputFailureResult(d, config.AWSConfig{})
+				return outputFailureResult(d, nil)
 			},
 		},
 		{
@@ -157,7 +156,7 @@ func TestGenerateGoldenFiles(t *testing.T) {
 			format:     "yaml",
 			deployment: createGoldenFailedDeployment(),
 			outputFunc: func(d *lib.DeployInfo) error {
-				return outputFailureResult(d, config.AWSConfig{})
+				return outputFailureResult(d, nil)
 			},
 		},
 		// No changes scenarios
