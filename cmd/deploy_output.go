@@ -190,7 +190,7 @@ func extractFailedResources(deployment *lib.DeployInfo, client lib.CloudFormatio
 
 	// Only look at events after changeset creation
 	for _, event := range events {
-		if deployment.CapturedChangeset != nil && event.Timestamp.After(deployment.CapturedChangeset.CreationTime) {
+		if event.Timestamp.After(deployment.CapturedChangeset.CreationTime) {
 			// Check if this is a failed status
 			switch event.ResourceStatus {
 			case types.ResourceStatusCreateFailed, types.ResourceStatusUpdateFailed, types.ResourceStatusDeleteFailed, types.ResourceStatusImportFailed:
@@ -243,7 +243,8 @@ func outputFailureResult(deployment *lib.DeployInfo, eventsClient lib.CloudForma
 		},
 	}
 
-	builder := output.New().
+	builder := output.New()
+	builder = builder.
 		Text(fmt.Sprintf("Deployment failed: %s", errorMessage)).
 		Table(
 			"Stack Status",
@@ -251,7 +252,7 @@ func outputFailureResult(deployment *lib.DeployInfo, eventsClient lib.CloudForma
 			output.WithKeys("Stack ARN", "Status", "Status Reason", "Timestamp"),
 		)
 
-		// Extract and add failed resources table
+	// Extract and add failed resources table
 	failedResources := extractFailedResources(deployment, eventsClient)
 	if len(failedResources) > 0 {
 		failedData := make([]map[string]any, 0, len(failedResources))
