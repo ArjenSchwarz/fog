@@ -175,8 +175,12 @@ type FailedResource struct {
 
 // extractFailedResources queries stack events to find resources with failed statuses
 // and returns them as a slice of FailedResource structs.
-func extractFailedResources(deployment *lib.DeployInfo, awsConfig config.AWSConfig) []FailedResource {
-	events, err := deployment.GetEvents(awsConfig.CloudformationClient())
+func extractFailedResources(deployment *lib.DeployInfo, client lib.CloudFormationDescribeStackEventsAPI) []FailedResource {
+	if deployment.CapturedChangeset == nil || client == nil {
+		return []FailedResource{}
+	}
+
+	events, err := deployment.GetEvents(client)
 	if err != nil {
 		// Return empty slice if events are unavailable
 		return []FailedResource{}
@@ -186,7 +190,7 @@ func extractFailedResources(deployment *lib.DeployInfo, awsConfig config.AWSConf
 
 	// Only look at events after changeset creation
 	for _, event := range events {
-		if deployment.CapturedChangeset != nil && event.Timestamp.After(deployment.CapturedChangeset.CreationTime) {
+		if event.Timestamp.After(deployment.CapturedChangeset.CreationTime) {
 			// Check if this is a failed status
 			switch event.ResourceStatus {
 			case types.ResourceStatusCreateFailed, types.ResourceStatusUpdateFailed, types.ResourceStatusDeleteFailed, types.ResourceStatusImportFailed:
@@ -206,7 +210,8 @@ func extractFailedResources(deployment *lib.DeployInfo, awsConfig config.AWSConf
 
 // outputFailureResult outputs deployment failure details when a deployment fails.
 // It includes error messages, stack status, and information about failed resources.
-func outputFailureResult(deployment *lib.DeployInfo, awsConfig config.AWSConfig) error {
+// Events are fetched through the provided CloudFormation client which enables unit testing.
+func outputFailureResult(deployment *lib.DeployInfo, eventsClient lib.CloudFormationDescribeStackEventsAPI) error {
 	// Flush stderr before stdout output
 	os.Stderr.Sync()
 
@@ -238,7 +243,8 @@ func outputFailureResult(deployment *lib.DeployInfo, awsConfig config.AWSConfig)
 		},
 	}
 
-	builder := output.New().
+	builder := output.New()
+	builder = builder.
 		Text(fmt.Sprintf("Deployment failed: %s", errorMessage)).
 		Table(
 			"Stack Status",
@@ -247,7 +253,7 @@ func outputFailureResult(deployment *lib.DeployInfo, awsConfig config.AWSConfig)
 		)
 
 	// Extract and add failed resources table
-	failedResources := extractFailedResources(deployment, awsConfig)
+	failedResources := extractFailedResources(deployment, eventsClient)
 	if len(failedResources) > 0 {
 		failedData := make([]map[string]any, 0, len(failedResources))
 		for _, resource := range failedResources {

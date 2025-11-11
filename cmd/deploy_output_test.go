@@ -2,15 +2,17 @@ package cmd
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
-	"github.com/ArjenSchwarz/fog/config"
 	"github.com/ArjenSchwarz/fog/lib"
 	output "github.com/ArjenSchwarz/go-output/v2"
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
@@ -21,7 +23,7 @@ import (
 
 // createTestDeployment creates a mock deployment for testing
 func createTestDeployment() *lib.DeployInfo {
-	now := time.Now()
+	now := time.Date(2024, time.February, 20, 15, 4, 5, 0, time.UTC)
 	return &lib.DeployInfo{
 		StackName:       "test-stack",
 		StackArn:        "arn:aws:cloudformation:us-east-1:123456789012:stack/test-stack/12345",
@@ -180,7 +182,7 @@ func TestOutputFailureResult(t *testing.T) {
 	tests := map[string]struct {
 		format       string
 		deployment   *lib.DeployInfo
-		awsConfig    config.AWSConfig
+		eventsClient lib.CloudFormationDescribeStackEventsAPI
 		validateFunc func(t *testing.T, output string)
 	}{
 		"failed deployment with error": {
@@ -194,13 +196,52 @@ func TestOutputFailureResult(t *testing.T) {
 				}
 				return d
 			}(),
-			awsConfig: config.AWSConfig{},
+			eventsClient: &mockStackEventsClient{},
 			validateFunc: func(t *testing.T, output string) {
 				assert.Contains(t, output, "Deployment failed")
 				assert.Contains(t, output, "ROLLBACK_COMPLETE")
 				assert.Contains(t, output, "Resource creation failed")
 			},
 		},
+		"failed deployment with failed resources table": func() struct {
+			format       string
+			deployment   *lib.DeployInfo
+			eventsClient lib.CloudFormationDescribeStackEventsAPI
+			validateFunc func(t *testing.T, output string)
+		} {
+			deployment := createTestDeployment()
+			deployment.DeploymentError = errors.New("stack failed")
+			deployment.FinalStackState = &types.Stack{
+				StackStatus:       types.StackStatusRollbackComplete,
+				StackStatusReason: aws.String("Resource failure"),
+			}
+			deployment.CapturedChangeset.CreationTime = deployment.CapturedChangeset.CreationTime.Add(-2 * time.Minute)
+			failureTime := deployment.CapturedChangeset.CreationTime.Add(4 * time.Minute)
+
+			return struct {
+				format       string
+				deployment   *lib.DeployInfo
+				eventsClient lib.CloudFormationDescribeStackEventsAPI
+				validateFunc func(t *testing.T, output string)
+			}{
+				format:     "json",
+				deployment: deployment,
+				eventsClient: &mockStackEventsClient{events: []types.StackEvent{
+					{
+						Timestamp:            aws.Time(failureTime),
+						LogicalResourceId:    aws.String("FailedResource"),
+						ResourceType:         aws.String("AWS::S3::Bucket"),
+						ResourceStatus:       types.ResourceStatusCreateFailed,
+						ResourceStatusReason: aws.String("Bucket name already exists"),
+					},
+				}},
+				validateFunc: func(t *testing.T, output string) {
+					assert.Contains(t, output, "Failed Resources")
+					assert.Contains(t, output, "FailedResource")
+					assert.Contains(t, output, "Bucket name already exists")
+				},
+			}
+		}(),
 		"failed deployment without FinalStackState": {
 			format: "json",
 			deployment: func() *lib.DeployInfo {
@@ -209,7 +250,7 @@ func TestOutputFailureResult(t *testing.T) {
 				d.FinalStackState = nil
 				return d
 			}(),
-			awsConfig: config.AWSConfig{},
+			eventsClient: nil,
 			validateFunc: func(t *testing.T, output string) {
 				assert.Contains(t, output, "Deployment failed")
 			},
@@ -224,7 +265,7 @@ func TestOutputFailureResult(t *testing.T) {
 
 			// Capture stdout
 			output := captureStdout(func() {
-				err := outputFailureResult(tc.deployment, tc.awsConfig)
+				err := outputFailureResult(tc.deployment, tc.eventsClient)
 				assert.NoError(t, err)
 			})
 
@@ -282,9 +323,165 @@ func TestOutputDryRunResult(t *testing.T) {
 	t.Skip("Integration test for outputDryRunResult requires buildAndRenderChangeset mock")
 }
 
+// mockStackEventsClient implements CloudFormationDescribeStackEventsAPI for testing extractFailedResources.
+type mockStackEventsClient struct {
+	events []types.StackEvent
+	err    error
+}
+
+func (m *mockStackEventsClient) DescribeStackEvents(ctx context.Context, params *cloudformation.DescribeStackEventsInput,
+	optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStackEventsOutput, error) {
+
+	if m.err != nil {
+		return nil, m.err
+	}
+
+	return &cloudformation.DescribeStackEventsOutput{StackEvents: m.events}, nil
+}
+
 // TestExtractFailedResources tests failed resource extraction
 func TestExtractFailedResources(t *testing.T) {
-	t.Skip("Requires mock CloudFormation client for event retrieval")
+	creationTime := time.Now().Add(-10 * time.Minute)
+	deploymentWithChangeset := createTestDeployment()
+	deploymentWithChangeset.CapturedChangeset.CreationTime = creationTime
+
+	failureTime := creationTime.Add(2 * time.Minute)
+	successTime := creationTime.Add(90 * time.Second)
+	beforeTime := creationTime.Add(-time.Minute)
+
+	tests := map[string]struct {
+		deployment *lib.DeployInfo
+		client     lib.CloudFormationDescribeStackEventsAPI
+		want       []FailedResource
+	}{
+		"returns empty slice when client is nil": {
+			deployment: deploymentWithChangeset,
+			client:     nil,
+			want:       []FailedResource{},
+		},
+		"returns empty slice on API error": {
+			deployment: deploymentWithChangeset,
+			client: &mockStackEventsClient{
+				err: errors.New("network error"),
+			},
+			want: []FailedResource{},
+		},
+		"filters events to failed resources after changeset creation": {
+			deployment: deploymentWithChangeset,
+			client: &mockStackEventsClient{events: []types.StackEvent{
+				{
+					Timestamp:            aws.Time(beforeTime),
+					LogicalResourceId:    aws.String("Before"),
+					ResourceType:         aws.String("AWS::S3::Bucket"),
+					ResourceStatus:       types.ResourceStatusCreateFailed,
+					ResourceStatusReason: aws.String("should be ignored due to timestamp"),
+				},
+				{
+					Timestamp:            aws.Time(successTime),
+					LogicalResourceId:    aws.String("Success"),
+					ResourceType:         aws.String("AWS::Lambda::Function"),
+					ResourceStatus:       types.ResourceStatusCreateComplete,
+					ResourceStatusReason: aws.String("ignored because not failed"),
+				},
+				{
+					Timestamp:            aws.Time(failureTime),
+					LogicalResourceId:    aws.String("FailedResource"),
+					ResourceType:         aws.String("AWS::DynamoDB::Table"),
+					ResourceStatus:       types.ResourceStatusUpdateFailed,
+					ResourceStatusReason: aws.String("rolled back"),
+				},
+			}},
+			want: []FailedResource{{
+				LogicalID:      "FailedResource",
+				ResourceStatus: string(types.ResourceStatusUpdateFailed),
+				StatusReason:   "rolled back",
+				ResourceType:   "AWS::DynamoDB::Table",
+			}},
+		},
+		"no captured changeset returns empty slice": {
+			deployment: func() *lib.DeployInfo {
+				d := createTestDeployment()
+				d.CapturedChangeset = nil
+				return d
+			}(),
+			client: &mockStackEventsClient{events: []types.StackEvent{
+				{
+					Timestamp:            aws.Time(failureTime),
+					LogicalResourceId:    aws.String("Ignored"),
+					ResourceType:         aws.String("AWS::S3::Bucket"),
+					ResourceStatus:       types.ResourceStatusCreateFailed,
+					ResourceStatusReason: aws.String("should be ignored"),
+				},
+			}},
+			want: []FailedResource{},
+		},
+	}
+
+	for name, tc := range tests {
+		tc := tc
+		t.Run(name, func(t *testing.T) {
+			got := extractFailedResources(tc.deployment, tc.client)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
+// TestOutputFailureResult_TimestampFallback ensures timestamp falls back to N/A when DeploymentEnd is zero.
+func TestOutputFailureResult_TimestampFallback(t *testing.T) {
+	deployment := createTestDeployment()
+	deployment.CapturedChangeset = nil
+	deployment.DeploymentError = assert.AnError
+	deployment.FinalStackState = &types.Stack{StackStatus: types.StackStatusRollbackComplete}
+	deployment.DeploymentEnd = time.Time{}
+
+	output := captureStdout(func() {
+		err := outputFailureResult(deployment, nil)
+		assert.NoError(t, err)
+	})
+
+	assert.Contains(t, output, "N/A")
+}
+
+// TestOutputSuccessResult_NoPlannedChanges ensures the Planned Changes section is omitted when no changes exist.
+func TestOutputSuccessResult_NoPlannedChanges(t *testing.T) {
+	deployment := createTestDeployment()
+	deployment.CapturedChangeset.Changes = nil
+
+	viper.Set("output", "json")
+	defer viper.Reset()
+
+	output := captureStdout(func() {
+		err := outputSuccessResult(deployment)
+		assert.NoError(t, err)
+	})
+
+	assert.NotContains(t, output, "Planned Changes")
+}
+
+// TestOutputSuccessResult_LargeChangeset verifies large change sets are handled without errors.
+func TestOutputSuccessResult_LargeChangeset(t *testing.T) {
+	deployment := createTestDeployment()
+	deployment.CapturedChangeset.Changes = make([]lib.ChangesetChanges, 0, 150)
+	for i := 0; i < 150; i++ {
+		deployment.CapturedChangeset.Changes = append(deployment.CapturedChangeset.Changes, lib.ChangesetChanges{
+			Action:      "Modify",
+			LogicalID:   fmt.Sprintf("Resource%03d", i),
+			Type:        "Custom::Resource",
+			ResourceID:  fmt.Sprintf("id-%03d", i),
+			Replacement: "False",
+		})
+	}
+
+	viper.Set("output", "json")
+	defer viper.Reset()
+
+	output := captureStdout(func() {
+		err := outputSuccessResult(deployment)
+		assert.NoError(t, err)
+	})
+
+	assert.Contains(t, output, "Planned Changes")
+	assert.Contains(t, output, "Resource149")
 }
 
 // TestOutputBuilders_DataStructureCorrectness verifies data structure correctness
@@ -429,7 +626,7 @@ func TestOutputBuilders_MissingFieldHandling(t *testing.T) {
 
 		// Should use default message
 		output := captureStdout(func() {
-			err := outputFailureResult(deployment, config.AWSConfig{})
+			err := outputFailureResult(deployment, nil)
 			assert.NoError(t, err)
 		})
 
@@ -531,7 +728,7 @@ func TestGoldenFile_FailureOutput(t *testing.T) {
 
 			// Capture output
 			actual := captureStdout(func() {
-				err := outputFailureResult(deployment, config.AWSConfig{})
+				err := outputFailureResult(deployment, nil)
 				require.NoError(t, err)
 			})
 

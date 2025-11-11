@@ -118,10 +118,8 @@ func TestOutputFailureResult_UsesStdout(t *testing.T) {
 	deployment.DeploymentError = fmt.Errorf("test deployment error")
 	deployment.FinalStackState.StackStatus = types.StackStatusRollbackComplete
 
-	awsConfig := createMockAWSConfig()
-
 	stdout, stderr := captureBothStreams(func() {
-		_ = outputFailureResult(deployment, awsConfig)
+		_ = outputFailureResult(deployment, nil)
 	})
 
 	// Verify stdout contains the error output
@@ -227,11 +225,11 @@ func TestQuietMode_SuppressesStderr(t *testing.T) {
 		IsNew:     true,
 	}
 
-	awsConfig := createMockAWSConfig()
+	mockConfig := createMockAWSConfig()
 
 	t.Run("quiet mode suppresses showDeploymentInfo", func(t *testing.T) {
 		stderr := captureStderr(func() {
-			showDeploymentInfo(deployment, awsConfig, true) // quiet = true
+			showDeploymentInfo(deployment, mockConfig, true) // quiet = true
 		})
 
 		// Should produce no output
@@ -240,7 +238,7 @@ func TestQuietMode_SuppressesStderr(t *testing.T) {
 
 	t.Run("non-quiet mode shows output", func(t *testing.T) {
 		stderr := captureStderr(func() {
-			showDeploymentInfo(deployment, awsConfig, false) // quiet = false
+			showDeploymentInfo(deployment, mockConfig, false) // quiet = false
 		})
 
 		// Should contain deployment info
@@ -254,7 +252,7 @@ func TestStderrSync_CalledBeforeStdout(t *testing.T) {
 	// by checking that output functions don't panic when called
 
 	deployment := createTestDeployment()
-	awsConfig := createMockAWSConfig()
+	mockConfig := createMockAWSConfig()
 
 	tests := map[string]func(){
 		"outputSuccessResult": func() {
@@ -264,10 +262,10 @@ func TestStderrSync_CalledBeforeStdout(t *testing.T) {
 			_ = outputNoChangesResult(deployment)
 		},
 		"outputFailureResult": func() {
-			_ = outputFailureResult(deployment, awsConfig)
+			_ = outputFailureResult(deployment, nil)
 		},
 		"outputDryRunResult": func() {
-			outputDryRunResult(deployment, awsConfig)
+			outputDryRunResult(deployment, mockConfig)
 		},
 	}
 
