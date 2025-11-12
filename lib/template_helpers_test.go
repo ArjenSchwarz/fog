@@ -140,9 +140,9 @@ func TestResolveParameterValue(t *testing.T) {
 			ParameterValue: aws.String("10.0.0.0/16"),
 		},
 		{
-			ParameterKey:    aws.String("SubnetCidr"),
-			ResolvedValue:   aws.String("10.0.1.0/24"),
-			ParameterValue:  aws.String("10.0.2.0/24"),
+			ParameterKey:   aws.String("SubnetCidr"),
+			ResolvedValue:  aws.String("10.0.1.0/24"),
+			ParameterValue: aws.String("10.0.2.0/24"),
 		},
 	}
 

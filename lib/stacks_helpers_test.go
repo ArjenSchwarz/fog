@@ -160,11 +160,11 @@ func TestDetermineStackEventType(t *testing.T) {
 // TestDetermineResourceEventType tests resource event type determination
 func TestDetermineResourceEventType(t *testing.T) {
 	tests := []struct {
-		name             string
-		status           string
-		resourceName     string
-		wantType         string
-		wantExpectedEnd  string
+		name            string
+		status          string
+		resourceName    string
+		wantType        string
+		wantExpectedEnd string
 	}{
 		{
 			name:            "CREATE status",
@@ -283,10 +283,10 @@ func TestUpdateResourceId(t *testing.T) {
 func TestCreateNewStackEvent(t *testing.T) {
 	now := time.Now()
 	tests := []struct {
-		name      string
-		event     types.StackEvent
-		wantType  string
-		wantDate  time.Time
+		name     string
+		event    types.StackEvent
+		wantType string
+		wantDate time.Time
 	}{
 		{
 			name: "CREATE_IN_PROGRESS with timestamp",
@@ -346,11 +346,11 @@ func TestCreateNewResourceEvent(t *testing.T) {
 		{
 			name: "CREATE event with timestamp",
 			event: types.StackEvent{
-				Timestamp:         &now,
-				ResourceStatus:    types.ResourceStatusCreateInProgress,
-				ResourceType:      aws.String("AWS::S3::Bucket"),
+				Timestamp:          &now,
+				ResourceStatus:     types.ResourceStatusCreateInProgress,
+				ResourceType:       aws.String("AWS::S3::Bucket"),
 				PhysicalResourceId: aws.String("my-bucket"),
-				LogicalResourceId: aws.String("MyBucket"),
+				LogicalResourceId:  aws.String("MyBucket"),
 			},
 			stackName:    "my-stack",
 			resourceName: "resource-1",
@@ -359,11 +359,11 @@ func TestCreateNewResourceEvent(t *testing.T) {
 		{
 			name: "nil timestamp",
 			event: types.StackEvent{
-				Timestamp:         nil,
-				ResourceStatus:    types.ResourceStatusCreateInProgress,
-				ResourceType:      aws.String("AWS::S3::Bucket"),
+				Timestamp:          nil,
+				ResourceStatus:     types.ResourceStatusCreateInProgress,
+				ResourceType:       aws.String("AWS::S3::Bucket"),
 				PhysicalResourceId: nil,
-				LogicalResourceId: aws.String("MyBucket"),
+				LogicalResourceId:  aws.String("MyBucket"),
 			},
 			stackName:    "my-stack",
 			resourceName: "resource-1",
@@ -410,24 +410,24 @@ func TestUpdateExistingResourceEvent(t *testing.T) {
 	}
 
 	tests := []struct {
-		name              string
-		initial           ResourceEvent
-		event             types.StackEvent
-		resourceName      string
-		expectEndDate     time.Time
-		expectStatus      string
-		expectFinished    bool
-		expectFailed      bool
-		expectResourceId  string
-		expectRawInfoLen  int
+		name             string
+		initial          ResourceEvent
+		event            types.StackEvent
+		resourceName     string
+		expectEndDate    time.Time
+		expectStatus     string
+		expectFinished   bool
+		expectFailed     bool
+		expectResourceId string
+		expectRawInfoLen int
 	}{
 		{
 			name:    "COMPLETE event",
 			initial: initialEvent,
 			event: types.StackEvent{
-				Timestamp:           &now,
-				ResourceStatus:      types.ResourceStatusCreateComplete,
-				PhysicalResourceId:  aws.String("resource-new"),
+				Timestamp:            &now,
+				ResourceStatus:       types.ResourceStatusCreateComplete,
+				PhysicalResourceId:   aws.String("resource-new"),
 				ResourceStatusReason: nil,
 			},
 			resourceName:     "test-resource",
@@ -442,9 +442,9 @@ func TestUpdateExistingResourceEvent(t *testing.T) {
 			name:    "FAILED event",
 			initial: initialEvent,
 			event: types.StackEvent{
-				Timestamp:           &now,
-				ResourceStatus:      types.ResourceStatusCreateFailed,
-				PhysicalResourceId:  aws.String("resource-new"),
+				Timestamp:            &now,
+				ResourceStatus:       types.ResourceStatusCreateFailed,
+				PhysicalResourceId:   aws.String("resource-new"),
 				ResourceStatusReason: aws.String("Test failure reason"),
 			},
 			resourceName:     "test-resource",

@@ -17,12 +17,12 @@ func TestLoadDefaultTags(t *testing.T) {
 	}()
 
 	tests := []struct {
-		name       string
+		name        string
 		defaultTags map[string]string
-		deployment *lib.DeployInfo
-		wantCount  int
-		wantKey    string
-		wantValue  string
+		deployment  *lib.DeployInfo
+		wantCount   int
+		wantKey     string
+		wantValue   string
 	}{
 		{
 			name: "single tag",
@@ -286,9 +286,9 @@ func TestCalculateTemplateLocalPath(t *testing.T) {
 // TestPlaceholderParser tests placeholder replacement
 func TestPlaceholderParser(t *testing.T) {
 	tests := []struct {
-		name       string
-		value      string
-		deployment *lib.DeployInfo
+		name        string
+		value       string
+		deployment  *lib.DeployInfo
 		wantContain string
 	}{
 		{
