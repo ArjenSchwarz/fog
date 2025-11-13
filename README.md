@@ -65,7 +65,7 @@ Global Flags:
       --debug                Enable debug mode, mainly for development purposes
       --file string          Optional file to save the output to, in addition to stdout
       --file-format string   Optional format for the file, defaults to the same as output
-      --output string        Format for the output, currently supported are table, csv, json, and dot (for certain functions) (default "table")
+      --output string        Format for the output, currently supported are table, csv, json, yaml, markdown, html, and dot (for certain functions) (default "table")
       --profile string       Use a specific AWS profile
       --region string        Use a specific AWS region
       --timezone string      Specify a timezone you want to use for any times shown in output. By default it uses your system's timezone

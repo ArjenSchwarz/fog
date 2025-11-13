@@ -1,3 +1,11 @@
+Unreleased
+==========
+
+### Changed
+- Updated global `--output` flag documentation to include yaml, markdown, and html formats in cmd/root.go
+- Updated README.md to document yaml, markdown, and html output format support
+- Updated example-fog.yaml configuration file comment to include all supported output formats
+
 1.12.0 / 2025-11-12
 ===================
 

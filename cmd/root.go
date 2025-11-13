@@ -55,7 +55,7 @@ THE SOFTWARE.
 //
 //   - --config: Specify config file location
 //   - --verbose/-v: Enable verbose output
-//   - --output: Set output format (table, csv, json, dot)
+//   - --output: Set output format (table, csv, json, yaml, markdown, html, dot)
 //   - --file: Save output to a file
 //   - --profile: Use specific AWS profile
 //   - --region: Use specific AWS region
@@ -128,7 +128,7 @@ func init() {
 	rootCmd.AddCommand(NewCommandAlias("resources", "resource list", "Alias for 'resource list'"))
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is fog.yaml in current directory, or $HOME/fog.yaml)")
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Give verbose output")
-	rootCmd.PersistentFlags().String("output", "table", "Format for the output, currently supported are table, csv, json, and dot (for certain functions)")
+	rootCmd.PersistentFlags().String("output", "table", "Format for the output, currently supported are table, csv, json, yaml, markdown, html, and dot (for certain functions)")
 	rootCmd.PersistentFlags().String("file", "", "Optional file to save the output to, in addition to stdout")
 	rootCmd.PersistentFlags().String("file-format", "", "Optional format for the file, defaults to the same as output")
 	rootCmd.PersistentFlags().String("profile", "", "Use a specific AWS profile")
