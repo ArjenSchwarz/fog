@@ -151,8 +151,8 @@ type StackSetDeployFlags struct {
     NonInteractive      bool     // Skip confirmations
     DeploymentFile      string   // StackSet deployment file
     Quiet               bool     // Suppress progress output
-    CreateOnly          bool     # Only create StackSet, don't create instances
-    UpdateInstances     bool     # Update instances for existing StackSet
+    CreateOnly          bool     // Only create StackSet, don't create instances
+    UpdateInstances     bool     // Update instances for existing StackSet
 }
 
 // StackSetInstancesFlags for listing instances
