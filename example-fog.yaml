@@ -1,7 +1,7 @@
 # Example fog.yaml that aims to show all settings and what they do
 changeset:
   name-format: fog-$TIMESTAMP # How would you like change sets to be named? $TIMESTAMP is replaced with the current time in ISO8601 format without the timezone
-output: table # The standard format for outputs, choose from table, csv, json.
+output: table # The standard format for outputs, choose from table, csv, json, yaml, markdown, html, or dot (for certain functions).
 parameters:
   directory: parameters # The directory where you store your parameter files. Relative to where you run the application from
   extensions:
