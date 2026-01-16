@@ -604,6 +604,9 @@ func tagDifferences(property types.PropertyDifference, handledtags []string, tag
 			tagstructs = append(tagstructs, tagstruct)
 		}
 		for _, tagstruct := range tagstructs {
+			if !shouldTagBeHandled(tagstruct.Key, *drift) {
+				continue
+			}
 			return output.StyleWarning(fmt.Sprintf("%s: %s - %s: %s", property.DifferenceType, pathsplit[1], tagstruct.Key, tagstruct.Value)), ""
 		}
 		return "", ""
@@ -611,6 +614,9 @@ func tagDifferences(property types.PropertyDifference, handledtags []string, tag
 		tagstruct := tag{}
 		if err := json.Unmarshal(actual.Bytes(), &tagstruct); err != nil {
 			failWithError(err)
+		}
+		if !shouldTagBeHandled(tagstruct.Key, *drift) {
+			return "", ""
 		}
 		return output.StylePositive(fmt.Sprintf("%s: %s - %s: %s", property.DifferenceType, pathsplit[1], tagstruct.Key, tagstruct.Value)), ""
 	default:
