@@ -171,63 +171,89 @@ func (config *Config) getFormatForOutput(formatName string) output.Format {
 	}
 }
 
-// GetOutputOptions creates v2 functional options from config settings
+// GetOutputOptions creates v2 functional options from config settings.
+// When console and file formats are the same, returns options for a single Output.
+// When formats differ, only returns console options - use GetFileOutputOptions for file.
 func (config *Config) GetOutputOptions() []output.OutputOption {
 	opts := []output.OutputOption{}
-	formats := []output.Format{}
 
-	// Console output format
+	// Console output format and writer
 	consoleFormatName := config.GetLCString("output")
 	consoleFormat := config.getFormatForOutput(consoleFormatName)
-	formats = append(formats, consoleFormat)
-
-	// Console writer
+	opts = append(opts, output.WithFormat(consoleFormat))
 	opts = append(opts, output.WithWriter(output.NewStdoutWriter()))
 
-	// File output if configured
+	// File output - only add to same Output if formats match
 	if outputFile := config.GetLCString("output-file"); outputFile != "" {
 		fileFormatName := config.GetLCString("output-file-format")
-		// If file format not specified, use console format name
 		if fileFormatName == "" {
 			fileFormatName = consoleFormatName
 		}
-		fileFormat := config.getFormatForOutput(fileFormatName)
 
-		// Only add file format if different from console format
-		addFileFormat := true
+		// Only combine when formats are the same
+		// When formats differ, file output needs separate Output instance
 		if fileFormatName == consoleFormatName {
-			addFileFormat = false
-		}
-
-		dir, pattern := filepath.Split(outputFile)
-		// If no directory specified, default to current directory
-		if dir == "" {
-			dir = "."
-		}
-		fileWriter, err := output.NewFileWriter(dir, pattern)
-		if err != nil {
-			// Log warning message with file path and error details
-			// Continue with console output even if file writer fails
-			log.Printf("Warning: Failed to create file writer for %s: %v", outputFile, err)
-		} else {
-			if addFileFormat {
-				formats = append(formats, fileFormat)
+			dir, pattern := filepath.Split(outputFile)
+			if dir == "" {
+				dir = "."
 			}
-			opts = append(opts, output.WithWriter(fileWriter))
+			fileWriter, err := output.NewFileWriter(dir, pattern)
+			if err != nil {
+				log.Printf("Warning: Failed to create file writer for %s: %v", outputFile, err)
+			} else {
+				opts = append(opts, output.WithWriter(fileWriter))
+			}
 		}
 	}
-
-	// Add all formats at once
-	opts = append(opts, output.WithFormats(formats...))
 
 	// Transformers
 	if config.GetBool("use-emoji") {
 		opts = append(opts, output.WithTransformer(&output.EmojiTransformer{}))
 	}
 	if config.GetBool("use-colors") {
-		// Use EnhancedColorTransformer for format-aware color handling
-		// This automatically strips ANSI codes from JSON, CSV, and other non-terminal formats
 		opts = append(opts, output.WithTransformer(output.NewEnhancedColorTransformer()))
+	}
+
+	return opts
+}
+
+// GetFileOutputOptions returns output options for file output when file format
+// differs from console format. Returns nil if no separate file output is needed.
+func (config *Config) GetFileOutputOptions() []output.OutputOption {
+	outputFile := config.GetLCString("output-file")
+	if outputFile == "" {
+		return nil
+	}
+
+	consoleFormatName := config.GetLCString("output")
+	fileFormatName := config.GetLCString("output-file-format")
+	if fileFormatName == "" {
+		fileFormatName = consoleFormatName
+	}
+
+	// Only return separate options if formats differ
+	if fileFormatName == consoleFormatName {
+		return nil
+	}
+
+	opts := []output.OutputOption{}
+	fileFormat := config.getFormatForOutput(fileFormatName)
+	opts = append(opts, output.WithFormat(fileFormat))
+
+	dir, pattern := filepath.Split(outputFile)
+	if dir == "" {
+		dir = "."
+	}
+	fileWriter, err := output.NewFileWriter(dir, pattern)
+	if err != nil {
+		log.Printf("Warning: Failed to create file writer for %s: %v", outputFile, err)
+		return nil
+	}
+	opts = append(opts, output.WithWriter(fileWriter))
+
+	// Transformers - file output typically doesn't need colors
+	if config.GetBool("use-emoji") {
+		opts = append(opts, output.WithTransformer(&output.EmojiTransformer{}))
 	}
 
 	return opts

@@ -109,10 +109,9 @@ func outputSuccessResult(deployment *lib.DeployInfo) error {
 		)
 	}
 
-	// Render to stdout
+	// Render to console and file (if configured)
 	doc := builder.Build()
-	out := output.NewOutput(settings.GetOutputOptions()...)
-	return out.Render(context.Background(), doc)
+	return renderDocument(context.Background(), doc)
 }
 
 // outputNoChangesResult outputs the no-changes message when CloudFormation determines
@@ -159,10 +158,9 @@ func outputNoChangesResult(deployment *lib.DeployInfo) error {
 			output.WithKeys("Stack Name", "Status", "ARN", "Last Updated"),
 		)
 
-	// Render to stdout
+	// Render to console and file (if configured)
 	doc := builder.Build()
-	out := output.NewOutput(settings.GetOutputOptions()...)
-	return out.Render(context.Background(), doc)
+	return renderDocument(context.Background(), doc)
 }
 
 // FailedResource represents a resource that failed during deployment
@@ -271,8 +269,7 @@ func outputFailureResult(deployment *lib.DeployInfo, eventsClient lib.CloudForma
 		)
 	}
 
-	// Render to stdout
+	// Render to console and file (if configured)
 	doc := builder.Build()
-	out := output.NewOutput(settings.GetOutputOptions()...)
-	return out.Render(context.Background(), doc)
+	return renderDocument(context.Background(), doc)
 }

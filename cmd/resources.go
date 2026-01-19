@@ -115,9 +115,8 @@ func listResources(cmd *cobra.Command, args []string) {
 		).
 		Build()
 
-	// Create output with configured options
-	out := output.NewOutput(settings.GetOutputOptions()...)
-	if err := out.Render(context.Background(), doc); err != nil {
+	// Render to console and file (if configured)
+	if err := renderDocument(context.Background(), doc); err != nil {
 		failWithError(err)
 	}
 }

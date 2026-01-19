@@ -314,8 +314,7 @@ func buildAndRenderChangeset(
 
 	// Build and render the complete document
 	doc := builder.Build()
-	out := output.NewOutput(settings.GetOutputOptions()...)
-	if err := out.Render(context.Background(), doc); err != nil {
+	if err := renderDocument(context.Background(), doc); err != nil {
 		fmt.Printf("ERROR: Failed to render changeset: %v\n", err)
 		os.Exit(1)
 	}

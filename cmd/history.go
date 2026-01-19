@@ -82,9 +82,7 @@ func history(cmd *cobra.Command, args []string) {
 
 	// Build and render the final document with header only
 	doc := output.New().Header(title).Build()
-	out := output.NewOutput(settings.GetOutputOptions()...)
-	err = out.Render(context.Background(), doc)
-	if err != nil {
+	if err = renderDocument(context.Background(), doc); err != nil {
 		failWithError(err)
 	}
 }
@@ -147,15 +145,15 @@ func printLog(log lib.DeploymentLog, useStderr bool, prefixMessage ...string) {
 	doc := builder.Build()
 
 	// Render deployment log - use stderr for deploy context, stdout for history command
-	var out *output.Output
 	if useStderr {
-		out = createStderrOutput()
+		out := createStderrOutput()
+		if err := out.Render(context.Background(), doc); err != nil {
+			failWithError(err)
+		}
 	} else {
-		out = output.NewOutput(settings.GetOutputOptions()...)
-	}
-	err := out.Render(context.Background(), doc)
-	if err != nil {
-		failWithError(err)
+		if err := renderDocument(context.Background(), doc); err != nil {
+			failWithError(err)
+		}
 	}
 
 	// print error info if failed
@@ -173,10 +171,8 @@ func printLog(log lib.DeploymentLog, useStderr bool, prefixMessage ...string) {
 			).
 			Build()
 
-		// Render failed events
-		failedOut := output.NewOutput(settings.GetOutputOptions()...)
-		err := failedOut.Render(context.Background(), failedDoc)
-		if err != nil {
+		// Render failed events to console and file (if configured)
+		if err := renderDocument(context.Background(), failedDoc); err != nil {
 			failWithError(err)
 		}
 	}
