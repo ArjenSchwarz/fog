@@ -6,6 +6,12 @@ Unreleased
 - Updated README.md to document yaml, markdown, and html output format support
 - Updated example-fog.yaml configuration file comment to include all supported output formats
 
+### Fixed
+- Drift detection now respects `ignore-tags` configuration for added and removed tags, not just modified tags
+
+### Tests
+- Added unit tests for `shouldTagBeHandled` and `tagDifferences` functions to verify ignore-tags behavior for ADD, REMOVE, and MODIFY tag differences
+
 1.12.0 / 2025-11-12
 ===================
 
