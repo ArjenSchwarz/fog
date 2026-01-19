@@ -184,7 +184,8 @@ func (config *Config) GetOutputOptions() []output.OutputOption {
 	opts = append(opts, output.WithWriter(output.NewStdoutWriter()))
 
 	// File output - only add to same Output if formats match
-	if outputFile := config.GetLCString("output-file"); outputFile != "" {
+	// Note: Use GetString (not GetLCString) to preserve file path case for case-sensitive filesystems
+	if outputFile := config.GetString("output-file"); outputFile != "" {
 		fileFormatName := config.GetLCString("output-file-format")
 		if fileFormatName == "" {
 			fileFormatName = consoleFormatName
@@ -220,7 +221,8 @@ func (config *Config) GetOutputOptions() []output.OutputOption {
 // GetFileOutputOptions returns output options for file output when file format
 // differs from console format. Returns nil if no separate file output is needed.
 func (config *Config) GetFileOutputOptions() []output.OutputOption {
-	outputFile := config.GetLCString("output-file")
+	// Note: Use GetString (not GetLCString) to preserve file path case for case-sensitive filesystems
+	outputFile := config.GetString("output-file")
 	if outputFile == "" {
 		return nil
 	}
