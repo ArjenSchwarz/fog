@@ -178,10 +178,23 @@ func generateReport() {
 	// Get output options with S3/file configuration if needed
 	outputOptions := getReportOutputOptions(awsConfig, frontMatter)
 
-	// Render the complete document
+	// Render the complete document to console (and file if formats match, or S3)
+	builtDoc := doc.Build()
 	out := output.NewOutput(outputOptions...)
-	if err := out.Render(context.Background(), doc.Build()); err != nil {
+	if err := out.Render(context.Background(), builtDoc); err != nil {
 		failWithError(err)
+	}
+
+	// Render to file separately if file format differs from console format
+	if fileOpts := settings.GetFileOutputOptions(); fileOpts != nil {
+		// Add frontmatter to file output if provided
+		if len(frontMatter) > 0 {
+			fileOpts = append(fileOpts, output.WithFrontMatter(frontMatter))
+		}
+		fileOut := output.NewOutput(fileOpts...)
+		if err := fileOut.Render(context.Background(), builtDoc); err != nil {
+			failWithError(err)
+		}
 	}
 }
 

@@ -105,9 +105,8 @@ table:
 			).
 			Build()
 
-		// Render using v2 Output
-		out := output.NewOutput(settings.GetOutputOptions()...)
-		if err := out.Render(context.Background(), doc); err != nil {
+		// Render to console and file (if configured)
+		if err := renderDocument(context.Background(), doc); err != nil {
 			fmt.Printf("ERROR: Failed to render table style %s: %v\n", style, err)
 		}
 	}

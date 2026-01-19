@@ -730,3 +730,75 @@ func TestConfig_GetOutputOptions(t *testing.T) {
 // 		})
 // 	}
 // }
+
+func TestConfig_GetFileOutputOptions(t *testing.T) {
+	tests := map[string]struct {
+		setup func()
+		check func(*testing.T, []output.OutputOption)
+	}{
+		"no file output": {
+			setup: func() {
+				viper.Reset()
+				viper.Set("output", "table")
+			},
+			check: func(t *testing.T, opts []output.OutputOption) {
+				t.Helper()
+				assert.Nil(t, opts)
+			},
+		},
+		"file format same as console": {
+			setup: func() {
+				viper.Reset()
+				viper.Set("output", "table")
+				viper.Set("output-file", "/tmp/output.txt")
+				viper.Set("output-file-format", "table")
+			},
+			check: func(t *testing.T, opts []output.OutputOption) {
+				t.Helper()
+				// No separate file options needed when formats match
+				assert.Nil(t, opts)
+			},
+		},
+		"file format different from console": {
+			setup: func() {
+				viper.Reset()
+				viper.Set("output", "table")
+				viper.Set("output-file", "/tmp/output.md")
+				viper.Set("output-file-format", "markdown")
+			},
+			check: func(t *testing.T, opts []output.OutputOption) {
+				t.Helper()
+				// Should have format and writer options
+				require.NotNil(t, opts)
+				assert.GreaterOrEqual(t, len(opts), 2)
+			},
+		},
+		"file format defaults to console when not specified": {
+			setup: func() {
+				viper.Reset()
+				viper.Set("output", "json")
+				viper.Set("output-file", "/tmp/output.json")
+				// No output-file-format set
+			},
+			check: func(t *testing.T, opts []output.OutputOption) {
+				t.Helper()
+				// No separate file options needed when format defaults to console
+				assert.Nil(t, opts)
+			},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			tc.setup()
+			t.Cleanup(func() {
+				viper.Reset()
+			})
+
+			config := &Config{}
+			got := config.GetFileOutputOptions()
+
+			tc.check(t, got)
+		})
+	}
+}

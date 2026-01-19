@@ -1,8 +1,14 @@
 package cmd
 
 import (
+	"context"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	output "github.com/ArjenSchwarz/go-output/v2"
+	"github.com/spf13/viper"
 )
 
 func TestFormatInfo(t *testing.T) {
@@ -86,5 +92,216 @@ func TestFormatBold(t *testing.T) {
 	// Check for ANSI bold code
 	if !strings.Contains(result, "\x1b[") {
 		t.Error("formatBold should include ANSI formatting")
+	}
+}
+
+// setupViperDefaults resets viper and sets defaults for testing
+func setupViperDefaults() {
+	viper.Reset()
+	viper.Set("output", "table")
+	viper.Set("verbose", false)
+	viper.Set("table.style", "Default")
+	viper.Set("table.max-column-width", 50)
+	viper.Set("use-emoji", false)
+	viper.Set("use-colors", false)
+}
+
+func TestRenderDocument_ConsoleOnly(t *testing.T) {
+	// NOTE: Cannot use t.Parallel() because viper uses global state
+	setupViperDefaults()
+
+	// Create a simple document
+	data := []map[string]any{
+		{"Name": "test-item", "Value": "test-value"},
+	}
+	doc := output.New().
+		Table("Test Table", data, output.WithKeys("Name", "Value")).
+		Build()
+
+	// renderDocument should succeed with console-only output
+	err := renderDocument(context.Background(), doc)
+	if err != nil {
+		t.Fatalf("renderDocument failed for console-only output: %v", err)
+	}
+}
+
+func TestRenderDocument_WithFileMatchingFormat(t *testing.T) {
+	// NOTE: Cannot use t.Parallel() because viper uses global state
+	setupViperDefaults()
+
+	// Create temp directory for file output
+	tmpDir := t.TempDir()
+	outputFile := filepath.Join(tmpDir, "output.txt")
+
+	viper.Set("output", "json")
+	viper.Set("output-file", outputFile)
+	// When output-file-format is not set or matches output, same Output handles both
+
+	data := []map[string]any{
+		{"Name": "test-item", "Value": "test-value"},
+	}
+	doc := output.New().
+		Table("Test Table", data, output.WithKeys("Name", "Value")).
+		Build()
+
+	err := renderDocument(context.Background(), doc)
+	if err != nil {
+		t.Fatalf("renderDocument failed with matching file format: %v", err)
+	}
+
+	// Verify file was created
+	if _, err := os.Stat(outputFile); os.IsNotExist(err) {
+		t.Error("Expected output file to be created")
+	}
+
+	// Verify file contains JSON (since both formats are json)
+	content, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatalf("Failed to read output file: %v", err)
+	}
+	if !strings.Contains(string(content), "test-item") {
+		t.Error("Output file should contain the test data")
+	}
+}
+
+func TestRenderDocument_WithFileDifferentFormat(t *testing.T) {
+	// NOTE: Cannot use t.Parallel() because viper uses global state
+	setupViperDefaults()
+
+	// Create temp directory for file output
+	tmpDir := t.TempDir()
+	outputFile := filepath.Join(tmpDir, "output.md")
+
+	viper.Set("output", "table")                // Console format
+	viper.Set("output-file", outputFile)        // File path
+	viper.Set("output-file-format", "markdown") // Different file format
+
+	data := []map[string]any{
+		{"Name": "test-item", "Value": "test-value"},
+	}
+	doc := output.New().
+		Table("Test Table", data, output.WithKeys("Name", "Value")).
+		Build()
+
+	err := renderDocument(context.Background(), doc)
+	if err != nil {
+		t.Fatalf("renderDocument failed with different file format: %v", err)
+	}
+
+	// Verify file was created
+	if _, err := os.Stat(outputFile); os.IsNotExist(err) {
+		t.Error("Expected output file to be created")
+	}
+
+	// Verify file contains markdown format (should have pipes for tables)
+	content, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatalf("Failed to read output file: %v", err)
+	}
+	contentStr := string(content)
+	if !strings.Contains(contentStr, "|") {
+		t.Error("Output file should contain markdown table formatting (pipes)")
+	}
+	if !strings.Contains(contentStr, "test-item") {
+		t.Error("Output file should contain the test data")
+	}
+}
+
+func TestRenderDocument_ErrorHandling(t *testing.T) {
+	// NOTE: Cannot use t.Parallel() because viper uses global state
+	setupViperDefaults()
+
+	// Test with nil document - should return an error
+	err := renderDocument(context.Background(), nil)
+	if err == nil {
+		t.Error("renderDocument should return error for nil document")
+	}
+}
+
+func TestRenderDocument_MultipleFormats(t *testing.T) {
+	// NOTE: Cannot use t.Parallel() because viper uses global state
+
+	tests := map[string]struct {
+		consoleFormat string
+		fileFormat    string
+	}{
+		"table_to_json": {
+			consoleFormat: "table",
+			fileFormat:    "json",
+		},
+		"json_to_markdown": {
+			consoleFormat: "json",
+			fileFormat:    "markdown",
+		},
+		"table_to_csv": {
+			consoleFormat: "table",
+			fileFormat:    "csv",
+		},
+		"yaml_to_table": {
+			consoleFormat: "yaml",
+			fileFormat:    "table",
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			// NOTE: Cannot use t.Parallel() because viper uses global state
+			setupViperDefaults()
+
+			tmpDir := t.TempDir()
+			outputFile := filepath.Join(tmpDir, "output.txt")
+
+			viper.Set("output", tc.consoleFormat)
+			viper.Set("output-file", outputFile)
+			viper.Set("output-file-format", tc.fileFormat)
+
+			data := []map[string]any{
+				{"Name": "test-item", "Value": "test-value"},
+			}
+			doc := output.New().
+				Table("Test Table", data, output.WithKeys("Name", "Value")).
+				Build()
+
+			err := renderDocument(context.Background(), doc)
+			if err != nil {
+				t.Fatalf("renderDocument failed for %s to %s: %v", tc.consoleFormat, tc.fileFormat, err)
+			}
+
+			// Verify file was created
+			if _, err := os.Stat(outputFile); os.IsNotExist(err) {
+				t.Errorf("Expected output file to be created for %s to %s", tc.consoleFormat, tc.fileFormat)
+			}
+
+			// Verify file has content
+			content, err := os.ReadFile(outputFile)
+			if err != nil {
+				t.Fatalf("Failed to read output file: %v", err)
+			}
+			if len(content) == 0 {
+				t.Error("Output file should not be empty")
+			}
+		})
+	}
+}
+
+func TestRenderDocument_NoFileWhenNotConfigured(t *testing.T) {
+	// NOTE: Cannot use t.Parallel() because viper uses global state
+	setupViperDefaults()
+
+	// Explicitly ensure no output file is configured
+	viper.Set("output-file", "")
+	viper.Set("output-file-format", "")
+
+	data := []map[string]any{
+		{"Name": "test-item", "Value": "test-value"},
+	}
+	doc := output.New().
+		Table("Test Table", data, output.WithKeys("Name", "Value")).
+		Build()
+
+	// Should succeed without creating any file
+	err := renderDocument(context.Background(), doc)
+	if err != nil {
+		t.Fatalf("renderDocument failed: %v", err)
 	}
 }

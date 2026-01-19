@@ -196,8 +196,7 @@ func detectDrift(cmd *cobra.Command, args []string) {
 				output.WithKeys("Status"),
 			).
 			Build()
-		out := output.NewOutput(settings.GetOutputOptions()...)
-		if err := out.Render(context.Background(), doc); err != nil {
+		if err := renderDocument(context.Background(), doc); err != nil {
 			failWithError(err)
 		}
 	} else {
@@ -208,8 +207,7 @@ func detectDrift(cmd *cobra.Command, args []string) {
 				output.WithKeys(keys...),
 			).
 			Build()
-		out := output.NewOutput(settings.GetOutputOptions()...)
-		if err := out.Render(context.Background(), doc); err != nil {
+		if err := renderDocument(context.Background(), doc); err != nil {
 			failWithError(err)
 		}
 	}
