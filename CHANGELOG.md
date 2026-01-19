@@ -1,6 +1,9 @@
 Unreleased
 ==========
 
+1.12.2 / 2026-01-19
+===================
+
 ### Fixed
 - Fixed `--file-format` flag being ignored when different from `--output` format, causing file output to use console format instead of specified file format
 
