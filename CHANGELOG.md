@@ -1,16 +1,15 @@
 Unreleased
 ==========
 
-### Changed
-- Updated global `--output` flag documentation to include yaml, markdown, and html formats in cmd/root.go
-- Updated README.md to document yaml, markdown, and html output format support
-- Updated example-fog.yaml configuration file comment to include all supported output formats
+1.12.1 / 2026-01-19
+===================
 
 ### Fixed
 - Drift detection now respects `ignore-tags` configuration for added and removed tags, not just modified tags
+- Fixed `go-isatty` dependency classification to be direct instead of indirect
 
-### Tests
-- Added unit tests for `shouldTagBeHandled` and `tagDifferences` functions to verify ignore-tags behavior for ADD, REMOVE, and MODIFY tag differences
+### Changed
+- Updated output format documentation to clarify support for yaml, markdown, and html formats
 
 1.12.0 / 2025-11-12
 ===================

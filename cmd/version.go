@@ -28,7 +28,7 @@ import (
 )
 
 // Version is the application version string, set during build
-var Version = "1.12.0"
+var Version = "1.12.1"
 
 // versionCmd represents the version command
 var versionCmd = &cobra.Command{
