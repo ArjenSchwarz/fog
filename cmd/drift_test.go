@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	output "github.com/ArjenSchwarz/go-output/v2"
+	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
 	"github.com/spf13/viper"
 )
 
@@ -518,5 +519,231 @@ func TestDrift_V2ComplexScenario(t *testing.T) {
 	err := out.Render(context.Background(), doc)
 	if err != nil {
 		t.Fatalf("Failed to render complex scenario: %v", err)
+	}
+}
+
+// TestShouldTagBeHandled tests the shouldTagBeHandled function
+func TestShouldTagBeHandled(t *testing.T) {
+	// NOTE: Cannot use t.Parallel() because driftFlags uses global state
+
+	tests := map[string]struct {
+		tag          string
+		ignoreTags   string
+		resourceType string
+		logicalID    string
+		want         bool
+	}{
+		"tag_not_ignored": {
+			tag:          "Environment",
+			ignoreTags:   "Owner,CostCenter",
+			resourceType: "AWS::EC2::VPC",
+			logicalID:    "MyVPC",
+			want:         true,
+		},
+		"tag_ignored_globally": {
+			tag:          "Owner",
+			ignoreTags:   "Owner,CostCenter",
+			resourceType: "AWS::EC2::VPC",
+			logicalID:    "MyVPC",
+			want:         false,
+		},
+		"tag_ignored_by_resource_type": {
+			tag:          "Environment",
+			ignoreTags:   "AWS::EC2::VPC:Environment",
+			resourceType: "AWS::EC2::VPC",
+			logicalID:    "MyVPC",
+			want:         false,
+		},
+		"tag_not_ignored_different_resource_type": {
+			tag:          "Environment",
+			ignoreTags:   "AWS::EC2::Subnet:Environment",
+			resourceType: "AWS::EC2::VPC",
+			logicalID:    "MyVPC",
+			want:         true,
+		},
+		"tag_ignored_by_logical_id": {
+			tag:          "Environment",
+			ignoreTags:   "MyVPC:Environment",
+			resourceType: "AWS::EC2::VPC",
+			logicalID:    "MyVPC",
+			want:         false,
+		},
+		"tag_not_ignored_different_logical_id": {
+			tag:          "Environment",
+			ignoreTags:   "OtherVPC:Environment",
+			resourceType: "AWS::EC2::VPC",
+			logicalID:    "MyVPC",
+			want:         true,
+		},
+		"empty_ignore_tags": {
+			tag:          "Environment",
+			ignoreTags:   "",
+			resourceType: "AWS::EC2::VPC",
+			logicalID:    "MyVPC",
+			want:         true,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			// Reset global state
+			driftFlags = DriftFlags{IgnoreTags: tc.ignoreTags}
+			viper.Reset()
+
+			drift := types.StackResourceDrift{
+				ResourceType:      &tc.resourceType,
+				LogicalResourceId: &tc.logicalID,
+			}
+
+			got := shouldTagBeHandled(tc.tag, drift)
+			if got != tc.want {
+				t.Errorf("shouldTagBeHandled(%q) = %v, want %v", tc.tag, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestTagDifferences_IgnoreTags tests that tagDifferences respects ignore-tags for all difference types
+func TestTagDifferences_IgnoreTags(t *testing.T) {
+	// NOTE: Cannot use t.Parallel() because driftFlags uses global state
+
+	resourceType := "AWS::EC2::VPC"
+	logicalID := "MyVPC"
+
+	tests := map[string]struct {
+		differenceType types.DifferenceType
+		propertyPath   string
+		expectedValue  string
+		actualValue    string
+		ignoreTags     string
+		tagMap         map[string]map[string]string
+		wantOutput     bool
+	}{
+		"add_tag_not_ignored": {
+			differenceType: types.DifferenceTypeAdd,
+			propertyPath:   "/Tags/0",
+			expectedValue:  "null",
+			actualValue:    `{"Key":"Environment","Value":"Production"}`,
+			ignoreTags:     "Owner",
+			wantOutput:     true,
+		},
+		"add_tag_ignored": {
+			differenceType: types.DifferenceTypeAdd,
+			propertyPath:   "/Tags/0",
+			expectedValue:  "null",
+			actualValue:    `{"Key":"Owner","Value":"TeamA"}`,
+			ignoreTags:     "Owner",
+			wantOutput:     false,
+		},
+		"remove_tag_not_ignored": {
+			differenceType: types.DifferenceTypeRemove,
+			propertyPath:   "/Tags/0",
+			expectedValue:  `{"Key":"Environment","Value":"Production"}`,
+			actualValue:    "null",
+			ignoreTags:     "Owner",
+			wantOutput:     true,
+		},
+		"remove_tag_ignored": {
+			differenceType: types.DifferenceTypeRemove,
+			propertyPath:   "/Tags/0",
+			expectedValue:  `{"Key":"Owner","Value":"TeamA"}`,
+			actualValue:    "null",
+			ignoreTags:     "Owner",
+			wantOutput:     false,
+		},
+		"remove_multiple_tags_one_ignored": {
+			differenceType: types.DifferenceTypeRemove,
+			propertyPath:   "/Tags/0",
+			expectedValue:  `[{"Key":"Owner","Value":"TeamA"},{"Key":"Environment","Value":"Prod"}]`,
+			actualValue:    "null",
+			ignoreTags:     "Owner",
+			wantOutput:     true, // Environment is not ignored, so it should output
+		},
+		"remove_multiple_tags_all_ignored": {
+			differenceType: types.DifferenceTypeRemove,
+			propertyPath:   "/Tags/0",
+			expectedValue:  `[{"Key":"Owner","Value":"TeamA"},{"Key":"CostCenter","Value":"123"}]`,
+			actualValue:    "null",
+			ignoreTags:     "Owner,CostCenter",
+			wantOutput:     false,
+		},
+		"modify_tag_not_ignored": {
+			differenceType: types.DifferenceTypeNotEqual,
+			propertyPath:   "/Tags/0/Value",
+			expectedValue:  `"Staging"`,
+			actualValue:    `"Production"`,
+			ignoreTags:     "Owner",
+			tagMap: map[string]map[string]string{
+				"Environment": {"Expected": `"Staging"`, "Actual": `"Production"`},
+			},
+			wantOutput: true,
+		},
+		"modify_tag_ignored": {
+			differenceType: types.DifferenceTypeNotEqual,
+			propertyPath:   "/Tags/0/Value",
+			expectedValue:  `"TeamA"`,
+			actualValue:    `"TeamB"`,
+			ignoreTags:     "Owner",
+			tagMap: map[string]map[string]string{
+				"Owner": {"Expected": `"TeamA"`, "Actual": `"TeamB"`},
+			},
+			wantOutput: false,
+		},
+		"add_tag_ignored_by_resource_type": {
+			differenceType: types.DifferenceTypeAdd,
+			propertyPath:   "/Tags/0",
+			expectedValue:  "null",
+			actualValue:    `{"Key":"Environment","Value":"Production"}`,
+			ignoreTags:     "AWS::EC2::VPC:Environment",
+			wantOutput:     false,
+		},
+		"add_tag_not_ignored_different_resource_type": {
+			differenceType: types.DifferenceTypeAdd,
+			propertyPath:   "/Tags/0",
+			expectedValue:  "null",
+			actualValue:    `{"Key":"Environment","Value":"Production"}`,
+			ignoreTags:     "AWS::EC2::Subnet:Environment",
+			wantOutput:     true,
+		},
+		"remove_tag_ignored_by_logical_id": {
+			differenceType: types.DifferenceTypeRemove,
+			propertyPath:   "/Tags/0",
+			expectedValue:  `{"Key":"Environment","Value":"Production"}`,
+			actualValue:    "null",
+			ignoreTags:     "MyVPC:Environment",
+			wantOutput:     false,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			// Reset global state
+			driftFlags = DriftFlags{IgnoreTags: tc.ignoreTags}
+			viper.Reset()
+
+			drift := types.StackResourceDrift{
+				ResourceType:      &resourceType,
+				LogicalResourceId: &logicalID,
+			}
+
+			property := types.PropertyDifference{
+				DifferenceType: tc.differenceType,
+				PropertyPath:   &tc.propertyPath,
+				ExpectedValue:  &tc.expectedValue,
+				ActualValue:    &tc.actualValue,
+			}
+
+			tagMap := tc.tagMap
+			if tagMap == nil {
+				tagMap = map[string]map[string]string{}
+			}
+
+			result, _ := tagDifferences(property, []string{}, tagMap, []string{}, &drift)
+
+			hasOutput := result != ""
+			if hasOutput != tc.wantOutput {
+				t.Errorf("tagDifferences() returned %q, wantOutput=%v (got output=%v)", result, tc.wantOutput, hasOutput)
+			}
+		})
 	}
 }
