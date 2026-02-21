@@ -127,6 +127,88 @@ func TestGetResourcesThrottlingRetry(t *testing.T) {
 	}
 }
 
+// paginatingMockClient supports multi-page DescribeStacks responses.
+// Pages are keyed by NextToken ("" for the first call).
+type paginatingMockClient struct {
+	pages                         map[string]cloudformation.DescribeStacksOutput
+	describeStackResourcesOutputs []cloudformation.DescribeStackResourcesOutput
+	describeStackResourcesErrs    []error
+	describeStackResourcesCalls   int
+}
+
+func (m *paginatingMockClient) DescribeStacks(ctx context.Context, params *cloudformation.DescribeStacksInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStacksOutput, error) {
+	token := ""
+	if params.NextToken != nil {
+		token = *params.NextToken
+	}
+	out := m.pages[token]
+	return &out, nil
+}
+
+func (m *paginatingMockClient) DescribeStackResources(ctx context.Context, params *cloudformation.DescribeStackResourcesInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStackResourcesOutput, error) {
+	idx := m.describeStackResourcesCalls
+	m.describeStackResourcesCalls++
+	var out cloudformation.DescribeStackResourcesOutput
+	if idx < len(m.describeStackResourcesOutputs) {
+		out = m.describeStackResourcesOutputs[idx]
+	}
+	var err error
+	if idx < len(m.describeStackResourcesErrs) {
+		err = m.describeStackResourcesErrs[idx]
+	}
+	return &out, err
+}
+
+// TestGetResourcesPagination verifies that stacks from multiple DescribeStacks pages are all processed.
+func TestGetResourcesPagination(t *testing.T) {
+	stackName := ""
+	mock := &paginatingMockClient{
+		pages: map[string]cloudformation.DescribeStacksOutput{
+			"": {
+				Stacks:    []types.Stack{{StackName: aws.String("stack-page1")}},
+				NextToken: aws.String("token2"),
+			},
+			"token2": {
+				Stacks:    []types.Stack{{StackName: aws.String("stack-page2")}},
+				NextToken: aws.String("token3"),
+			},
+			"token3": {
+				Stacks: []types.Stack{{StackName: aws.String("stack-page3")}},
+			},
+		},
+		describeStackResourcesOutputs: []cloudformation.DescribeStackResourcesOutput{
+			{StackResources: []types.StackResource{
+				{LogicalResourceId: aws.String("R1"), PhysicalResourceId: aws.String("p1"), ResourceType: aws.String("AWS::S3::Bucket"), ResourceStatus: types.ResourceStatusCreateComplete},
+			}},
+			{StackResources: []types.StackResource{
+				{LogicalResourceId: aws.String("R2"), PhysicalResourceId: aws.String("p2"), ResourceType: aws.String("AWS::Lambda::Function"), ResourceStatus: types.ResourceStatusCreateComplete},
+			}},
+			{StackResources: []types.StackResource{
+				{LogicalResourceId: aws.String("R3"), PhysicalResourceId: aws.String("p3"), ResourceType: aws.String("AWS::IAM::Role"), ResourceStatus: types.ResourceStatusCreateComplete},
+			}},
+		},
+	}
+
+	got := GetResources(&stackName, mock)
+
+	if len(got) != 3 {
+		t.Fatalf("expected 3 resources from 3 pages, got %d", len(got))
+	}
+	want := []CfnResource{
+		{StackName: "stack-page1", Type: "AWS::S3::Bucket", ResourceID: "p1", LogicalID: "R1", Status: string(types.ResourceStatusCreateComplete)},
+		{StackName: "stack-page2", Type: "AWS::Lambda::Function", ResourceID: "p2", LogicalID: "R2", Status: string(types.ResourceStatusCreateComplete)},
+		{StackName: "stack-page3", Type: "AWS::IAM::Role", ResourceID: "p3", LogicalID: "R3", Status: string(types.ResourceStatusCreateComplete)},
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("resource %d = %#v, want %#v", i, got[i], want[i])
+		}
+	}
+	if mock.describeStackResourcesCalls != 3 {
+		t.Errorf("expected 3 DescribeStackResources calls (one per stack), got %d", mock.describeStackResourcesCalls)
+	}
+}
+
 // TestGetResourcesNonThrottlingError verifies that non-throttling API errors cause the function to log and exit.
 func TestGetResourcesNonThrottlingError(t *testing.T) {
 	if os.Getenv("FOG_TEST_HELPER") == "1" {

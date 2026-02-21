@@ -1,6 +1,9 @@
 Unreleased
 ==========
 
+### Fixed
+- Fixed `GetResources` only processing the first page of DescribeStacks results, causing resources from accounts with more than 100 stacks to be omitted
+
 1.12.2 / 2026-01-19
 ===================
 
