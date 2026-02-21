@@ -317,7 +317,7 @@ func buildSimpleHTMLTable(data map[string]any) string {
 	var sb strings.Builder
 	sb.WriteString("<table>")
 	for k, v := range data {
-		sb.WriteString(fmt.Sprintf("<tr><th>%s</th><td>%v</td></tr>", k, v))
+		fmt.Fprintf(&sb, "<tr><th>%s</th><td>%v</td></tr>", k, v)
 	}
 	sb.WriteString("</table>")
 	return sb.String()
