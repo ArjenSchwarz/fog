@@ -2,6 +2,7 @@ package config
 
 import (
 	"testing"
+	"time"
 
 	"github.com/ArjenSchwarz/go-output/v2"
 	format "github.com/ArjenSchwarz/go-output/v2"
@@ -342,12 +343,28 @@ func TestConfig_GetTimezoneLocation(t *testing.T) {
 			want:        "Europe/London",
 			shouldPanic: false,
 		},
-		"invalid timezone": {
+		"invalid timezone falls back to local": {
 			setup: func() {
 				viper.Reset()
 				viper.Set("timezone", "Invalid/Timezone")
 			},
-			shouldPanic: true,
+			want:        time.Local.String(),
+			shouldPanic: false,
+		},
+		"empty timezone falls back to local": {
+			setup: func() {
+				viper.Reset()
+				viper.Set("timezone", "")
+			},
+			want:        time.Local.String(),
+			shouldPanic: false,
+		},
+		"unset timezone falls back to local": {
+			setup: func() {
+				viper.Reset()
+			},
+			want:        time.Local.String(),
+			shouldPanic: false,
 		},
 	}
 

@@ -134,10 +134,16 @@ func (config *Config) GetFieldOrEmptyValue(value string) string {
 
 // GetTimezoneLocation gets the location object you can use in a time object
 // based on the timezone specified in your settings.
+// Falls back to time.Local if the timezone is unset or invalid.
 func (config *Config) GetTimezoneLocation() *time.Location {
-	location, err := time.LoadLocation(config.GetString("timezone"))
+	tz := config.GetString("timezone")
+	if tz == "" {
+		return time.Local
+	}
+	location, err := time.LoadLocation(tz)
 	if err != nil {
-		panic(err)
+		log.Printf("Warning: invalid timezone %q, falling back to local timezone: %v", tz, err)
+		return time.Local
 	}
 	return location
 }
