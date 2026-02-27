@@ -48,7 +48,7 @@ When the `ReportTimezone` environment variable is not set (or set to an empty st
 
 **What it verifies:** Confirms that empty and whitespace-only timezone strings preserve the viper default `"Local"`, while non-empty timezone strings correctly override it and surrounding whitespace is trimmed.
 
-**Run command:** `go test ./cmd/ -run TestGenerateReportFromLambdaEmptyTimezone -v`
+**Run command:** `go test ./cmd/ -run TestSetTimezoneIfPresent -v`
 
 ## Affected Files
 
