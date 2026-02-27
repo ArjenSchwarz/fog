@@ -190,8 +190,12 @@ func (deployment *DeployInfo) ChangesetType() types.ChangeSetType {
 	return types.ChangeSetTypeUpdate
 }
 
-// GetStack retrieves a single stack by name or ARN
+// GetStack retrieves a single stack by name or ARN. stackname must be non-nil
+// and non-empty. Returns an error if zero or more than one stack matches.
 func GetStack(stackname *string, svc CloudFormationDescribeStacksAPI) (types.Stack, error) {
+	if stackname == nil {
+		return types.Stack{}, fmt.Errorf("stack name must not be nil")
+	}
 	input := &cloudformation.DescribeStacksInput{}
 	if *stackname != "" && !strings.Contains(*stackname, "*") {
 		input.StackName = stackname
@@ -200,7 +204,13 @@ func GetStack(stackname *string, svc CloudFormationDescribeStacksAPI) (types.Sta
 	if err != nil {
 		return types.Stack{}, err
 	}
-	return resp.Stacks[0], err
+	if len(resp.Stacks) == 0 {
+		return types.Stack{}, fmt.Errorf("no stacks found matching %q", *stackname)
+	}
+	if len(resp.Stacks) > 1 {
+		return types.Stack{}, fmt.Errorf("expected exactly one stack matching %q, but found %d", *stackname, len(resp.Stacks))
+	}
+	return resp.Stacks[0], nil
 }
 
 // GetCfnStacks retrieves stacks matching the given name pattern with their outputs and import information

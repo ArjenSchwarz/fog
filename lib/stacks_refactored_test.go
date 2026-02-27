@@ -22,6 +22,7 @@ func TestGetStack_WithDependencyInjection(t *testing.T) {
 	tests := map[string]struct {
 		name      string
 		stackName string
+		nilName   bool
 		setup     func(*testutil.MockCFNClient)
 		want      types.Stack
 		wantErr   bool
@@ -79,14 +80,27 @@ func TestGetStack_WithDependencyInjection(t *testing.T) {
 			wantErr: true,
 			errMsg:  "Stack with name non-existent does not exist",
 		},
-		"empty stack name - returns all stacks": {
+		"empty stack name - multiple stacks returns error": {
 			stackName: "",
 			setup: func(client *testutil.MockCFNClient) {
 				stack1 := testutil.NewStackBuilder("stack1").Build()
 				stack2 := testutil.NewStackBuilder("stack2").Build()
 				client.WithStack(stack1).WithStack(stack2)
 			},
-			wantErr: false,
+			wantErr: true,
+			errMsg:  "expected exactly one stack",
+		},
+		"empty stack name - no stacks returns error": {
+			stackName: "",
+			setup:     func(client *testutil.MockCFNClient) {},
+			wantErr:   true,
+			errMsg:    "no stacks found",
+		},
+		"nil stack name": {
+			nilName: true,
+			setup:   nil,
+			wantErr: true,
+			errMsg:  "stack name must not be nil",
 		},
 		"API throttling error": {
 			stackName: "test-stack",
@@ -109,7 +123,11 @@ func TestGetStack_WithDependencyInjection(t *testing.T) {
 			}
 
 			// Execute
-			got, err := GetStack(&tc.stackName, mockClient)
+			var stackNamePtr *string
+			if !tc.nilName {
+				stackNamePtr = &tc.stackName
+			}
+			got, err := GetStack(stackNamePtr, mockClient)
 
 			// Assert
 			if tc.wantErr {
