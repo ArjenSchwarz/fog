@@ -34,7 +34,8 @@ func TestGetTemplateBody(t *testing.T) {
 		parameters *map[string]any
 		setupMock  func() *mockGetTemplateClient
 		want       CfnTemplateBody
-		wantPanic  bool
+		wantErr    bool
+		errMsg     string
 	}{
 		"retrieves JSON template successfully": {
 			stackName:  "test-stack",
@@ -154,7 +155,7 @@ Resources:
 				},
 			},
 		},
-		"API error triggers panic": {
+		"API error returns error": {
 			stackName:  "error-stack",
 			parameters: nil,
 			setupMock: func() *mockGetTemplateClient {
@@ -164,7 +165,23 @@ Resources:
 					},
 				}
 			},
-			wantPanic: true,
+			wantErr: true,
+			errMsg:  "failed to get template for stack",
+		},
+		"nil TemplateBody returns error": {
+			stackName:  "nil-body-stack",
+			parameters: nil,
+			setupMock: func() *mockGetTemplateClient {
+				return &mockGetTemplateClient{
+					getTemplateFn: func(ctx context.Context, params *cloudformation.GetTemplateInput, optFns ...func(*cloudformation.Options)) (*cloudformation.GetTemplateOutput, error) {
+						return &cloudformation.GetTemplateOutput{
+							TemplateBody: nil,
+						}, nil
+					},
+				}
+			},
+			wantErr: true,
+			errMsg:  "template body is nil for stack",
 		},
 	}
 
@@ -174,14 +191,15 @@ Resources:
 
 			mockClient := tc.setupMock()
 
-			if tc.wantPanic {
-				assert.Panics(t, func() {
-					GetTemplateBody(&tc.stackName, tc.parameters, mockClient)
-				}, "Expected GetTemplateBody to panic on API error")
+			if tc.wantErr {
+				_, err := GetTemplateBody(&tc.stackName, tc.parameters, mockClient)
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tc.errMsg)
 				return
 			}
 
-			got := GetTemplateBody(&tc.stackName, tc.parameters, mockClient)
+			got, err := GetTemplateBody(&tc.stackName, tc.parameters, mockClient)
+			require.NoError(t, err)
 
 			// Compare key fields
 			assert.Equal(t, tc.want.AWSTemplateFormatVersion, got.AWSTemplateFormatVersion)
