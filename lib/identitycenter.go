@@ -27,14 +27,18 @@ func GetPermissionSetArns(ssoClient interface {
 		InstanceArn: &ssoInstanceArn,
 	}
 
-	result, err := ssoClient.ListPermissionSets(context.TODO(), input)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list permission sets: %w", err)
-	}
-
 	permissionSetArns := map[string]string{}
-	for _, permissionSetArn := range result.PermissionSets {
-		permissionSetArns[fmt.Sprintf("%s|%s", ssoInstanceArn, permissionSetArn)] = "AWS::SSO::PermissionSet"
+	paginator := ssoadmin.NewListPermissionSetsPaginator(ssoClient, input)
+
+	for paginator.HasMorePages() {
+		result, err := paginator.NextPage(context.TODO())
+		if err != nil {
+			return nil, fmt.Errorf("failed to list permission sets: %w", err)
+		}
+
+		for _, permissionSetArn := range result.PermissionSets {
+			permissionSetArns[fmt.Sprintf("%s|%s", ssoInstanceArn, permissionSetArn)] = "AWS::SSO::PermissionSet"
+		}
 	}
 
 	return permissionSetArns, nil
@@ -103,13 +107,17 @@ func GetAccountAssignmentArnsForPermissionSet(ssoClient SSOAdminListAccountAssig
 			PermissionSetArn: &permissionSetArn,
 		}
 
-		result, err := ssoClient.ListAccountAssignments(context.TODO(), input)
-		if err != nil {
-			return nil, fmt.Errorf("failed to list account assignments: %w", err)
-		}
+		paginator := ssoadmin.NewListAccountAssignmentsPaginator(ssoClient, input)
 
-		for _, assignment := range result.AccountAssignments {
-			assignmentArns[fmt.Sprintf("%s|%s|AWS_ACCOUNT|%s|%s|%s", ssoInstanceArn, *assignment.AccountId, permissionSetArn, assignment.PrincipalType, *assignment.PrincipalId)] = "AWS::SSO::Assignment"
+		for paginator.HasMorePages() {
+			result, err := paginator.NextPage(context.TODO())
+			if err != nil {
+				return nil, fmt.Errorf("failed to list account assignments: %w", err)
+			}
+
+			for _, assignment := range result.AccountAssignments {
+				assignmentArns[fmt.Sprintf("%s|%s|AWS_ACCOUNT|%s|%s|%s", ssoInstanceArn, *assignment.AccountId, permissionSetArn, assignment.PrincipalType, *assignment.PrincipalId)] = "AWS::SSO::Assignment"
+			}
 		}
 	}
 

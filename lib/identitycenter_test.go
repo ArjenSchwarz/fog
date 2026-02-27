@@ -21,8 +21,9 @@ import (
 type mockSSOAdminClient struct {
 	listInstancesOutput           *ssoadmin.ListInstancesOutput
 	listInstancesErr              error
-	listPermissionSetsOutput      *ssoadmin.ListPermissionSetsOutput
+	listPermissionSetsOutputs     []*ssoadmin.ListPermissionSetsOutput
 	listPermissionSetsErr         error
+	permissionSetsCall            int
 	listAccountAssignmentsOutputs []*ssoadmin.ListAccountAssignmentsOutput
 	listAccountAssignmentsErr     error
 	assignmentCall                int
@@ -36,17 +37,24 @@ func (m *mockSSOAdminClient) ListInstances(ctx context.Context, params *ssoadmin
 }
 
 func (m *mockSSOAdminClient) ListPermissionSets(ctx context.Context, params *ssoadmin.ListPermissionSetsInput, optFns ...func(*ssoadmin.Options)) (*ssoadmin.ListPermissionSetsOutput, error) {
-	if m.listPermissionSetsOutput == nil {
-		m.listPermissionSetsOutput = &ssoadmin.ListPermissionSetsOutput{}
+	// Return outputs in order; once exhausted, return error if set or empty output.
+	if m.permissionSetsCall >= len(m.listPermissionSetsOutputs) {
+		if m.listPermissionSetsErr != nil {
+			return nil, m.listPermissionSetsErr
+		}
+		return &ssoadmin.ListPermissionSetsOutput{}, nil
 	}
-	return m.listPermissionSetsOutput, m.listPermissionSetsErr
+	out := m.listPermissionSetsOutputs[m.permissionSetsCall]
+	m.permissionSetsCall++
+	return out, nil
 }
 
 func (m *mockSSOAdminClient) ListAccountAssignments(ctx context.Context, params *ssoadmin.ListAccountAssignmentsInput, optFns ...func(*ssoadmin.Options)) (*ssoadmin.ListAccountAssignmentsOutput, error) {
-	if m.listAccountAssignmentsErr != nil {
-		return nil, m.listAccountAssignmentsErr
-	}
+	// Return outputs in order; once exhausted, return error if set or empty output.
 	if m.assignmentCall >= len(m.listAccountAssignmentsOutputs) {
+		if m.listAccountAssignmentsErr != nil {
+			return nil, m.listAccountAssignmentsErr
+		}
 		return &ssoadmin.ListAccountAssignmentsOutput{}, nil
 	}
 	out := m.listAccountAssignmentsOutputs[m.assignmentCall]
@@ -128,8 +136,10 @@ func TestGetPermissionSetArns(t *testing.T) {
 		{
 			name: "success",
 			client: &mockSSOAdminClient{
-				listInstancesOutput:      &ssoadmin.ListInstancesOutput{Instances: []ssotypes.InstanceMetadata{{InstanceArn: aws.String(instArn)}}},
-				listPermissionSetsOutput: &ssoadmin.ListPermissionSetsOutput{PermissionSets: []string{ps1, ps2}},
+				listInstancesOutput: &ssoadmin.ListInstancesOutput{Instances: []ssotypes.InstanceMetadata{{InstanceArn: aws.String(instArn)}}},
+				listPermissionSetsOutputs: []*ssoadmin.ListPermissionSetsOutput{
+					{PermissionSets: []string{ps1, ps2}},
+				},
 			},
 			want: map[string]string{
 				fmt.Sprintf("%s|%s", instArn, ps1): "AWS::SSO::PermissionSet",
@@ -281,8 +291,10 @@ func TestGetAssignmentArns(t *testing.T) {
 		{
 			name: "success",
 			sso: &mockSSOAdminClient{
-				listInstancesOutput:      &ssoadmin.ListInstancesOutput{Instances: []ssotypes.InstanceMetadata{{InstanceArn: aws.String(instArn)}}},
-				listPermissionSetsOutput: &ssoadmin.ListPermissionSetsOutput{PermissionSets: []string{ps1, ps2}},
+				listInstancesOutput: &ssoadmin.ListInstancesOutput{Instances: []ssotypes.InstanceMetadata{{InstanceArn: aws.String(instArn)}}},
+				listPermissionSetsOutputs: []*ssoadmin.ListPermissionSetsOutput{
+					{PermissionSets: []string{ps1, ps2}},
+				},
 				listAccountAssignmentsOutputs: []*ssoadmin.ListAccountAssignmentsOutput{
 					{AccountAssignments: []ssotypes.AccountAssignment{{AccountId: aws.String(account), PermissionSetArn: aws.String(ps1), PrincipalId: aws.String(userID), PrincipalType: ssotypes.PrincipalTypeUser}}},
 					{AccountAssignments: []ssotypes.AccountAssignment{{AccountId: aws.String(account), PermissionSetArn: aws.String(ps2), PrincipalId: aws.String(userID), PrincipalType: ssotypes.PrincipalTypeUser}}},
@@ -313,8 +325,10 @@ func TestGetAssignmentArns(t *testing.T) {
 		{
 			name: "assignment error",
 			sso: &mockSSOAdminClient{
-				listInstancesOutput:       &ssoadmin.ListInstancesOutput{Instances: []ssotypes.InstanceMetadata{{InstanceArn: aws.String(instArn)}}},
-				listPermissionSetsOutput:  &ssoadmin.ListPermissionSetsOutput{PermissionSets: []string{ps1}},
+				listInstancesOutput: &ssoadmin.ListInstancesOutput{Instances: []ssotypes.InstanceMetadata{{InstanceArn: aws.String(instArn)}}},
+				listPermissionSetsOutputs: []*ssoadmin.ListPermissionSetsOutput{
+					{PermissionSets: []string{ps1}},
+				},
 				listAccountAssignmentsErr: errors.New("boom"),
 			},
 			orgs:    &mockOrganizationsClient{outputs: []*organizations.ListAccountsOutput{{Accounts: []orgtypes.Account{{Id: aws.String(account)}}}}},
@@ -332,5 +346,106 @@ func TestGetAssignmentArns(t *testing.T) {
 				t.Errorf("got = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+// TestGetPermissionSetArnsPagination verifies that GetPermissionSetArns
+// collects permission sets across multiple pages by following NextToken.
+func TestGetPermissionSetArnsPagination(t *testing.T) {
+	instArn := "arn:aws:sso:::instance/ins1"
+	ps1 := "ps1"
+	ps2 := "ps2"
+	ps3 := "ps3"
+	client := &mockSSOAdminClient{
+		listInstancesOutput: &ssoadmin.ListInstancesOutput{Instances: []ssotypes.InstanceMetadata{{InstanceArn: aws.String(instArn)}}},
+		listPermissionSetsOutputs: []*ssoadmin.ListPermissionSetsOutput{
+			{PermissionSets: []string{ps1}, NextToken: aws.String("token1")},
+			{PermissionSets: []string{ps2, ps3}},
+		},
+	}
+	got, err := GetPermissionSetArns(client)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := map[string]string{
+		fmt.Sprintf("%s|%s", instArn, ps1): "AWS::SSO::PermissionSet",
+		fmt.Sprintf("%s|%s", instArn, ps2): "AWS::SSO::PermissionSet",
+		fmt.Sprintf("%s|%s", instArn, ps3): "AWS::SSO::PermissionSet",
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got = %v, want %v", got, want)
+	}
+}
+
+// TestGetAccountAssignmentArnsForPermissionSetPagination verifies that
+// GetAccountAssignmentArnsForPermissionSet follows NextToken to retrieve
+// assignments across multiple pages for a single account.
+func TestGetAccountAssignmentArnsForPermissionSetPagination(t *testing.T) {
+	instArn := "arn:aws:sso:::instance/ins1"
+	psArn := "ps1"
+	account := "111111111111"
+	user1 := "user1"
+	user2 := "user2"
+	sso := &mockSSOAdminClient{
+		listAccountAssignmentsOutputs: []*ssoadmin.ListAccountAssignmentsOutput{
+			{
+				AccountAssignments: []ssotypes.AccountAssignment{{AccountId: aws.String(account), PermissionSetArn: aws.String(psArn), PrincipalId: aws.String(user1), PrincipalType: ssotypes.PrincipalTypeUser}},
+				NextToken:          aws.String("token1"),
+			},
+			{
+				AccountAssignments: []ssotypes.AccountAssignment{{AccountId: aws.String(account), PermissionSetArn: aws.String(psArn), PrincipalId: aws.String(user2), PrincipalType: ssotypes.PrincipalTypeUser}},
+			},
+		},
+	}
+	orgs := &mockOrganizationsClient{outputs: []*organizations.ListAccountsOutput{{Accounts: []orgtypes.Account{{Id: aws.String(account)}}}}}
+	got, err := GetAccountAssignmentArnsForPermissionSet(sso, orgs, instArn, psArn)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := map[string]string{
+		fmt.Sprintf("%s|%s|AWS_ACCOUNT|%s|%s|%s", instArn, account, psArn, ssotypes.PrincipalTypeUser, user1): "AWS::SSO::Assignment",
+		fmt.Sprintf("%s|%s|AWS_ACCOUNT|%s|%s|%s", instArn, account, psArn, ssotypes.PrincipalTypeUser, user2): "AWS::SSO::Assignment",
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got = %v, want %v", got, want)
+	}
+}
+
+// TestGetPermissionSetArnsPaginationErrorOnSecondPage verifies that an error
+// returned on the second page of ListPermissionSets is properly surfaced.
+func TestGetPermissionSetArnsPaginationErrorOnSecondPage(t *testing.T) {
+	instArn := "arn:aws:sso:::instance/ins1"
+	client := &mockSSOAdminClient{
+		listInstancesOutput: &ssoadmin.ListInstancesOutput{Instances: []ssotypes.InstanceMetadata{{InstanceArn: aws.String(instArn)}}},
+		listPermissionSetsOutputs: []*ssoadmin.ListPermissionSetsOutput{
+			{PermissionSets: []string{"ps1"}, NextToken: aws.String("token1")},
+		},
+		listPermissionSetsErr: errors.New("second page error"),
+	}
+	_, err := GetPermissionSetArns(client)
+	if err == nil {
+		t.Fatal("expected error on second page, got nil")
+	}
+}
+
+// TestGetAccountAssignmentArnsPaginationErrorOnSecondPage verifies that an
+// error returned on the second page of ListAccountAssignments is properly surfaced.
+func TestGetAccountAssignmentArnsPaginationErrorOnSecondPage(t *testing.T) {
+	instArn := "arn:aws:sso:::instance/ins1"
+	psArn := "ps1"
+	account := "111111111111"
+	sso := &mockSSOAdminClient{
+		listAccountAssignmentsOutputs: []*ssoadmin.ListAccountAssignmentsOutput{
+			{
+				AccountAssignments: []ssotypes.AccountAssignment{{AccountId: aws.String(account), PermissionSetArn: aws.String(psArn), PrincipalId: aws.String("user1"), PrincipalType: ssotypes.PrincipalTypeUser}},
+				NextToken:          aws.String("token1"),
+			},
+		},
+		listAccountAssignmentsErr: errors.New("second page error"),
+	}
+	orgs := &mockOrganizationsClient{outputs: []*organizations.ListAccountsOutput{{Accounts: []orgtypes.Account{{Id: aws.String(account)}}}}}
+	_, err := GetAccountAssignmentArnsForPermissionSet(sso, orgs, instArn, psArn)
+	if err == nil {
+		t.Fatal("expected error on second page, got nil")
 	}
 }
