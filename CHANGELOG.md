@@ -3,6 +3,8 @@ Unreleased
 
 ### Fixed
 - Fixed `GetResources` only processing the first page of DescribeStacks results, causing resources from accounts with more than 100 stacks to be omitted
+
+### Tests
 - Added regression tests for output file path case preservation to prevent reintroduction of path lowercasing bug
 
 1.12.2 / 2026-01-19

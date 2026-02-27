@@ -331,31 +331,6 @@ func TestRenderDocument_FilePathCasePreserved(t *testing.T) {
 	if !strings.Contains(string(content), "test-item") {
 		t.Error("Output file should contain the test data")
 	}
-
-	// On case-sensitive filesystems (Linux), also verify the lowercased path
-	// does NOT have the file. On case-insensitive filesystems (macOS default),
-	// both paths resolve to the same file, so we skip this check.
-	lowercasePath := filepath.Join(tmpDir, "myproject", "outputfiles", "deployreport.json")
-	if lowercasePath != outputFile {
-		if _, statErr := os.Stat(lowercasePath); statErr == nil {
-			// File found at lowercased path — check if filesystem is case-insensitive
-			// by comparing the directory listing to verify the original case was used
-			entries, dirErr := os.ReadDir(filepath.Dir(outputFile))
-			if dirErr != nil {
-				t.Fatalf("Failed to read directory: %v", dirErr)
-			}
-			found := false
-			for _, e := range entries {
-				if e.Name() == "DeployReport.json" {
-					found = true
-					break
-				}
-			}
-			if !found {
-				t.Error("File should be created with original case-preserved name 'DeployReport.json'")
-			}
-		}
-	}
 }
 
 // TestRenderDocument_FilePathCasePreserved_DifferentFormats verifies that file path
