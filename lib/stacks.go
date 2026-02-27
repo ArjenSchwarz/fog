@@ -254,7 +254,7 @@ func GetCfnStacks(stackname *string, svc *cloudformation.Client) (map[string]Cfn
 // StackExists checks whether the stack in the deployment exists
 func StackExists(deployment *DeployInfo, svc CloudFormationDescribeStacksAPI) bool {
 	stack, err := GetStack(&deployment.StackName, svc)
-	if err != nil {
+	if err == nil {
 		deployment.RawStack = &stack
 	}
 	return err == nil

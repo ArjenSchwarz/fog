@@ -2,6 +2,7 @@ Unreleased
 ==========
 
 ### Fixed
+- Fixed `StackExists` caching a zero-value stack on error, which caused subsequent `GetStack` calls to return empty data instead of retrying the API call
 - Fixed `GetResources` only processing the first page of DescribeStacks results, causing resources from accounts with more than 100 stacks to be omitted
 
 1.12.2 / 2026-01-19

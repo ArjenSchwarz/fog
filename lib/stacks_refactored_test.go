@@ -197,6 +197,47 @@ func TestStackExists_WithDependencyInjection(t *testing.T) {
 	}
 }
 
+// TestStackExists_DoesNotCacheOnError verifies that StackExists does not populate
+// deployment.RawStack when GetStack returns an error. Caching a zero-value stack
+// on error would cause later GetStack calls to return empty data without retrying.
+func TestStackExists_DoesNotCacheOnError(t *testing.T) {
+	t.Parallel()
+
+	mockClient := testutil.NewMockCFNClient()
+	mockClient.WithError(errors.New("Stack does not exist"))
+
+	deployment := &DeployInfo{
+		StackName: "non-existent",
+	}
+
+	got := StackExists(deployment, mockClient)
+
+	assert.False(t, got, "StackExists should return false when stack does not exist")
+	assert.Nil(t, deployment.RawStack, "RawStack should not be cached when GetStack returns an error")
+}
+
+// TestStackExists_CachesOnSuccess verifies that StackExists populates
+// deployment.RawStack when the stack is found successfully.
+func TestStackExists_CachesOnSuccess(t *testing.T) {
+	t.Parallel()
+
+	mockClient := testutil.NewMockCFNClient()
+	stack := testutil.NewStackBuilder("existing-stack").
+		WithStatus(types.StackStatusCreateComplete).
+		Build()
+	mockClient.WithStack(stack)
+
+	deployment := &DeployInfo{
+		StackName: "existing-stack",
+	}
+
+	got := StackExists(deployment, mockClient)
+
+	assert.True(t, got, "StackExists should return true when stack exists")
+	require.NotNil(t, deployment.RawStack, "RawStack should be cached when GetStack succeeds")
+	assert.Equal(t, "existing-stack", *deployment.RawStack.StackName)
+}
+
 // TestDeployInfo_IsReadyForUpdate tests the IsReadyForUpdate method
 func TestDeployInfo_IsReadyForUpdate(t *testing.T) {
 	t.Helper()
