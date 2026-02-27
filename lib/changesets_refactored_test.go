@@ -648,8 +648,6 @@ func TestGetStackAndChangesetFromURLRefactored(t *testing.T) {
 // TestGetStackAndChangesetFromURL_InvalidInput verifies that invalid URLs return
 // errors instead of causing log.Fatal/panic (regression test for T-253)
 func TestGetStackAndChangesetFromURL_InvalidInput(t *testing.T) {
-	t.Helper()
-
 	tests := map[string]struct {
 		changesetURL string
 		region       string

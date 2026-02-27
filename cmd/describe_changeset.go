@@ -69,6 +69,7 @@ func describeChangeset(cmd *cobra.Command, args []string) {
 		stackid, changesetid, err := lib.GetStackAndChangesetFromURL(describeFlags.ChangesetUrl, awsConfig.Region)
 		if err != nil {
 			failWithError(err)
+			return
 		}
 		describeFlags.StackName = stackid
 		describeFlags.ChangesetName = changesetid
