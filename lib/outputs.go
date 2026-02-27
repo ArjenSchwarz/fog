@@ -35,9 +35,9 @@ func GetExports(stackname *string, exportname *string, svc CFNExportsAPI) []CfnO
 	}
 	// Use paginator to collect stacks from all pages
 	paginator := cloudformation.NewDescribeStacksPaginator(svc, input)
-	allStacks := make([]types.Stack, 0)
+	allstacks := make([]types.Stack, 0)
 	for paginator.HasMorePages() {
-		page, err := paginator.NextPage(context.TODO())
+		output, err := paginator.NextPage(context.TODO())
 		if err != nil {
 			var bne *smithy.OperationError
 			if errors.As(err, &bne) {
@@ -45,9 +45,9 @@ func GetExports(stackname *string, exportname *string, svc CFNExportsAPI) []CfnO
 			}
 			log.Fatalln(err)
 		}
-		allStacks = append(allStacks, page.Stacks...)
+		allstacks = append(allstacks, output.Stacks...)
 	}
-	for _, stack := range allStacks {
+	for _, stack := range allstacks {
 		exports = append(exports, getOutputsForStack(stack, *stackname, *exportname, true)...)
 	}
 	c := make(chan CfnOutput)
