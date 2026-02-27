@@ -175,7 +175,7 @@ func detectDrift(cmd *cobra.Command, args []string) {
 	params := lib.GetParametersMap(stack.Parameters)
 	template, err := lib.GetTemplateBody(&driftFlags.StackName, params, svc)
 	if err != nil {
-		log.Fatal(err)
+		failWithError(err)
 	}
 	checkNaclEntries(naclResources, template, stack.Parameters, &rows, awsConfig)
 	checkRouteTableRoutes(routetableResources, template, stack.Parameters, logicalToPhysical, &rows, awsConfig)
