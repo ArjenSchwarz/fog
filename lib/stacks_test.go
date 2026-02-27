@@ -295,28 +295,32 @@ func TestGetStack(t *testing.T) {
 	}
 
 	tests := map[string]struct {
-		client  mockDescribeStacksClient
-		want    types.Stack
-		wantErr bool
+		client    mockDescribeStacksClient
+		stackName *string
+		want      types.Stack
+		wantErr   bool
 	}{
 		"successful retrieval": {
 			client: mockDescribeStacksClient{
 				output: cloudformation.DescribeStacksOutput{Stacks: []types.Stack{expectedStack}},
 			},
-			want:    expectedStack,
-			wantErr: false,
+			stackName: &stackName,
+			want:      expectedStack,
+			wantErr:   false,
 		},
 		"stack not found error": {
 			client: mockDescribeStacksClient{
 				err: errors.New("stack not found"),
 			},
-			wantErr: true,
+			stackName: &stackName,
+			wantErr:   true,
 		},
 		"empty stacks response": {
 			client: mockDescribeStacksClient{
 				output: cloudformation.DescribeStacksOutput{Stacks: []types.Stack{}},
 			},
-			wantErr: true,
+			stackName: &stackName,
+			wantErr:   true,
 		},
 		"multiple stacks response": {
 			client: mockDescribeStacksClient{
@@ -325,7 +329,13 @@ func TestGetStack(t *testing.T) {
 					{StackName: strPtr("stack-b")},
 				}},
 			},
-			wantErr: true,
+			stackName: &stackName,
+			wantErr:   true,
+		},
+		"nil stack name": {
+			client:    mockDescribeStacksClient{},
+			stackName: nil,
+			wantErr:   true,
 		},
 	}
 
@@ -333,7 +343,7 @@ func TestGetStack(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := GetStack(&stackName, tc.client)
+			got, err := GetStack(tc.stackName, tc.client)
 
 			if tc.wantErr {
 				require.Error(t, err)

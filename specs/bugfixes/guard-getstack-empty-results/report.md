@@ -33,7 +33,7 @@ The function assumed `DescribeStacks` would always return exactly one stack. How
 ## Resolution for the Issue
 
 **Changes made:**
-- `lib/stacks.go:194-210` — Added length checks: return error when 0 stacks found, return error when >1 stack found, only return `resp.Stacks[0]` when exactly 1 stack is present.
+- `lib/stacks.go:194-213` — Added nil check for `stackname` parameter and length checks: return error when nil pointer, 0 stacks found, or >1 stacks found. Only return `resp.Stacks[0]` when exactly 1 stack is present.
 
 **Approach rationale:** A function named `GetStack` (singular) should return exactly one stack. Returning an explicit error for 0 or multiple results is the safest behavior and matches caller expectations.
 

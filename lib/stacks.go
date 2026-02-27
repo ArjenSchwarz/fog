@@ -192,6 +192,9 @@ func (deployment *DeployInfo) ChangesetType() types.ChangeSetType {
 
 // GetStack retrieves a single stack by name or ARN
 func GetStack(stackname *string, svc CloudFormationDescribeStacksAPI) (types.Stack, error) {
+	if stackname == nil {
+		return types.Stack{}, fmt.Errorf("stack name must not be nil")
+	}
 	input := &cloudformation.DescribeStacksInput{}
 	if *stackname != "" && !strings.Contains(*stackname, "*") {
 		input.StackName = stackname

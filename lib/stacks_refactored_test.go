@@ -22,6 +22,7 @@ func TestGetStack_WithDependencyInjection(t *testing.T) {
 	tests := map[string]struct {
 		name      string
 		stackName string
+		nilName   bool
 		setup     func(*testutil.MockCFNClient)
 		want      types.Stack
 		wantErr   bool
@@ -95,6 +96,12 @@ func TestGetStack_WithDependencyInjection(t *testing.T) {
 			wantErr:   true,
 			errMsg:    "no stacks found",
 		},
+		"nil stack name": {
+			nilName: true,
+			setup:   nil,
+			wantErr: true,
+			errMsg:  "stack name must not be nil",
+		},
 		"API throttling error": {
 			stackName: "test-stack",
 			setup: func(client *testutil.MockCFNClient) {
@@ -116,7 +123,11 @@ func TestGetStack_WithDependencyInjection(t *testing.T) {
 			}
 
 			// Execute
-			got, err := GetStack(&tc.stackName, mockClient)
+			var stackNamePtr *string
+			if !tc.nilName {
+				stackNamePtr = &tc.stackName
+			}
+			got, err := GetStack(stackNamePtr, mockClient)
 
 			// Assert
 			if tc.wantErr {
