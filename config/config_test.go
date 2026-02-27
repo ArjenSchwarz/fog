@@ -731,6 +731,52 @@ func TestConfig_GetOutputOptions(t *testing.T) {
 // 	}
 // }
 
+// TestConfig_OutputFilePathCasePreserved is a regression test verifying that the
+// output-file config value is read with GetString (not GetLCString), so file paths
+// with mixed case are preserved. Previously GetLCString was used, which lowercased
+// the entire path and broke file creation on case-sensitive filesystems.
+func TestConfig_OutputFilePathCasePreserved(t *testing.T) {
+	tests := map[string]struct {
+		setup func()
+		want  string
+	}{
+		"mixed case path via viper.Set": {
+			setup: func() {
+				viper.Reset()
+				viper.Set("output-file", "/Path/To/MyProject/DeployReport.json")
+			},
+			want: "/Path/To/MyProject/DeployReport.json",
+		},
+		"uppercase components": {
+			setup: func() {
+				viper.Reset()
+				viper.Set("output-file", "/HOME/USER/OUTPUT.JSON")
+			},
+			want: "/HOME/USER/OUTPUT.JSON",
+		},
+		"camelCase filename": {
+			setup: func() {
+				viper.Reset()
+				viper.Set("output-file", "deploymentReport.json")
+			},
+			want: "deploymentReport.json",
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			tc.setup()
+			t.Cleanup(func() {
+				viper.Reset()
+			})
+
+			config := &Config{}
+			got := config.GetString("output-file")
+			assert.Equal(t, tc.want, got, "output-file path case should be preserved")
+		})
+	}
+}
+
 func TestConfig_GetFileOutputOptions(t *testing.T) {
 	tests := map[string]struct {
 		setup func()
