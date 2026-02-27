@@ -503,16 +503,24 @@ func (deployment *DeployInfo) GetStack(svc CloudFormationDescribeStacksAPI) (typ
 	return *deployment.RawStack, nil
 }
 
-// GetEvents retrieves all events for the deployment's stack
+// GetEvents retrieves all events for the deployment's stack, paginating through all results.
 func (deployment *DeployInfo) GetEvents(svc CloudFormationDescribeStackEventsAPI) ([]types.StackEvent, error) {
+	var allEvents []types.StackEvent
 	input := &cloudformation.DescribeStackEventsInput{
 		StackName: &deployment.StackName,
 	}
-	resp, err := svc.DescribeStackEvents(context.TODO(), input)
-	if err != nil {
-		return nil, err
+	for {
+		resp, err := svc.DescribeStackEvents(context.TODO(), input)
+		if err != nil {
+			return nil, err
+		}
+		allEvents = append(allEvents, resp.StackEvents...)
+		if resp.NextToken == nil {
+			break
+		}
+		input.NextToken = resp.NextToken
 	}
-	return resp.StackEvents, nil
+	return allEvents, nil
 }
 
 // GetCleanedStackName extracts the stack name from an ARN or returns the name as-is
