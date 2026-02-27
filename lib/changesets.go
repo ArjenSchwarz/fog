@@ -3,7 +3,6 @@ package lib
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/url"
 	"strings"
 	"time"
@@ -84,26 +83,25 @@ func (changeset *ChangesetInfo) GenerateChangesetUrl(settings config.AWSConfig) 
 }
 
 // GetStackAndChangesetFromURL extracts the stack ID and changeset ID from an AWS console changeset URL
-func GetStackAndChangesetFromURL(changeseturl string, region string) (string, string) {
+func GetStackAndChangesetFromURL(changeseturl string, region string) (string, string, error) {
 	decodedValue, err := url.QueryUnescape(changeseturl)
 	if err != nil {
-		log.Fatal(err)
-		return "", ""
+		return "", "", fmt.Errorf("failed to decode changeset URL: %w", err)
 	}
 	decodedValue = strings.ReplaceAll(decodedValue, "\\", "")
 	replacestring := fmt.Sprintf("?region=%s#/stacks/changesets/changes", region)
 	decodedValue = strings.Replace(decodedValue, replacestring, "", 1)
 	u, err := url.Parse(decodedValue)
 	if err != nil {
-		panic(err)
+		return "", "", fmt.Errorf("failed to parse changeset URL: %w", err)
 	}
 	q, err := url.ParseQuery(u.RawQuery)
 	if err != nil {
-		panic(err)
+		return "", "", fmt.Errorf("failed to parse changeset URL query parameters: %w", err)
 	}
 	stackid := q.Get("stackId")
 	changesetid := q.Get("changeSetId")
-	return stackid, changesetid
+	return stackid, changesetid, nil
 }
 
 // GetDangerDetails returns details of dangerous changes that require resource recreation
