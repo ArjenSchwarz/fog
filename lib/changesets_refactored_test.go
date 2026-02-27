@@ -632,14 +632,54 @@ func TestGetStackAndChangesetFromURLRefactored(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			// Note: Not running in parallel because GetStackAndChangesetFromURL uses log.Fatal
+			t.Parallel()
 
 			// Execute
-			gotStack, gotChangeset := GetStackAndChangesetFromURL(tc.changesetURL, tc.region)
+			gotStack, gotChangeset, err := GetStackAndChangesetFromURL(tc.changesetURL, tc.region)
 
 			// Assert
+			require.NoError(t, err)
 			assert.Equal(t, tc.wantStack, gotStack)
 			assert.Equal(t, tc.wantChangeset, gotChangeset)
+		})
+	}
+}
+
+// TestGetStackAndChangesetFromURL_InvalidInput verifies that invalid URLs return
+// errors instead of causing log.Fatal/panic (regression test for T-253)
+func TestGetStackAndChangesetFromURL_InvalidInput(t *testing.T) {
+	tests := map[string]struct {
+		changesetURL string
+		region       string
+		wantErrMsg   string
+	}{
+		"invalid percent encoding": {
+			changesetURL: "https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/changesets/changes?stackId=%zz",
+			region:       "us-east-1",
+			wantErrMsg:   "failed to decode changeset URL",
+		},
+		"empty URL": {
+			changesetURL: "",
+			region:       "us-east-1",
+			wantErrMsg:   "missing stackId or changeSetId",
+		},
+		"completely invalid string": {
+			changesetURL: "not-a-url-at-all",
+			region:       "us-east-1",
+			wantErrMsg:   "missing stackId or changeSetId",
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			gotStack, gotChangeset, err := GetStackAndChangesetFromURL(tc.changesetURL, tc.region)
+
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tc.wantErrMsg)
+			assert.Empty(t, gotStack)
+			assert.Empty(t, gotChangeset)
 		})
 	}
 }

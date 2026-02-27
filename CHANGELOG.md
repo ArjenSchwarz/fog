@@ -4,6 +4,7 @@ Unreleased
 ### Fixed
 - Fixed `GetExports` only processing the first page of DescribeStacks results, causing exports from accounts with more than 100 stacks to be omitted
 - Fixed Lambda report handler panicking when `ReportTimezone` environment variable is empty or unset, by only overriding the timezone default when a non-empty value is provided
+- Fixed `GetStackAndChangesetFromURL` using `log.Fatal` and `panic` on invalid URL input, causing the process to exit instead of returning an error to the caller
 - Fixed `StackExists` caching `RawStack` only on error instead of on success, which left the cache empty after successful lookups and caused unnecessary duplicate AWS API calls
 - Fixed `GetResources` only processing the first page of DescribeStacks results, causing resources from accounts with more than 100 stacks to be omitted
 
