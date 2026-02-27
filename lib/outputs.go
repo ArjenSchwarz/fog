@@ -33,7 +33,6 @@ func GetExports(stackname *string, exportname *string, svc CFNExportsAPI) []CfnO
 	if *stackname != "" && !strings.Contains(*stackname, "*") {
 		input.StackName = stackname
 	}
-	// Use paginator to collect stacks from all pages
 	paginator := cloudformation.NewDescribeStacksPaginator(svc, input)
 	allstacks := make([]types.Stack, 0)
 	for paginator.HasMorePages() {

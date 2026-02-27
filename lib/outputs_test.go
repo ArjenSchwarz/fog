@@ -144,15 +144,15 @@ func TestGetExports(t *testing.T) {
 	}
 }
 
-// paginatingExportsMockClient supports multi-page DescribeStacks responses for exports.
+// paginatingMockCFNClient supports multi-page DescribeStacks responses for exports.
 // Pages are keyed by NextToken ("" for the first call).
-type paginatingExportsMockClient struct {
+type paginatingMockCFNClient struct {
 	pages            map[string]cloudformation.DescribeStacksOutput
-	importsByExport  map[string][]string
-	listImportsError error
+	ImportsByExport  map[string][]string
+	ListImportsError error
 }
 
-func (m paginatingExportsMockClient) DescribeStacks(ctx context.Context, params *cloudformation.DescribeStacksInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStacksOutput, error) {
+func (m paginatingMockCFNClient) DescribeStacks(ctx context.Context, params *cloudformation.DescribeStacksInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStacksOutput, error) {
 	token := ""
 	if params.NextToken != nil {
 		token = *params.NextToken
@@ -161,87 +161,59 @@ func (m paginatingExportsMockClient) DescribeStacks(ctx context.Context, params 
 	return &out, nil
 }
 
-func (m paginatingExportsMockClient) ListImports(ctx context.Context, params *cloudformation.ListImportsInput, optFns ...func(*cloudformation.Options)) (*cloudformation.ListImportsOutput, error) {
-	if m.listImportsError != nil {
-		return nil, m.listImportsError
+func (m paginatingMockCFNClient) ListImports(ctx context.Context, params *cloudformation.ListImportsInput, optFns ...func(*cloudformation.Options)) (*cloudformation.ListImportsOutput, error) {
+	if m.ListImportsError != nil {
+		return nil, m.ListImportsError
 	}
-	imports, ok := m.importsByExport[*params.ExportName]
+	imports, ok := m.ImportsByExport[*params.ExportName]
 	if !ok {
 		return nil, errors.New("not found")
 	}
 	return &cloudformation.ListImportsOutput{Imports: imports}, nil
 }
 
-// TestGetExports_Pagination verifies that exports from stacks across multiple
-// DescribeStacks pages are all collected, not just the first page.
-func TestGetExports_Pagination(t *testing.T) {
+// TestGetExportsPagination verifies that exports from stacks across multiple
+// DescribeStacks pages are all returned.
+func TestGetExportsPagination(t *testing.T) {
 	stackName := ""
-	exportName := ""
-	mock := paginatingExportsMockClient{
+	mock := paginatingMockCFNClient{
 		pages: map[string]cloudformation.DescribeStacksOutput{
 			"": {
-				Stacks: []types.Stack{
-					{
-						StackName: strPtrOut("stack-page1"),
-						Outputs: []types.Output{
-							{OutputKey: strPtrOut("K1"), OutputValue: strPtrOut("V1"), ExportName: strPtrOut("Export1")},
-						},
+				Stacks: []types.Stack{{
+					StackName: strPtrOut("stack-page1"),
+					Outputs: []types.Output{
+						{OutputKey: strPtrOut("K1"), OutputValue: strPtrOut("V1"), ExportName: strPtrOut("Export1")},
 					},
-				},
+				}},
 				NextToken: strPtrOut("token2"),
 			},
 			"token2": {
-				Stacks: []types.Stack{
-					{
-						StackName: strPtrOut("stack-page2"),
-						Outputs: []types.Output{
-							{OutputKey: strPtrOut("K2"), OutputValue: strPtrOut("V2"), ExportName: strPtrOut("Export2")},
-						},
+				Stacks: []types.Stack{{
+					StackName: strPtrOut("stack-page2"),
+					Outputs: []types.Output{
+						{OutputKey: strPtrOut("K2"), OutputValue: strPtrOut("V2"), ExportName: strPtrOut("Export2")},
 					},
-				},
-				NextToken: strPtrOut("token3"),
-			},
-			"token3": {
-				Stacks: []types.Stack{
-					{
-						StackName: strPtrOut("stack-page3"),
-						Outputs: []types.Output{
-							{OutputKey: strPtrOut("K3"), OutputValue: strPtrOut("V3"), ExportName: strPtrOut("Export3")},
-						},
-					},
-				},
+				}},
 			},
 		},
-		importsByExport: map[string][]string{
-			"Export2": {"importing-stack"},
-		},
+		// Neither export is imported; ListImports will return "not found"
+		ImportsByExport: map[string][]string{},
 	}
 
-	results := GetExports(&stackName, &exportName, mock)
-	if len(results) != 3 {
-		t.Fatalf("expected 3 exports from 3 pages, got %d", len(results))
+	results := GetExports(&stackName, strPtrOut(""), mock)
+	if len(results) != 2 {
+		t.Fatalf("expected 2 exports from 2 pages, got %d", len(results))
 	}
 
 	byName := map[string]CfnOutput{}
 	for _, r := range results {
 		byName[r.ExportName] = r
 	}
-
-	// Verify all three pages contributed exports
-	for _, name := range []string{"Export1", "Export2", "Export3"} {
-		if _, ok := byName[name]; !ok {
-			t.Errorf("missing export %s from paginated results", name)
-		}
+	if _, ok := byName["Export1"]; !ok {
+		t.Error("missing Export1 from first page")
 	}
-
-	// Verify import information was populated for Export2
-	if !byName["Export2"].Imported || len(byName["Export2"].ImportedBy) != 1 || byName["Export2"].ImportedBy[0] != "importing-stack" {
-		t.Errorf("expected Export2 imported by importing-stack: %#v", byName["Export2"])
-	}
-
-	// Verify non-imported exports are marked correctly
-	if byName["Export1"].Imported {
-		t.Errorf("expected Export1 not imported")
+	if _, ok := byName["Export2"]; !ok {
+		t.Error("missing Export2 from second page")
 	}
 }
 

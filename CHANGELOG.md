@@ -2,7 +2,7 @@ Unreleased
 ==========
 
 ### Fixed
-- Fixed `GetExports` only processing the first page of DescribeStacks results, causing exports from accounts with more than 100 stacks to be silently omitted
+- Fixed `GetExports` only processing the first page of DescribeStacks results, causing exports from accounts with more than 100 stacks to be omitted
 - Fixed `StackExists` caching `RawStack` only on error instead of on success, which left the cache empty after successful lookups and caused unnecessary duplicate AWS API calls
 - Fixed `GetResources` only processing the first page of DescribeStacks results, causing resources from accounts with more than 100 stacks to be omitted
 
