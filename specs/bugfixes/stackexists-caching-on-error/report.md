@@ -43,20 +43,21 @@ The condition in `StackExists` was inverted. The code read `if err != nil` where
 ## Regression Test
 
 **Test file:** `lib/stacks_refactored_test.go`
-**Test names:** `TestStackExists_DoesNotCacheOnError`, `TestStackExists_CachesOnSuccess`
+**Test name:** `TestStackExists_CachesRawStack`
 
 **What it verifies:**
-- `TestStackExists_DoesNotCacheOnError`: When `GetStack` returns an error, `deployment.RawStack` must remain `nil`
-- `TestStackExists_CachesOnSuccess`: When `GetStack` succeeds, `deployment.RawStack` must be populated with the returned stack
+- `sets RawStack when stack exists`: When `GetStack` succeeds, `deployment.RawStack` must be populated with the returned stack
+- `leaves RawStack nil when stack does not exist`: When `GetStack` returns an error, `deployment.RawStack` must remain `nil`
 
-**Run command:** `go test ./lib/ -run "TestStackExists_DoesNotCacheOnError|TestStackExists_CachesOnSuccess" -v`
+**Run command:** `go test ./lib/... -run TestStackExists_CachesRawStack -v`
 
 ## Affected Files
 
 | File | Change |
 |------|--------|
-| `lib/stacks.go` | Fixed inverted condition in `StackExists` (`err != nil` → `err == nil`) |
-| `lib/stacks_refactored_test.go` | Added two regression tests for `RawStack` caching behaviour |
+| `lib/stacks.go` | Fixed inverted condition in `StackExists` (`err != nil` → `err == nil`) — landed via T-142 |
+| `lib/stacks_refactored_test.go` | Regression test `TestStackExists_CachesRawStack` — landed via T-142 |
+| `specs/bugfixes/stackexists-caching-on-error/report.md` | This bugfix report (T-166) |
 
 ## Verification
 
@@ -75,3 +76,4 @@ The condition in `StackExists` was inverted. The code read `if err != nil` where
 ## Related
 
 - Transit ticket: T-166
+- T-142 independently identified and fixed the same bug with the same approach. The code fix and regression test were landed via T-142's PR. This report documents T-166's independent investigation of the same issue.
