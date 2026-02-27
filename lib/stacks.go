@@ -190,7 +190,8 @@ func (deployment *DeployInfo) ChangesetType() types.ChangeSetType {
 	return types.ChangeSetTypeUpdate
 }
 
-// GetStack retrieves a single stack by name or ARN
+// GetStack retrieves a single stack by name or ARN. stackname must be non-nil
+// and non-empty. Returns an error if zero or more than one stack matches.
 func GetStack(stackname *string, svc CloudFormationDescribeStacksAPI) (types.Stack, error) {
 	if stackname == nil {
 		return types.Stack{}, fmt.Errorf("stack name must not be nil")

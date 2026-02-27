@@ -404,7 +404,7 @@ func TestDeployInfo_ChangesetType(t *testing.T) {
 // TestGetStack verifies that GetStack correctly retrieves stack information
 // using the mocked CloudFormation client.
 func TestGetStack(t *testing.T) {
-	t.Helper()
+	t.Parallel()
 
 	stackName := "test-stack"
 	expectedStack := types.Stack{
@@ -417,6 +417,7 @@ func TestGetStack(t *testing.T) {
 		stackName *string
 		want      types.Stack
 		wantErr   bool
+		errMsg    string
 	}{
 		"successful retrieval": {
 			client: mockDescribeStacksClient{
@@ -432,6 +433,7 @@ func TestGetStack(t *testing.T) {
 			},
 			stackName: &stackName,
 			wantErr:   true,
+			errMsg:    "stack not found",
 		},
 		"empty stacks response": {
 			client: mockDescribeStacksClient{
@@ -439,6 +441,7 @@ func TestGetStack(t *testing.T) {
 			},
 			stackName: &stackName,
 			wantErr:   true,
+			errMsg:    "no stacks found",
 		},
 		"multiple stacks response": {
 			client: mockDescribeStacksClient{
@@ -449,11 +452,13 @@ func TestGetStack(t *testing.T) {
 			},
 			stackName: &stackName,
 			wantErr:   true,
+			errMsg:    "expected exactly one stack",
 		},
 		"nil stack name": {
 			client:    mockDescribeStacksClient{},
 			stackName: nil,
 			wantErr:   true,
+			errMsg:    "stack name must not be nil",
 		},
 	}
 
@@ -465,6 +470,9 @@ func TestGetStack(t *testing.T) {
 
 			if tc.wantErr {
 				require.Error(t, err)
+				if tc.errMsg != "" {
+					assert.Contains(t, err.Error(), tc.errMsg)
+				}
 				return
 			}
 
