@@ -8,6 +8,7 @@ import (
 	"github.com/ArjenSchwarz/fog/config"
 	"github.com/ArjenSchwarz/fog/lib"
 	output "github.com/ArjenSchwarz/go-output/v2"
+	"github.com/spf13/viper"
 )
 
 // TestReportBuilderPatternMultipleTables tests v2 Builder pattern with multiple tables
@@ -391,5 +392,53 @@ func TestReportEventDataBuilding(t *testing.T) {
 		if _, ok := row["Reason"]; !ok {
 			t.Error("Expected Reason field in data for failed event")
 		}
+	}
+}
+
+// TestGenerateReportFromLambdaEmptyTimezone verifies that an empty timezone
+// string does not override the viper default, which would cause
+// GetTimezoneLocation to panic via time.LoadLocation("").
+func TestGenerateReportFromLambdaEmptyTimezone(t *testing.T) {
+	tests := map[string]struct {
+		timezone string
+		want     string
+	}{
+		"empty timezone preserves default": {
+			timezone: "",
+			want:     "Local",
+		},
+		"explicit timezone overrides default": {
+			timezone: "UTC",
+			want:     "UTC",
+		},
+		"named timezone overrides default": {
+			timezone: "America/New_York",
+			want:     "America/New_York",
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			viper.Reset()
+			viper.SetDefault("timezone", "Local")
+			t.Cleanup(func() {
+				viper.Reset()
+			})
+
+			// Simulate what GenerateReportFromLambda does with timezone
+			if tc.timezone != "" {
+				viper.Set("timezone", tc.timezone)
+			}
+
+			cfg := &config.Config{}
+			// This must not panic
+			loc := cfg.GetTimezoneLocation()
+			if loc == nil {
+				t.Fatal("GetTimezoneLocation returned nil")
+			}
+			if loc.String() != tc.want {
+				t.Errorf("expected timezone %q, got %q", tc.want, loc.String())
+			}
+		})
 	}
 }

@@ -2,6 +2,7 @@ Unreleased
 ==========
 
 ### Fixed
+- Fixed Lambda report handler panicking when `ReportTimezone` environment variable is empty or unset, by only overriding the timezone default when a non-empty value is provided
 - Fixed `GetResources` only processing the first page of DescribeStacks results, causing resources from accounts with more than 100 stacks to be omitted
 
 1.12.2 / 2026-01-19

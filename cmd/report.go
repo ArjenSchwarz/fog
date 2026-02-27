@@ -110,7 +110,11 @@ func GenerateReportFromLambda(stackname string, bucketname string, outputfilenam
 	reportFlags.LatestOnly = true // The Lambda always only retrieves the latest report
 	reportFlags.FrontMatter = true
 	viper.Set("output", outputformat)
-	viper.Set("timezone", timezone)
+	// Only override the timezone if a non-empty value is provided;
+	// otherwise the viper default ("Local") is preserved.
+	if timezone != "" {
+		viper.Set("timezone", timezone)
+	}
 	reportFlags.StackName = stackname
 	reportFlags.TargetBucket = bucketname
 	reportFlags.Outputfile = outputfilename
