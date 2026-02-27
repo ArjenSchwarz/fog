@@ -312,6 +312,21 @@ func TestGetStack(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		"empty stacks response": {
+			client: mockDescribeStacksClient{
+				output: cloudformation.DescribeStacksOutput{Stacks: []types.Stack{}},
+			},
+			wantErr: true,
+		},
+		"multiple stacks response": {
+			client: mockDescribeStacksClient{
+				output: cloudformation.DescribeStacksOutput{Stacks: []types.Stack{
+					{StackName: strPtr("stack-a")},
+					{StackName: strPtr("stack-b")},
+				}},
+			},
+			wantErr: true,
+		},
 	}
 
 	for name, tc := range tests {

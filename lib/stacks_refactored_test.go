@@ -79,14 +79,21 @@ func TestGetStack_WithDependencyInjection(t *testing.T) {
 			wantErr: true,
 			errMsg:  "Stack with name non-existent does not exist",
 		},
-		"empty stack name - returns all stacks": {
+		"empty stack name - multiple stacks returns error": {
 			stackName: "",
 			setup: func(client *testutil.MockCFNClient) {
 				stack1 := testutil.NewStackBuilder("stack1").Build()
 				stack2 := testutil.NewStackBuilder("stack2").Build()
 				client.WithStack(stack1).WithStack(stack2)
 			},
-			wantErr: false,
+			wantErr: true,
+			errMsg:  "expected exactly one stack",
+		},
+		"empty stack name - no stacks returns error": {
+			stackName: "",
+			setup:     func(client *testutil.MockCFNClient) {},
+			wantErr:   true,
+			errMsg:    "no stacks found",
 		},
 		"API throttling error": {
 			stackName: "test-stack",

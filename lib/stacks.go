@@ -200,7 +200,13 @@ func GetStack(stackname *string, svc CloudFormationDescribeStacksAPI) (types.Sta
 	if err != nil {
 		return types.Stack{}, err
 	}
-	return resp.Stacks[0], err
+	if len(resp.Stacks) == 0 {
+		return types.Stack{}, fmt.Errorf("no stacks found matching %q", *stackname)
+	}
+	if len(resp.Stacks) > 1 {
+		return types.Stack{}, fmt.Errorf("expected exactly one stack matching %q, but found %d", *stackname, len(resp.Stacks))
+	}
+	return resp.Stacks[0], nil
 }
 
 // GetCfnStacks retrieves stacks matching the given name pattern with their outputs and import information
