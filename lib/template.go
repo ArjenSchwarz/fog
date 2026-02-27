@@ -203,16 +203,20 @@ func (t *CfnTemplateTransform) UnmarshalJSON(b []byte) error {
 }
 
 // GetTemplateBody retrieves and parses a CloudFormation template from a stack
-func GetTemplateBody(stackname *string, parameters *map[string]any, svc CloudFormationGetTemplateAPI) CfnTemplateBody {
+func GetTemplateBody(stackname *string, parameters *map[string]any, svc CloudFormationGetTemplateAPI) (CfnTemplateBody, error) {
 	input := cloudformation.GetTemplateInput{
 		StackName: stackname,
 	}
 	result, err := svc.GetTemplate(context.TODO(), &input)
 	if err != nil {
-		panic(err)
+		return CfnTemplateBody{}, fmt.Errorf("failed to get template for stack %q: %w", *stackname, err)
 	}
 
-	return ParseTemplateString(*result.TemplateBody, parameters)
+	if result.TemplateBody == nil {
+		return CfnTemplateBody{}, fmt.Errorf("template body is nil for stack %q", *stackname)
+	}
+
+	return ParseTemplateString(*result.TemplateBody, parameters), nil
 }
 
 // customRefHandler is a simple example of an intrinsic function handler function
