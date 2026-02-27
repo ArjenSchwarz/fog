@@ -16,13 +16,37 @@ import (
 
 // Mocks implementing the CloudFormation interfaces used by the stack helpers
 
+// mockStackEventsClient supports multi-page DescribeStackEvents responses.
+// Pages are keyed by NextToken ("" for the first call).
+// Use pageErrors to inject errors on specific pages.
 type mockStackEventsClient struct {
-	output cloudformation.DescribeStackEventsOutput
-	err    error
+	pages      map[string]cloudformation.DescribeStackEventsOutput
+	pageErrors map[string]error
+	err        error
+}
+
+func newSinglePageMock(output cloudformation.DescribeStackEventsOutput, err error) mockStackEventsClient {
+	return mockStackEventsClient{
+		pages: map[string]cloudformation.DescribeStackEventsOutput{"": output},
+		err:   err,
+	}
 }
 
 func (m mockStackEventsClient) DescribeStackEvents(ctx context.Context, params *cloudformation.DescribeStackEventsInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStackEventsOutput, error) {
-	return &m.output, m.err
+	if m.err != nil {
+		return nil, m.err
+	}
+	token := ""
+	if params.NextToken != nil {
+		token = *params.NextToken
+	}
+	if m.pageErrors != nil {
+		if err, ok := m.pageErrors[token]; ok {
+			return nil, err
+		}
+	}
+	out := m.pages[token]
+	return &out, nil
 }
 
 type mockDescribeStacksClient struct {
@@ -37,6 +61,100 @@ func (m mockDescribeStacksClient) DescribeStacks(ctx context.Context, params *cl
 // Helper to create string pointers in tests
 func strPtr(s string) *string        { return &s }
 func ptrTime(t time.Time) *time.Time { return &t }
+
+func TestDeployInfo_GetEvents(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now()
+
+	tests := map[string]struct {
+		deployment *DeployInfo
+		mock       mockStackEventsClient
+		wantCount  int
+		wantErr    bool
+	}{
+		"single page of events": {
+			deployment: &DeployInfo{StackName: "test-stack"},
+			mock: newSinglePageMock(cloudformation.DescribeStackEventsOutput{
+				StackEvents: []types.StackEvent{
+					{LogicalResourceId: strPtr("Res1"), Timestamp: ptrTime(now)},
+					{LogicalResourceId: strPtr("Res2"), Timestamp: ptrTime(now)},
+				},
+			}, nil),
+			wantCount: 2,
+		},
+		"multiple pages of events": {
+			deployment: &DeployInfo{StackName: "big-stack"},
+			mock: mockStackEventsClient{
+				pages: map[string]cloudformation.DescribeStackEventsOutput{
+					"": {
+						StackEvents: []types.StackEvent{
+							{LogicalResourceId: strPtr("Page1A"), Timestamp: ptrTime(now)},
+							{LogicalResourceId: strPtr("Page1B"), Timestamp: ptrTime(now)},
+						},
+						NextToken: strPtr("token2"),
+					},
+					"token2": {
+						StackEvents: []types.StackEvent{
+							{LogicalResourceId: strPtr("Page2A"), Timestamp: ptrTime(now)},
+						},
+						NextToken: strPtr("token3"),
+					},
+					"token3": {
+						StackEvents: []types.StackEvent{
+							{LogicalResourceId: strPtr("Page3A"), Timestamp: ptrTime(now)},
+							{LogicalResourceId: strPtr("Page3B"), Timestamp: ptrTime(now)},
+						},
+					},
+				},
+			},
+			wantCount: 5,
+		},
+		"empty events": {
+			deployment: &DeployInfo{StackName: "empty-stack"},
+			mock:       newSinglePageMock(cloudformation.DescribeStackEventsOutput{}, nil),
+			wantCount:  0,
+		},
+		"API error": {
+			deployment: &DeployInfo{StackName: "bad-stack"},
+			mock:       mockStackEventsClient{err: errors.New("access denied")},
+			wantErr:    true,
+		},
+		"API error on second page returns nil": {
+			deployment: &DeployInfo{StackName: "mid-error-stack"},
+			mock: mockStackEventsClient{
+				pages: map[string]cloudformation.DescribeStackEventsOutput{
+					"": {
+						StackEvents: []types.StackEvent{
+							{LogicalResourceId: strPtr("Page1"), Timestamp: ptrTime(now)},
+						},
+						NextToken: strPtr("page2"),
+					},
+				},
+				pageErrors: map[string]error{
+					"page2": errors.New("throttling"),
+				},
+			},
+			wantErr: true,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := tc.deployment.GetEvents(tc.mock)
+
+			if tc.wantErr {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Len(t, got, tc.wantCount)
+		})
+	}
+}
 
 func TestDeployInfo_GetCleanedStackName(t *testing.T) {
 	t.Helper()
@@ -129,7 +247,7 @@ func TestDeployInfo_GetExecutionTimes(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			mockSvc := mockStackEventsClient{output: cloudformation.DescribeStackEventsOutput{StackEvents: tc.events}}
+			mockSvc := newSinglePageMock(cloudformation.DescribeStackEventsOutput{StackEvents: tc.events}, nil)
 
 			got, err := tc.deployment.GetExecutionTimes(mockSvc)
 

@@ -1,7 +1,11 @@
 package config
 
 import (
+	"bytes"
+	"io"
+	"log"
 	"testing"
+	"time"
 
 	"github.com/ArjenSchwarz/go-output/v2"
 	format "github.com/ArjenSchwarz/go-output/v2"
@@ -342,12 +346,28 @@ func TestConfig_GetTimezoneLocation(t *testing.T) {
 			want:        "Europe/London",
 			shouldPanic: false,
 		},
-		"invalid timezone": {
+		"invalid timezone falls back to local": {
 			setup: func() {
 				viper.Reset()
 				viper.Set("timezone", "Invalid/Timezone")
 			},
-			shouldPanic: true,
+			want:        time.Local.String(),
+			shouldPanic: false,
+		},
+		"empty timezone falls back to local": {
+			setup: func() {
+				viper.Reset()
+				viper.Set("timezone", "")
+			},
+			want:        time.Local.String(),
+			shouldPanic: false,
+		},
+		"unset timezone falls back to local": {
+			setup: func() {
+				viper.Reset()
+			},
+			want:        time.Local.String(),
+			shouldPanic: false,
 		},
 	}
 
@@ -356,6 +376,13 @@ func TestConfig_GetTimezoneLocation(t *testing.T) {
 			tc.setup()
 			t.Cleanup(func() {
 				viper.Reset()
+			})
+
+			// Suppress log output during tests to keep test output clean
+			origWriter := log.Writer()
+			log.SetOutput(io.Discard)
+			t.Cleanup(func() {
+				log.SetOutput(origWriter)
 			})
 
 			config := &Config{}
@@ -372,6 +399,49 @@ func TestConfig_GetTimezoneLocation(t *testing.T) {
 			assert.Equal(t, tc.want, got.String())
 		})
 	}
+}
+
+func TestConfig_GetTimezoneLocation_CachesResult(t *testing.T) {
+	viper.Reset()
+	viper.Set("timezone", "America/New_York")
+	t.Cleanup(func() { viper.Reset() })
+
+	config := &Config{}
+
+	// First call should resolve and cache
+	loc1 := config.GetTimezoneLocation()
+	require.NotNil(t, loc1)
+	assert.Equal(t, "America/New_York", loc1.String())
+
+	// Second call should return same cached result
+	loc2 := config.GetTimezoneLocation()
+	assert.Equal(t, loc1, loc2)
+}
+
+func TestConfig_GetTimezoneLocation_InvalidWarnsOnce(t *testing.T) {
+	viper.Reset()
+	viper.Set("timezone", "Invalid/Timezone")
+	t.Cleanup(func() { viper.Reset() })
+
+	// Capture log output to verify warning is only logged once
+	var buf bytes.Buffer
+	origWriter := log.Writer()
+	log.SetOutput(&buf)
+	t.Cleanup(func() { log.SetOutput(origWriter) })
+
+	config := &Config{}
+
+	// First call logs a warning
+	loc1 := config.GetTimezoneLocation()
+	require.NotNil(t, loc1)
+	assert.Equal(t, time.Local.String(), loc1.String())
+	firstLogLen := buf.Len()
+	assert.Greater(t, firstLogLen, 0, "expected a warning to be logged")
+
+	// Second call should use cache and not log again
+	loc2 := config.GetTimezoneLocation()
+	assert.Equal(t, loc1, loc2)
+	assert.Equal(t, firstLogLen, buf.Len(), "expected no additional log output on second call")
 }
 
 func TestConfig_GetTableFormat(t *testing.T) {
@@ -730,6 +800,52 @@ func TestConfig_GetOutputOptions(t *testing.T) {
 // 		})
 // 	}
 // }
+
+// TestConfig_OutputFilePathCasePreserved is a regression test verifying that the
+// output-file config value is read with GetString (not GetLCString), so file paths
+// with mixed case are preserved. Previously GetLCString was used, which lowercased
+// the entire path and broke file creation on case-sensitive filesystems.
+func TestConfig_OutputFilePathCasePreserved(t *testing.T) {
+	tests := map[string]struct {
+		setup func()
+		want  string
+	}{
+		"mixed case path via viper.Set": {
+			setup: func() {
+				viper.Reset()
+				viper.Set("output-file", "/Path/To/MyProject/DeployReport.json")
+			},
+			want: "/Path/To/MyProject/DeployReport.json",
+		},
+		"uppercase components": {
+			setup: func() {
+				viper.Reset()
+				viper.Set("output-file", "/HOME/USER/OUTPUT.JSON")
+			},
+			want: "/HOME/USER/OUTPUT.JSON",
+		},
+		"camelCase filename": {
+			setup: func() {
+				viper.Reset()
+				viper.Set("output-file", "deploymentReport.json")
+			},
+			want: "deploymentReport.json",
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			tc.setup()
+			t.Cleanup(func() {
+				viper.Reset()
+			})
+
+			config := &Config{}
+			got := config.GetString("output-file")
+			assert.Equal(t, tc.want, got, "output-file path case should be preserved")
+		})
+	}
+}
 
 func TestConfig_GetFileOutputOptions(t *testing.T) {
 	tests := map[string]struct {

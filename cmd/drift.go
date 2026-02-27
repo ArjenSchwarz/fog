@@ -173,7 +173,10 @@ func detectDrift(cmd *cobra.Command, args []string) {
 		}
 	}
 	params := lib.GetParametersMap(stack.Parameters)
-	template := lib.GetTemplateBody(&driftFlags.StackName, params, svc)
+	template, err := lib.GetTemplateBody(&driftFlags.StackName, params, svc)
+	if err != nil {
+		failWithError(err)
+	}
 	checkNaclEntries(naclResources, template, stack.Parameters, &rows, awsConfig)
 	checkRouteTableRoutes(routetableResources, template, stack.Parameters, logicalToPhysical, &rows, awsConfig)
 	checkTransitGatewayRouteTableRoutes(tgwRouteTableResources, template, stack.Parameters, logicalToPhysical, &rows, awsConfig)

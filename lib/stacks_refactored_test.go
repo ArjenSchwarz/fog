@@ -215,6 +215,49 @@ func TestStackExists_WithDependencyInjection(t *testing.T) {
 	}
 }
 
+// TestStackExists_CachesRawStack verifies that StackExists caches RawStack on
+// success and leaves it nil on failure. This is a regression test for a bug
+// where the condition was inverted, caching a zero-value stack on error.
+func TestStackExists_CachesRawStack(t *testing.T) {
+	t.Helper()
+
+	t.Run("sets RawStack when stack exists", func(t *testing.T) {
+		t.Parallel()
+
+		mockClient := testutil.NewMockCFNClient()
+		stack := testutil.NewStackBuilder("my-stack").
+			WithStatus(types.StackStatusCreateComplete).
+			Build()
+		mockClient.WithStack(stack)
+
+		deployment := &DeployInfo{
+			StackName: "my-stack",
+		}
+
+		got := StackExists(deployment, mockClient)
+
+		assert.True(t, got)
+		require.NotNil(t, deployment.RawStack, "RawStack should be cached when stack exists")
+		assert.Equal(t, types.StackStatusCreateComplete, deployment.RawStack.StackStatus)
+	})
+
+	t.Run("leaves RawStack nil when stack does not exist", func(t *testing.T) {
+		t.Parallel()
+
+		mockClient := testutil.NewMockCFNClient()
+		mockClient.WithError(errors.New("Stack does not exist"))
+
+		deployment := &DeployInfo{
+			StackName: "missing-stack",
+		}
+
+		got := StackExists(deployment, mockClient)
+
+		assert.False(t, got)
+		assert.Nil(t, deployment.RawStack, "RawStack should remain nil when stack does not exist")
+	})
+}
+
 // TestDeployInfo_IsReadyForUpdate tests the IsReadyForUpdate method
 func TestDeployInfo_IsReadyForUpdate(t *testing.T) {
 	t.Helper()
