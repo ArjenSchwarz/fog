@@ -284,6 +284,100 @@ func TestRenderDocument_MultipleFormats(t *testing.T) {
 	}
 }
 
+// TestRenderDocument_FilePathCasePreserved verifies that output file paths with
+// mixed case are preserved exactly as specified. This is a regression test for a bug
+// where GetLCString was used instead of GetString to read the output-file config,
+// which lowercased the entire file path and broke file creation on case-sensitive
+// filesystems (e.g. Linux).
+func TestRenderDocument_FilePathCasePreserved(t *testing.T) {
+	// NOTE: Cannot use t.Parallel() because viper uses global state
+	setupViperDefaults()
+
+	// Create a temp directory with a mixed-case subdirectory
+	tmpDir := t.TempDir()
+	mixedCaseDir := filepath.Join(tmpDir, "MyProject", "OutputFiles")
+	if err := os.MkdirAll(mixedCaseDir, 0755); err != nil {
+		t.Fatalf("Failed to create mixed-case directory: %v", err)
+	}
+
+	// Use a mixed-case filename to verify case is preserved
+	outputFile := filepath.Join(mixedCaseDir, "DeployReport.json")
+
+	viper.Set("output", "json")
+	viper.Set("output-file", outputFile)
+
+	data := []map[string]any{
+		{"Name": "test-item", "Value": "test-value"},
+	}
+	doc := output.New().
+		Table("Test Table", data, output.WithKeys("Name", "Value")).
+		Build()
+
+	err := renderDocument(context.Background(), doc)
+	if err != nil {
+		t.Fatalf("renderDocument failed with mixed-case file path: %v", err)
+	}
+
+	// Verify file was created at the exact path (case-preserved)
+	if _, err := os.Stat(outputFile); os.IsNotExist(err) {
+		t.Errorf("Expected output file at exact path %s, but it was not found", outputFile)
+	}
+
+	// Verify the file contains the expected data
+	content, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatalf("Failed to read output file: %v", err)
+	}
+	if !strings.Contains(string(content), "test-item") {
+		t.Error("Output file should contain the test data")
+	}
+}
+
+// TestRenderDocument_FilePathCasePreserved_DifferentFormats verifies that file path
+// case is preserved when console and file formats differ (separate Output instances).
+func TestRenderDocument_FilePathCasePreserved_DifferentFormats(t *testing.T) {
+	// NOTE: Cannot use t.Parallel() because viper uses global state
+	setupViperDefaults()
+
+	tmpDir := t.TempDir()
+	mixedCaseDir := filepath.Join(tmpDir, "Reports", "CloudFormation")
+	if err := os.MkdirAll(mixedCaseDir, 0755); err != nil {
+		t.Fatalf("Failed to create mixed-case directory: %v", err)
+	}
+
+	outputFile := filepath.Join(mixedCaseDir, "StackReport.md")
+
+	viper.Set("output", "table")
+	viper.Set("output-file", outputFile)
+	viper.Set("output-file-format", "markdown")
+
+	data := []map[string]any{
+		{"Name": "test-item", "Value": "test-value"},
+	}
+	doc := output.New().
+		Table("Test Table", data, output.WithKeys("Name", "Value")).
+		Build()
+
+	err := renderDocument(context.Background(), doc)
+	if err != nil {
+		t.Fatalf("renderDocument failed with mixed-case file path and different formats: %v", err)
+	}
+
+	// Verify file was created at the exact path (case-preserved)
+	if _, err := os.Stat(outputFile); os.IsNotExist(err) {
+		t.Errorf("Expected output file at exact path %s, but it was not found", outputFile)
+	}
+
+	// Verify file contains markdown content
+	content, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatalf("Failed to read output file: %v", err)
+	}
+	if !strings.Contains(string(content), "test-item") {
+		t.Error("Output file should contain the test data")
+	}
+}
+
 func TestRenderDocument_NoFileWhenNotConfigured(t *testing.T) {
 	// NOTE: Cannot use t.Parallel() because viper uses global state
 	setupViperDefaults()
