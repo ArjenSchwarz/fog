@@ -49,7 +49,7 @@ The function used `log.Fatal` (which calls `os.Exit(1)`) and `panic` for error h
 **Test file:** `lib/changesets_refactored_test.go`
 **Test name:** `TestGetStackAndChangesetFromURL_InvalidInput`
 
-**What it verifies:** Invalid URL inputs (bad percent-encoding, empty strings, non-URL strings) return errors instead of causing process exit or panic.
+**What it verifies:** Invalid URL inputs (bad percent-encoding, empty strings, non-URL strings) return errors instead of causing process exit, panic, or silently producing empty IDs.
 
 **Run command:** `go test ./lib -run TestGetStackAndChangesetFromURL_InvalidInput -v`
 

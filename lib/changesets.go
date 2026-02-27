@@ -101,6 +101,9 @@ func GetStackAndChangesetFromURL(changeseturl string, region string) (string, st
 	}
 	stackid := q.Get("stackId")
 	changesetid := q.Get("changeSetId")
+	if stackid == "" || changesetid == "" {
+		return "", "", fmt.Errorf("missing stackId or changeSetId in changeset URL; ensure this is a valid AWS CloudFormation changeset URL for region %s", region)
+	}
 	return stackid, changesetid, nil
 }
 

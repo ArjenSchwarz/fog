@@ -663,10 +663,12 @@ func TestGetStackAndChangesetFromURL_InvalidInput(t *testing.T) {
 		"empty URL": {
 			changesetURL: "",
 			region:       "us-east-1",
+			wantErrMsg:   "missing stackId or changeSetId",
 		},
 		"completely invalid string": {
 			changesetURL: "not-a-url-at-all",
 			region:       "us-east-1",
+			wantErrMsg:   "missing stackId or changeSetId",
 		},
 	}
 
@@ -676,16 +678,10 @@ func TestGetStackAndChangesetFromURL_InvalidInput(t *testing.T) {
 
 			gotStack, gotChangeset, err := GetStackAndChangesetFromURL(tc.changesetURL, tc.region)
 
-			if tc.wantErrMsg != "" {
-				require.Error(t, err)
-				assert.Contains(t, err.Error(), tc.wantErrMsg)
-				assert.Empty(t, gotStack)
-				assert.Empty(t, gotChangeset)
-			} else {
-				// These inputs are technically parseable (just return empty values),
-				// but should not panic or exit the process
-				require.NoError(t, err)
-			}
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tc.wantErrMsg)
+			assert.Empty(t, gotStack)
+			assert.Empty(t, gotChangeset)
 		})
 	}
 }
