@@ -512,6 +512,8 @@ func (deployment *DeployInfo) GetEvents(svc CloudFormationDescribeStackEventsAPI
 	for {
 		resp, err := svc.DescribeStackEvents(context.TODO(), input)
 		if err != nil {
+			// Return nil rather than partial results — callers cannot
+			// meaningfully act on an incomplete event list.
 			return nil, err
 		}
 		allEvents = append(allEvents, resp.StackEvents...)

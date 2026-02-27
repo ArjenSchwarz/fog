@@ -18,9 +18,11 @@ import (
 
 // mockStackEventsClient supports multi-page DescribeStackEvents responses.
 // Pages are keyed by NextToken ("" for the first call).
+// Use pageErrors to inject errors on specific pages.
 type mockStackEventsClient struct {
-	pages map[string]cloudformation.DescribeStackEventsOutput
-	err   error
+	pages      map[string]cloudformation.DescribeStackEventsOutput
+	pageErrors map[string]error
+	err        error
 }
 
 func newSinglePageMock(output cloudformation.DescribeStackEventsOutput, err error) mockStackEventsClient {
@@ -37,6 +39,11 @@ func (m mockStackEventsClient) DescribeStackEvents(ctx context.Context, params *
 	token := ""
 	if params.NextToken != nil {
 		token = *params.NextToken
+	}
+	if m.pageErrors != nil {
+		if err, ok := m.pageErrors[token]; ok {
+			return nil, err
+		}
 	}
 	out := m.pages[token]
 	return &out, nil
@@ -112,6 +119,23 @@ func TestDeployInfo_GetEvents(t *testing.T) {
 			deployment: &DeployInfo{StackName: "bad-stack"},
 			mock:       mockStackEventsClient{err: errors.New("access denied")},
 			wantErr:    true,
+		},
+		"API error on second page returns nil": {
+			deployment: &DeployInfo{StackName: "mid-error-stack"},
+			mock: mockStackEventsClient{
+				pages: map[string]cloudformation.DescribeStackEventsOutput{
+					"": {
+						StackEvents: []types.StackEvent{
+							{LogicalResourceId: strPtr("Page1"), Timestamp: ptrTime(now)},
+						},
+						NextToken: strPtr("page2"),
+					},
+				},
+				pageErrors: map[string]error{
+					"page2": errors.New("throttling"),
+				},
+			},
+			wantErr: true,
 		},
 	}
 
