@@ -460,8 +460,9 @@ func TestGetStackAndChangesetFromURL(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			gotStack, gotChangeset := GetStackAndChangesetFromURL(tc.changeseturl, tc.region)
+			gotStack, gotChangeset, err := GetStackAndChangesetFromURL(tc.changeseturl, tc.region)
 
+			require.NoError(t, err)
 			assert.Equal(t, tc.wantStack, gotStack)
 			assert.Equal(t, tc.wantChangeset, gotChangeset)
 		})
