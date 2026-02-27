@@ -33,9 +33,10 @@ The `GetTimezoneLocation()` function used `panic(err)` as its error handling str
 ## Resolution for the Issue
 
 **Changes made:**
-- `config/config.go:137-150` — Replace panic with graceful fallback to `time.Local`. If timezone string is empty, return `time.Local` immediately. If `time.LoadLocation` returns an error for an invalid timezone, log a warning and return `time.Local`.
+- `config/config.go:82-86` — Add `cachedTimezone` and `cachedLocation` fields to Config struct for timezone caching
+- `config/config.go:137-162` — Replace panic with graceful fallback to `time.Local`. Cache the resolved location so repeated calls in loops avoid redundant `LoadLocation` lookups and don't spam the log with repeated warnings.
 
-**Approach rationale:** Falling back to local timezone is the most sensible default — it matches user expectations (times shown in their system timezone) and is what `time.LoadLocation("Local")` returns. A warning log message surfaces the misconfiguration without crashing.
+**Approach rationale:** Falling back to local timezone is the most sensible default — it matches user expectations (times shown in their system timezone) and is what `time.LoadLocation("Local")` returns. A warning log message surfaces the misconfiguration without crashing. Caching prevents log spam since `GetTimezoneLocation()` is called in event-processing loops.
 
 **Alternatives considered:**
 - Returning an error from `GetTimezoneLocation()` — rejected because it would require changing the function signature and updating all ~15 call sites, a much larger change for minimal benefit since a sensible fallback exists.

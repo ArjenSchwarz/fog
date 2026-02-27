@@ -80,6 +80,9 @@ import (
 
 // Config holds the global configuration settings
 type Config struct {
+	// Cached timezone location to avoid repeated LoadLocation calls and log spam
+	cachedTimezone string
+	cachedLocation *time.Location
 }
 
 // GetLCString gets a string configuration value and converts it to lowercase
@@ -135,16 +138,26 @@ func (config *Config) GetFieldOrEmptyValue(value string) string {
 // GetTimezoneLocation gets the location object you can use in a time object
 // based on the timezone specified in your settings.
 // Falls back to time.Local if the timezone is unset or invalid.
+// The result is cached so repeated calls avoid redundant LoadLocation lookups
+// and don't spam the log with repeated warnings.
 func (config *Config) GetTimezoneLocation() *time.Location {
 	tz := config.GetString("timezone")
 	if tz == "" {
 		return time.Local
 	}
+	// Return cached result if the timezone setting hasn't changed
+	if config.cachedLocation != nil && config.cachedTimezone == tz {
+		return config.cachedLocation
+	}
 	location, err := time.LoadLocation(tz)
 	if err != nil {
 		log.Printf("Warning: invalid timezone %q, falling back to local timezone: %v", tz, err)
+		config.cachedTimezone = tz
+		config.cachedLocation = time.Local
 		return time.Local
 	}
+	config.cachedTimezone = tz
+	config.cachedLocation = location
 	return location
 }
 

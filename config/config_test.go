@@ -1,6 +1,9 @@
 package config
 
 import (
+	"bytes"
+	"io"
+	"log"
 	"testing"
 	"time"
 
@@ -375,6 +378,13 @@ func TestConfig_GetTimezoneLocation(t *testing.T) {
 				viper.Reset()
 			})
 
+			// Suppress log output during tests to keep test output clean
+			origWriter := log.Writer()
+			log.SetOutput(io.Discard)
+			t.Cleanup(func() {
+				log.SetOutput(origWriter)
+			})
+
 			config := &Config{}
 
 			if tc.shouldPanic {
@@ -389,6 +399,49 @@ func TestConfig_GetTimezoneLocation(t *testing.T) {
 			assert.Equal(t, tc.want, got.String())
 		})
 	}
+}
+
+func TestConfig_GetTimezoneLocation_CachesResult(t *testing.T) {
+	viper.Reset()
+	viper.Set("timezone", "America/New_York")
+	t.Cleanup(func() { viper.Reset() })
+
+	config := &Config{}
+
+	// First call should resolve and cache
+	loc1 := config.GetTimezoneLocation()
+	require.NotNil(t, loc1)
+	assert.Equal(t, "America/New_York", loc1.String())
+
+	// Second call should return same cached result
+	loc2 := config.GetTimezoneLocation()
+	assert.Equal(t, loc1, loc2)
+}
+
+func TestConfig_GetTimezoneLocation_InvalidWarnsOnce(t *testing.T) {
+	viper.Reset()
+	viper.Set("timezone", "Invalid/Timezone")
+	t.Cleanup(func() { viper.Reset() })
+
+	// Capture log output to verify warning is only logged once
+	var buf bytes.Buffer
+	origWriter := log.Writer()
+	log.SetOutput(&buf)
+	t.Cleanup(func() { log.SetOutput(origWriter) })
+
+	config := &Config{}
+
+	// First call logs a warning
+	loc1 := config.GetTimezoneLocation()
+	require.NotNil(t, loc1)
+	assert.Equal(t, time.Local.String(), loc1.String())
+	firstLogLen := buf.Len()
+	assert.Greater(t, firstLogLen, 0, "expected a warning to be logged")
+
+	// Second call should use cache and not log again
+	loc2 := config.GetTimezoneLocation()
+	assert.Equal(t, loc1, loc2)
+	assert.Equal(t, firstLogLen, buf.Len(), "expected no additional log output on second call")
 }
 
 func TestConfig_GetTableFormat(t *testing.T) {
