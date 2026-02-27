@@ -148,8 +148,8 @@ func TestGetExports(t *testing.T) {
 // Pages are keyed by NextToken ("" for the first call).
 type paginatingExportsMockClient struct {
 	pages            map[string]cloudformation.DescribeStacksOutput
-	ImportsByExport  map[string][]string
-	ListImportsError error
+	importsByExport  map[string][]string
+	listImportsError error
 }
 
 func (m paginatingExportsMockClient) DescribeStacks(ctx context.Context, params *cloudformation.DescribeStacksInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStacksOutput, error) {
@@ -162,10 +162,10 @@ func (m paginatingExportsMockClient) DescribeStacks(ctx context.Context, params 
 }
 
 func (m paginatingExportsMockClient) ListImports(ctx context.Context, params *cloudformation.ListImportsInput, optFns ...func(*cloudformation.Options)) (*cloudformation.ListImportsOutput, error) {
-	if m.ListImportsError != nil {
-		return nil, m.ListImportsError
+	if m.listImportsError != nil {
+		return nil, m.listImportsError
 	}
-	imports, ok := m.ImportsByExport[*params.ExportName]
+	imports, ok := m.importsByExport[*params.ExportName]
 	if !ok {
 		return nil, errors.New("not found")
 	}
@@ -212,7 +212,7 @@ func TestGetExports_Pagination(t *testing.T) {
 				},
 			},
 		},
-		ImportsByExport: map[string][]string{
+		importsByExport: map[string][]string{
 			"Export2": {"importing-stack"},
 		},
 	}
