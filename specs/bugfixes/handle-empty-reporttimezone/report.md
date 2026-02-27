@@ -33,9 +33,9 @@ When the `ReportTimezone` environment variable is not set (or set to an empty st
 ## Resolution for the Issue
 
 **Changes made:**
-- `cmd/report.go:113-116` — Guard `viper.Set("timezone", ...)` with an emptiness check so the viper default `"Local"` is preserved when no timezone is specified
+- `cmd/report.go:108-118` — Extract timezone-setting logic into `setTimezoneIfPresent` helper that trims whitespace and only overrides the viper default when a non-empty value remains
 
-**Approach rationale:** This is the minimal fix that preserves the existing default behaviour. An empty env var is treated as "not set" which matches user expectations for optional configuration.
+**Approach rationale:** Extracting to a helper makes the logic directly testable without mocking the full `GenerateReportFromLambda` call. Trimming whitespace handles misconfigured environment variables that contain only spaces.
 
 **Alternatives considered:**
 - Validating in `GetTimezoneLocation` and falling back to `time.Local` — would change the function's contract and mask configuration errors for genuinely invalid timezone strings
@@ -44,9 +44,9 @@ When the `ReportTimezone` environment variable is not set (or set to an empty st
 ## Regression Test
 
 **Test file:** `cmd/report_test.go`
-**Test name:** `TestGenerateReportFromLambdaEmptyTimezone`
+**Test name:** `TestSetTimezoneIfPresent`
 
-**What it verifies:** Confirms that an empty timezone string preserves the viper default `"Local"`, while non-empty timezone strings correctly override it.
+**What it verifies:** Confirms that empty and whitespace-only timezone strings preserve the viper default `"Local"`, while non-empty timezone strings correctly override it and surrounding whitespace is trimmed.
 
 **Run command:** `go test ./cmd/ -run TestGenerateReportFromLambdaEmptyTimezone -v`
 
@@ -54,8 +54,8 @@ When the `ReportTimezone` environment variable is not set (or set to an empty st
 
 | File | Change |
 |------|--------|
-| `cmd/report.go` | Guard `viper.Set("timezone", ...)` with emptiness check |
-| `cmd/report_test.go` | Add regression test for empty timezone handling |
+| `cmd/report.go` | Extract `setTimezoneIfPresent` helper with whitespace trimming |
+| `cmd/report_test.go` | Regression test for empty, whitespace, and valid timezone values |
 | `specs/bugfixes/handle-empty-reporttimezone/report.md` | Bugfix report |
 
 ## Verification

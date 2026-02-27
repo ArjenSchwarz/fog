@@ -395,16 +395,20 @@ func TestReportEventDataBuilding(t *testing.T) {
 	}
 }
 
-// TestGenerateReportFromLambdaEmptyTimezone verifies that an empty timezone
+// TestSetTimezoneIfPresent verifies that an empty or whitespace-only timezone
 // string does not override the viper default, which would cause
 // GetTimezoneLocation to panic via time.LoadLocation("").
-func TestGenerateReportFromLambdaEmptyTimezone(t *testing.T) {
+func TestSetTimezoneIfPresent(t *testing.T) {
 	tests := map[string]struct {
 		timezone string
 		want     string
 	}{
 		"empty timezone preserves default": {
 			timezone: "",
+			want:     "Local",
+		},
+		"whitespace-only timezone preserves default": {
+			timezone: "   ",
 			want:     "Local",
 		},
 		"explicit timezone overrides default": {
@@ -414,6 +418,10 @@ func TestGenerateReportFromLambdaEmptyTimezone(t *testing.T) {
 		"named timezone overrides default": {
 			timezone: "America/New_York",
 			want:     "America/New_York",
+		},
+		"timezone with surrounding whitespace is trimmed": {
+			timezone: "  Europe/London  ",
+			want:     "Europe/London",
 		},
 	}
 
@@ -425,10 +433,7 @@ func TestGenerateReportFromLambdaEmptyTimezone(t *testing.T) {
 				viper.Reset()
 			})
 
-			// Simulate what GenerateReportFromLambda does with timezone
-			if tc.timezone != "" {
-				viper.Set("timezone", tc.timezone)
-			}
+			setTimezoneIfPresent(tc.timezone)
 
 			cfg := &config.Config{}
 			// This must not panic
