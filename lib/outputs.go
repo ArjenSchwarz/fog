@@ -33,15 +33,21 @@ func GetExports(stackname *string, exportname *string, svc CFNExportsAPI) []CfnO
 	if *stackname != "" && !strings.Contains(*stackname, "*") {
 		input.StackName = stackname
 	}
-	resp, err := svc.DescribeStacks(context.TODO(), input)
-	if err != nil {
-		var bne *smithy.OperationError
-		if errors.As(err, &bne) {
-			log.Fatalln("error:", bne.Err)
+	// Use paginator to collect stacks from all pages
+	paginator := cloudformation.NewDescribeStacksPaginator(svc, input)
+	allStacks := make([]types.Stack, 0)
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(context.TODO())
+		if err != nil {
+			var bne *smithy.OperationError
+			if errors.As(err, &bne) {
+				log.Fatalln("error:", bne.Err)
+			}
+			log.Fatalln(err)
 		}
-		log.Fatalln(err)
+		allStacks = append(allStacks, page.Stacks...)
 	}
-	for _, stack := range resp.Stacks {
+	for _, stack := range allStacks {
 		exports = append(exports, getOutputsForStack(stack, *stackname, *exportname, true)...)
 	}
 	c := make(chan CfnOutput)
