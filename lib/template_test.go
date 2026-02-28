@@ -52,7 +52,10 @@ Resources:
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			body := ParseTemplateString(tt.input, &overrides)
+			body, err := ParseTemplateString(tt.input, &overrides)
+			if err != nil {
+				t.Fatalf("ParseTemplateString() error = %v", err)
+			}
 			bucket := body.Resources["Bucket"].Properties["BucketName"].(string)
 			if bucket != "Overridden" {
 				t.Errorf("BucketName = %s, want Overridden", bucket)
@@ -455,7 +458,10 @@ func TestParseTemplateString_PseudoParameters(t *testing.T) {
   }
 }`
 
-	body := ParseTemplateString(template, nil)
+	body, err := ParseTemplateString(template, nil)
+	if err != nil {
+		t.Fatalf("ParseTemplateString() error = %v", err)
+	}
 	props := body.Resources["TestResource"].Properties
 
 	// Test that pseudo-parameters are resolved correctly
@@ -515,7 +521,10 @@ func TestParseTemplateString_ParameterDefaults(t *testing.T) {
   }
 }`
 
-	body := ParseTemplateString(template, nil)
+	body, err := ParseTemplateString(template, nil)
+	if err != nil {
+		t.Fatalf("ParseTemplateString() error = %v", err)
+	}
 	props := body.Resources["TestResource"].Properties
 
 	// Parameter with default should resolve to the default value
@@ -815,7 +824,10 @@ func TestParseTemplateString_AdditionalStructures(t *testing.T) {
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			body := ParseTemplateString(tc.template, nil)
+			body, err := ParseTemplateString(tc.template, nil)
+			if err != nil {
+				t.Fatalf("ParseTemplateString() error = %v", err)
+			}
 			tc.verify(t, body)
 		})
 	}
@@ -926,6 +938,73 @@ func TestTGWRouteResourceToTGWRoute(t *testing.T) {
 			got := TGWRouteResourceToTGWRoute(tt.resource, params, logicalToPhysical)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("TGWRouteResourceToTGWRoute() = %#v, want %#v", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestParseTemplateString_EmptyAndWhitespace verifies that ParseTemplateString
+// returns a clear error for empty or whitespace-only template bodies instead of panicking.
+func TestParseTemplateString_EmptyAndWhitespace(t *testing.T) {
+	tests := []struct {
+		name     string
+		template string
+		wantErr  string
+	}{
+		{"empty string", "", "template body is empty"},
+		{"whitespace only spaces", "   ", "template body is empty"},
+		{"whitespace only tabs and newlines", "\t\n\t\n", "template body is empty"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := ParseTemplateString(tt.template, nil)
+			if err == nil {
+				t.Fatalf("expected error, got nil")
+			}
+			if err.Error() != tt.wantErr {
+				t.Errorf("error = %q, want %q", err.Error(), tt.wantErr)
+			}
+		})
+	}
+}
+
+// TestParseTemplateString_ValidTemplatesStillWork verifies that valid JSON and YAML
+// templates continue to parse correctly after adding the empty-template guard.
+func TestParseTemplateString_ValidTemplatesStillWork(t *testing.T) {
+	jsonTemplate := `{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Resources": {
+    "Bucket": {
+      "Type": "AWS::S3::Bucket"
+    }
+  }
+}`
+	yamlTemplate := `AWSTemplateFormatVersion: "2010-09-09"
+Resources:
+  Bucket:
+    Type: AWS::S3::Bucket
+`
+
+	tests := []struct {
+		name     string
+		template string
+	}{
+		{"JSON template", jsonTemplate},
+		{"YAML template", yamlTemplate},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body, err := ParseTemplateString(tt.template, nil)
+			if err != nil {
+				t.Fatalf("ParseTemplateString() unexpected error = %v", err)
+			}
+			if body.AWSTemplateFormatVersion != "2010-09-09" {
+				t.Errorf("AWSTemplateFormatVersion = %q, want %q", body.AWSTemplateFormatVersion, "2010-09-09")
+			}
+			if _, ok := body.Resources["Bucket"]; !ok {
+				t.Errorf("expected resource 'Bucket' not found")
 			}
 		})
 	}
