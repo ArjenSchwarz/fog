@@ -425,13 +425,13 @@ func TestParseTemplateString_ComplexScenarios(t *testing.T) {
 			t.Parallel()
 
 			if tc.wantError {
-				assert.Panics(t, func() {
-					ParseTemplateString(tc.template, tc.parameters)
-				})
+				_, err := ParseTemplateString(tc.template, tc.parameters)
+				assert.Error(t, err)
 				return
 			}
 
-			body := ParseTemplateString(tc.template, tc.parameters)
+			body, err := ParseTemplateString(tc.template, tc.parameters)
+			require.NoError(t, err)
 			assert.Equal(t, "2010-09-09", body.AWSTemplateFormatVersion)
 		})
 	}

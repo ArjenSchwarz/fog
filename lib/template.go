@@ -216,7 +216,7 @@ func GetTemplateBody(stackname *string, parameters *map[string]any, svc CloudFor
 		return CfnTemplateBody{}, fmt.Errorf("template body is nil for stack %q", *stackname)
 	}
 
-	return ParseTemplateString(*result.TemplateBody, parameters), nil
+	return ParseTemplateString(*result.TemplateBody, parameters)
 }
 
 // customRefHandler is a simple example of an intrinsic function handler function
@@ -283,7 +283,10 @@ func customImportValueHandler(name string, input any, template any) any {
 }
 
 // ParseTemplateString parses a CloudFormation template string into a CfnTemplateBody
-func ParseTemplateString(template string, parameters *map[string]any) CfnTemplateBody {
+func ParseTemplateString(template string, parameters *map[string]any) (CfnTemplateBody, error) {
+	if strings.TrimSpace(template) == "" {
+		return CfnTemplateBody{}, fmt.Errorf("template body is empty")
+	}
 	parsedTemplate := CfnTemplateBody{}
 	override := map[string]intrinsics.IntrinsicHandler{}
 	override["Ref"] = customRefHandler
@@ -297,18 +300,18 @@ func ParseTemplateString(template string, parameters *map[string]any) CfnTemplat
 	var intrinsified []byte
 	var err error
 	// Use goformation intrinsics to convert to JSON and deal with intrinsics
-	if template[0] == '{' {
+	if strings.TrimSpace(template)[0] == '{' {
 		intrinsified, err = intrinsics.ProcessJSON([]byte(template), &options)
 	} else {
 		intrinsified, err = intrinsics.ProcessYAML([]byte(template), &options)
 	}
 	if err != nil {
-		panic(err)
+		return CfnTemplateBody{}, fmt.Errorf("failed to process template: %w", err)
 	}
 	if err := json.Unmarshal(intrinsified, &parsedTemplate); err != nil {
-		panic(err)
+		return CfnTemplateBody{}, fmt.Errorf("failed to unmarshal template: %w", err)
 	}
-	return parsedTemplate
+	return parsedTemplate, nil
 }
 
 // FilterNaclEntriesByLogicalId filters Network ACL entries from a template by logical ID
