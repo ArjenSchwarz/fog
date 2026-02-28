@@ -348,7 +348,10 @@ func checkNaclEntries(naclResources map[string]string, template lib.CfnTemplateB
 // checkRouteTableRoutes verifies the routes and if there are differences adds those to the provided rows slice
 func checkRouteTableRoutes(routetableResources map[string]string, template lib.CfnTemplateBody, parameters []types.Parameter, logicalToPhysical map[string]string, rows *[]map[string]any, awsConfig config.AWSConfig) {
 	// Create a list of all AWS managed prefixes
-	managedPrefixLists := lib.GetManagedPrefixLists(awsConfig.EC2Client())
+	managedPrefixLists, err := lib.GetManagedPrefixLists(awsConfig.EC2Client())
+	if err != nil {
+		failWithError(err)
+	}
 	awsPrefixesSlice := make([]string, 0)
 	for _, prefixlist := range managedPrefixLists {
 		if *prefixlist.OwnerId == "AWS" {

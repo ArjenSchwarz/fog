@@ -3,6 +3,7 @@ package lib
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -389,9 +390,10 @@ func TestGetManagedPrefixLists(t *testing.T) {
 	}
 
 	tests := []struct {
-		name string
-		args args
-		want []types.ManagedPrefixList
+		name    string
+		args    args
+		want    []types.ManagedPrefixList
+		wantErr bool
 	}{
 		{
 			name: "return prefix lists",
@@ -407,10 +409,23 @@ func TestGetManagedPrefixLists(t *testing.T) {
 			})},
 			want: nil,
 		},
+		{
+			name: "API error returns error",
+			args: args{svc: mockEC2DescribeManagedPrefixListsAPI(func(ctx context.Context, params *ec2.DescribeManagedPrefixListsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeManagedPrefixListsOutput, error) {
+				return nil, fmt.Errorf("access denied: insufficient permissions for DescribeManagedPrefixLists")
+			})},
+			want:    nil,
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := GetManagedPrefixLists(tt.args.svc)
+			got, err := GetManagedPrefixLists(tt.args.svc)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetManagedPrefixLists() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
 
 			opts := []cmp.Option{
 				cmpopts.IgnoreUnexported(types.ManagedPrefixList{}),
