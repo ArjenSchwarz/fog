@@ -546,7 +546,7 @@ func (deployment *DeployInfo) GetCleanedStackName() string {
 }
 
 // GetEvents retrieves and processes all events for the stack, organizing them by stack-level events
-func (stack *CfnStack) GetEvents(svc *cloudformation.Client) ([]StackEvent, error) {
+func (stack *CfnStack) GetEvents(svc CloudFormationDescribeStackEventsAPI) ([]StackEvent, error) {
 	if len(stack.Events) != 0 {
 		return stack.Events, nil
 	}
@@ -561,7 +561,7 @@ func (stack *CfnStack) GetEvents(svc *cloudformation.Client) ([]StackEvent, erro
 }
 
 // fetchAllStackEvents retrieves all stack events from AWS using pagination
-func fetchAllStackEvents(stackId string, svc *cloudformation.Client) ([]types.StackEvent, error) {
+func fetchAllStackEvents(stackId string, svc CloudFormationDescribeStackEventsAPI) ([]types.StackEvent, error) {
 	input := &cloudformation.DescribeStackEventsInput{
 		StackName: &stackId,
 	}
@@ -817,14 +817,9 @@ func (event *StackEvent) GetDuration() time.Duration {
 	return event.EndDate.Sub(event.StartDate)
 }
 
-// GetEventSummaries retrieves basic event information for the stack
-func (stack *CfnStack) GetEventSummaries(svc *cloudformation.Client) ([]types.StackEvent, error) {
-	input := &cloudformation.DescribeStackEventsInput{
-		StackName: &stack.Id,
-	}
-	resp, err := svc.DescribeStackEvents(context.TODO(), input)
-	return resp.StackEvents, err
-
+// GetEventSummaries retrieves basic event information for the stack using pagination
+func (stack *CfnStack) GetEventSummaries(svc CloudFormationDescribeStackEventsAPI) ([]types.StackEvent, error) {
+	return fetchAllStackEvents(stack.Id, svc)
 }
 
 // DeleteStack deletes the stack and returns true if successful

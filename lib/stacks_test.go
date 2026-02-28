@@ -764,6 +764,102 @@ func TestReverseEvents(t *testing.T) {
 	}
 }
 
+// TestCfnStack_GetEventSummaries verifies that GetEventSummaries uses pagination
+// to retrieve all stack events via fetchAllStackEvents.
+func TestCfnStack_GetEventSummaries(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now()
+
+	tests := map[string]struct {
+		stack     CfnStack
+		mock      mockStackEventsClient
+		wantCount int
+		wantErr   bool
+	}{
+		"single page of events": {
+			stack: CfnStack{Id: "stack-id-1", Name: "test-stack"},
+			mock: newSinglePageMock(cloudformation.DescribeStackEventsOutput{
+				StackEvents: []types.StackEvent{
+					{LogicalResourceId: strPtr("Res1"), Timestamp: ptrTime(now)},
+					{LogicalResourceId: strPtr("Res2"), Timestamp: ptrTime(now.Add(1 * time.Second))},
+				},
+			}, nil),
+			wantCount: 2,
+		},
+		"multiple pages of events are all returned": {
+			stack: CfnStack{Id: "stack-id-2", Name: "big-stack"},
+			mock: mockStackEventsClient{
+				pages: map[string]cloudformation.DescribeStackEventsOutput{
+					"": {
+						StackEvents: []types.StackEvent{
+							{LogicalResourceId: strPtr("Page1A"), Timestamp: ptrTime(now)},
+							{LogicalResourceId: strPtr("Page1B"), Timestamp: ptrTime(now.Add(1 * time.Second))},
+						},
+						NextToken: strPtr("token2"),
+					},
+					"token2": {
+						StackEvents: []types.StackEvent{
+							{LogicalResourceId: strPtr("Page2A"), Timestamp: ptrTime(now.Add(2 * time.Second))},
+						},
+						NextToken: strPtr("token3"),
+					},
+					"token3": {
+						StackEvents: []types.StackEvent{
+							{LogicalResourceId: strPtr("Page3A"), Timestamp: ptrTime(now.Add(3 * time.Second))},
+							{LogicalResourceId: strPtr("Page3B"), Timestamp: ptrTime(now.Add(4 * time.Second))},
+						},
+					},
+				},
+			},
+			wantCount: 5,
+		},
+		"empty events": {
+			stack:     CfnStack{Id: "stack-id-3", Name: "empty-stack"},
+			mock:      newSinglePageMock(cloudformation.DescribeStackEventsOutput{}, nil),
+			wantCount: 0,
+		},
+		"API error": {
+			stack:   CfnStack{Id: "stack-id-4", Name: "bad-stack"},
+			mock:    mockStackEventsClient{err: errors.New("access denied")},
+			wantErr: true,
+		},
+		"API error on second page": {
+			stack: CfnStack{Id: "stack-id-5", Name: "mid-error-stack"},
+			mock: mockStackEventsClient{
+				pages: map[string]cloudformation.DescribeStackEventsOutput{
+					"": {
+						StackEvents: []types.StackEvent{
+							{LogicalResourceId: strPtr("Page1"), Timestamp: ptrTime(now)},
+						},
+						NextToken: strPtr("page2"),
+					},
+				},
+				pageErrors: map[string]error{
+					"page2": errors.New("throttling"),
+				},
+			},
+			wantErr: true,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := tc.stack.GetEventSummaries(tc.mock)
+
+			if tc.wantErr {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Len(t, got, tc.wantCount)
+		})
+	}
+}
+
 // TestSortStacks tests the sorting interface for CfnStack
 func TestSortStacks(t *testing.T) {
 	t.Helper()
