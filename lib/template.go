@@ -3,6 +3,7 @@ package lib
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -216,7 +217,12 @@ func GetTemplateBody(stackname *string, parameters *map[string]any, svc CloudFor
 		return CfnTemplateBody{}, fmt.Errorf("template body is nil for stack %q", *stackname)
 	}
 
-	return ParseTemplateString(*result.TemplateBody, parameters)
+	tpl, err := ParseTemplateString(*result.TemplateBody, parameters)
+	if err != nil {
+		return CfnTemplateBody{}, fmt.Errorf("failed to parse template for stack %q: %w", *stackname, err)
+	}
+
+	return tpl, nil
 }
 
 // customRefHandler is a simple example of an intrinsic function handler function
@@ -284,8 +290,9 @@ func customImportValueHandler(name string, input any, template any) any {
 
 // ParseTemplateString parses a CloudFormation template string into a CfnTemplateBody
 func ParseTemplateString(template string, parameters *map[string]any) (CfnTemplateBody, error) {
-	if strings.TrimSpace(template) == "" {
-		return CfnTemplateBody{}, fmt.Errorf("template body is empty")
+	trimmed := strings.TrimSpace(template)
+	if trimmed == "" {
+		return CfnTemplateBody{}, errors.New("template body is empty")
 	}
 	parsedTemplate := CfnTemplateBody{}
 	override := map[string]intrinsics.IntrinsicHandler{}
@@ -300,7 +307,7 @@ func ParseTemplateString(template string, parameters *map[string]any) (CfnTempla
 	var intrinsified []byte
 	var err error
 	// Use goformation intrinsics to convert to JSON and deal with intrinsics
-	if strings.TrimSpace(template)[0] == '{' {
+	if trimmed[0] == '{' {
 		intrinsified, err = intrinsics.ProcessJSON([]byte(template), &options)
 	} else {
 		intrinsified, err = intrinsics.ProcessYAML([]byte(template), &options)

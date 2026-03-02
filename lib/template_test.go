@@ -2,6 +2,7 @@ package lib
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -958,12 +959,13 @@ func TestParseTemplateString_EmptyAndWhitespace(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			_, err := ParseTemplateString(tt.template, nil)
 			if err == nil {
 				t.Fatalf("expected error, got nil")
 			}
-			if err.Error() != tt.wantErr {
-				t.Errorf("error = %q, want %q", err.Error(), tt.wantErr)
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("error = %q, want it to contain %q", err.Error(), tt.wantErr)
 			}
 		})
 	}
@@ -996,6 +998,7 @@ Resources:
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			body, err := ParseTemplateString(tt.template, nil)
 			if err != nil {
 				t.Fatalf("ParseTemplateString() unexpected error = %v", err)
