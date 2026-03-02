@@ -360,6 +360,10 @@ func TestParseTemplateString_ComplexScenarios(t *testing.T) {
 		parameters *map[string]any
 		wantError  bool
 	}{
+		"empty template returns error": {
+			template:  "",
+			wantError: true,
+		},
 		"template with conditions": {
 			template: `{
 				"AWSTemplateFormatVersion": "2010-09-09",
