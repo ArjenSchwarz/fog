@@ -418,6 +418,10 @@ func TestParseTemplateString_ComplexScenarios(t *testing.T) {
 				}
 			}`,
 		},
+		"empty template returns error": {
+			template:  "   ",
+			wantError: true,
+		},
 	}
 
 	for name, tc := range tests {
