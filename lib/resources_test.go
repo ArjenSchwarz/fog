@@ -209,8 +209,8 @@ func TestGetResourcesPagination(t *testing.T) {
 	}
 }
 
-// TestGetResourcesSkipsNilPhysicalResourceID verifies that resources without a physical ID are ignored.
-func TestGetResourcesSkipsNilPhysicalResourceID(t *testing.T) {
+// TestGetResourcesSkipsMissingPhysicalResourceID verifies that resources without a usable physical ID are ignored.
+func TestGetResourcesSkipsMissingPhysicalResourceID(t *testing.T) {
 	stackName := "nil-physical-id-stack"
 	stacksOut := cloudformation.DescribeStacksOutput{
 		Stacks: []types.Stack{{StackName: aws.String(stackName)}},
@@ -229,6 +229,12 @@ func TestGetResourcesSkipsNilPhysicalResourceID(t *testing.T) {
 				ResourceType:       aws.String("AWS::EC2::NatGateway"),
 				ResourceStatus:     types.ResourceStatusCreateComplete,
 			},
+			{
+				LogicalResourceId:  aws.String("EmptyResource"),
+				PhysicalResourceId: aws.String(""),
+				ResourceType:       aws.String("AWS::EC2::NatGateway"),
+				ResourceStatus:     types.ResourceStatusCreateComplete,
+			},
 		},
 	}
 	mock := &mockCloudFormationClient{
@@ -238,7 +244,7 @@ func TestGetResourcesSkipsNilPhysicalResourceID(t *testing.T) {
 
 	got := GetResources(&stackName, mock)
 	if len(got) != 1 {
-		t.Fatalf("expected 1 resource after skipping nil physical IDs, got %d", len(got))
+		t.Fatalf("expected 1 resource after skipping missing physical IDs, got %d", len(got))
 	}
 	if got[0].ResourceID != "nat-123" {
 		t.Fatalf("expected remaining resource ID nat-123, got %q", got[0].ResourceID)

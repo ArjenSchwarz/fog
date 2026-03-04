@@ -747,3 +747,46 @@ func TestTagDifferences_IgnoreTags(t *testing.T) {
 		})
 	}
 }
+
+func TestDriftHasRequiredFields(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		drift types.StackResourceDrift
+		want  bool
+	}{
+		"has logical and type": {
+			drift: types.StackResourceDrift{
+				LogicalResourceId: stringPtr("LogicalId"),
+				ResourceType:      stringPtr("AWS::S3::Bucket"),
+			},
+			want: true,
+		},
+		"missing logical id": {
+			drift: types.StackResourceDrift{
+				ResourceType: stringPtr("AWS::S3::Bucket"),
+			},
+			want: false,
+		},
+		"missing resource type": {
+			drift: types.StackResourceDrift{
+				LogicalResourceId: stringPtr("LogicalId"),
+			},
+			want: false,
+		},
+	}
+
+	for name, tc := range tests {
+		tc := tc
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			if got := driftHasRequiredFields(tc.drift); got != tc.want {
+				t.Errorf("driftHasRequiredFields() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func stringPtr(value string) *string {
+	return &value
+}
