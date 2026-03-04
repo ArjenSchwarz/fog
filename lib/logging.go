@@ -167,12 +167,14 @@ func ReadAllLogs() []DeploymentLog {
 	}()
 
 	scanner := bufio.NewScanner(file)
-	// optionally, resize scanner's capacity for lines over 64K, see next example
+	lineNumber := 0
 	for scanner.Scan() {
+		lineNumber++
 		deploymentlog := DeploymentLog{}
 		err := json.Unmarshal(scanner.Bytes(), &deploymentlog)
 		if err != nil {
-			panic(err)
+			log.Printf("Warning: skipping malformed deployment log entry on line %d in %s: %v", lineNumber, filename, err)
+			continue
 		}
 		result = append(result, deploymentlog)
 	}

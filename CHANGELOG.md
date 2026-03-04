@@ -8,9 +8,11 @@ Unreleased
 - Fixed `GetStack` panicking on empty results or silently returning the wrong stack when multiple stacks matched, by adding length guards
 - Fixed `StackExists` caching `RawStack` only on error instead of on success, which left the cache empty after successful lookups and caused unnecessary duplicate AWS API calls
 - Fixed `GetResources` only processing the first page of DescribeStacks results, causing resources from accounts with more than 100 stacks to be omitted
+- Fixed `ReadAllLogs` panicking on malformed JSON log lines by skipping invalid entries and continuing to process valid deployment logs
 
 ### Tests
 - Added regression tests for output file path case preservation to prevent reintroduction of path lowercasing bug
+- Added malformed-log regression coverage to verify `ReadAllLogs` no longer crashes and still returns sorted valid entries
 
 1.12.2 / 2026-01-19
 ===================
