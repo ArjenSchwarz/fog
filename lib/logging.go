@@ -168,6 +168,7 @@ func ReadAllLogs() []DeploymentLog {
 
 	scanner := bufio.NewScanner(file)
 	// Allow larger log lines than the default 64KB scanner token limit.
+	// Cap at 10MB to handle large deployment records without unbounded memory growth.
 	scanner.Buffer(make([]byte, 0, 64*1024), 10*1024*1024)
 	lineNumber := 0
 	for scanner.Scan() {
