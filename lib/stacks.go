@@ -88,6 +88,7 @@ package lib
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"regexp"
 	"slices"
@@ -378,19 +379,24 @@ func ParseParameterString(parameters string) ([]types.Parameter, error) {
 
 // ParseDeploymentFile parses a deployment file and returns a StackDeploymentFile object
 func ParseDeploymentFile(deploymentFile string) (StackDeploymentFile, error) {
-	// If the deploymentfile is yaml, convert it to json
-	if deploymentFile[0] != '{' {
-		deploymentFileBytes, err := YamlToJson([]byte(deploymentFile))
-		if err != nil {
-			return StackDeploymentFile{}, err
-		}
-		deploymentFile = string(deploymentFileBytes)
+	trimmedDeploymentFile := strings.TrimSpace(deploymentFile)
+	if trimmedDeploymentFile == "" {
+		return StackDeploymentFile{}, errors.New("deployment file content is empty or whitespace only")
 	}
 
 	result := StackDeploymentFile{}
-	err := json.Unmarshal([]byte(deploymentFile), &result)
+	err := json.Unmarshal([]byte(trimmedDeploymentFile), &result)
+	if err == nil {
+		return result, nil
+	}
+
+	// If JSON parsing fails, treat the input as YAML and convert to JSON first.
+	deploymentFileBytes, err := YamlToJson([]byte(trimmedDeploymentFile))
 	if err != nil {
-		fmt.Print(err.Error())
+		return StackDeploymentFile{}, err
+	}
+	err = json.Unmarshal(deploymentFileBytes, &result)
+	if err != nil {
 		return result, err
 	}
 
