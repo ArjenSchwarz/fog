@@ -103,7 +103,7 @@ func detectDrift(cmd *cobra.Command, args []string) {
 	rows := make([]map[string]any, 0)
 
 	for _, drift := range defaultDrift {
-		if drift.StackResourceDriftStatus == types.StackResourceDriftStatusInSync {
+		if drift.StackResourceDriftStatus == types.StackResourceDriftStatusInSync || !driftHasRequiredFields(drift) {
 			continue
 		}
 		actualProperties := make(map[string]any)
@@ -119,8 +119,8 @@ func detectDrift(cmd *cobra.Command, args []string) {
 			}
 		}
 		content := make(map[string]any)
-		content["LogicalId"] = *drift.LogicalResourceId
-		content["Type"] = *drift.ResourceType
+		content["LogicalId"] = aws.ToString(drift.LogicalResourceId)
+		content["Type"] = aws.ToString(drift.ResourceType)
 		changetype := string(drift.StackResourceDriftStatus)
 		if drift.StackResourceDriftStatus == types.StackResourceDriftStatusDeleted {
 			changetype = output.StyleWarning(changetype)
@@ -226,6 +226,10 @@ func detectDrift(cmd *cobra.Command, args []string) {
 			failWithError(err)
 		}
 	}
+}
+
+func driftHasRequiredFields(drift types.StackResourceDrift) bool {
+	return drift.LogicalResourceId != nil && drift.ResourceType != nil
 }
 
 func separateSpecialCases(defaultDrift []types.StackResourceDrift, stackName *string, svc interface {

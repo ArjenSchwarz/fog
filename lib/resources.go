@@ -84,13 +84,14 @@ func GetResources(stackname *string, svc interface {
 			}
 		}
 		for _, resource := range resources.StackResources {
-			if resource.PhysicalResourceId == nil {
+			physicalID := aws.ToString(resource.PhysicalResourceId)
+			if physicalID == "" {
 				continue
 			}
 			resitem := CfnResource{
 				StackName:  aws.ToString(stack.StackName),
 				Type:       aws.ToString(resource.ResourceType),
-				ResourceID: aws.ToString(resource.PhysicalResourceId),
+				ResourceID: physicalID,
 				LogicalID:  aws.ToString(resource.LogicalResourceId),
 				Status:     string(resource.ResourceStatus),
 			}
