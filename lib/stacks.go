@@ -382,9 +382,10 @@ func ParseDeploymentFile(deploymentFile string) (StackDeploymentFile, error) {
 	if trimmedDeploymentFile == "" {
 		return StackDeploymentFile{}, fmt.Errorf("deployment file content is empty or whitespace only")
 	}
+	deploymentFile = trimmedDeploymentFile
 
 	// If the deploymentfile is yaml, convert it to json
-	if trimmedDeploymentFile[0] != '{' {
+	if deploymentFile[0] != '{' {
 		deploymentFileBytes, err := YamlToJson([]byte(deploymentFile))
 		if err != nil {
 			return StackDeploymentFile{}, err
