@@ -103,7 +103,7 @@ func detectDrift(cmd *cobra.Command, args []string) {
 	rows := make([]map[string]any, 0)
 
 	for _, drift := range defaultDrift {
-		if drift.StackResourceDriftStatus == types.StackResourceDriftStatusInSync {
+		if drift.StackResourceDriftStatus == types.StackResourceDriftStatusInSync || !driftHasRequiredFields(drift) {
 			continue
 		}
 		actualProperties := make(map[string]any)
@@ -119,8 +119,8 @@ func detectDrift(cmd *cobra.Command, args []string) {
 			}
 		}
 		content := make(map[string]any)
-		content["LogicalId"] = *drift.LogicalResourceId
-		content["Type"] = *drift.ResourceType
+		content["LogicalId"] = aws.ToString(drift.LogicalResourceId)
+		content["Type"] = aws.ToString(drift.ResourceType)
 		changetype := string(drift.StackResourceDriftStatus)
 		if drift.StackResourceDriftStatus == types.StackResourceDriftStatusDeleted {
 			changetype = output.StyleWarning(changetype)
@@ -228,6 +228,10 @@ func detectDrift(cmd *cobra.Command, args []string) {
 	}
 }
 
+func driftHasRequiredFields(drift types.StackResourceDrift) bool {
+	return drift.LogicalResourceId != nil && drift.ResourceType != nil
+}
+
 func separateSpecialCases(defaultDrift []types.StackResourceDrift, stackName *string, svc interface {
 	lib.CloudFormationDescribeStackResourcesAPI
 	lib.CloudFormationListExportsAPI
@@ -246,6 +250,9 @@ func separateSpecialCases(defaultDrift []types.StackResourceDrift, stackName *st
 		log.Fatal(err)
 	}
 	for _, resource := range stackResourcesResp.StackResources {
+		if resource.LogicalResourceId == nil || resource.PhysicalResourceId == nil {
+			continue
+		}
 		logicalToPhysical[*resource.LogicalResourceId] = *resource.PhysicalResourceId
 	}
 
@@ -265,6 +272,9 @@ func separateSpecialCases(defaultDrift []types.StackResourceDrift, stackName *st
 
 	// Identify special case resources from drift results
 	for _, drift := range defaultDrift {
+		if drift.ResourceType == nil || drift.LogicalResourceId == nil || drift.PhysicalResourceId == nil {
+			continue
+		}
 		switch *drift.ResourceType {
 		case "AWS::EC2::NetworkAcl":
 			naclResources[*drift.LogicalResourceId] = *drift.PhysicalResourceId
