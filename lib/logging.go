@@ -153,6 +153,10 @@ func (deploymentlog *DeploymentLog) Failed(failures []map[string]any) {
 
 // ReadAllLogs reads all deployment logs from the configured log file
 func ReadAllLogs() []DeploymentLog {
+	return readAllLogs(log.Printf)
+}
+
+func readAllLogs(logf func(string, ...any)) []DeploymentLog {
 	result := make([]DeploymentLog, 0)
 	filename := viper.GetString("logging.filename")
 	file, err := os.Open(filename)
@@ -162,7 +166,7 @@ func ReadAllLogs() []DeploymentLog {
 	}
 	defer func() {
 		if err := file.Close(); err != nil {
-			log.Printf("Error closing file: %v", err)
+			logf("Error closing file: %v", err)
 		}
 	}()
 
@@ -176,14 +180,14 @@ func ReadAllLogs() []DeploymentLog {
 		deploymentlog := DeploymentLog{}
 		err := json.Unmarshal(scanner.Bytes(), &deploymentlog)
 		if err != nil {
-			log.Printf("Warning: skipping malformed deployment log entry on line %d in %s: %v", lineNumber, filename, err)
+			logf("Warning: skipping malformed deployment log entry on line %d in %s: %v", lineNumber, filename, err)
 			continue
 		}
 		result = append(result, deploymentlog)
 	}
 
 	if err := scanner.Err(); err != nil {
-		log.Printf("Error scanning file: %v", err)
+		logf("Error scanning file: %v", err)
 		return result
 	}
 

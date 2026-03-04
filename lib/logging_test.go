@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
-	"log"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -403,11 +403,10 @@ func TestReadAllLogsSkipsMalformedLogEntries(t *testing.T) {
 	}
 
 	var warningBuffer bytes.Buffer
-	originalLogOutput := log.Writer()
-	log.SetOutput(&warningBuffer)
-	t.Cleanup(func() {
-		log.SetOutput(originalLogOutput)
-	})
+	warningLogger := func(format string, args ...any) {
+		warningBuffer.WriteString(fmt.Sprintf(format, args...))
+		warningBuffer.WriteByte('\n')
+	}
 
 	defer func() {
 		if recovered := recover(); recovered != nil {
@@ -415,7 +414,7 @@ func TestReadAllLogsSkipsMalformedLogEntries(t *testing.T) {
 		}
 	}()
 
-	readLogs := ReadAllLogs()
+	readLogs := readAllLogs(warningLogger)
 	if len(readLogs) != 2 {
 		t.Fatalf("Read %d logs, want 2 valid logs", len(readLogs))
 	}
