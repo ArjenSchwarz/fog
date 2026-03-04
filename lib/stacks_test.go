@@ -598,8 +598,6 @@ func TestParseTagString(t *testing.T) {
 // TestParseDeploymentFile verifies that deployment files in both JSON and YAML
 // formats are correctly parsed.
 func TestParseDeploymentFile(t *testing.T) {
-	t.Helper()
-
 	jsonInput := `{"template-file-path":"templates/test-stack.yaml","parameters":{"Key1":"Value1"}}`
 	yamlInput := `template-file-path: templates/test-stack.yaml
 parameters:

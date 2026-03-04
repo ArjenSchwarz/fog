@@ -61,10 +61,10 @@ Validate input once at function start to prevent panics and make invalid input h
 
 ## Affected Files
 
-| File | Change |
-|------|--------|
-| `lib/stacks.go` | Added empty/whitespace validation before JSON/YAML detection. |
-| `lib/stacks_test.go` | Added regression test cases for empty and whitespace-only input plus error assertions. |
+File | Change
+--- | ---
+`lib/stacks.go` | Added empty/whitespace validation before JSON/YAML detection.
+`lib/stacks_test.go` | Added regression test cases for empty and whitespace-only input plus error assertions.
 
 ## Verification
 
