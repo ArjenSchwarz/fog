@@ -2,10 +2,13 @@ package lib
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
+	"log"
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -351,6 +354,11 @@ func TestReadAllLogsSkipsMalformedLogEntries(t *testing.T) {
 	tempDir := t.TempDir()
 	logFile := filepath.Join(tempDir, "malformed_logs.log")
 
+	originalLogFile := viper.GetString("logging.filename")
+	t.Cleanup(func() {
+		viper.Set("logging.filename", originalLogFile)
+	})
+
 	viper.Set("logging.filename", logFile)
 
 	validOlder := DeploymentLog{
@@ -394,6 +402,13 @@ func TestReadAllLogsSkipsMalformedLogEntries(t *testing.T) {
 		t.Fatalf("Failed to close log file: %v", err)
 	}
 
+	var warningBuffer bytes.Buffer
+	originalLogOutput := log.Writer()
+	log.SetOutput(&warningBuffer)
+	t.Cleanup(func() {
+		log.SetOutput(originalLogOutput)
+	})
+
 	defer func() {
 		if recovered := recover(); recovered != nil {
 			t.Fatalf("ReadAllLogs panicked on malformed log line: %v", recovered)
@@ -411,6 +426,14 @@ func TestReadAllLogsSkipsMalformedLogEntries(t *testing.T) {
 	}
 	if readLogs[1].StackName != validOlder.StackName {
 		t.Errorf("Second log StackName = %q, want %q", readLogs[1].StackName, validOlder.StackName)
+	}
+
+	warningOutput := warningBuffer.String()
+	if !strings.Contains(warningOutput, "Warning: skipping malformed deployment log entry on line 2") {
+		t.Errorf("Expected warning for malformed log line, got: %q", warningOutput)
+	}
+	if !strings.Contains(warningOutput, logFile) {
+		t.Errorf("Expected warning to include log file path %q, got: %q", logFile, warningOutput)
 	}
 }
 
