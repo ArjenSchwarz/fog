@@ -153,6 +153,10 @@ func (deploymentlog *DeploymentLog) Failed(failures []map[string]any) {
 
 // ReadAllLogs reads all deployment logs from the configured log file
 func ReadAllLogs() []DeploymentLog {
+	return readAllLogs(log.Printf)
+}
+
+func readAllLogs(logf func(string, ...any)) []DeploymentLog {
 	result := make([]DeploymentLog, 0)
 	filename := viper.GetString("logging.filename")
 	file, err := os.Open(filename)
@@ -162,23 +166,28 @@ func ReadAllLogs() []DeploymentLog {
 	}
 	defer func() {
 		if err := file.Close(); err != nil {
-			log.Printf("Error closing file: %v", err)
+			logf("Error closing file: %v", err)
 		}
 	}()
 
 	scanner := bufio.NewScanner(file)
-	// optionally, resize scanner's capacity for lines over 64K, see next example
+	// Allow larger log lines than the default 64KB scanner token limit.
+	// Cap at 10MB to handle large deployment records without unbounded memory growth.
+	scanner.Buffer(make([]byte, 0, 64*1024), 10*1024*1024)
+	lineNumber := 0
 	for scanner.Scan() {
+		lineNumber++
 		deploymentlog := DeploymentLog{}
 		err := json.Unmarshal(scanner.Bytes(), &deploymentlog)
 		if err != nil {
-			panic(err)
+			logf("Warning: skipping malformed deployment log entry on line %d in %s: %v", lineNumber, filename, err)
+			continue
 		}
 		result = append(result, deploymentlog)
 	}
 
 	if err := scanner.Err(); err != nil {
-		log.Printf("Error scanning file: %v", err)
+		logf("Error scanning file: %v", err)
 		return result
 	}
 

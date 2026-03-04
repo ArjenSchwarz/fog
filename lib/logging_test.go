@@ -2,10 +2,13 @@ package lib
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -344,6 +347,92 @@ func TestReadAllLogs(t *testing.T) {
 		if readLogs[i].StartedAt.Before(readLogs[i+1].StartedAt) {
 			t.Errorf("Logs not sorted correctly by StartedAt in reverse order")
 		}
+	}
+}
+
+func TestReadAllLogsSkipsMalformedLogEntries(t *testing.T) {
+	tempDir := t.TempDir()
+	logFile := filepath.Join(tempDir, "malformed_logs.log")
+
+	originalLogFile := viper.GetString("logging.filename")
+	t.Cleanup(func() {
+		viper.Set("logging.filename", originalLogFile)
+	})
+
+	viper.Set("logging.filename", logFile)
+
+	validOlder := DeploymentLog{
+		Account:   "123456789012",
+		StackName: "stack-old",
+		StartedAt: time.Now().UTC().Add(-2 * time.Hour),
+		Status:    DeploymentLogStatusSuccess,
+		UpdatedAt: time.Now().UTC().Add(-2 * time.Hour),
+	}
+	validNewer := DeploymentLog{
+		Account:   "123456789012",
+		StackName: "stack-new",
+		StartedAt: time.Now().UTC().Add(-1 * time.Hour),
+		Status:    DeploymentLogStatusFailed,
+		UpdatedAt: time.Now().UTC().Add(-1 * time.Hour),
+	}
+
+	file, err := os.Create(logFile)
+	if err != nil {
+		t.Fatalf("Failed to create log file: %v", err)
+	}
+
+	data, err := json.Marshal(validOlder)
+	if err != nil {
+		t.Fatalf("Failed to marshal older log: %v", err)
+	}
+	if _, err := file.Write(append(data, '\n')); err != nil {
+		t.Fatalf("Failed to write older log: %v", err)
+	}
+	if _, err := file.Write([]byte("{malformed-json}\n")); err != nil {
+		t.Fatalf("Failed to write malformed log line: %v", err)
+	}
+	data, err = json.Marshal(validNewer)
+	if err != nil {
+		t.Fatalf("Failed to marshal newer log: %v", err)
+	}
+	if _, err := file.Write(append(data, '\n')); err != nil {
+		t.Fatalf("Failed to write newer log: %v", err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatalf("Failed to close log file: %v", err)
+	}
+
+	var warningBuffer bytes.Buffer
+	warningLogger := func(format string, args ...any) {
+		warningBuffer.WriteString(fmt.Sprintf(format, args...))
+		warningBuffer.WriteByte('\n')
+	}
+
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			t.Fatalf("ReadAllLogs panicked on malformed log line: %v", recovered)
+		}
+	}()
+
+	readLogs := readAllLogs(warningLogger)
+	if len(readLogs) != 2 {
+		t.Fatalf("Read %d logs, want 2 valid logs", len(readLogs))
+	}
+
+	// Expected behavior: malformed lines are skipped and valid logs are still sorted newest first.
+	if readLogs[0].StackName != validNewer.StackName {
+		t.Errorf("First log StackName = %q, want %q", readLogs[0].StackName, validNewer.StackName)
+	}
+	if readLogs[1].StackName != validOlder.StackName {
+		t.Errorf("Second log StackName = %q, want %q", readLogs[1].StackName, validOlder.StackName)
+	}
+
+	warningOutput := warningBuffer.String()
+	if !strings.Contains(warningOutput, "Warning: skipping malformed deployment log entry on line 2") {
+		t.Errorf("Expected warning for malformed log line, got: %q", warningOutput)
+	}
+	if !strings.Contains(warningOutput, logFile) {
+		t.Errorf("Expected warning to include log file path %q, got: %q", logFile, warningOutput)
 	}
 }
 
