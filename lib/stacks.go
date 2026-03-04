@@ -378,8 +378,13 @@ func ParseParameterString(parameters string) ([]types.Parameter, error) {
 
 // ParseDeploymentFile parses a deployment file and returns a StackDeploymentFile object
 func ParseDeploymentFile(deploymentFile string) (StackDeploymentFile, error) {
+	trimmedDeploymentFile := strings.TrimSpace(deploymentFile)
+	if trimmedDeploymentFile == "" {
+		return StackDeploymentFile{}, fmt.Errorf("deployment file content is empty or whitespace only")
+	}
+
 	// If the deploymentfile is yaml, convert it to json
-	if deploymentFile[0] != '{' {
+	if trimmedDeploymentFile[0] != '{' {
 		deploymentFileBytes, err := YamlToJson([]byte(deploymentFile))
 		if err != nil {
 			return StackDeploymentFile{}, err

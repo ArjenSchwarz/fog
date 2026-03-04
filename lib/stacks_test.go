@@ -611,6 +611,7 @@ parameters:
 		wantParametersCount    int
 		wantParameterKey1Value string
 		wantErr                bool
+		wantErrContains        string
 	}{
 		"valid JSON": {
 			input:                  jsonInput,
@@ -630,6 +631,16 @@ parameters:
 			input:   `{invalid`,
 			wantErr: true,
 		},
+		"empty input": {
+			input:           ``,
+			wantErr:         true,
+			wantErrContains: "empty or whitespace",
+		},
+		"whitespace only input": {
+			input:           " \n\t ",
+			wantErr:         true,
+			wantErrContains: "empty or whitespace",
+		},
 	}
 
 	for name, tc := range tests {
@@ -640,6 +651,9 @@ parameters:
 
 			if tc.wantErr {
 				require.Error(t, err)
+				if tc.wantErrContains != "" {
+					assert.Contains(t, err.Error(), tc.wantErrContains)
+				}
 				return
 			}
 
