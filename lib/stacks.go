@@ -397,7 +397,6 @@ func ParseDeploymentFile(deploymentFile string) (StackDeploymentFile, error) {
 	}
 	err = json.Unmarshal(deploymentFileBytes, &result)
 	if err != nil {
-		fmt.Print(err.Error())
 		return result, err
 	}
 

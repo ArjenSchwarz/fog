@@ -637,6 +637,10 @@ parameters:
 			input:   `{invalid`,
 			wantErr: true,
 		},
+		"json array input": {
+			input:   `[]`,
+			wantErr: true,
+		},
 		"empty input": {
 			input:           ``,
 			wantErr:         true,
