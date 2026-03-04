@@ -210,6 +210,7 @@ func TestWaitForDriftDetectionToFinish(t *testing.T) {
 
 			if tc.wantErr {
 				assert.Error(t, err)
+				assert.Empty(t, got)
 				return
 			}
 
@@ -360,6 +361,7 @@ func TestGetDefaultStackDrift(t *testing.T) {
 
 			if tc.wantErr {
 				assert.Error(t, err)
+				assert.Nil(t, got)
 				return
 			}
 
