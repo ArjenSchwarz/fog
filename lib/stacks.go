@@ -88,6 +88,7 @@ package lib
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"regexp"
 	"slices"
@@ -380,7 +381,7 @@ func ParseParameterString(parameters string) ([]types.Parameter, error) {
 func ParseDeploymentFile(deploymentFile string) (StackDeploymentFile, error) {
 	trimmedDeploymentFile := strings.TrimSpace(deploymentFile)
 	if trimmedDeploymentFile == "" {
-		return StackDeploymentFile{}, fmt.Errorf("deployment file content is empty or whitespace only")
+		return StackDeploymentFile{}, errors.New("deployment file content is empty or whitespace only")
 	}
 	deploymentFile = trimmedDeploymentFile
 
