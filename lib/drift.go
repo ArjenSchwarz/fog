@@ -29,15 +29,16 @@ func WaitForDriftDetectionToFinish(driftDetectionId *string, svc CloudFormationD
 	input := &cloudformation.DescribeStackDriftDetectionStatusInput{
 		StackDriftDetectionId: driftDetectionId,
 	}
-	result, err := svc.DescribeStackDriftDetectionStatus(context.TODO(), input)
-	if err != nil {
-		return "", fmt.Errorf("failed to check drift detection status: %w", err)
-	}
-	if result.DetectionStatus == types.StackDriftDetectionStatusDetectionInProgress {
+	for {
+		result, err := svc.DescribeStackDriftDetectionStatus(context.TODO(), input)
+		if err != nil {
+			return "", fmt.Errorf("failed to check drift detection status: %w", err)
+		}
+		if result.DetectionStatus != types.StackDriftDetectionStatusDetectionInProgress {
+			return result.DetectionStatus, nil
+		}
 		time.Sleep(5 * time.Second)
-		return WaitForDriftDetectionToFinish(driftDetectionId, svc)
 	}
-	return result.DetectionStatus, nil
 }
 
 // GetDefaultStackDrift retrieves all resource drift information for a stack
