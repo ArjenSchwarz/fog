@@ -383,19 +383,19 @@ func ParseDeploymentFile(deploymentFile string) (StackDeploymentFile, error) {
 	if trimmedDeploymentFile == "" {
 		return StackDeploymentFile{}, errors.New("deployment file content is empty or whitespace only")
 	}
-	deploymentFile = trimmedDeploymentFile
-
-	// If the deploymentfile is yaml, convert it to json
-	if deploymentFile[0] != '{' {
-		deploymentFileBytes, err := YamlToJson([]byte(deploymentFile))
-		if err != nil {
-			return StackDeploymentFile{}, err
-		}
-		deploymentFile = string(deploymentFileBytes)
-	}
 
 	result := StackDeploymentFile{}
-	err := json.Unmarshal([]byte(deploymentFile), &result)
+	err := json.Unmarshal([]byte(trimmedDeploymentFile), &result)
+	if err == nil {
+		return result, nil
+	}
+
+	// If JSON parsing fails, treat the input as YAML and convert to JSON first.
+	deploymentFileBytes, err := YamlToJson([]byte(trimmedDeploymentFile))
+	if err != nil {
+		return StackDeploymentFile{}, err
+	}
+	err = json.Unmarshal(deploymentFileBytes, &result)
 	if err != nil {
 		fmt.Print(err.Error())
 		return result, err

@@ -604,6 +604,7 @@ func TestParseDeploymentFile(t *testing.T) {
 	yamlInput := `template-file-path: templates/test-stack.yaml
 parameters:
   Key1: Value1`
+	yamlFlowInput := " \n{template-file-path: templates/test-stack.yaml, parameters: {Key1: Value1}}"
 
 	tests := map[string]struct {
 		input                  string
@@ -622,6 +623,13 @@ parameters:
 		},
 		"valid YAML": {
 			input:                  yamlInput,
+			wantTemplateFilePath:   "templates/test-stack.yaml",
+			wantParametersCount:    1,
+			wantParameterKey1Value: "Value1",
+			wantErr:                false,
+		},
+		"valid YAML flow mapping with leading whitespace": {
+			input:                  yamlFlowInput,
 			wantTemplateFilePath:   "templates/test-stack.yaml",
 			wantParametersCount:    1,
 			wantParameterKey1Value: "Value1",
