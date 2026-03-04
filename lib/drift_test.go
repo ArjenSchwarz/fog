@@ -82,7 +82,7 @@ func TestStartDriftDetection(t *testing.T) {
 		stackName string
 		setupMock func() *mockDriftDetectionClient
 		want      string
-		wantPanic bool
+		wantErr   bool
 	}{
 		"successful drift detection": {
 			stackName: "test-stack",
@@ -98,7 +98,7 @@ func TestStartDriftDetection(t *testing.T) {
 			},
 			want: "drift-detection-id-123",
 		},
-		"API error triggers panic": {
+		"API error returns error": {
 			stackName: "test-stack",
 			setupMock: func() *mockDriftDetectionClient {
 				return &mockDriftDetectionClient{
@@ -107,7 +107,7 @@ func TestStartDriftDetection(t *testing.T) {
 					},
 				}
 			},
-			wantPanic: true,
+			wantErr: true,
 		},
 	}
 
@@ -117,14 +117,15 @@ func TestStartDriftDetection(t *testing.T) {
 
 			mockClient := tc.setupMock()
 
-			if tc.wantPanic {
-				assert.Panics(t, func() {
-					StartDriftDetection(&tc.stackName, mockClient)
-				}, "Expected StartDriftDetection to panic on API error")
+			got, err := StartDriftDetection(&tc.stackName, mockClient)
+
+			if tc.wantErr {
+				assert.Error(t, err)
+				assert.Nil(t, got)
 				return
 			}
 
-			got := StartDriftDetection(&tc.stackName, mockClient)
+			require.NoError(t, err)
 			assert.Equal(t, tc.want, *got)
 		})
 	}
@@ -138,7 +139,7 @@ func TestWaitForDriftDetectionToFinish(t *testing.T) {
 		setupMock        func() *mockDriftStatusClient
 		want             types.StackDriftDetectionStatus
 		wantMinCalls     int
-		wantPanic        bool
+		wantErr          bool
 	}{
 		"completes immediately": {
 			driftDetectionID: "drift-id-123",
@@ -187,7 +188,7 @@ func TestWaitForDriftDetectionToFinish(t *testing.T) {
 			want:         types.StackDriftDetectionStatusDetectionFailed,
 			wantMinCalls: 1,
 		},
-		"API error triggers panic": {
+		"API error returns error": {
 			driftDetectionID: "drift-id-error",
 			setupMock: func() *mockDriftStatusClient {
 				return &mockDriftStatusClient{
@@ -196,7 +197,7 @@ func TestWaitForDriftDetectionToFinish(t *testing.T) {
 					},
 				}
 			},
-			wantPanic: true,
+			wantErr: true,
 		},
 	}
 
@@ -205,15 +206,14 @@ func TestWaitForDriftDetectionToFinish(t *testing.T) {
 			// Cannot run in parallel due to sleep timing dependencies
 			mockClient := tc.setupMock()
 
-			if tc.wantPanic {
-				assert.Panics(t, func() {
-					WaitForDriftDetectionToFinish(&tc.driftDetectionID, mockClient)
-				}, "Expected WaitForDriftDetectionToFinish to panic on API error")
+			got, err := WaitForDriftDetectionToFinish(&tc.driftDetectionID, mockClient)
+
+			if tc.wantErr {
+				assert.Error(t, err)
 				return
 			}
 
-			got := WaitForDriftDetectionToFinish(&tc.driftDetectionID, mockClient)
-
+			require.NoError(t, err)
 			assert.Equal(t, tc.want, got)
 			assert.GreaterOrEqual(t, mockClient.callCount, tc.wantMinCalls,
 				"Expected at least %d API calls, got %d", tc.wantMinCalls, mockClient.callCount)
@@ -228,7 +228,7 @@ func TestGetDefaultStackDrift(t *testing.T) {
 		stackName string
 		setupMock func() *mockResourceDriftsClient
 		want      []types.StackResourceDrift
-		wantPanic bool
+		wantErr   bool
 	}{
 		"no drifts": {
 			stackName: "test-stack",
@@ -337,7 +337,7 @@ func TestGetDefaultStackDrift(t *testing.T) {
 				},
 			},
 		},
-		"API error triggers panic": {
+		"API error returns error": {
 			stackName: "test-stack",
 			setupMock: func() *mockResourceDriftsClient {
 				return &mockResourceDriftsClient{
@@ -346,7 +346,7 @@ func TestGetDefaultStackDrift(t *testing.T) {
 					},
 				}
 			},
-			wantPanic: true,
+			wantErr: true,
 		},
 	}
 
@@ -356,15 +356,14 @@ func TestGetDefaultStackDrift(t *testing.T) {
 
 			mockClient := tc.setupMock()
 
-			if tc.wantPanic {
-				assert.Panics(t, func() {
-					GetDefaultStackDrift(&tc.stackName, mockClient)
-				}, "Expected GetDefaultStackDrift to panic on API error")
+			got, err := GetDefaultStackDrift(&tc.stackName, mockClient)
+
+			if tc.wantErr {
+				assert.Error(t, err)
 				return
 			}
 
-			got := GetDefaultStackDrift(&tc.stackName, mockClient)
-
+			require.NoError(t, err)
 			opts := []cmp.Option{
 				cmpopts.IgnoreUnexported(types.StackResourceDrift{}),
 			}
