@@ -2,6 +2,7 @@ Unreleased
 ==========
 
 ### Fixed
+- Fixed drift detection helpers to return errors instead of panicking on AWS API failures, so the drift command now reports clean CLI errors
 - Fixed `GetExports` only processing the first page of DescribeStacks results, causing exports from accounts with more than 100 stacks to be omitted
 - Fixed Lambda report handler panicking when `ReportTimezone` environment variable is empty or unset, by only overriding the timezone default when a non-empty value is provided
 - Fixed `GetStackAndChangesetFromURL` using `log.Fatal` and `panic` on invalid URL input, causing the process to exit instead of returning an error to the caller
@@ -10,6 +11,7 @@ Unreleased
 - Fixed `GetResources` only processing the first page of DescribeStacks results, causing resources from accounts with more than 100 stacks to be omitted
 
 ### Tests
+- Added regression coverage for drift API error paths to verify drift helpers return errors without panicking
 - Added regression tests for output file path case preservation to prevent reintroduction of path lowercasing bug
 
 1.12.2 / 2026-01-19

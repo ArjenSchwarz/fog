@@ -13,35 +13,35 @@ import (
 )
 
 // StartDriftDetection initiates drift detection for a stack and returns the detection ID
-func StartDriftDetection(stackName *string, svc CloudFormationDetectStackDriftAPI) *string {
+func StartDriftDetection(stackName *string, svc CloudFormationDetectStackDriftAPI) (*string, error) {
 	input := &cloudformation.DetectStackDriftInput{
 		StackName: stackName,
 	}
 	result, err := svc.DetectStackDrift(context.TODO(), input)
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("failed to start drift detection: %w", err)
 	}
-	return result.StackDriftDetectionId
+	return result.StackDriftDetectionId, nil
 }
 
 // WaitForDriftDetectionToFinish polls until drift detection completes and returns the final status
-func WaitForDriftDetectionToFinish(driftDetectionId *string, svc CloudFormationDescribeStackDriftDetectionStatusAPI) types.StackDriftDetectionStatus {
+func WaitForDriftDetectionToFinish(driftDetectionId *string, svc CloudFormationDescribeStackDriftDetectionStatusAPI) (types.StackDriftDetectionStatus, error) {
 	input := &cloudformation.DescribeStackDriftDetectionStatusInput{
 		StackDriftDetectionId: driftDetectionId,
 	}
 	result, err := svc.DescribeStackDriftDetectionStatus(context.TODO(), input)
 	if err != nil {
-		panic(err)
+		return "", fmt.Errorf("failed to check drift detection status: %w", err)
 	}
 	if result.DetectionStatus == types.StackDriftDetectionStatusDetectionInProgress {
 		time.Sleep(5 * time.Second)
 		return WaitForDriftDetectionToFinish(driftDetectionId, svc)
 	}
-	return result.DetectionStatus
+	return result.DetectionStatus, nil
 }
 
 // GetDefaultStackDrift retrieves all resource drift information for a stack
-func GetDefaultStackDrift(stackName *string, svc CloudFormationDescribeStackResourceDriftsAPI) []types.StackResourceDrift {
+func GetDefaultStackDrift(stackName *string, svc CloudFormationDescribeStackResourceDriftsAPI) ([]types.StackResourceDrift, error) {
 	input := &cloudformation.DescribeStackResourceDriftsInput{
 		StackName: stackName,
 	}
@@ -56,7 +56,7 @@ func GetDefaultStackDrift(stackName *string, svc CloudFormationDescribeStackReso
 
 		output, err := svc.DescribeStackResourceDrifts(context.TODO(), input)
 		if err != nil {
-			panic(err)
+			return nil, fmt.Errorf("failed to retrieve stack drifts: %w", err)
 		}
 
 		allDrifts = append(allDrifts, output.StackResourceDrifts...)
@@ -67,7 +67,7 @@ func GetDefaultStackDrift(stackName *string, svc CloudFormationDescribeStackReso
 		nextToken = output.NextToken
 	}
 
-	return allDrifts
+	return allDrifts, nil
 }
 
 // GetUncheckedStackResources returns stack resources that have not been checked for drift

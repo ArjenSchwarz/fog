@@ -78,10 +78,19 @@ func detectDrift(cmd *cobra.Command, args []string) {
 	keys := []string{"LogicalId", "Type", "ChangeType", "Details"}
 
 	if !driftFlags.ResultsOnly {
-		driftid := lib.StartDriftDetection(&driftFlags.StackName, awsConfig.CloudformationClient())
-		lib.WaitForDriftDetectionToFinish(driftid, awsConfig.CloudformationClient())
+		driftid, err := lib.StartDriftDetection(&driftFlags.StackName, awsConfig.CloudformationClient())
+		if err != nil {
+			failWithError(err)
+		}
+		_, err = lib.WaitForDriftDetectionToFinish(driftid, awsConfig.CloudformationClient())
+		if err != nil {
+			failWithError(err)
+		}
 	}
-	defaultDrift := lib.GetDefaultStackDrift(&driftFlags.StackName, svc)
+	defaultDrift, err := lib.GetDefaultStackDrift(&driftFlags.StackName, svc)
+	if err != nil {
+		failWithError(err)
+	}
 	stack, err := lib.GetStack(&driftFlags.StackName, svc)
 	if err != nil {
 		failWithError(err)
