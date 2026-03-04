@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
 	"github.com/aws/smithy-go"
@@ -83,11 +84,14 @@ func GetResources(stackname *string, svc interface {
 			}
 		}
 		for _, resource := range resources.StackResources {
+			if resource.PhysicalResourceId == nil {
+				continue
+			}
 			resitem := CfnResource{
-				StackName:  *stack.StackName,
-				Type:       *resource.ResourceType,
-				ResourceID: *resource.PhysicalResourceId,
-				LogicalID:  *resource.LogicalResourceId,
+				StackName:  aws.ToString(stack.StackName),
+				Type:       aws.ToString(resource.ResourceType),
+				ResourceID: aws.ToString(resource.PhysicalResourceId),
+				LogicalID:  aws.ToString(resource.LogicalResourceId),
 				Status:     string(resource.ResourceStatus),
 			}
 			resourcelist = append(resourcelist, resitem)

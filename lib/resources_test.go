@@ -209,6 +209,42 @@ func TestGetResourcesPagination(t *testing.T) {
 	}
 }
 
+// TestGetResourcesSkipsNilPhysicalResourceID verifies that resources without a physical ID are ignored.
+func TestGetResourcesSkipsNilPhysicalResourceID(t *testing.T) {
+	stackName := "nil-physical-id-stack"
+	stacksOut := cloudformation.DescribeStacksOutput{
+		Stacks: []types.Stack{{StackName: aws.String(stackName)}},
+	}
+	resOut := cloudformation.DescribeStackResourcesOutput{
+		StackResources: []types.StackResource{
+			{
+				LogicalResourceId:  aws.String("PendingResource"),
+				PhysicalResourceId: nil,
+				ResourceType:       aws.String("AWS::EC2::NatGateway"),
+				ResourceStatus:     types.ResourceStatusCreateInProgress,
+			},
+			{
+				LogicalResourceId:  aws.String("ReadyResource"),
+				PhysicalResourceId: aws.String("nat-123"),
+				ResourceType:       aws.String("AWS::EC2::NatGateway"),
+				ResourceStatus:     types.ResourceStatusCreateComplete,
+			},
+		},
+	}
+	mock := &mockCloudFormationClient{
+		describeStacksOutput:          stacksOut,
+		describeStackResourcesOutputs: []cloudformation.DescribeStackResourcesOutput{resOut},
+	}
+
+	got := GetResources(&stackName, mock)
+	if len(got) != 1 {
+		t.Fatalf("expected 1 resource after skipping nil physical IDs, got %d", len(got))
+	}
+	if got[0].ResourceID != "nat-123" {
+		t.Fatalf("expected remaining resource ID nat-123, got %q", got[0].ResourceID)
+	}
+}
+
 // TestGetResourcesNonThrottlingError verifies that non-throttling API errors cause the function to log and exit.
 func TestGetResourcesNonThrottlingError(t *testing.T) {
 	if os.Getenv("FOG_TEST_HELPER") == "1" {

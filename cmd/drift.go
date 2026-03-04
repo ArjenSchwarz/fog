@@ -246,6 +246,9 @@ func separateSpecialCases(defaultDrift []types.StackResourceDrift, stackName *st
 		log.Fatal(err)
 	}
 	for _, resource := range stackResourcesResp.StackResources {
+		if resource.LogicalResourceId == nil || resource.PhysicalResourceId == nil {
+			continue
+		}
 		logicalToPhysical[*resource.LogicalResourceId] = *resource.PhysicalResourceId
 	}
 
@@ -265,6 +268,9 @@ func separateSpecialCases(defaultDrift []types.StackResourceDrift, stackName *st
 
 	// Identify special case resources from drift results
 	for _, drift := range defaultDrift {
+		if drift.ResourceType == nil || drift.LogicalResourceId == nil || drift.PhysicalResourceId == nil {
+			continue
+		}
 		switch *drift.ResourceType {
 		case "AWS::EC2::NetworkAcl":
 			naclResources[*drift.LogicalResourceId] = *drift.PhysicalResourceId
