@@ -1,22 +1,14 @@
 Unreleased
 ==========
 
-### Fixed
-- Fixed `ParseDeploymentFile` panicking on empty deployment file content by validating empty or whitespace-only input and returning a descriptive error
-- Fixed drift detection helpers to return errors instead of panicking on AWS API failures, so the drift command now reports clean CLI errors
-- Fixed `GetExports` only processing the first page of DescribeStacks results, causing exports from accounts with more than 100 stacks to be omitted
-- Fixed Lambda report handler panicking when `ReportTimezone` environment variable is empty or unset, by only overriding the timezone default when a non-empty value is provided
-- Fixed `GetStackAndChangesetFromURL` using `log.Fatal` and `panic` on invalid URL input, causing the process to exit instead of returning an error to the caller
-- Fixed `GetStack` panicking on empty results or silently returning the wrong stack when multiple stacks matched, by adding length guards
-- Fixed `StackExists` caching `RawStack` only on error instead of on success, which left the cache empty after successful lookups and caused unnecessary duplicate AWS API calls
-- Fixed `GetResources` only processing the first page of DescribeStacks results, causing resources from accounts with more than 100 stacks to be omitted
-- Fixed `ReadAllLogs` panicking on malformed JSON log lines by skipping invalid entries and continuing to process valid deployment logs
+1.12.3 / 2026-03-05
+===================
 
-### Tests
-- Added regression coverage for empty and whitespace-only deployment file input to ensure `ParseDeploymentFile` returns an error instead of panicking
-- Added regression coverage for drift API error paths to verify drift helpers return errors without panicking
-- Added regression tests for output file path case preservation to prevent reintroduction of path lowercasing bug
-- Added malformed-log regression coverage to verify `ReadAllLogs` no longer crashes and still returns sorted valid entries
+### Fixed
+- Fixed multiple functions panicking instead of returning errors: `ParseDeploymentFile` on empty input, drift detection on AWS API failures, `GetStack` on empty/ambiguous results, `GetStackAndChangesetFromURL` on invalid URLs, `ReadAllLogs` on malformed log lines, and Lambda report handler on empty timezone config
+- Fixed `StackExists` caching `RawStack` only on error instead of on success, causing unnecessary duplicate AWS API calls
+- Fixed `GetExports` and `GetResources` only processing the first page of results, causing data from accounts with more than 100 stacks to be omitted
+- Fixed various nil pointer dereferences in resource and drift mapping operations
 
 1.12.2 / 2026-01-19
 ===================
