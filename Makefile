@@ -21,7 +21,7 @@ build-release:
 		echo "Error: VERSION must be set for release builds. Usage: make build-release VERSION=1.2.3"; \
 		exit 1; \
 	fi
-	go build -ldflags "$(LDFLAGS)" -o fog .
+	go build -ldflags "-s -w $(LDFLAGS)" -o fog .
 
 # Run all tests
 test:
