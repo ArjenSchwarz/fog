@@ -134,22 +134,63 @@ func TGWRouteResourceToTGWRoute(resource CfnTemplateResource, params []cfntypes.
 func FilterTGWRoutesByLogicalId(logicalId string, template CfnTemplateBody, params []cfntypes.Parameter, logicalToPhysical map[string]string) map[string]types.TransitGatewayRoute {
 	result := make(map[string]types.TransitGatewayRoute)
 
+	// Look up the physical ID for the target logical ID
+	physicalId := logicalToPhysical[logicalId]
+
 	for _, resource := range template.Resources {
 		if resource.Type == "AWS::EC2::TransitGatewayRoute" && template.ShouldHaveResource(resource) {
-			rtid := strings.Replace(resource.Properties["TransitGatewayRouteTableId"].(string), "REF: ", "", 1)
-
-			if rtid == logicalId {
-				// Convert CloudFormation resource to TransitGatewayRoute
-				route := TGWRouteResourceToTGWRoute(resource, params, logicalToPhysical)
-				destination := GetTGWRouteDestination(route)
-				// Store the route for comparison
-				if destination != "" {
-					result[destination] = route
-				}
+			if !tgwRouteMatchesRouteTable(resource, logicalId, physicalId, params, logicalToPhysical) {
+				continue
+			}
+			// Convert CloudFormation resource to TransitGatewayRoute
+			route := TGWRouteResourceToTGWRoute(resource, params, logicalToPhysical)
+			destination := GetTGWRouteDestination(route)
+			// Store the route for comparison
+			if destination != "" {
+				result[destination] = route
 			}
 		}
 	}
 	return result
+}
+
+// tgwRouteMatchesRouteTable checks whether a TGW route resource's TransitGatewayRouteTableId
+// matches the given logical ID. Handles all property formats: "REF: " strings, Ref maps,
+// Fn::ImportValue maps, and plain physical ID strings.
+func tgwRouteMatchesRouteTable(resource CfnTemplateResource, logicalId string, physicalId string, params []cfntypes.Parameter, logicalToPhysical map[string]string) bool {
+	prop := resource.Properties["TransitGatewayRouteTableId"]
+	if prop == nil {
+		return false
+	}
+
+	switch value := prop.(type) {
+	case string:
+		// Handle "REF: LogicalId" format
+		rtid := strings.Replace(value, "REF: ", "", 1)
+		if rtid == logicalId {
+			return true
+		}
+		// Handle plain physical ID string
+		if physicalId != "" && rtid == physicalId {
+			return true
+		}
+	case map[string]any:
+		// Handle {"Ref": "LogicalId"} format
+		if refName, ok := value["Ref"].(string); ok {
+			if refName == logicalId {
+				return true
+			}
+		}
+		// Handle {"Fn::ImportValue": "ExportName"} format
+		if importName, ok := value["Fn::ImportValue"].(string); ok {
+			if resolvedId, ok := logicalToPhysical[importName]; ok {
+				if physicalId != "" && resolvedId == physicalId {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
 
 // CompareTGWRoutes compares two Transit Gateway routes for equality
