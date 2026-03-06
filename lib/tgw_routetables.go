@@ -139,7 +139,7 @@ func FilterTGWRoutesByLogicalId(logicalId string, template CfnTemplateBody, para
 
 	for _, resource := range template.Resources {
 		if resource.Type == "AWS::EC2::TransitGatewayRoute" && template.ShouldHaveResource(resource) {
-			if !tgwRouteMatchesRouteTable(resource, logicalId, physicalId, params, logicalToPhysical) {
+			if !tgwRouteMatchesRouteTable(resource, logicalId, physicalId, logicalToPhysical) {
 				continue
 			}
 			// Convert CloudFormation resource to TransitGatewayRoute
@@ -157,7 +157,7 @@ func FilterTGWRoutesByLogicalId(logicalId string, template CfnTemplateBody, para
 // tgwRouteMatchesRouteTable checks whether a TGW route resource's TransitGatewayRouteTableId
 // matches the given logical ID. Handles all property formats: "REF: " strings, Ref maps,
 // Fn::ImportValue maps, and plain physical ID strings.
-func tgwRouteMatchesRouteTable(resource CfnTemplateResource, logicalId string, physicalId string, params []cfntypes.Parameter, logicalToPhysical map[string]string) bool {
+func tgwRouteMatchesRouteTable(resource CfnTemplateResource, logicalId string, physicalId string, logicalToPhysical map[string]string) bool {
 	prop := resource.Properties["TransitGatewayRouteTableId"]
 	if prop == nil {
 		return false
@@ -166,7 +166,7 @@ func tgwRouteMatchesRouteTable(resource CfnTemplateResource, logicalId string, p
 	switch value := prop.(type) {
 	case string:
 		// Handle "REF: LogicalId" format
-		rtid := strings.Replace(value, "REF: ", "", 1)
+		rtid := strings.TrimPrefix(value, "REF: ")
 		if rtid == logicalId {
 			return true
 		}
