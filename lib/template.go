@@ -560,7 +560,7 @@ func stringPointer(array map[string]any, params []cfntypes.Parameter, logicalToP
 	result := ""
 	switch value := array[value].(type) {
 	case string:
-		refvalue := strings.Replace(value, "REF: ", "", 1)
+		refvalue := strings.TrimPrefix(value, "REF: ")
 		if _, ok := logicalToPhysical[refvalue]; ok {
 			result = logicalToPhysical[refvalue]
 		} else {
