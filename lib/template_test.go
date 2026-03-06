@@ -680,6 +680,15 @@ func TestFilterTGWRoutesByLogicalId_RefAndImportMap(t *testing.T) {
 					"TransitGatewayAttachmentId": "tgw-attach-refstr",
 				},
 			},
+			// Route using plain physical ID string for route table ID
+			"PhysicalIdRoute": {
+				Type: "AWS::EC2::TransitGatewayRoute",
+				Properties: map[string]any{
+					"TransitGatewayRouteTableId": "tgw-rtb-physical123",
+					"DestinationCidrBlock":       "10.50.0.0/16",
+					"TransitGatewayAttachmentId": "tgw-attach-physical",
+				},
+			},
 			// Route for a different route table (should not be included)
 			"OtherRoute": {
 				Type: "AWS::EC2::TransitGatewayRoute",
@@ -695,8 +704,8 @@ func TestFilterTGWRoutesByLogicalId_RefAndImportMap(t *testing.T) {
 
 	results := FilterTGWRoutesByLogicalId("MyTGWRouteTable", template, params, logicalToPhysical)
 
-	if len(results) != 3 {
-		t.Errorf("Expected 3 routes, got %d", len(results))
+	if len(results) != 4 {
+		t.Errorf("Expected 4 routes, got %d", len(results))
 	}
 
 	// Check that the Ref map route is included
@@ -724,6 +733,15 @@ func TestFilterTGWRoutesByLogicalId_RefAndImportMap(t *testing.T) {
 		}
 	} else {
 		t.Error("Expected REF: string route (192.168.0.0/24) not found")
+	}
+
+	// Check that the plain physical ID string route is included
+	if route, ok := results["10.50.0.0/16"]; ok {
+		if *route.DestinationCidrBlock != "10.50.0.0/16" {
+			t.Errorf("Expected CIDR 10.50.0.0/16, got %s", *route.DestinationCidrBlock)
+		}
+	} else {
+		t.Error("Expected plain physical ID route (10.50.0.0/16) not found")
 	}
 
 	// Ensure the other route table's route is NOT included

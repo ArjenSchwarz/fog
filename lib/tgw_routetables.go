@@ -157,6 +157,10 @@ func FilterTGWRoutesByLogicalId(logicalId string, template CfnTemplateBody, para
 // tgwRouteMatchesRouteTable checks whether a TGW route resource's TransitGatewayRouteTableId
 // matches the given logical ID. Handles all property formats: "REF: " strings, Ref maps,
 // Fn::ImportValue maps, and plain physical ID strings.
+//
+// The logicalToPhysical map serves a dual purpose: it maps both CloudFormation logical IDs
+// to their physical resource IDs, and stack export names to their exported values. This
+// allows Fn::ImportValue resolution by looking up the export name in the same map.
 func tgwRouteMatchesRouteTable(resource CfnTemplateResource, logicalId string, physicalId string, logicalToPhysical map[string]string) bool {
 	prop := resource.Properties["TransitGatewayRouteTableId"]
 	if prop == nil {
@@ -181,7 +185,10 @@ func tgwRouteMatchesRouteTable(resource CfnTemplateResource, logicalId string, p
 				return true
 			}
 		}
-		// Handle {"Fn::ImportValue": "ExportName"} format
+		// Handle {"Fn::ImportValue": "ExportName"} format.
+		// When physicalId is empty (the target logical ID has no entry in logicalToPhysical),
+		// ImportValue routes cannot be matched and are silently excluded. This is acceptable
+		// for drift detection because without a known physical ID there is nothing to compare against.
 		if importName, ok := value["Fn::ImportValue"].(string); ok {
 			if resolvedId, ok := logicalToPhysical[importName]; ok {
 				if physicalId != "" && resolvedId == physicalId {
@@ -236,7 +243,7 @@ func extractStringProperty(array map[string]any, params []cfntypes.Parameter, lo
 	result := ""
 	switch value := array[value].(type) {
 	case string:
-		refvalue := strings.Replace(value, "REF: ", "", 1)
+		refvalue := strings.TrimPrefix(value, "REF: ")
 		if _, ok := logicalToPhysical[refvalue]; ok {
 			result = logicalToPhysical[refvalue]
 		} else {
