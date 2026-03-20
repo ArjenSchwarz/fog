@@ -329,7 +329,7 @@ func ParseTemplateString(template string, parameters *map[string]any) (CfnTempla
 func resourceIdMatchesLogical(prop any, logicalId string, logicalToPhysical map[string]string) bool {
 	switch value := prop.(type) {
 	case string:
-		refId := strings.Replace(value, "REF: ", "", 1)
+		refId := strings.TrimPrefix(value, "REF: ")
 		return refId == logicalId
 	case map[string]any:
 		if importName, ok := value["Fn::ImportValue"].(string); ok {

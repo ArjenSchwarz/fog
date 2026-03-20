@@ -22,11 +22,11 @@
 
 ## Discovered Root Cause
 
-The `customImportValueHandler` (line 284 of `template.go`) returns `map[string]any{"Fn::ImportValue": input}` for `Fn::ImportValue` intrinsics. Three filter functions then perform unsafe `.(string)` type assertions on the affected property:
+The `customImportValueHandler` in `lib/template.go` returns `map[string]any{"Fn::ImportValue": input}` for `Fn::ImportValue` intrinsics. Three filter functions then perform unsafe `.(string)` type assertions on the affected property:
 
-1. `FilterNaclEntriesByLogicalId` line 329: `resource.Properties["NetworkAclId"].(string)`
-2. `FilterRoutesByLogicalId` line 349: `resource.Properties["RouteTableId"].(string)`
-3. `FilterTGWRoutesByLogicalId` in `tgw_routetables.go` line 139: `resource.Properties["TransitGatewayRouteTableId"].(string)`
+1. `FilterNaclEntriesByLogicalId` in `lib/template.go`: `resource.Properties["NetworkAclId"].(string)`
+2. `FilterRoutesByLogicalId` in `lib/template.go`: `resource.Properties["RouteTableId"].(string)`
+3. `FilterTGWRoutesByLogicalId` in `lib/tgw_routetables.go`: `resource.Properties["TransitGatewayRouteTableId"].(string)`
 
 The `stringPointer` function already handles the `map[string]any` case for both `Ref` and `Fn::ImportValue`, but these filter functions don't use it.
 
