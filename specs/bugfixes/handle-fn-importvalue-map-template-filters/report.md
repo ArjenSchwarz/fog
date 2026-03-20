@@ -1,7 +1,7 @@
 # Bugfix Report: Handle Fn::ImportValue map for NetworkAclId/RouteTableId in template filters
 
 **Date:** 2026-03-20
-**Status:** In progress
+**Status:** Fixed
 
 ## Description of the Issue
 
@@ -40,7 +40,17 @@ Additionally, `FilterNaclEntriesByLogicalId` does not receive the `logicalToPhys
 
 ## Resolution for the Issue
 
-*(To be filled in after fix is implemented)*
+**Changes made:**
+- `lib/template.go` — Added `resourceIdMatchesLogical` helper function that handles both string (`"REF: LogicalName"`) and map (`{"Fn::ImportValue": "ExportName"}`) property values. For strings, it strips the `REF: ` prefix and compares directly. For `Fn::ImportValue` maps, it resolves both the import name and the logical ID through `logicalToPhysical` and compares their physical IDs. Updated `FilterNaclEntriesByLogicalId` to accept `logicalToPhysical` and use the new helper. Updated `FilterRoutesByLogicalId` to use the new helper.
+- `lib/tgw_routetables.go` — Updated `FilterTGWRoutesByLogicalId` to use the new `resourceIdMatchesLogical` helper.
+- `cmd/drift.go` — Updated `checkNaclEntries` function signature and call site to pass `logicalToPhysical`.
+- `lib/template_test.go` — Added three regression tests and updated existing `TestFilterNaclEntriesByLogicalId` call site.
+
+**Approach rationale:** A single shared helper function centralises the type-switching logic, preventing future drift between the three filter functions. Resolving `Fn::ImportValue` through `logicalToPhysical` (which already contains CloudFormation exports from `separateSpecialCases`) correctly maps imported physical IDs to the logical IDs being filtered.
+
+**Alternatives considered:**
+- Inline type switches in each filter function — rejected because it would duplicate logic across three locations.
+- Converting `Fn::ImportValue` maps to strings during template parsing — rejected because it would lose information needed by `stringPointer` for other properties.
 
 ## Regression Test
 
@@ -59,6 +69,13 @@ Additionally, `FilterNaclEntriesByLogicalId` does not receive the `logicalToPhys
 | `lib/tgw_routetables.go` | Update `FilterTGWRoutesByLogicalId` to handle `Fn::ImportValue` map |
 | `cmd/drift.go` | Update `FilterNaclEntriesByLogicalId` call to pass `logicalToPhysical` |
 | `lib/template_test.go` | Add regression tests for `Fn::ImportValue` in all three filter functions |
+
+## Verification
+
+**Automated:**
+- [x] Regression tests pass (`go test ./lib -run "TestFilter.*FnImportValue" -v`)
+- [x] Full test suite passes (`go test ./...`)
+- [x] Linter passes (`golangci-lint run`)
 
 ## Related
 

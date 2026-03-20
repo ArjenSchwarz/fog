@@ -136,9 +136,7 @@ func FilterTGWRoutesByLogicalId(logicalId string, template CfnTemplateBody, para
 
 	for _, resource := range template.Resources {
 		if resource.Type == "AWS::EC2::TransitGatewayRoute" && template.ShouldHaveResource(resource) {
-			rtid := strings.Replace(resource.Properties["TransitGatewayRouteTableId"].(string), "REF: ", "", 1)
-
-			if rtid == logicalId {
+			if resourceIdMatchesLogical(resource.Properties["TransitGatewayRouteTableId"], logicalId, logicalToPhysical) {
 				// Convert CloudFormation resource to TransitGatewayRoute
 				route := TGWRouteResourceToTGWRoute(resource, params, logicalToPhysical)
 				destination := GetTGWRouteDestination(route)

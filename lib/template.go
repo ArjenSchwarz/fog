@@ -321,14 +321,35 @@ func ParseTemplateString(template string, parameters *map[string]any) (CfnTempla
 	return parsedTemplate, nil
 }
 
+// resourceIdMatchesLogical checks whether a resource property value (which can be
+// a string like "REF: LogicalName" or a map like {"Fn::ImportValue": "ExportName"})
+// refers to the same physical resource as logicalId. For string values the logical
+// name is compared directly; for Fn::ImportValue maps the import name is resolved
+// through logicalToPhysical and compared against the physical ID of logicalId.
+func resourceIdMatchesLogical(prop any, logicalId string, logicalToPhysical map[string]string) bool {
+	switch value := prop.(type) {
+	case string:
+		refId := strings.Replace(value, "REF: ", "", 1)
+		return refId == logicalId
+	case map[string]any:
+		if importName, ok := value["Fn::ImportValue"].(string); ok {
+			importPhysical, importOk := logicalToPhysical[importName]
+			logicalPhysical, logicalOk := logicalToPhysical[logicalId]
+			if importOk && logicalOk {
+				return importPhysical == logicalPhysical
+			}
+		}
+	}
+	return false
+}
+
 // FilterNaclEntriesByLogicalId filters Network ACL entries from a template by logical ID
-func FilterNaclEntriesByLogicalId(logicalId string, template CfnTemplateBody, params []cfntypes.Parameter) map[string]types.NetworkAclEntry {
+func FilterNaclEntriesByLogicalId(logicalId string, template CfnTemplateBody, params []cfntypes.Parameter, logicalToPhysical map[string]string) map[string]types.NetworkAclEntry {
 	result := make(map[string]types.NetworkAclEntry)
 	for _, resource := range template.Resources {
 		if resource.Type == "AWS::EC2::NetworkAclEntry" && template.ShouldHaveResource(resource) {
-			aclid := strings.Replace(resource.Properties["NetworkAclId"].(string), "REF: ", "", 1)
-			convresource := NaclResourceToNaclEntry(resource, params)
-			if aclid == logicalId {
+			if resourceIdMatchesLogical(resource.Properties["NetworkAclId"], logicalId, logicalToPhysical) {
+				convresource := NaclResourceToNaclEntry(resource, params)
 				rulenumberstring := "I"
 				if *convresource.Egress {
 					rulenumberstring = "E"
@@ -346,9 +367,8 @@ func FilterRoutesByLogicalId(logicalId string, template CfnTemplateBody, params 
 	result := make(map[string]types.Route)
 	for _, resource := range template.Resources {
 		if resource.Type == "AWS::EC2::Route" && template.ShouldHaveResource(resource) {
-			rtid := strings.Replace(resource.Properties["RouteTableId"].(string), "REF: ", "", 1)
-			convresource := RouteResourceToRoute(resource, params, logicalToPhysical)
-			if rtid == logicalId {
+			if resourceIdMatchesLogical(resource.Properties["RouteTableId"], logicalId, logicalToPhysical) {
+				convresource := RouteResourceToRoute(resource, params, logicalToPhysical)
 				result[GetRouteDestination(convresource)] = convresource
 			}
 		}

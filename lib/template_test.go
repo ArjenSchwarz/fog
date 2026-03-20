@@ -239,7 +239,7 @@ func TestFilterNaclEntriesByLogicalId(t *testing.T) {
 		Conditions: map[string]bool{},
 	}
 
-	results := FilterNaclEntriesByLogicalId("TestNacl", template, params)
+	results := FilterNaclEntriesByLogicalId("TestNacl", template, params, map[string]string{})
 
 	if len(results) != 2 {
 		t.Errorf("Expected 2 entries, got %d", len(results))
