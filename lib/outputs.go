@@ -3,7 +3,6 @@ package lib
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -83,10 +82,8 @@ func GetExports(stackname *string, exportname *string, svc CFNExportsAPI) ([]Cfn
 
 func getOutputsForStack(stack types.Stack, stackfilter string, exportfilter string, exportsOnly bool) []CfnOutput {
 	result := []CfnOutput{}
-	stackRegex := "^" + strings.ReplaceAll(stackfilter, "*", ".*") + "$"
-	exportRegex := "^" + strings.ReplaceAll(exportfilter, "*", ".*") + "$"
 	if strings.Contains(stackfilter, "*") {
-		if matched, err := regexp.MatchString(stackRegex, *stack.StackName); !matched || err != nil {
+		if !GlobToRegex(stackfilter).MatchString(*stack.StackName) {
 			return result
 		}
 	}
@@ -95,7 +92,7 @@ func getOutputsForStack(stack types.Stack, stackfilter string, exportfilter stri
 			continue
 		}
 		if exportfilter != "" {
-			if matched, err := regexp.MatchString(exportRegex, *output.ExportName); !matched || err != nil {
+			if !GlobToRegex(exportfilter).MatchString(*output.ExportName) {
 				continue
 			}
 		}
