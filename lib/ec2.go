@@ -36,11 +36,17 @@ func GetRouteTable(routetableId string, svc EC2DescribeRouteTablesAPI) (types.Ro
 // GetManagedPrefixLists returns all managed prefix lists for the region/account
 func GetManagedPrefixLists(svc EC2DescribeManagedPrefixListsAPI) ([]types.ManagedPrefixList, error) {
 	input := ec2.DescribeManagedPrefixListsInput{}
-	result, err := svc.DescribeManagedPrefixLists(context.Background(), &input)
-	if err != nil {
-		return nil, err
+	paginator := ec2.NewDescribeManagedPrefixListsPaginator(svc, &input)
+
+	var result []types.ManagedPrefixList
+	for paginator.HasMorePages() {
+		output, err := paginator.NextPage(context.Background())
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, output.PrefixLists...)
 	}
-	return result.PrefixLists, nil
+	return result, nil
 }
 
 // CompareNaclEntries compares two Network ACL entries and returns true if they are the same
