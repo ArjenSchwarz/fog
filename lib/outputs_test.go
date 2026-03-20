@@ -3,10 +3,12 @@ package lib
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
+	"github.com/aws/smithy-go"
 )
 
 // Mock client implementing the interfaces
@@ -126,7 +128,10 @@ func TestGetExports(t *testing.T) {
 		},
 	}
 
-	results := GetExports(&stackName, strPtrOut(""), mock)
+	results, err := GetExports(&stackName, strPtrOut(""), mock)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	if len(results) != 2 {
 		t.Fatalf("expected two results, got %d", len(results))
 	}
@@ -200,7 +205,10 @@ func TestGetExportsPagination(t *testing.T) {
 		ImportsByExport: map[string][]string{},
 	}
 
-	results := GetExports(&stackName, strPtrOut(""), mock)
+	results, err := GetExports(&stackName, strPtrOut(""), mock)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	if len(results) != 2 {
 		t.Fatalf("expected 2 exports from 2 pages, got %d", len(results))
 	}
@@ -214,6 +222,52 @@ func TestGetExportsPagination(t *testing.T) {
 	}
 	if _, ok := byName["Export2"]; !ok {
 		t.Error("missing Export2 from second page")
+	}
+}
+
+// TestGetExports_PaginatorError verifies that GetExports returns an error
+// instead of terminating the process when the paginator encounters an error.
+// Regression test for T-464: GetExports exits process on paginator errors.
+func TestGetExports_PaginatorError(t *testing.T) {
+	stackName := ""
+	mock := MockCFNClient{
+		DescribeStacksError: errors.New("simulated API error"),
+	}
+
+	results, err := GetExports(&stackName, strPtrOut(""), mock)
+	if err == nil {
+		t.Fatal("expected error from GetExports when paginator fails, got nil")
+	}
+	if results != nil {
+		t.Errorf("expected nil results on error, got %v", results)
+	}
+	if !strings.Contains(err.Error(), "simulated API error") {
+		t.Errorf("expected error to contain original message, got: %v", err)
+	}
+}
+
+// TestGetExports_OperationError verifies that GetExports returns the inner error
+// from smithy.OperationError instead of terminating the process.
+// Regression test for T-464: GetExports exits process on paginator errors.
+func TestGetExports_OperationError(t *testing.T) {
+	stackName := ""
+	mock := MockCFNClient{
+		DescribeStacksError: &smithy.OperationError{
+			ServiceID:     "CloudFormation",
+			OperationName: "DescribeStacks",
+			Err:           errors.New("access denied"),
+		},
+	}
+
+	results, err := GetExports(&stackName, strPtrOut(""), mock)
+	if err == nil {
+		t.Fatal("expected error from GetExports on OperationError, got nil")
+	}
+	if results != nil {
+		t.Errorf("expected nil results on error, got %v", results)
+	}
+	if !strings.Contains(err.Error(), "access denied") {
+		t.Errorf("expected error to contain inner error message, got: %v", err)
 	}
 }
 

@@ -3,7 +3,7 @@ package lib
 import (
 	"context"
 	"errors"
-	"log"
+	"fmt"
 	"regexp"
 	"strings"
 
@@ -27,7 +27,7 @@ type CfnOutput struct {
 // GetExports returns all the exports in the account and region. If stackname
 // is provided, results will be limited to that stack. Each export will also
 // be checked whether it is being imported or not.
-func GetExports(stackname *string, exportname *string, svc CFNExportsAPI) []CfnOutput {
+func GetExports(stackname *string, exportname *string, svc CFNExportsAPI) ([]CfnOutput, error) {
 	exports := []CfnOutput{}
 	input := &cloudformation.DescribeStacksInput{}
 	if *stackname != "" && !strings.Contains(*stackname, "*") {
@@ -40,9 +40,9 @@ func GetExports(stackname *string, exportname *string, svc CFNExportsAPI) []CfnO
 		if err != nil {
 			var bne *smithy.OperationError
 			if errors.As(err, &bne) {
-				log.Fatalln("error:", bne.Err)
+				return nil, fmt.Errorf("describing stacks: %w", bne.Err)
 			}
-			log.Fatalln(err)
+			return nil, fmt.Errorf("describing stacks: %w", err)
 		}
 		allstacks = append(allstacks, output.Stacks...)
 	}
@@ -76,7 +76,7 @@ func GetExports(stackname *string, exportname *string, svc CFNExportsAPI) []CfnO
 	for i := range results {
 		results[i] = <-c
 	}
-	return results
+	return results, nil
 }
 
 func getOutputsForStack(stack types.Stack, stackfilter string, exportfilter string, exportsOnly bool) []CfnOutput {
