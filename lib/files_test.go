@@ -212,17 +212,19 @@ func TestRunPrechecksQuotedArgs(t *testing.T) {
 	// Regression test for T-378: RunPrechecks must correctly parse
 	// quoted arguments so that spaces inside quotes are not treated
 	// as argument separators.
+	t.Cleanup(viper.Reset)
 
-	// Use "echo" as the precheck command — it's always available and
-	// lets us verify the arguments were passed correctly by checking
-	// its output (echo exits 0 so it won't appear in results).
+	// Use "test" (the shell built-in) to verify the argument value.
+	// "test X = Y" exits non-zero when X != Y, so this fails if the
+	// path is split incorrectly or quotes are kept as literal characters.
 	deployment := &DeployInfo{
 		TemplateRelativePath: "path with spaces/template.yaml",
 	}
 
 	// Double-quoted $TEMPLATEPATH — the quotes should be stripped and
-	// the path kept as a single argument.
-	viper.Set("templates.prechecks", []string{`echo "$TEMPLATEPATH"`})
+	// the path kept as a single argument. We use test to verify the
+	// exact argument value.
+	viper.Set("templates.prechecks", []string{`test "$TEMPLATEPATH" = "path with spaces/template.yaml"`})
 	results, err := RunPrechecks(deployment)
 	if err != nil {
 		t.Fatalf("RunPrechecks() unexpected error: %v", err)
@@ -231,11 +233,11 @@ func TestRunPrechecksQuotedArgs(t *testing.T) {
 		t.Errorf("RunPrechecks() precheck should not have failed, results: %v", results)
 	}
 
-	// Single-quoted argument with spaces
+	// Single-quoted argument with spaces — verify exact value using test.
 	deployment2 := &DeployInfo{
 		TemplateRelativePath: "simple/path.yaml",
 	}
-	viper.Set("templates.prechecks", []string{`echo 'hello world'`})
+	viper.Set("templates.prechecks", []string{`test 'hello world' = 'hello world'`})
 	results, err = RunPrechecks(deployment2)
 	if err != nil {
 		t.Fatalf("RunPrechecks() unexpected error: %v", err)
@@ -245,15 +247,42 @@ func TestRunPrechecksQuotedArgs(t *testing.T) {
 	}
 }
 
+func TestRunPrechecksEmptyCommand(t *testing.T) {
+	t.Cleanup(viper.Reset)
+
+	deployment := &DeployInfo{
+		TemplateRelativePath: "test/path.yaml",
+	}
+	viper.Set("templates.prechecks", []string{"   "})
+	_, err := RunPrechecks(deployment)
+	if err == nil {
+		t.Errorf("RunPrechecks() should return an error for empty/whitespace precheck commands")
+	}
+}
+
+func TestRunPrechecksUnbalancedQuotes(t *testing.T) {
+	t.Cleanup(viper.Reset)
+
+	deployment := &DeployInfo{
+		TemplateRelativePath: "test/path.yaml",
+	}
+	viper.Set("templates.prechecks", []string{`echo "unterminated`})
+	_, err := RunPrechecks(deployment)
+	if err == nil {
+		t.Errorf("RunPrechecks() should return an error for unbalanced quotes")
+	}
+}
+
 func TestSplitShellArgs(t *testing.T) {
 	// Regression test for T-378: splitShellArgs must handle quoted
 	// arguments correctly, keeping spaces inside quotes as part of
 	// the same argument and stripping the surrounding quotes.
 
 	tests := []struct {
-		name  string
-		input string
-		want  []string
+		name    string
+		input   string
+		want    []string
+		wantErr bool
 	}{
 		{
 			name:  "Simple command without quotes",
@@ -305,12 +334,26 @@ func TestSplitShellArgs(t *testing.T) {
 			input: `cmd "arg with \"escaped\" quotes"`,
 			want:  []string{"cmd", `arg with "escaped" quotes`},
 		},
+		{
+			name:    "Unbalanced double quote",
+			input:   `cmd "unterminated`,
+			wantErr: true,
+		},
+		{
+			name:    "Unbalanced single quote",
+			input:   `cmd 'unterminated`,
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := splitShellArgs(tt.input)
-			if !reflect.DeepEqual(got, tt.want) {
+			got, err := splitShellArgs(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("splitShellArgs(%q) error = %v, wantErr %v", tt.input, err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr && !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("splitShellArgs(%q) = %v, want %v", tt.input, got, tt.want)
 			}
 		})
