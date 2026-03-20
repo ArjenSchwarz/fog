@@ -36,11 +36,17 @@ func GetRouteTable(routetableId string, svc EC2DescribeRouteTablesAPI) (types.Ro
 // GetManagedPrefixLists returns all managed prefix lists for the region/account
 func GetManagedPrefixLists(svc EC2DescribeManagedPrefixListsAPI) ([]types.ManagedPrefixList, error) {
 	input := ec2.DescribeManagedPrefixListsInput{}
-	result, err := svc.DescribeManagedPrefixLists(context.Background(), &input)
-	if err != nil {
-		return nil, err
+	paginator := ec2.NewDescribeManagedPrefixListsPaginator(svc, &input)
+
+	var result []types.ManagedPrefixList
+	for paginator.HasMorePages() {
+		output, err := paginator.NextPage(context.TODO())
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, output.PrefixLists...)
 	}
-	return result.PrefixLists, nil
+	return result, nil
 }
 
 // CompareNaclEntries compares two Network ACL entries and returns true if they are the same
@@ -142,13 +148,21 @@ func CompareRoutes(route1 types.Route, route2 types.Route, blackholeIgnore []str
 		return false
 	}
 	if string(route1.State) != string(route2.State) {
-		// If the route is a blackhole and the destination is in the ignore list, consider it a match
-		if route1.State == types.RouteStateBlackhole && route1.VpcPeeringConnectionId != nil && stringInSlice(*route1.VpcPeeringConnectionId, blackholeIgnore) {
+		// If either route is a blackhole and its peering connection is in the ignore list, consider it a match
+		if isIgnoredBlackhole(route1, blackholeIgnore) || isIgnoredBlackhole(route2, blackholeIgnore) {
 			return true
 		}
 		return false
 	}
 	return true
+}
+
+// isIgnoredBlackhole returns true if the route is a blackhole and its
+// VpcPeeringConnectionId appears in the ignore list.
+func isIgnoredBlackhole(route types.Route, blackholeIgnore []string) bool {
+	return route.State == types.RouteStateBlackhole &&
+		route.VpcPeeringConnectionId != nil &&
+		stringInSlice(*route.VpcPeeringConnectionId, blackholeIgnore)
 }
 
 // GetRouteDestination returns the destination of a route

@@ -257,12 +257,16 @@ func separateSpecialCases(defaultDrift []types.StackResourceDrift, stackName *st
 	}
 
 	// Add CloudFormation exports to the map to handle !ImportValue references
-	// This allows template routes that use ImportValue to be properly resolved
-	exportsResp, err := svc.ListExports(context.TODO(), &cloudformation.ListExportsInput{})
-	if err != nil {
-		// Non-fatal - just log and continue without exports
-		log.Printf("Warning: Could not list CloudFormation exports: %v", err)
-	} else {
+	// This allows template routes that use ImportValue to be properly resolved.
+	// Paginate to ensure all exports are collected (API returns max 100 per page).
+	exportsPaginator := cloudformation.NewListExportsPaginator(svc, &cloudformation.ListExportsInput{})
+	for exportsPaginator.HasMorePages() {
+		exportsResp, err := exportsPaginator.NextPage(context.TODO())
+		if err != nil {
+			// Non-fatal - just log and continue without remaining exports
+			log.Printf("Warning: Could not list CloudFormation exports: %v", err)
+			break
+		}
 		for _, export := range exportsResp.Exports {
 			if export.Name != nil && export.Value != nil {
 				logicalToPhysical[*export.Name] = *export.Value
@@ -291,7 +295,7 @@ func checkIfResourcesAreManaged(allresources map[string]string, logicalToPhysica
 	toIgnore := settings.GetStringSlice("drift.ignore-unmanaged-resources")
 	for resource, resourcetype := range allresources {
 		// If the resource isn't in the logicalToPhysical map, it's not managed by CloudFormation
-		if !stringValueInMap(resource, logicalToPhysical) {
+		if _, exists := logicalToPhysical[resource]; !exists {
 			// If the resource is in the ignore list, don't report it
 			if stringInSlice(resource, toIgnore) {
 				continue

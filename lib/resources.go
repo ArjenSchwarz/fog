@@ -3,7 +3,7 @@ package lib
 import (
 	"context"
 	"errors"
-	"log"
+	"fmt"
 	"regexp"
 	"strings"
 	"time"
@@ -28,7 +28,7 @@ type CfnResource struct {
 func GetResources(stackname *string, svc interface {
 	CloudFormationDescribeStacksAPI
 	CloudFormationDescribeStackResourcesAPI
-}) []CfnResource {
+}) ([]CfnResource, error) {
 	input := &cloudformation.DescribeStacksInput{}
 	if *stackname != "" && !strings.Contains(*stackname, "*") {
 		input.StackName = stackname
@@ -38,11 +38,7 @@ func GetResources(stackname *string, svc interface {
 	for paginator.HasMorePages() {
 		output, err := paginator.NextPage(context.TODO())
 		if err != nil {
-			var bne *smithy.OperationError
-			if errors.As(err, &bne) {
-				log.Fatalln("error:", bne.Err)
-			}
-			log.Fatalln(err)
+			return nil, fmt.Errorf("failed to describe stacks: %w", err)
 		}
 		allstacks = append(allstacks, output.Stacks...)
 	}
@@ -62,6 +58,7 @@ func GetResources(stackname *string, svc interface {
 			context.TODO(),
 			&cloudformation.DescribeStackResourcesInput{StackName: stack.StackName})
 		if err != nil {
+			stackLabel := aws.ToString(stack.StackName)
 			var ae smithy.APIError
 			if errors.As(err, &ae) {
 				// If the error is because of throttling, we'll wait 5 seconds before trying the same query again
@@ -70,17 +67,17 @@ func GetResources(stackname *string, svc interface {
 					resources, err = svc.DescribeStackResources(
 						context.TODO(),
 						&cloudformation.DescribeStackResourcesInput{StackName: stack.StackName})
-					// If it still fails though, we'll just break down
+					// If it still fails after retry, return the error
 					if err != nil {
-						log.Fatalln(err)
+						return nil, fmt.Errorf("failed to describe stack resources for %s after throttling retry: %w", stackLabel, err)
 					}
 				} else {
-					// If it's another type of API error, we fail on it
-					log.Fatalf("code: %s, message: %s, fault: %s", ae.ErrorCode(), ae.ErrorMessage(), ae.ErrorFault().String())
+					// If it's another type of API error, return it with the original error wrapped
+					return nil, fmt.Errorf("failed to describe stack resources for %s (%s): %w", stackLabel, ae.ErrorCode(), ae)
 				}
 			} else {
-				// If it's a completely different type of error, we also fail
-				log.Fatalln(err)
+				// If it's a completely different type of error, return it
+				return nil, fmt.Errorf("failed to describe stack resources for %s: %w", stackLabel, err)
 			}
 		}
 		for _, resource := range resources.StackResources {
@@ -98,5 +95,5 @@ func GetResources(stackname *string, svc interface {
 			resourcelist = append(resourcelist, resitem)
 		}
 	}
-	return resourcelist
+	return resourcelist, nil
 }

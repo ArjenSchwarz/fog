@@ -317,6 +317,92 @@ func TestCompareRoutes(t *testing.T) {
 	}
 }
 
+func TestCompareRoutes_BlackholeIgnoreSymmetric(t *testing.T) {
+	peeringID := "pcx-12345"
+	ignoreList := []string{peeringID}
+
+	// Base route with a VpcPeeringConnectionId
+	activeRoute := types.Route{
+		DestinationCidrBlock:   aws.String("10.0.0.0/16"),
+		VpcPeeringConnectionId: aws.String(peeringID),
+		State:                  types.RouteStateActive,
+		Origin:                 types.RouteOriginCreateRoute,
+	}
+	blackholeRoute := types.Route{
+		DestinationCidrBlock:   aws.String("10.0.0.0/16"),
+		VpcPeeringConnectionId: aws.String(peeringID),
+		State:                  types.RouteStateBlackhole,
+		Origin:                 types.RouteOriginCreateRoute,
+	}
+
+	tests := []struct {
+		name   string
+		route1 types.Route
+		route2 types.Route
+		ignore []string
+		want   bool
+	}{
+		{
+			name:   "route1 blackhole with ignored peering returns true",
+			route1: blackholeRoute,
+			route2: activeRoute,
+			ignore: ignoreList,
+			want:   true,
+		},
+		{
+			name:   "route2 blackhole with ignored peering returns true",
+			route1: activeRoute,
+			route2: blackholeRoute,
+			ignore: ignoreList,
+			want:   true,
+		},
+		{
+			name:   "route1 blackhole with non-ignored peering returns false",
+			route1: blackholeRoute,
+			route2: activeRoute,
+			ignore: []string{"pcx-other"},
+			want:   false,
+		},
+		{
+			name:   "route2 blackhole with non-ignored peering returns false",
+			route1: activeRoute,
+			route2: blackholeRoute,
+			ignore: []string{"pcx-other"},
+			want:   false,
+		},
+		{
+			name:   "both blackhole with ignored peering returns true",
+			route1: blackholeRoute,
+			route2: blackholeRoute,
+			ignore: ignoreList,
+			want:   true,
+		},
+		{
+			name:   "blackhole without peering ID is not ignored",
+			route1: types.Route{DestinationCidrBlock: aws.String("10.0.0.0/16"), State: types.RouteStateBlackhole, Origin: types.RouteOriginCreateRoute},
+			route2: activeRoute,
+			ignore: ignoreList,
+			want:   false,
+		},
+		{
+			name:   "empty ignore list returns false for state mismatch",
+			route1: blackholeRoute,
+			route2: activeRoute,
+			ignore: []string{},
+			want:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := CompareRoutes(tt.route1, tt.route2, tt.ignore)
+			if got != tt.want {
+				t.Errorf("CompareRoutes() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestGetRouteDestination(t *testing.T) {
 	type args struct {
 		route types.Route
@@ -414,6 +500,61 @@ func TestGetManagedPrefixLists(t *testing.T) {
 			args: args{svc: mockEC2DescribeManagedPrefixListsAPI(func(ctx context.Context, params *ec2.DescribeManagedPrefixListsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeManagedPrefixListsOutput, error) {
 				return nil, fmt.Errorf("access denied: insufficient permissions for DescribeManagedPrefixLists")
 			})},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			// Regression: GetManagedPrefixLists must paginate through all pages.
+			// Before the fix, only the first page was returned and subsequent
+			// pages (indicated by NextToken) were silently dropped.
+			name: "paginated results returns all prefix lists",
+			args: args{svc: func() mockEC2DescribeManagedPrefixListsAPI {
+				callCount := 0
+				return mockEC2DescribeManagedPrefixListsAPI(func(ctx context.Context, params *ec2.DescribeManagedPrefixListsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeManagedPrefixListsOutput, error) {
+					callCount++
+					switch callCount {
+					case 1:
+						// First page: return pl1 with a NextToken indicating more pages
+						if params.NextToken != nil {
+							return nil, fmt.Errorf("first call should not have NextToken")
+						}
+						nextToken := "page2"
+						return &ec2.DescribeManagedPrefixListsOutput{
+							PrefixLists: []types.ManagedPrefixList{pl1},
+							NextToken:   &nextToken,
+						}, nil
+					case 2:
+						// Second page: return pl2 with no NextToken (last page)
+						if params.NextToken == nil || *params.NextToken != "page2" {
+							return nil, fmt.Errorf("second call should have NextToken=page2, got %v", params.NextToken)
+						}
+						return &ec2.DescribeManagedPrefixListsOutput{
+							PrefixLists: []types.ManagedPrefixList{pl2},
+						}, nil
+					default:
+						return nil, fmt.Errorf("unexpected call %d", callCount)
+					}
+				})
+			}()},
+			want: []types.ManagedPrefixList{pl1, pl2},
+		},
+		{
+			// Regression: error on a subsequent page must propagate.
+			name: "error on second page returns error",
+			args: args{svc: func() mockEC2DescribeManagedPrefixListsAPI {
+				callCount := 0
+				return mockEC2DescribeManagedPrefixListsAPI(func(ctx context.Context, params *ec2.DescribeManagedPrefixListsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeManagedPrefixListsOutput, error) {
+					callCount++
+					if callCount == 1 {
+						nextToken := "page2"
+						return &ec2.DescribeManagedPrefixListsOutput{
+							PrefixLists: []types.ManagedPrefixList{pl1},
+							NextToken:   &nextToken,
+						}, nil
+					}
+					return nil, fmt.Errorf("page 2 error")
+				})
+			}()},
 			want:    nil,
 			wantErr: true,
 		},

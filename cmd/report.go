@@ -101,11 +101,15 @@ func init() {
 }
 
 func stackReport(cmd *cobra.Command, args []string) {
-	generateReport()
+	if err := generateReport(); err != nil {
+		failWithError(err)
+	}
 }
 
-// GenerateReportFromLambda generates a CloudFormation deployment report for Lambda execution
-func GenerateReportFromLambda(stackname string, bucketname string, outputfilename string, outputformat string, timezone string) {
+// GenerateReportFromLambda generates a CloudFormation deployment report for Lambda execution.
+// It returns an error if report generation fails, allowing the Lambda runtime to
+// report the failure instead of silently swallowing it.
+func GenerateReportFromLambda(stackname string, bucketname string, outputfilename string, outputformat string, timezone string) error {
 	// Default settings for Lambda output: only latest, markdown, with frontmatter
 	reportFlags.LatestOnly = true // The Lambda always only retrieves the latest report
 	reportFlags.FrontMatter = true
@@ -114,7 +118,7 @@ func GenerateReportFromLambda(stackname string, bucketname string, outputfilenam
 	reportFlags.StackName = stackname
 	reportFlags.TargetBucket = bucketname
 	reportFlags.Outputfile = outputfilename
-	generateReport()
+	return generateReport()
 }
 
 // setTimezoneIfPresent overrides the viper timezone setting only when a
@@ -127,11 +131,13 @@ func setTimezoneIfPresent(timezone string) {
 	}
 }
 
-// generateReport creates the complete report
-func generateReport() {
+// generateReport creates the complete report. It returns an error instead of
+// calling os.Exit so that callers (especially the Lambda handler) can propagate
+// failures to their runtime.
+func generateReport() error {
 	awsConfig, err := config.DefaultAwsConfig(*settings)
 	if err != nil {
-		failWithError(err)
+		return err
 	}
 
 	// Determine if we need Mermaid output based on format
@@ -143,13 +149,17 @@ func generateReport() {
 
 	stacks, err := lib.GetCfnStacks(&reportFlags.StackName, awsConfig.CloudformationClient())
 	if err != nil {
-		failWithError(err)
+		return err
 	}
 
 	// Build frontmatter if requested
 	var frontMatter map[string]string
 	if reportFlags.FrontMatter && outputFormat == outputFormatMarkdown {
-		frontMatter = generateFrontMatter(stacks, awsConfig)
+		var fmErr error
+		frontMatter, fmErr = generateFrontMatter(stacks, awsConfig)
+		if fmErr != nil {
+			return fmErr
+		}
 	}
 
 	// Sort stacks by name
@@ -182,7 +192,9 @@ func generateReport() {
 	// Generate report for each stack
 	for _, stackkey := range stackskeys {
 		fmt.Println(stackkey)
-		generateStackReport(stacks[stackkey], doc, awsConfig)
+		if err := generateStackReport(stacks[stackkey], doc, awsConfig); err != nil {
+			return err
+		}
 	}
 
 	// Get output options with S3/file configuration if needed
@@ -192,7 +204,7 @@ func generateReport() {
 	builtDoc := doc.Build()
 	out := output.NewOutput(outputOptions...)
 	if err := out.Render(context.Background(), builtDoc); err != nil {
-		failWithError(err)
+		return err
 	}
 
 	// Render to file separately if file format differs from console format
@@ -203,9 +215,11 @@ func generateReport() {
 		}
 		fileOut := output.NewOutput(fileOpts...)
 		if err := fileOut.Render(context.Background(), builtDoc); err != nil {
-			failWithError(err)
+			return err
 		}
 	}
+
+	return nil
 }
 
 // getReportOutputOptions creates output options with S3/file support
@@ -259,13 +273,13 @@ func reportPlaceholderParser(value string, stackname string, awsConfig config.AW
 }
 
 // generateStackReport creates the report for the provided stack
-func generateStackReport(stack lib.CfnStack, doc *output.Builder, awsConfig config.AWSConfig) {
+func generateStackReport(stack lib.CfnStack, doc *output.Builder, awsConfig config.AWSConfig) error {
 	// Add stack header
 	doc.Header(fmt.Sprintf("Stack %s", stack.Name))
 
 	events, err := stack.GetEvents(awsConfig.CloudformationClient())
 	if err != nil {
-		failWithError(err)
+		return err
 	}
 
 	for counter, event := range events {
@@ -287,14 +301,16 @@ func generateStackReport(stack lib.CfnStack, doc *output.Builder, awsConfig conf
 			doc.GanttChart(mermaidTitle, ganttTasks)
 		}
 	}
+
+	return nil
 }
 
-func generateFrontMatter(stacks map[string]lib.CfnStack, awsConfig config.AWSConfig) map[string]string {
+func generateFrontMatter(stacks map[string]lib.CfnStack, awsConfig config.AWSConfig) (map[string]string, error) {
 	result := make(map[string]string)
 	for _, stack := range stacks {
 		events, err := stack.GetEvents(awsConfig.CloudformationClient())
 		if err != nil {
-			failWithError(err)
+			return nil, err
 		}
 		for _, event := range events {
 			result["account"] = awsConfig.AccountID
@@ -319,7 +335,7 @@ func generateFrontMatter(stacks map[string]lib.CfnStack, awsConfig config.AWSCon
 			}
 		}
 	}
-	return result
+	return result, nil
 }
 
 // buildSimpleHTMLTable creates a simple HTML table from a data row
