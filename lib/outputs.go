@@ -3,7 +3,6 @@ package lib
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -54,15 +53,23 @@ func GetExports(stackname *string, exportname *string, svc CFNExportsAPI) ([]Cfn
 				ExportName:  export.ExportName,
 				Description: export.Description,
 			}
-			imports, err := svc.ListImports(
-				context.TODO(),
-				&cloudformation.ListImportsInput{ExportName: &export.ExportName})
-			if err != nil {
+			paginator := cloudformation.NewListImportsPaginator(svc, &cloudformation.ListImportsInput{ExportName: &export.ExportName})
+			var allImports []string
+			var paginationErr error
+			for paginator.HasMorePages() {
+				page, err := paginator.NextPage(context.TODO())
+				if err != nil {
+					paginationErr = err
+					break
+				}
+				allImports = append(allImports, page.Imports...)
+			}
+			if paginationErr != nil {
 				// TODO limit this to only not found errors: "Export 'stackname' is not imported by any stack."
 				resexport.Imported = false
 			} else {
 				resexport.Imported = true
-				resexport.ImportedBy = imports.Imports
+				resexport.ImportedBy = allImports
 			}
 			c <- resexport
 		}(export)
@@ -75,10 +82,8 @@ func GetExports(stackname *string, exportname *string, svc CFNExportsAPI) ([]Cfn
 
 func getOutputsForStack(stack types.Stack, stackfilter string, exportfilter string, exportsOnly bool) []CfnOutput {
 	result := []CfnOutput{}
-	stackRegex := "^" + strings.ReplaceAll(regexp.QuoteMeta(stackfilter), "\\*", ".*") + "$"
-	exportRegex := "^" + strings.ReplaceAll(regexp.QuoteMeta(exportfilter), "\\*", ".*") + "$"
 	if strings.Contains(stackfilter, "*") {
-		if matched, err := regexp.MatchString(stackRegex, *stack.StackName); !matched || err != nil {
+		if !GlobToRegex(stackfilter).MatchString(*stack.StackName) {
 			return result
 		}
 	}
@@ -87,7 +92,7 @@ func getOutputsForStack(stack types.Stack, stackfilter string, exportfilter stri
 			continue
 		}
 		if exportfilter != "" {
-			if matched, err := regexp.MatchString(exportRegex, *output.ExportName); !matched || err != nil {
+			if !GlobToRegex(exportfilter).MatchString(*output.ExportName) {
 				continue
 			}
 		}
@@ -110,14 +115,22 @@ func (output *CfnOutput) FillImports(svc CFNListImportsAPI) {
 	if output.ExportName == "" {
 		return
 	}
-	imports, err := svc.ListImports(
-		context.TODO(),
-		&cloudformation.ListImportsInput{ExportName: &output.ExportName})
-	if err != nil {
+	paginator := cloudformation.NewListImportsPaginator(svc, &cloudformation.ListImportsInput{ExportName: &output.ExportName})
+	var allImports []string
+	var paginationErr error
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(context.TODO())
+		if err != nil {
+			paginationErr = err
+			break
+		}
+		allImports = append(allImports, page.Imports...)
+	}
+	if paginationErr != nil {
 		// TODO limit this to only not found errors: "Export 'stackname' is not imported by any stack."
 		output.Imported = false
 	} else {
 		output.Imported = true
-		output.ImportedBy = imports.Imports
+		output.ImportedBy = allImports
 	}
 }

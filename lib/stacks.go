@@ -90,7 +90,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"regexp"
 	"slices"
 	"sort"
 	"strings"
@@ -230,11 +229,10 @@ func GetCfnStacks(stackname *string, svc *cloudformation.Client) (map[string]Cfn
 		}
 		allstacks = append(allstacks, output.Stacks...)
 	}
-	stackRegex := "^" + strings.ReplaceAll(regexp.QuoteMeta(*stackname), "\\*", ".*") + "$"
 	tocheckstacks := make([]types.Stack, 0)
 	for _, stack := range allstacks {
 		if strings.Contains(*stackname, "*") {
-			if matched, _ := regexp.MatchString(stackRegex, *stack.StackName); !matched {
+			if !GlobToRegex(*stackname).MatchString(*stack.StackName) {
 				continue
 			}
 		}

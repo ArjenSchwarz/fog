@@ -1,6 +1,10 @@
 Unreleased
 ==========
 
+### Fixed
+- Fixed glob-style filters in stack, export, resource, and dependency commands treating regex metacharacters (`.`, `+`, `[`, `?`, etc.) as regex operators instead of literal characters, causing false matches on names containing those characters
+- Fixed `writeLogToFile` silently discarding `file.Close()` errors due to unnamed return value in deferred close handler
+
 1.12.4 / 2026-03-06
 ===================
 
@@ -10,6 +14,7 @@ Unreleased
 
 ### Changed
 - Stripped debug information from release binaries to reduce binary size
+
 
 1.12.3 / 2026-03-05
 ===================
