@@ -75,8 +75,11 @@ func GetDefaultStackDrift(stackName *string, svc CloudFormationDescribeStackReso
 func GetUncheckedStackResources(stackName *string, checkedResources []string, svc interface {
 	CloudFormationDescribeStacksAPI
 	CloudFormationDescribeStackResourcesAPI
-}) []CfnResource {
-	resources := GetResources(stackName, svc)
+}) ([]CfnResource, error) {
+	resources, err := GetResources(stackName, svc)
+	if err != nil {
+		return nil, err
+	}
 	uncheckedresources := []CfnResource{}
 	for _, resource := range resources {
 		if stringInSlice(resource.LogicalID, checkedResources) {
@@ -84,7 +87,7 @@ func GetUncheckedStackResources(stackName *string, checkedResources []string, sv
 		}
 		uncheckedresources = append(uncheckedresources, resource)
 	}
-	return uncheckedresources
+	return uncheckedresources, nil
 }
 
 // GetResource retrieves a specific resource using Cloud Control API

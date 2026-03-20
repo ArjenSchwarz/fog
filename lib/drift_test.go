@@ -524,7 +524,8 @@ func TestGetUncheckedStackResources(t *testing.T) {
 			t.Parallel()
 
 			mockClient := tc.setupMock()
-			got := GetUncheckedStackResources(&tc.stackName, tc.checkedResources, mockClient)
+			got, err := GetUncheckedStackResources(&tc.stackName, tc.checkedResources, mockClient)
+			require.NoError(t, err, "GetUncheckedStackResources returned unexpected error")
 
 			require.Len(t, got, len(tc.want), "Expected %d unchecked resources", len(tc.want))
 

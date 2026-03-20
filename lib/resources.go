@@ -3,7 +3,7 @@ package lib
 import (
 	"context"
 	"errors"
-	"log"
+	"fmt"
 	"regexp"
 	"strings"
 	"time"
@@ -28,7 +28,7 @@ type CfnResource struct {
 func GetResources(stackname *string, svc interface {
 	CloudFormationDescribeStacksAPI
 	CloudFormationDescribeStackResourcesAPI
-}) []CfnResource {
+}) ([]CfnResource, error) {
 	input := &cloudformation.DescribeStacksInput{}
 	if *stackname != "" && !strings.Contains(*stackname, "*") {
 		input.StackName = stackname
@@ -40,9 +40,9 @@ func GetResources(stackname *string, svc interface {
 		if err != nil {
 			var bne *smithy.OperationError
 			if errors.As(err, &bne) {
-				log.Fatalln("error:", bne.Err)
+				return nil, fmt.Errorf("failed to describe stacks: %w", bne.Err)
 			}
-			log.Fatalln(err)
+			return nil, fmt.Errorf("failed to describe stacks: %w", err)
 		}
 		allstacks = append(allstacks, output.Stacks...)
 	}
@@ -70,17 +70,17 @@ func GetResources(stackname *string, svc interface {
 					resources, err = svc.DescribeStackResources(
 						context.TODO(),
 						&cloudformation.DescribeStackResourcesInput{StackName: stack.StackName})
-					// If it still fails though, we'll just break down
+					// If it still fails after retry, return the error
 					if err != nil {
-						log.Fatalln(err)
+						return nil, fmt.Errorf("failed to describe stack resources after throttling retry: %w", err)
 					}
 				} else {
-					// If it's another type of API error, we fail on it
-					log.Fatalf("code: %s, message: %s, fault: %s", ae.ErrorCode(), ae.ErrorMessage(), ae.ErrorFault().String())
+					// If it's another type of API error, return it
+					return nil, fmt.Errorf("failed to describe stack resources: code: %s, message: %s, fault: %s", ae.ErrorCode(), ae.ErrorMessage(), ae.ErrorFault().String())
 				}
 			} else {
-				// If it's a completely different type of error, we also fail
-				log.Fatalln(err)
+				// If it's a completely different type of error, return it
+				return nil, fmt.Errorf("failed to describe stack resources: %w", err)
 			}
 		}
 		for _, resource := range resources.StackResources {
@@ -98,5 +98,5 @@ func GetResources(stackname *string, svc interface {
 			resourcelist = append(resourcelist, resitem)
 		}
 	}
-	return resourcelist
+	return resourcelist, nil
 }
