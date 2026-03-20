@@ -1,6 +1,9 @@
 Unreleased
 ==========
 
+### Fixed
+- Fixed glob-style filters in stack, export, resource, and dependency commands treating regex metacharacters (`.`, `+`, `[`, `?`, etc.) as regex operators instead of literal characters, causing false matches on names containing those characters
+
 1.12.3 / 2026-03-05
 ===================
 
