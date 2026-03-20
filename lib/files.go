@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -27,13 +28,13 @@ func ReadFile(fileName *string, fileType string) (string, string, error) {
 		fileFound := false
 		fileDirectory := viper.GetString(fileType + ".directory")
 		// First, try the bare name in the directory (handles names that already include an extension).
-		filePath = fileDirectory + "/" + *fileName
+		filePath = filepath.Join(fileDirectory, *fileName)
 		if _, err := os.Stat(filePath); !os.IsNotExist(err) {
 			fileFound = true
 		}
 		if !fileFound {
 			for _, extension := range viper.GetStringSlice(fileType + ".extensions") {
-				filePath = fileDirectory + "/" + *fileName + extension
+				filePath = filepath.Join(fileDirectory, *fileName+extension)
 				if _, err := os.Stat(filePath); !os.IsNotExist(err) {
 					fileFound = true
 					break
