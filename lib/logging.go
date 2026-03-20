@@ -95,20 +95,22 @@ func NewDeploymentLog(awsConfig config.AWSConfig, deployment DeployInfo) Deploym
 	return deploylog
 }
 
-// Write writes the deployment log to the configured log file if logging is enabled
-func (deploymentlog *DeploymentLog) Write() {
-	if viper.GetBool("logging.enabled") {
-		deploymentlog.UpdatedAt = time.Now().UTC()
-		jsonString, err := json.Marshal(deploymentlog)
-		if err != nil {
-			panic("error with encoding logs")
-		}
-		outputFile := viper.GetString("logging.filename")
-		err = writeLogToFile(jsonString, outputFile)
-		if err != nil {
-			log.Fatal(err.Error())
-		}
+// Write writes the deployment log to the configured log file if logging is enabled.
+// Returns an error if the log entry cannot be marshalled or written to the file.
+func (deploymentlog *DeploymentLog) Write() error {
+	if !viper.GetBool("logging.enabled") {
+		return nil
 	}
+	deploymentlog.UpdatedAt = time.Now().UTC()
+	jsonString, err := json.Marshal(deploymentlog)
+	if err != nil {
+		return fmt.Errorf("failed to marshal deployment log: %w", err)
+	}
+	outputFile := viper.GetString("logging.filename")
+	if err := writeLogToFile(jsonString, outputFile); err != nil {
+		return fmt.Errorf("failed to write deployment log to %s: %w", outputFile, err)
+	}
+	return nil
 }
 
 // writeLogToFile opens the given file path and delegates to writeToFile.
@@ -132,11 +134,11 @@ func writeToFile(contents []byte, file io.WriteCloser) (err error) {
 
 	w := bufio.NewWriter(file)
 	contents = append(contents, '\n')
-	if _, werr := w.Write(contents); werr != nil {
-		return werr
+	if _, err = w.Write(contents); err != nil {
+		return err
 	}
-	if ferr := w.Flush(); ferr != nil {
-		return ferr
+	if err = w.Flush(); err != nil {
+		return err
 	}
 	return nil
 }
@@ -146,17 +148,19 @@ func (deploymentlog *DeploymentLog) AddChangeSet(changeset *ChangesetInfo) {
 	deploymentlog.Changes = changeset.Changes
 }
 
-// Success marks the deployment as successful and writes the log
-func (deploymentlog *DeploymentLog) Success() {
+// Success marks the deployment as successful and writes the log.
+// Returns an error if the log entry cannot be written.
+func (deploymentlog *DeploymentLog) Success() error {
 	deploymentlog.Status = DeploymentLogStatusSuccess
-	deploymentlog.Write()
+	return deploymentlog.Write()
 }
 
-// Failed marks the deployment as failed with the provided failure details and writes the log
-func (deploymentlog *DeploymentLog) Failed(failures []map[string]any) {
+// Failed marks the deployment as failed with the provided failure details and writes the log.
+// Returns an error if the log entry cannot be written.
+func (deploymentlog *DeploymentLog) Failed(failures []map[string]any) error {
 	deploymentlog.Status = DeploymentLogStatusFailed
 	deploymentlog.Failures = failures
-	deploymentlog.Write()
+	return deploymentlog.Write()
 }
 
 // ReadAllLogs reads all deployment logs from the configured log file

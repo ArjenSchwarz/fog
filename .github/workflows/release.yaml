@@ -22,7 +22,7 @@ jobs:
         goos: ${{ matrix.goos }}
         goarch: ${{ matrix.goarch }}
         binary_name: "fog"
-        ldflags: "-X 'github.com/ArjenSchwarz/fog/cmd.Version=${{ env.APP_VERSION}}'"
+        ldflags: "-s -w -X 'github.com/ArjenSchwarz/fog/cmd.Version=${{ env.APP_VERSION}}'"
   # s3release:
   #   name: Publish Lambda zipfile
   #   runs-on: ubuntu-latest

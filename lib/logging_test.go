@@ -101,7 +101,9 @@ func TestDeploymentLog_Write(t *testing.T) {
 	}
 
 	// Test writing to log file
-	deployLog.Write()
+	if err := deployLog.Write(); err != nil {
+		t.Fatalf("Write() returned unexpected error: %v", err)
+	}
 
 	// Verify log file was created and contains valid JSON
 	if _, err := os.Stat(logFile); os.IsNotExist(err) {
@@ -195,7 +197,9 @@ func TestDeploymentLog_Success(t *testing.T) {
 	}
 
 	// Test marking as success
-	deployLog.Success()
+	if err := deployLog.Success(); err != nil {
+		t.Fatalf("Success() returned unexpected error: %v", err)
+	}
 
 	// Verify log file was created
 	file, err := os.Open(logFile)
@@ -246,7 +250,9 @@ func TestDeploymentLog_Failed(t *testing.T) {
 		},
 	}
 
-	deployLog.Failed(failures)
+	if err := deployLog.Failed(failures); err != nil {
+		t.Fatalf("Failed() returned unexpected error: %v", err)
+	}
 
 	// Verify log file was created
 	file, err := os.Open(logFile)
@@ -499,6 +505,119 @@ func TestGetLatestSuccessFulLogByDeploymentName(t *testing.T) {
 	}
 	if log.StackName != "test-stack" {
 		t.Errorf("StackName = %v, want %v", log.StackName, "test-stack")
+	}
+}
+
+func TestDeploymentLog_WriteReturnsErrorOnFileWriteFailure(t *testing.T) {
+	// Regression test for T-466: Write() used to call log.Fatal on file write errors,
+	// which terminated the process. It should return an error instead.
+	originalLogEnabled := viper.GetBool("logging.enabled")
+	originalLogFile := viper.GetString("logging.filename")
+	defer func() {
+		viper.Set("logging.enabled", originalLogEnabled)
+		viper.Set("logging.filename", originalLogFile)
+	}()
+
+	viper.Set("logging.enabled", true)
+	// Point to a path that cannot be opened (directory that doesn't exist)
+	viper.Set("logging.filename", "/nonexistent-dir/impossible-path/test.log")
+
+	deployLog := DeploymentLog{
+		Account:   "123456789012",
+		StackName: "test-stack",
+		StartedAt: time.Now().UTC(),
+	}
+
+	// Write should return an error, not panic or call os.Exit
+	err := deployLog.Write()
+	if err == nil {
+		t.Error("Write() returned nil error for an unwritable log path; expected an error")
+	}
+}
+
+func TestDeploymentLog_WriteReturnsErrorOnLoggingDisabled(t *testing.T) {
+	// When logging is disabled, Write should succeed (no-op) and return nil.
+	originalLogEnabled := viper.GetBool("logging.enabled")
+	defer func() {
+		viper.Set("logging.enabled", originalLogEnabled)
+	}()
+
+	viper.Set("logging.enabled", false)
+
+	deployLog := DeploymentLog{
+		Account:   "123456789012",
+		StackName: "test-stack",
+		StartedAt: time.Now().UTC(),
+	}
+
+	err := deployLog.Write()
+	if err != nil {
+		t.Errorf("Write() returned error when logging is disabled: %v", err)
+	}
+}
+
+func TestDeploymentLog_SuccessReturnsErrorOnWriteFailure(t *testing.T) {
+	// Regression test for T-466: Success() wraps Write(), which used to
+	// panic/exit on errors. Success() should propagate the error instead.
+	originalLogEnabled := viper.GetBool("logging.enabled")
+	originalLogFile := viper.GetString("logging.filename")
+	defer func() {
+		viper.Set("logging.enabled", originalLogEnabled)
+		viper.Set("logging.filename", originalLogFile)
+	}()
+
+	viper.Set("logging.enabled", true)
+	viper.Set("logging.filename", "/nonexistent-dir/impossible-path/test.log")
+
+	deployLog := DeploymentLog{
+		Account:   "123456789012",
+		StackName: "test-stack",
+		StartedAt: time.Now().UTC(),
+	}
+
+	err := deployLog.Success()
+	if err == nil {
+		t.Error("Success() returned nil error for an unwritable log path; expected an error")
+	}
+	// Status should still be set even if the write fails
+	if deployLog.Status != DeploymentLogStatusSuccess {
+		t.Errorf("Status = %v, want %v", deployLog.Status, DeploymentLogStatusSuccess)
+	}
+}
+
+func TestDeploymentLog_FailedReturnsErrorOnWriteFailure(t *testing.T) {
+	// Regression test for T-466: Failed() wraps Write(), which used to
+	// panic/exit on errors. Failed() should propagate the error instead.
+	originalLogEnabled := viper.GetBool("logging.enabled")
+	originalLogFile := viper.GetString("logging.filename")
+	defer func() {
+		viper.Set("logging.enabled", originalLogEnabled)
+		viper.Set("logging.filename", originalLogFile)
+	}()
+
+	viper.Set("logging.enabled", true)
+	viper.Set("logging.filename", "/nonexistent-dir/impossible-path/test.log")
+
+	deployLog := DeploymentLog{
+		Account:   "123456789012",
+		StackName: "test-stack",
+		StartedAt: time.Now().UTC(),
+	}
+
+	failures := []map[string]any{
+		{"resource": "Resource1", "reason": "Permission denied"},
+	}
+
+	err := deployLog.Failed(failures)
+	if err == nil {
+		t.Error("Failed() returned nil error for an unwritable log path; expected an error")
+	}
+	// Status and failures should still be set even if the write fails
+	if deployLog.Status != DeploymentLogStatusFailed {
+		t.Errorf("Status = %v, want %v", deployLog.Status, DeploymentLogStatusFailed)
+	}
+	if len(deployLog.Failures) != 1 {
+		t.Errorf("Failures length = %d, want 1", len(deployLog.Failures))
 	}
 }
 

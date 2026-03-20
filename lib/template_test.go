@@ -641,6 +641,115 @@ func TestFilterTGWRoutesByLogicalId(t *testing.T) {
 	}
 }
 
+// TestFilterTGWRoutesByLogicalId_RefAndImportMap verifies that FilterTGWRoutesByLogicalId
+// handles route table ID properties specified as Ref maps and Fn::ImportValue maps,
+// not just the "REF: " string format. This is a regression test for T-365.
+func TestFilterTGWRoutesByLogicalId_RefAndImportMap(t *testing.T) {
+	params := []cfntypes.Parameter{}
+	logicalToPhysical := map[string]string{
+		"MyTGWRouteTable":     "tgw-rtb-physical123",
+		"TGWRouteTableExport": "tgw-rtb-physical123",
+	}
+
+	template := CfnTemplateBody{
+		Resources: map[string]CfnTemplateResource{
+			// Route using Ref map for route table ID
+			"RefRoute": {
+				Type: "AWS::EC2::TransitGatewayRoute",
+				Properties: map[string]any{
+					"TransitGatewayRouteTableId": map[string]any{"Ref": "MyTGWRouteTable"},
+					"DestinationCidrBlock":       "10.0.0.0/16",
+					"TransitGatewayAttachmentId": "tgw-attach-ref",
+				},
+			},
+			// Route using Fn::ImportValue map for route table ID
+			"ImportRoute": {
+				Type: "AWS::EC2::TransitGatewayRoute",
+				Properties: map[string]any{
+					"TransitGatewayRouteTableId": map[string]any{"Fn::ImportValue": "TGWRouteTableExport"},
+					"DestinationCidrBlock":       "172.16.0.0/12",
+					"TransitGatewayAttachmentId": "tgw-attach-import",
+				},
+			},
+			// Route using REF: string format (existing format, should still work)
+			"RefStringRoute": {
+				Type: "AWS::EC2::TransitGatewayRoute",
+				Properties: map[string]any{
+					"TransitGatewayRouteTableId": "REF: MyTGWRouteTable",
+					"DestinationCidrBlock":       "192.168.0.0/24",
+					"TransitGatewayAttachmentId": "tgw-attach-refstr",
+				},
+			},
+			// Route using plain physical ID string for route table ID
+			"PhysicalIdRoute": {
+				Type: "AWS::EC2::TransitGatewayRoute",
+				Properties: map[string]any{
+					"TransitGatewayRouteTableId": "tgw-rtb-physical123",
+					"DestinationCidrBlock":       "10.50.0.0/16",
+					"TransitGatewayAttachmentId": "tgw-attach-physical",
+				},
+			},
+			// Route for a different route table (should not be included)
+			"OtherRoute": {
+				Type: "AWS::EC2::TransitGatewayRoute",
+				Properties: map[string]any{
+					"TransitGatewayRouteTableId": map[string]any{"Ref": "OtherRouteTable"},
+					"DestinationCidrBlock":       "10.99.0.0/16",
+					"TransitGatewayAttachmentId": "tgw-attach-other",
+				},
+			},
+		},
+		Conditions: map[string]bool{},
+	}
+
+	results := FilterTGWRoutesByLogicalId("MyTGWRouteTable", template, params, logicalToPhysical)
+
+	if len(results) != 4 {
+		t.Errorf("Expected 4 routes, got %d", len(results))
+	}
+
+	// Check that the Ref map route is included
+	if route, ok := results["10.0.0.0/16"]; ok {
+		if *route.DestinationCidrBlock != "10.0.0.0/16" {
+			t.Errorf("Expected CIDR 10.0.0.0/16, got %s", *route.DestinationCidrBlock)
+		}
+	} else {
+		t.Error("Expected Ref map route (10.0.0.0/16) not found")
+	}
+
+	// Check that the ImportValue map route is included
+	if route, ok := results["172.16.0.0/12"]; ok {
+		if *route.DestinationCidrBlock != "172.16.0.0/12" {
+			t.Errorf("Expected CIDR 172.16.0.0/12, got %s", *route.DestinationCidrBlock)
+		}
+	} else {
+		t.Error("Expected ImportValue map route (172.16.0.0/12) not found")
+	}
+
+	// Check that the REF: string format route is still included
+	if route, ok := results["192.168.0.0/24"]; ok {
+		if *route.DestinationCidrBlock != "192.168.0.0/24" {
+			t.Errorf("Expected CIDR 192.168.0.0/24, got %s", *route.DestinationCidrBlock)
+		}
+	} else {
+		t.Error("Expected REF: string route (192.168.0.0/24) not found")
+	}
+
+	// Check that the plain physical ID string route is included
+	if route, ok := results["10.50.0.0/16"]; ok {
+		if *route.DestinationCidrBlock != "10.50.0.0/16" {
+			t.Errorf("Expected CIDR 10.50.0.0/16, got %s", *route.DestinationCidrBlock)
+		}
+	} else {
+		t.Error("Expected plain physical ID route (10.50.0.0/16) not found")
+	}
+
+	// Ensure the other route table's route is NOT included
+	if _, ok := results["10.99.0.0/16"]; ok {
+		t.Error("Expected other route table's route not to be included")
+	}
+}
+
 // TestCfnTemplateParameter_UnmarshalJSON verifies that parameter constraint
 // fields can be unmarshaled from both numeric and string JSON values
 func TestCfnTemplateParameter_UnmarshalJSON(t *testing.T) {

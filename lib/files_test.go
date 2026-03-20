@@ -52,6 +52,14 @@ func TestReadFile(t *testing.T) {
 			wantErr:     false,
 		},
 		{
+			name:        "File name with extension in configured directory",
+			fileName:    "testfile.yaml",
+			fileType:    "testtype",
+			wantContent: testContent,
+			wantPath:    filepath.Join(tempDir, "testfile.yaml"),
+			wantErr:     false,
+		},
+		{
 			name:        "Non-existent file",
 			fileName:    "nonexistent",
 			fileType:    "testtype",
@@ -205,6 +213,158 @@ func TestRunPrechecks(t *testing.T) {
 	}
 	if len(results) > 0 {
 		t.Errorf("RunPrechecks() should not return results for unsafe command")
+	}
+}
+
+func TestRunPrechecksQuotedArgs(t *testing.T) {
+	// Regression test for T-378: RunPrechecks must correctly parse
+	// quoted arguments so that spaces inside quotes are not treated
+	// as argument separators.
+	t.Cleanup(viper.Reset)
+
+	// Use "test" (the shell built-in) to verify the argument value.
+	// "test X = Y" exits non-zero when X != Y, so this fails if the
+	// path is split incorrectly or quotes are kept as literal characters.
+	deployment := &DeployInfo{
+		TemplateRelativePath: "path with spaces/template.yaml",
+	}
+
+	// Double-quoted $TEMPLATEPATH — the quotes should be stripped and
+	// the path kept as a single argument. We use test to verify the
+	// exact argument value.
+	viper.Set("templates.prechecks", []string{`test "$TEMPLATEPATH" = "path with spaces/template.yaml"`})
+	results, err := RunPrechecks(deployment)
+	if err != nil {
+		t.Fatalf("RunPrechecks() unexpected error: %v", err)
+	}
+	if deployment.PrechecksFailed {
+		t.Errorf("RunPrechecks() precheck should not have failed, results: %v", results)
+	}
+
+	// Single-quoted argument with spaces — verify exact value using test.
+	deployment2 := &DeployInfo{
+		TemplateRelativePath: "simple/path.yaml",
+	}
+	viper.Set("templates.prechecks", []string{`test 'hello world' = 'hello world'`})
+	results, err = RunPrechecks(deployment2)
+	if err != nil {
+		t.Fatalf("RunPrechecks() unexpected error: %v", err)
+	}
+	if deployment2.PrechecksFailed {
+		t.Errorf("RunPrechecks() single-quoted precheck should not have failed, results: %v", results)
+	}
+}
+
+func TestRunPrechecksEmptyCommand(t *testing.T) {
+	t.Cleanup(viper.Reset)
+
+	deployment := &DeployInfo{
+		TemplateRelativePath: "test/path.yaml",
+	}
+	viper.Set("templates.prechecks", []string{"   "})
+	_, err := RunPrechecks(deployment)
+	if err == nil {
+		t.Errorf("RunPrechecks() should return an error for empty/whitespace precheck commands")
+	}
+}
+
+func TestRunPrechecksUnbalancedQuotes(t *testing.T) {
+	t.Cleanup(viper.Reset)
+
+	deployment := &DeployInfo{
+		TemplateRelativePath: "test/path.yaml",
+	}
+	viper.Set("templates.prechecks", []string{`echo "unterminated`})
+	_, err := RunPrechecks(deployment)
+	if err == nil {
+		t.Errorf("RunPrechecks() should return an error for unbalanced quotes")
+	}
+}
+
+func TestSplitShellArgs(t *testing.T) {
+	// Regression test for T-378: splitShellArgs must handle quoted
+	// arguments correctly, keeping spaces inside quotes as part of
+	// the same argument and stripping the surrounding quotes.
+
+	tests := []struct {
+		name    string
+		input   string
+		want    []string
+		wantErr bool
+	}{
+		{
+			name:  "Simple command without quotes",
+			input: "cfn-lint -t template.yaml",
+			want:  []string{"cfn-lint", "-t", "template.yaml"},
+		},
+		{
+			name:  "Double-quoted argument with spaces",
+			input: `cfn-lint -t "path with spaces/template.yaml"`,
+			want:  []string{"cfn-lint", "-t", "path with spaces/template.yaml"},
+		},
+		{
+			name:  "Single-quoted argument with spaces",
+			input: `echo 'hello world'`,
+			want:  []string{"echo", "hello world"},
+		},
+		{
+			name:  "Multiple quoted arguments",
+			input: `cmd "arg one" "arg two"`,
+			want:  []string{"cmd", "arg one", "arg two"},
+		},
+		{
+			name:  "Mixed quoted and unquoted arguments",
+			input: `cmd --flag "quoted arg" plain`,
+			want:  []string{"cmd", "--flag", "quoted arg", "plain"},
+		},
+		{
+			name:  "Empty quoted argument",
+			input: `cmd "" arg`,
+			want:  []string{"cmd", "", "arg"},
+		},
+		{
+			name:  "Consecutive spaces between arguments",
+			input: "cmd   arg1   arg2",
+			want:  []string{"cmd", "arg1", "arg2"},
+		},
+		{
+			name:  "Quoted argument containing single quotes inside double quotes",
+			input: `cmd "it's a test"`,
+			want:  []string{"cmd", "it's a test"},
+		},
+		{
+			name:  "Single argument only",
+			input: "cmd",
+			want:  []string{"cmd"},
+		},
+		{
+			name:  "Escaped quote inside double quotes",
+			input: `cmd "arg with \"escaped\" quotes"`,
+			want:  []string{"cmd", `arg with "escaped" quotes`},
+		},
+		{
+			name:    "Unbalanced double quote",
+			input:   `cmd "unterminated`,
+			wantErr: true,
+		},
+		{
+			name:    "Unbalanced single quote",
+			input:   `cmd 'unterminated`,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := splitShellArgs(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("splitShellArgs(%q) error = %v, wantErr %v", tt.input, err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr && !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("splitShellArgs(%q) = %v, want %v", tt.input, got, tt.want)
+			}
+		})
 	}
 }
 
