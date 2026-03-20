@@ -101,7 +101,9 @@ func TestDeploymentLog_Write(t *testing.T) {
 	}
 
 	// Test writing to log file
-	deployLog.Write()
+	if err := deployLog.Write(); err != nil {
+		t.Fatalf("Write() returned unexpected error: %v", err)
+	}
 
 	// Verify log file was created and contains valid JSON
 	if _, err := os.Stat(logFile); os.IsNotExist(err) {
@@ -195,7 +197,9 @@ func TestDeploymentLog_Success(t *testing.T) {
 	}
 
 	// Test marking as success
-	deployLog.Success()
+	if err := deployLog.Success(); err != nil {
+		t.Fatalf("Success() returned unexpected error: %v", err)
+	}
 
 	// Verify log file was created
 	file, err := os.Open(logFile)
@@ -246,7 +250,9 @@ func TestDeploymentLog_Failed(t *testing.T) {
 		},
 	}
 
-	deployLog.Failed(failures)
+	if err := deployLog.Failed(failures); err != nil {
+		t.Fatalf("Failed() returned unexpected error: %v", err)
+	}
 
 	// Verify log file was created
 	file, err := os.Open(logFile)

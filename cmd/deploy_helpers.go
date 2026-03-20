@@ -178,7 +178,9 @@ func printDeploymentResults(info *lib.DeployInfo, cfg config.AWSConfig, logObj *
 
 	switch resultStack.StackStatus {
 	case types.StackStatusCreateComplete, types.StackStatusUpdateComplete:
-		logObj.Success()
+		if err := logObj.Success(); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: Failed to write deployment log: %v\n", err)
+		}
 
 		// Output success message to stderr (streaming output)
 		if !deployFlags.Quiet {
@@ -196,7 +198,9 @@ func printDeploymentResults(info *lib.DeployInfo, cfg config.AWSConfig, logObj *
 
 		// Show failed events to stderr (streaming output)
 		failures := showFailedEventsFunc(*info, cfg, formatError(string(texts.DeployStackMessageFailed)))
-		logObj.Failed(failures)
+		if err := logObj.Failed(failures); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: Failed to write deployment log: %v\n", err)
+		}
 
 		// Output failure summary to stdout
 		if err := outputFailureResult(info, cfg.CloudformationClient()); err != nil {
