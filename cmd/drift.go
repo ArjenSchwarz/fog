@@ -295,7 +295,7 @@ func checkIfResourcesAreManaged(allresources map[string]string, logicalToPhysica
 	toIgnore := settings.GetStringSlice("drift.ignore-unmanaged-resources")
 	for resource, resourcetype := range allresources {
 		// If the resource isn't in the logicalToPhysical map, it's not managed by CloudFormation
-		if !stringValueInMap(resource, logicalToPhysical) {
+		if _, exists := logicalToPhysical[resource]; !exists {
 			// If the resource is in the ignore list, don't report it
 			if stringInSlice(resource, toIgnore) {
 				continue
