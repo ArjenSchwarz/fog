@@ -36,8 +36,8 @@
 ## Resolution for the Issue
 
 **Changes made:**
-- `lib/files.go` - Added `splitShellArgs()` function that parses command strings with awareness of single and double quotes, including backslash-escaped quotes inside double-quoted strings
-- `lib/files.go` - Changed `RunPrechecks` to use `splitShellArgs()` instead of `strings.Split(precheck, " ")`, and added a guard for empty parse results
+- `lib/files.go` - Added `splitShellArgs()` function that parses command strings with awareness of single and double quotes, including backslash-escaped quotes inside double-quoted strings. Returns an error on unbalanced quotes.
+- `lib/files.go` - Changed `RunPrechecks` to use `splitShellArgs()` instead of `strings.Split(precheck, " ")`. Returns an error on empty/whitespace commands and unbalanced quotes.
 
 **Approach rationale:** A self-contained shell argument parser avoids adding an external dependency while correctly handling the most common quoting patterns that users encounter. The implementation follows standard shell quoting semantics: double quotes and single quotes delimit arguments, spaces inside quotes are preserved, and quotes are stripped from the result.
 
@@ -48,11 +48,13 @@
 ## Regression Test
 
 **Test file:** `lib/files_test.go`
-**Test names:** `TestSplitShellArgs`, `TestRunPrechecksQuotedArgs`
+**Test names:** `TestSplitShellArgs`, `TestRunPrechecksQuotedArgs`, `TestRunPrechecksEmptyCommand`, `TestRunPrechecksUnbalancedQuotes`
 
 **What it verifies:**
-- `TestSplitShellArgs` verifies that the new shell argument parser correctly handles double-quoted args, single-quoted args, mixed quoted/unquoted args, empty quoted args, consecutive spaces, and escaped quotes.
-- `TestRunPrechecksQuotedArgs` verifies that `RunPrechecks` correctly executes commands with quoted arguments containing spaces (using `echo` as a safe test command).
+- `TestSplitShellArgs` verifies that the parser correctly handles double-quoted args, single-quoted args, mixed quoted/unquoted args, empty quoted args, consecutive spaces, escaped quotes, and returns errors on unbalanced quotes.
+- `TestRunPrechecksQuotedArgs` verifies that `RunPrechecks` correctly executes commands with quoted arguments containing spaces (using `test` to assert exact argument values).
+- `TestRunPrechecksEmptyCommand` verifies that empty/whitespace precheck commands return an error.
+- `TestRunPrechecksUnbalancedQuotes` verifies that unbalanced quotes in precheck commands return an error.
 
 **Run command:** `go test ./lib/ -run "TestSplitShellArgs|TestRunPrechecksQuotedArgs" -v`
 
@@ -82,3 +84,4 @@
 ## Related
 
 - Transit ticket: T-378
+- PR: https://github.com/ArjenSchwarz/fog/pull/127
