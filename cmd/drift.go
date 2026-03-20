@@ -288,10 +288,20 @@ func separateSpecialCases(defaultDrift []types.StackResourceDrift, stackName *st
 }
 
 func checkIfResourcesAreManaged(allresources map[string]string, logicalToPhysical map[string]string, rows *[]map[string]any) {
+	// Build a set of managed physical IDs for O(1) lookups.
+	// logicalToPhysical maps logical IDs (keys) to physical IDs (values).
+	// allresources maps physical resource identifiers (keys) to resource types (values).
+	// We need to check if each physical ID from allresources exists among the
+	// physical IDs (values) in logicalToPhysical.
+	managedPhysicalIDs := make(map[string]struct{}, len(logicalToPhysical))
+	for _, physicalID := range logicalToPhysical {
+		managedPhysicalIDs[physicalID] = struct{}{}
+	}
+
 	toIgnore := settings.GetStringSlice("drift.ignore-unmanaged-resources")
 	for resource, resourcetype := range allresources {
-		// If the resource isn't in the logicalToPhysical map, it's not managed by CloudFormation
-		if !stringValueInMap(resource, logicalToPhysical) {
+		// If the resource's physical ID isn't in the managed set, it's not managed by CloudFormation
+		if _, managed := managedPhysicalIDs[resource]; !managed {
 			// If the resource is in the ignore list, don't report it
 			if stringInSlice(resource, toIgnore) {
 				continue
