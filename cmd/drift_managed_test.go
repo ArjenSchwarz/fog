@@ -19,11 +19,11 @@ func TestCheckIfResourcesAreManaged_KeyLookup(t *testing.T) {
 	// NOTE: Cannot use t.Parallel() because settings uses viper global state
 
 	tests := map[string]struct {
-		allresources     map[string]string
+		allresources      map[string]string
 		logicalToPhysical map[string]string
-		ignoreResources  []string
-		wantUnmanaged    int
-		wantLogicalIds   []string
+		ignoreResources   []string
+		wantUnmanaged     int
+		wantLogicalIds    []string
 	}{
 		"managed_resource_not_marked_unmanaged": {
 			// The resource key "MyBucket" matches a key in logicalToPhysical.
@@ -65,9 +65,9 @@ func TestCheckIfResourcesAreManaged_KeyLookup(t *testing.T) {
 		},
 		"mixed_managed_and_unmanaged": {
 			allresources: map[string]string{
-				"ManagedVPC":     "AWS::EC2::VPC",
-				"UnmanagedVPC":   "AWS::EC2::VPC",
-				"ManagedSubnet":  "AWS::EC2::Subnet",
+				"ManagedVPC":    "AWS::EC2::VPC",
+				"UnmanagedVPC":  "AWS::EC2::VPC",
+				"ManagedSubnet": "AWS::EC2::Subnet",
 			},
 			logicalToPhysical: map[string]string{
 				"ManagedVPC":    "vpc-12345",
