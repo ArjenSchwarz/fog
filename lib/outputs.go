@@ -145,6 +145,7 @@ func (output *CfnOutput) FillImports(svc CFNListImportsAPI) error {
 	if err != nil {
 		if isNotImportedError(err) {
 			output.Imported = false
+			output.ImportedBy = nil
 			return nil
 		}
 		return fmt.Errorf("ListImports for %q: %w", output.ExportName, err)
@@ -157,6 +158,13 @@ func (output *CfnOutput) FillImports(svc CFNListImportsAPI) error {
 // isNotImportedError returns true when the error is the specific CloudFormation
 // message indicating an export has no importers: "Export '...' is not imported
 // by any stack." All other errors (throttling, permissions, etc.) return false.
+//
+// Checks for a smithy API error first (the typed representation from the AWS SDK),
+// then falls back to string matching on the error message.
 func isNotImportedError(err error) bool {
+	var apiErr smithy.APIError
+	if errors.As(err, &apiErr) {
+		return strings.Contains(apiErr.ErrorMessage(), "is not imported by any stack")
+	}
 	return strings.Contains(err.Error(), "is not imported by any stack")
 }
