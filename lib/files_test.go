@@ -190,6 +190,7 @@ func TestReadDeploymentFile(t *testing.T) {
 func TestRunPrechecks(t *testing.T) {
 	// This is a simplified test since we can't easily mock exec.Command
 	// We'll just test the unsafe command detection
+	t.Cleanup(viper.Reset)
 
 	// Setup
 	deployment := &DeployInfo{
