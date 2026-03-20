@@ -46,7 +46,7 @@ func GetResources(stackname *string, svc interface {
 		}
 		allstacks = append(allstacks, output.Stacks...)
 	}
-	stackRegex := "^" + strings.ReplaceAll(*stackname, "*", ".*") + "$"
+	stackRegex := "^" + strings.ReplaceAll(regexp.QuoteMeta(*stackname), "\\*", ".*") + "$"
 	tocheckstacks := make([]types.Stack, 0)
 	for _, stack := range allstacks {
 		if strings.Contains(*stackname, "*") {

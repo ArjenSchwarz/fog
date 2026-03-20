@@ -136,7 +136,7 @@ func Test_getOutputsForStack_regexMetacharacters(t *testing.T) {
 		t.Errorf("expected 'my.export.name', got %q", res3[0].ExportName)
 	}
 
-	// Filter with other metacharacters like '+' and '?' should be literal.
+	// Filter with other metacharacters like '+' should be literal.
 	stackPlus := types.Stack{
 		StackName: strPtrOut("test-stack"),
 		Outputs: []types.Output{
