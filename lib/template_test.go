@@ -239,7 +239,7 @@ func TestFilterNaclEntriesByLogicalId(t *testing.T) {
 		Conditions: map[string]bool{},
 	}
 
-	results := FilterNaclEntriesByLogicalId("TestNacl", template, params)
+	results := FilterNaclEntriesByLogicalId("TestNacl", template, params, map[string]string{})
 
 	if len(results) != 2 {
 		t.Errorf("Expected 2 entries, got %d", len(results))
@@ -1077,6 +1077,182 @@ func TestParseTemplateString_EmptyAndWhitespace(t *testing.T) {
 				t.Errorf("error = %q, want it to contain %q", err.Error(), tt.wantErr)
 			}
 		})
+	}
+}
+
+// TestFilterNaclEntriesByLogicalId_FnImportValue verifies that NACL entries using
+// Fn::ImportValue for NetworkAclId are correctly filtered instead of panicking.
+// The Fn::ImportValue import name is resolved through logicalToPhysical to get
+// the physical NACL ID, which is compared against the physical ID of the logicalId.
+func TestFilterNaclEntriesByLogicalId_FnImportValue(t *testing.T) {
+	params := []cfntypes.Parameter{}
+	logicalToPhysical := map[string]string{
+		"SharedNaclExport": "acl-shared123",
+		"MyNacl":           "acl-shared123",
+	}
+
+	template := CfnTemplateBody{
+		Resources: map[string]CfnTemplateResource{
+			"ImportedNaclEntry": {
+				Type: "AWS::EC2::NetworkAclEntry",
+				Properties: map[string]any{
+					"NetworkAclId": map[string]any{
+						"Fn::ImportValue": "SharedNaclExport",
+					},
+					"Protocol":   6.0,
+					"RuleNumber": 100.0,
+					"CidrBlock":  "10.0.0.0/8",
+					"RuleAction": "allow",
+					"Egress":     false,
+				},
+			},
+			"StringNaclEntry": {
+				Type: "AWS::EC2::NetworkAclEntry",
+				Properties: map[string]any{
+					"NetworkAclId": "REF: LocalNacl",
+					"Protocol":     "17",
+					"RuleNumber":   200.0,
+					"CidrBlock":    "0.0.0.0/0",
+					"RuleAction":   "deny",
+					"Egress":       true,
+				},
+			},
+		},
+		Conditions: map[string]bool{},
+	}
+
+	// Should not panic when NetworkAclId is Fn::ImportValue map.
+	// "MyNacl" resolves to "acl-shared123" via logicalToPhysical,
+	// and "SharedNaclExport" also resolves to "acl-shared123", so the entry matches.
+	results := FilterNaclEntriesByLogicalId("MyNacl", template, params, logicalToPhysical)
+
+	if len(results) != 1 {
+		t.Errorf("Expected 1 entry, got %d", len(results))
+	}
+
+	if entry, ok := results["I100"]; ok {
+		if *entry.RuleNumber != 100 {
+			t.Errorf("Expected rule number 100, got %d", *entry.RuleNumber)
+		}
+	} else {
+		t.Errorf("Expected ingress rule I100 not found")
+	}
+
+	// String-based entry should not be included
+	if _, ok := results["E200"]; ok {
+		t.Errorf("Expected LocalNacl entry not to be included")
+	}
+}
+
+// TestFilterRoutesByLogicalId_FnImportValue verifies that routes using
+// Fn::ImportValue for RouteTableId are correctly filtered instead of panicking.
+func TestFilterRoutesByLogicalId_FnImportValue(t *testing.T) {
+	params := []cfntypes.Parameter{}
+	logicalToPhysical := map[string]string{
+		"SharedRouteTableExport": "rtb-shared456",
+		"MyRouteTable":           "rtb-shared456",
+	}
+
+	template := CfnTemplateBody{
+		Resources: map[string]CfnTemplateResource{
+			"ImportedRoute": {
+				Type: "AWS::EC2::Route",
+				Properties: map[string]any{
+					"RouteTableId": map[string]any{
+						"Fn::ImportValue": "SharedRouteTableExport",
+					},
+					"DestinationCidrBlock": "0.0.0.0/0",
+					"GatewayId":            "igw-abc123",
+				},
+			},
+			"StringRoute": {
+				Type: "AWS::EC2::Route",
+				Properties: map[string]any{
+					"RouteTableId":         "REF: LocalRouteTable",
+					"DestinationCidrBlock": "10.0.0.0/8",
+					"GatewayId":            "local",
+				},
+			},
+		},
+		Conditions: map[string]bool{},
+	}
+
+	// Should not panic when RouteTableId is Fn::ImportValue map.
+	// "MyRouteTable" resolves to "rtb-shared456" via logicalToPhysical,
+	// and "SharedRouteTableExport" also resolves to "rtb-shared456", so the route matches.
+	results := FilterRoutesByLogicalId("MyRouteTable", template, params, logicalToPhysical)
+
+	if len(results) != 1 {
+		t.Errorf("Expected 1 route, got %d", len(results))
+	}
+
+	if route, ok := results["0.0.0.0/0"]; ok {
+		if *route.DestinationCidrBlock != "0.0.0.0/0" {
+			t.Errorf("Expected destination 0.0.0.0/0, got %s", *route.DestinationCidrBlock)
+		}
+	} else {
+		t.Errorf("Expected default route not found")
+	}
+
+	// String-based route should not be included
+	if _, ok := results["10.0.0.0/8"]; ok {
+		t.Errorf("Expected LocalRouteTable route not to be included")
+	}
+}
+
+// TestFilterTGWRoutesByLogicalId_FnImportValue verifies that TGW routes using
+// Fn::ImportValue for TransitGatewayRouteTableId are correctly filtered instead of panicking.
+func TestFilterTGWRoutesByLogicalId_FnImportValue(t *testing.T) {
+	params := []cfntypes.Parameter{}
+	logicalToPhysical := map[string]string{
+		"SharedTGWRouteTableExport": "tgw-rtb-shared789",
+		"MyTGWRouteTable":           "tgw-rtb-shared789",
+	}
+
+	template := CfnTemplateBody{
+		Resources: map[string]CfnTemplateResource{
+			"ImportedTGWRoute": {
+				Type: "AWS::EC2::TransitGatewayRoute",
+				Properties: map[string]any{
+					"TransitGatewayRouteTableId": map[string]any{
+						"Fn::ImportValue": "SharedTGWRouteTableExport",
+					},
+					"DestinationCidrBlock":       "10.0.0.0/16",
+					"TransitGatewayAttachmentId": "tgw-attach-abc",
+				},
+			},
+			"StringTGWRoute": {
+				Type: "AWS::EC2::TransitGatewayRoute",
+				Properties: map[string]any{
+					"TransitGatewayRouteTableId": "REF: LocalTGWRouteTable",
+					"DestinationCidrBlock":       "192.168.0.0/16",
+					"TransitGatewayAttachmentId": "tgw-attach-other",
+				},
+			},
+		},
+		Conditions: map[string]bool{},
+	}
+
+	// Should not panic when TransitGatewayRouteTableId is Fn::ImportValue map.
+	// "MyTGWRouteTable" resolves to "tgw-rtb-shared789" via logicalToPhysical,
+	// and "SharedTGWRouteTableExport" also resolves to the same value, so the route matches.
+	results := FilterTGWRoutesByLogicalId("MyTGWRouteTable", template, params, logicalToPhysical)
+
+	if len(results) != 1 {
+		t.Errorf("Expected 1 route, got %d", len(results))
+	}
+
+	if route, ok := results["10.0.0.0/16"]; ok {
+		if *route.DestinationCidrBlock != "10.0.0.0/16" {
+			t.Errorf("Expected CIDR 10.0.0.0/16, got %s", *route.DestinationCidrBlock)
+		}
+	} else {
+		t.Errorf("Expected CIDR route not found")
+	}
+
+	// String-based route should not be included
+	if _, ok := results["192.168.0.0/16"]; ok {
+		t.Errorf("Expected LocalTGWRouteTable route not to be included")
 	}
 }
 

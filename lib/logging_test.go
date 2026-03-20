@@ -640,6 +640,91 @@ func TestGenerateDeploymentName(t *testing.T) {
 	}
 }
 
+// errOnCloseWriter wraps a real file but returns an error on Close.
+// Used to verify that writeToFile propagates close errors.
+type errOnCloseWriter struct {
+	*os.File
+	closeErr error
+}
+
+func (w *errOnCloseWriter) Close() error {
+	// Close the underlying file to avoid leaking, but return our injected error.
+	w.File.Close()
+	return w.closeErr
+}
+
+func TestWriteLogToFile_WritesContentToFile(t *testing.T) {
+	// This test verifies that writeLogToFile correctly writes content to the
+	// specified file (happy path regression test for the refactoring).
+	tempDir := t.TempDir()
+	outputFile := filepath.Join(tempDir, "test.log")
+
+	contents := []byte(`{"test": "data"}`)
+	err := writeLogToFile(contents, outputFile)
+	if err != nil {
+		t.Fatalf("writeLogToFile failed on valid file: %v", err)
+	}
+
+	// Verify file was written successfully
+	data, readErr := os.ReadFile(outputFile)
+	if readErr != nil {
+		t.Fatalf("Failed to read output file: %v", readErr)
+	}
+	if !strings.Contains(string(data), `{"test": "data"}`) {
+		t.Errorf("Output file content = %q, want it to contain %q", string(data), `{"test": "data"}`)
+	}
+}
+
+func TestWriteToFile_PropagatesCloseError(t *testing.T) {
+	// This test verifies that writeToFile (the extracted helper that accepts
+	// an io.WriteCloser) returns the close error when no write/flush error
+	// occurred. Before the fix, writeLogToFile used an unnamed return so the
+	// deferred close error was silently discarded.
+	tempDir := t.TempDir()
+	realFile, err := os.CreateTemp(tempDir, "close-err-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp file: %v", err)
+	}
+
+	wantErr := fmt.Errorf("injected close error")
+	failCloser := &errOnCloseWriter{File: realFile, closeErr: wantErr}
+
+	contents := []byte(`{"test": "data"}`)
+	gotErr := writeToFile(contents, failCloser)
+	if gotErr == nil {
+		t.Fatal("writeToFile returned nil, want close error to be propagated")
+	}
+	if !strings.Contains(gotErr.Error(), "injected close error") {
+		t.Errorf("writeToFile error = %v, want it to contain %q", gotErr, "injected close error")
+	}
+}
+
+func TestWriteToFile_WriteErrorTakesPrecedenceOverCloseError(t *testing.T) {
+	// When both write and close fail, the write error should be returned
+	// (not the close error), because the write error is the primary failure.
+	tempDir := t.TempDir()
+	realFile, err := os.CreateTemp(tempDir, "close-err-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp file: %v", err)
+	}
+
+	// Close the real file to make writes fail
+	realFile.Close()
+
+	closeErr := fmt.Errorf("injected close error")
+	failCloser := &errOnCloseWriter{File: realFile, closeErr: closeErr}
+
+	contents := []byte(`{"test": "data"}`)
+	gotErr := writeToFile(contents, failCloser)
+	if gotErr == nil {
+		t.Fatal("writeToFile returned nil, want write error")
+	}
+	// The write error should be returned, not the close error
+	if strings.Contains(gotErr.Error(), "injected close error") {
+		t.Errorf("writeToFile returned close error instead of write error: %v", gotErr)
+	}
+}
+
 func TestReverseLogs(t *testing.T) {
 	// Create test logs with different timestamps
 	now := time.Now().UTC()

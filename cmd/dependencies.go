@@ -24,7 +24,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/ArjenSchwarz/fog/config"
@@ -111,17 +110,17 @@ func showDependencies(cmd *cobra.Command, args []string) {
 
 func getFilteredStacks(stackfilter string, stacks *map[string]lib.CfnStack) []string {
 	result := []string{}
-	stackRegex := "^" + strings.ReplaceAll(stackfilter, "*", ".*") + "$"
 	for stackname, stack := range *stacks {
 		if strings.Contains(stackfilter, "*") {
-			if matched, err := regexp.MatchString(stackRegex, stackname); matched && err == nil {
+			re := lib.GlobToRegex(stackfilter)
+			if re.MatchString(stackname) {
 				result = append(result, stackname)
 				for _, importedstack := range stack.ImportedBy {
 					result = append(result, getFilteredStacks(importedstack, stacks)...)
 				}
 			} else {
 				for _, importstack := range stack.ImportedBy {
-					if matched, err := regexp.MatchString(stackRegex, importstack); matched && err == nil {
+					if re.MatchString(importstack) {
 						result = append(result, stackname)
 					}
 				}

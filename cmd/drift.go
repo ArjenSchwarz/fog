@@ -189,7 +189,7 @@ func detectDrift(cmd *cobra.Command, args []string) {
 	if err != nil {
 		failWithError(err)
 	}
-	checkNaclEntries(naclResources, template, stack.Parameters, &rows, awsConfig)
+	checkNaclEntries(naclResources, template, stack.Parameters, logicalToPhysical, &rows, awsConfig)
 	checkRouteTableRoutes(routetableResources, template, stack.Parameters, logicalToPhysical, &rows, awsConfig)
 	checkTransitGatewayRouteTableRoutes(tgwRouteTableResources, template, stack.Parameters, logicalToPhysical, &rows, awsConfig)
 	for _, resourcetype := range settings.GetStringSlice("drift.detect-unmanaged-resources") {
@@ -292,10 +292,20 @@ func separateSpecialCases(defaultDrift []types.StackResourceDrift, stackName *st
 }
 
 func checkIfResourcesAreManaged(allresources map[string]string, logicalToPhysical map[string]string, rows *[]map[string]any) {
+	// Build a set of managed physical IDs for O(1) lookups.
+	// logicalToPhysical maps logical IDs (keys) to physical IDs (values).
+	// allresources maps physical resource identifiers (keys) to resource types (values).
+	// We need to check if each physical ID from allresources exists among the
+	// physical IDs (values) in logicalToPhysical.
+	managedPhysicalIDs := make(map[string]struct{}, len(logicalToPhysical))
+	for _, physicalID := range logicalToPhysical {
+		managedPhysicalIDs[physicalID] = struct{}{}
+	}
+
 	toIgnore := settings.GetStringSlice("drift.ignore-unmanaged-resources")
 	for resource, resourcetype := range allresources {
-		// If the resource isn't in the logicalToPhysical map, it's not managed by CloudFormation
-		if _, exists := logicalToPhysical[resource]; !exists {
+		// If the resource's physical ID isn't in the managed set, it's not managed by CloudFormation
+		if _, managed := managedPhysicalIDs[resource]; !managed {
 			// If the resource is in the ignore list, don't report it
 			if stringInSlice(resource, toIgnore) {
 				continue
@@ -311,7 +321,7 @@ func checkIfResourcesAreManaged(allresources map[string]string, logicalToPhysica
 }
 
 // checkNaclEntries verifies the NACL entries and if there are differences adds those to the provided rows slice
-func checkNaclEntries(naclResources map[string]string, template lib.CfnTemplateBody, parameters []types.Parameter, rows *[]map[string]any, awsConfig config.AWSConfig) {
+func checkNaclEntries(naclResources map[string]string, template lib.CfnTemplateBody, parameters []types.Parameter, logicalToPhysical map[string]string, rows *[]map[string]any, awsConfig config.AWSConfig) {
 	// Specific check for NACLs
 	for logicalId, physicalId := range naclResources {
 		rulechanges := []string{}
@@ -319,7 +329,7 @@ func checkNaclEntries(naclResources map[string]string, template lib.CfnTemplateB
 		if err != nil {
 			failWithError(err)
 		}
-		attachedRules := lib.FilterNaclEntriesByLogicalId(logicalId, template, parameters)
+		attachedRules := lib.FilterNaclEntriesByLogicalId(logicalId, template, parameters, logicalToPhysical)
 		for _, entry := range nacl.Entries {
 			rulenumberstring := "I"
 			if *entry.Egress {

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -64,20 +63,28 @@ func GetExports(stackname *string, exportname *string, svc CFNExportsAPI) ([]Cfn
 				ExportName:  export.ExportName,
 				Description: export.Description,
 			}
-			imports, err := svc.ListImports(
-				context.TODO(),
-				&cloudformation.ListImportsInput{ExportName: &export.ExportName})
-			if err != nil {
-				if isNotImportedError(err) {
+			paginator := cloudformation.NewListImportsPaginator(svc, &cloudformation.ListImportsInput{ExportName: &export.ExportName})
+			var allImports []string
+			var paginationErr error
+			for paginator.HasMorePages() {
+				page, err := paginator.NextPage(context.TODO())
+				if err != nil {
+					paginationErr = err
+					break
+				}
+				allImports = append(allImports, page.Imports...)
+			}
+			if paginationErr != nil {
+				if isNotImportedError(paginationErr) {
 					resexport.Imported = false
 					c <- importResult{output: resexport}
 				} else {
-					c <- importResult{output: resexport, err: fmt.Errorf("ListImports for %q: %w", export.ExportName, err)}
+					c <- importResult{output: resexport, err: fmt.Errorf("ListImports for %q: %w", export.ExportName, paginationErr)}
 				}
 				return
 			}
 			resexport.Imported = true
-			resexport.ImportedBy = imports.Imports
+			resexport.ImportedBy = allImports
 			c <- importResult{output: resexport}
 		}(export)
 	}
@@ -97,10 +104,8 @@ func GetExports(stackname *string, exportname *string, svc CFNExportsAPI) ([]Cfn
 
 func getOutputsForStack(stack types.Stack, stackfilter string, exportfilter string, exportsOnly bool) []CfnOutput {
 	result := []CfnOutput{}
-	stackRegex := "^" + strings.ReplaceAll(stackfilter, "*", ".*") + "$"
-	exportRegex := "^" + strings.ReplaceAll(exportfilter, "*", ".*") + "$"
 	if strings.Contains(stackfilter, "*") {
-		if matched, err := regexp.MatchString(stackRegex, *stack.StackName); !matched || err != nil {
+		if !GlobToRegex(stackfilter).MatchString(*stack.StackName) {
 			return result
 		}
 	}
@@ -109,7 +114,7 @@ func getOutputsForStack(stack types.Stack, stackfilter string, exportfilter stri
 			continue
 		}
 		if exportfilter != "" {
-			if matched, err := regexp.MatchString(exportRegex, *output.ExportName); !matched || err != nil {
+			if !GlobToRegex(exportfilter).MatchString(*output.ExportName) {
 				continue
 			}
 		}
@@ -134,19 +139,27 @@ func (output *CfnOutput) FillImports(svc CFNListImportsAPI) error {
 	if output.ExportName == "" {
 		return nil
 	}
-	imports, err := svc.ListImports(
-		context.TODO(),
-		&cloudformation.ListImportsInput{ExportName: &output.ExportName})
-	if err != nil {
-		if isNotImportedError(err) {
+	paginator := cloudformation.NewListImportsPaginator(svc, &cloudformation.ListImportsInput{ExportName: &output.ExportName})
+	var allImports []string
+	var paginationErr error
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(context.TODO())
+		if err != nil {
+			paginationErr = err
+			break
+		}
+		allImports = append(allImports, page.Imports...)
+	}
+	if paginationErr != nil {
+		if isNotImportedError(paginationErr) {
 			output.Imported = false
 			output.ImportedBy = nil
 			return nil
 		}
-		return fmt.Errorf("ListImports for %q: %w", output.ExportName, err)
+		return fmt.Errorf("ListImports for %q: %w", output.ExportName, paginationErr)
 	}
 	output.Imported = true
-	output.ImportedBy = imports.Imports
+	output.ImportedBy = allImports
 	return nil
 }
 
