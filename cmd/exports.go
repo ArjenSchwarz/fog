@@ -62,7 +62,10 @@ func listExports(cmd *cobra.Command, args []string) {
 	if err != nil {
 		failWithError(err)
 	}
-	exports := lib.GetExports(&exportsFlags.StackName, &exportsFlags.ExportName, awsConfig.CloudformationClient())
+	exports, err := lib.GetExports(&exportsFlags.StackName, &exportsFlags.ExportName, awsConfig.CloudformationClient())
+	if err != nil {
+		failWithError(err)
+	}
 
 	// Build column keys based on verbose flag
 	keys := []string{"Export", "Value"}

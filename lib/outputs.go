@@ -3,6 +3,7 @@ package lib
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"regexp"
 	"strings"
@@ -24,10 +25,18 @@ type CfnOutput struct {
 	ImportedBy  []string
 }
 
+// importResult carries the result of a concurrent ListImports call.
+type importResult struct {
+	output CfnOutput
+	err    error
+}
+
 // GetExports returns all the exports in the account and region. If stackname
 // is provided, results will be limited to that stack. Each export will also
 // be checked whether it is being imported or not.
-func GetExports(stackname *string, exportname *string, svc CFNExportsAPI) []CfnOutput {
+// Returns an error if any ListImports call fails with a non-"not imported" error
+// (e.g., throttling, permission denied).
+func GetExports(stackname *string, exportname *string, svc CFNExportsAPI) ([]CfnOutput, error) {
 	exports := []CfnOutput{}
 	input := &cloudformation.DescribeStacksInput{}
 	if *stackname != "" && !strings.Contains(*stackname, "*") {
@@ -49,7 +58,7 @@ func GetExports(stackname *string, exportname *string, svc CFNExportsAPI) []CfnO
 	for _, stack := range allstacks {
 		exports = append(exports, getOutputsForStack(stack, *stackname, *exportname, true)...)
 	}
-	c := make(chan CfnOutput)
+	c := make(chan importResult)
 	results := make([]CfnOutput, len(exports))
 	for _, export := range exports {
 		go func(export CfnOutput) {
@@ -64,19 +73,31 @@ func GetExports(stackname *string, exportname *string, svc CFNExportsAPI) []CfnO
 				context.TODO(),
 				&cloudformation.ListImportsInput{ExportName: &export.ExportName})
 			if err != nil {
-				// TODO limit this to only not found errors: "Export 'stackname' is not imported by any stack."
-				resexport.Imported = false
-			} else {
-				resexport.Imported = true
-				resexport.ImportedBy = imports.Imports
+				if isNotImportedError(err) {
+					resexport.Imported = false
+					c <- importResult{output: resexport}
+				} else {
+					c <- importResult{output: resexport, err: fmt.Errorf("ListImports for %q: %w", export.ExportName, err)}
+				}
+				return
 			}
-			c <- resexport
+			resexport.Imported = true
+			resexport.ImportedBy = imports.Imports
+			c <- importResult{output: resexport}
 		}(export)
 	}
+	var errs []error
 	for i := range results {
-		results[i] = <-c
+		r := <-c
+		results[i] = r.output
+		if r.err != nil {
+			errs = append(errs, r.err)
+		}
 	}
-	return results
+	if len(errs) > 0 {
+		return results, errors.Join(errs...)
+	}
+	return results, nil
 }
 
 func getOutputsForStack(stack types.Stack, stackfilter string, exportfilter string, exportsOnly bool) []CfnOutput {
@@ -111,19 +132,31 @@ func getOutputsForStack(stack types.Stack, stackfilter string, exportfilter stri
 	return result
 }
 
-// FillImports populates the import information for an exported output
-func (output *CfnOutput) FillImports(svc CFNListImportsAPI) {
+// FillImports populates the import information for an exported output.
+// Returns an error if ListImports fails with anything other than the expected
+// "is not imported by any stack" message (e.g., throttling, permission errors).
+func (output *CfnOutput) FillImports(svc CFNListImportsAPI) error {
 	if output.ExportName == "" {
-		return
+		return nil
 	}
 	imports, err := svc.ListImports(
 		context.TODO(),
 		&cloudformation.ListImportsInput{ExportName: &output.ExportName})
 	if err != nil {
-		// TODO limit this to only not found errors: "Export 'stackname' is not imported by any stack."
-		output.Imported = false
-	} else {
-		output.Imported = true
-		output.ImportedBy = imports.Imports
+		if isNotImportedError(err) {
+			output.Imported = false
+			return nil
+		}
+		return fmt.Errorf("ListImports for %q: %w", output.ExportName, err)
 	}
+	output.Imported = true
+	output.ImportedBy = imports.Imports
+	return nil
+}
+
+// isNotImportedError returns true when the error is the specific CloudFormation
+// message indicating an export has no importers: "Export '...' is not imported
+// by any stack." All other errors (throttling, permissions, etc.) return false.
+func isNotImportedError(err error) bool {
+	return strings.Contains(err.Error(), "is not imported by any stack")
 }

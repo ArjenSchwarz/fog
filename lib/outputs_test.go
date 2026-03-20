@@ -2,7 +2,6 @@ package lib
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"testing"
 
@@ -30,7 +29,7 @@ func (m MockCFNClient) ListImports(ctx context.Context, params *cloudformation.L
 	}
 	imports, ok := m.ImportsByExport[*params.ExportName]
 	if !ok {
-		return nil, errors.New("not found")
+		return nil, fmt.Errorf("Export '%s' is not imported by any stack.", *params.ExportName)
 	}
 	return &cloudformation.ListImportsOutput{Imports: imports}, nil
 }
@@ -80,22 +79,31 @@ func Test_getOutputsForStack(t *testing.T) {
 	}
 }
 
-// TestCfnOutput_FillImports checks success and error cases when populating import information.
+// TestCfnOutput_FillImports checks success and "not imported" cases.
 func TestCfnOutput_FillImports(t *testing.T) {
 	out := &CfnOutput{ExportName: "Export1"}
 	mock := MockCFNClient{ImportsByExport: map[string][]string{"Export1": {"stackA"}}}
 
-	out.FillImports(mock)
+	err := out.FillImports(mock)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
 	if !out.Imported || len(out.ImportedBy) != 1 || out.ImportedBy[0] != "stackA" {
 		t.Errorf("FillImports success case failed: %#v", out)
 	}
 
+	// "not imported" error should set Imported=false without returning an error
 	out2 := &CfnOutput{ExportName: "Export1"}
-	mockErr := MockCFNClient{ListImportsError: errors.New("fail")}
+	mockNotImported := MockCFNClient{
+		ListImportsError: fmt.Errorf("Export 'Export1' is not imported by any stack."),
+	}
 
-	out2.FillImports(mockErr)
+	err = out2.FillImports(mockNotImported)
+	if err != nil {
+		t.Errorf("unexpected error for not-imported case: %v", err)
+	}
 	if out2.Imported {
-		t.Errorf("expected Imported=false on error")
+		t.Errorf("expected Imported=false for not-imported error")
 	}
 }
 
@@ -127,7 +135,10 @@ func TestGetExports(t *testing.T) {
 		},
 	}
 
-	results := GetExports(&stackName, strPtrOut(""), mock)
+	results, err := GetExports(&stackName, strPtrOut(""), mock)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	if len(results) != 2 {
 		t.Fatalf("expected two results, got %d", len(results))
 	}
@@ -168,7 +179,7 @@ func (m paginatingMockCFNClient) ListImports(ctx context.Context, params *cloudf
 	}
 	imports, ok := m.ImportsByExport[*params.ExportName]
 	if !ok {
-		return nil, errors.New("not found")
+		return nil, fmt.Errorf("Export '%s' is not imported by any stack.", *params.ExportName)
 	}
 	return &cloudformation.ListImportsOutput{Imports: imports}, nil
 }
@@ -201,7 +212,10 @@ func TestGetExportsPagination(t *testing.T) {
 		ImportsByExport: map[string][]string{},
 	}
 
-	results := GetExports(&stackName, strPtrOut(""), mock)
+	results, err := GetExports(&stackName, strPtrOut(""), mock)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	if len(results) != 2 {
 		t.Fatalf("expected 2 exports from 2 pages, got %d", len(results))
 	}
@@ -239,9 +253,9 @@ func TestFillImports_NotImportedError(t *testing.T) {
 // silently treated as "not imported".
 func TestFillImports_PropagatesRealErrors(t *testing.T) {
 	tests := map[string]error{
-		"throttling":  fmt.Errorf("Rate exceeded"),
+		"throttling":    fmt.Errorf("Rate exceeded"),
 		"access denied": fmt.Errorf("Access Denied"),
-		"generic":     fmt.Errorf("something went wrong"),
+		"generic":       fmt.Errorf("something went wrong"),
 	}
 	for name, testErr := range tests {
 		t.Run(name, func(t *testing.T) {

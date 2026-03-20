@@ -250,10 +250,12 @@ func GetCfnStacks(stackname *string, svc *cloudformation.Client) (map[string]Cfn
 			stackobject.Description = *stack.Description
 		}
 		outputs := getOutputsForStack(stack, "", "", false)
-		for _, output := range outputs {
-			output.FillImports(svc)
-			if output.Imported {
-				stackobject.ImportedBy = append(stackobject.ImportedBy, output.ImportedBy...)
+		for i := range outputs {
+			if err := outputs[i].FillImports(svc); err != nil {
+				return nil, fmt.Errorf("stack %q: %w", *stack.StackName, err)
+			}
+			if outputs[i].Imported {
+				stackobject.ImportedBy = append(stackobject.ImportedBy, outputs[i].ImportedBy...)
 			}
 		}
 		stackobject.Outputs = outputs

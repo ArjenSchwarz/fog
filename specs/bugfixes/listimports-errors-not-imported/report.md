@@ -68,9 +68,9 @@ Both `GetExports` and `FillImports` treat all `ListImports` errors as meaning "e
 ## Verification
 
 **Automated:**
-- [ ] Regression test passes
-- [ ] Full test suite passes
-- [ ] Linters/validators pass
+- [x] Regression test passes
+- [x] Full test suite passes
+- [x] Linters/validators pass
 
 ## Prevention
 
