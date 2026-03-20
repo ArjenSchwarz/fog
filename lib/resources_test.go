@@ -5,11 +5,10 @@ package lib
 // errors, and failure behaviour for other API errors.
 
 import (
-	"bytes"
 	"context"
 	"errors"
-	"os"
-	"os/exec"
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -76,7 +75,10 @@ func TestGetResourcesSuccess(t *testing.T) {
 		describeStackResourcesOutputs: []cloudformation.DescribeStackResourcesOutput{resOut},
 	}
 
-	got := GetResources(&stackName, mock)
+	got, err := GetResources(&stackName, mock)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	want := []CfnResource{
 		{StackName: stackName, Type: "AWS::S3::Bucket", ResourceID: "phys1", LogicalID: "Res1", Status: string(types.ResourceStatusCreateComplete)},
 		{StackName: stackName, Type: "AWS::IAM::Role", ResourceID: "phys2", LogicalID: "Res2", Status: string(types.ResourceStatusCreateComplete)},
@@ -113,7 +115,10 @@ func TestGetResourcesThrottlingRetry(t *testing.T) {
 	}
 
 	start := time.Now()
-	got := GetResources(&stackName, mock)
+	got, err := GetResources(&stackName, mock)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	if time.Since(start) < 5*time.Second {
 		t.Errorf("expected sleep during retry")
 	}
@@ -189,7 +194,10 @@ func TestGetResourcesPagination(t *testing.T) {
 		},
 	}
 
-	got := GetResources(&stackName, mock)
+	got, err := GetResources(&stackName, mock)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	if len(got) != 3 {
 		t.Fatalf("expected 3 resources from 3 pages, got %d", len(got))
@@ -242,7 +250,10 @@ func TestGetResourcesSkipsMissingPhysicalResourceID(t *testing.T) {
 		describeStackResourcesOutputs: []cloudformation.DescribeStackResourcesOutput{resOut},
 	}
 
-	got := GetResources(&stackName, mock)
+	got, err := GetResources(&stackName, mock)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	if len(got) != 1 {
 		t.Fatalf("expected 1 resource after skipping missing physical IDs, got %d", len(got))
 	}
@@ -251,38 +262,113 @@ func TestGetResourcesSkipsMissingPhysicalResourceID(t *testing.T) {
 	}
 }
 
-// TestGetResourcesNonThrottlingError verifies that non-throttling API errors cause the function to log and exit.
-func TestGetResourcesNonThrottlingError(t *testing.T) {
-	if os.Getenv("FOG_TEST_HELPER") == "1" {
-		stackName := "err-stack"
-		stacksOut := cloudformation.DescribeStacksOutput{Stacks: []types.Stack{{StackName: aws.String(stackName)}}}
-		apiErr := mockAPIError{code: "ValidationError", message: "bad", fault: smithy.FaultClient}
-		mock := &mockCloudFormationClient{
-			describeStacksOutput:          stacksOut,
-			describeStackResourcesOutputs: []cloudformation.DescribeStackResourcesOutput{{}},
-			describeStackResourcesErrs:    []error{apiErr},
-		}
-		GetResources(&stackName, mock)
-		return
+// TestGetResourcesPaginationError verifies that DescribeStacks pagination errors
+// are returned to the caller instead of exiting the process.
+func TestGetResourcesPaginationError(t *testing.T) {
+	stackName := "err-stack"
+	opErr := &smithy.OperationError{
+		ServiceID:     "CloudFormation",
+		OperationName: "DescribeStacks",
+		Err:           fmt.Errorf("connection reset"),
+	}
+	mock := &mockCloudFormationClient{
+		describeStacksErr: opErr,
 	}
 
-	cmd := exec.Command(os.Args[0], "-test.run=TestGetResourcesNonThrottlingError")
-	cmd.Env = append(os.Environ(), "FOG_TEST_HELPER=1")
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-	err := cmd.Run()
-
+	got, err := GetResources(&stackName, mock)
 	if err == nil {
-		t.Fatalf("expected error, got nil")
+		t.Fatal("expected error from GetResources when DescribeStacks fails, got nil")
 	}
-	var exitErr *exec.ExitError
-	if !errors.As(err, &exitErr) {
-		t.Fatalf("expected ExitError, got %v", err)
+	if got != nil {
+		t.Errorf("expected nil resources on error, got %v", got)
 	}
-	if exitErr.ExitCode() == 0 {
-		t.Errorf("expected non-zero exit code")
+	if !strings.Contains(err.Error(), "connection reset") {
+		t.Errorf("expected error to contain original message, got: %v", err)
 	}
-	if !bytes.Contains(stderr.Bytes(), []byte("ValidationError")) {
-		t.Errorf("expected log output to contain error message; got %s", stderr.String())
+}
+
+// TestGetResourcesNonThrottlingAPIError verifies that non-throttling API errors
+// from DescribeStackResources are returned to the caller instead of exiting the process.
+func TestGetResourcesNonThrottlingAPIError(t *testing.T) {
+	stackName := "err-stack"
+	stacksOut := cloudformation.DescribeStacksOutput{
+		Stacks: []types.Stack{{StackName: aws.String(stackName)}},
+	}
+	apiErr := mockAPIError{code: "ValidationError", message: "bad", fault: smithy.FaultClient}
+	mock := &mockCloudFormationClient{
+		describeStacksOutput:          stacksOut,
+		describeStackResourcesOutputs: []cloudformation.DescribeStackResourcesOutput{{}},
+		describeStackResourcesErrs:    []error{apiErr},
+	}
+
+	got, err := GetResources(&stackName, mock)
+	if err == nil {
+		t.Fatal("expected error from GetResources on non-throttling API error, got nil")
+	}
+	if got != nil {
+		t.Errorf("expected nil resources on error, got %v", got)
+	}
+	if !strings.Contains(err.Error(), "ValidationError") {
+		t.Errorf("expected error to contain 'ValidationError', got: %v", err)
+	}
+	if !strings.Contains(err.Error(), stackName) {
+		t.Errorf("expected error to contain stack name %q, got: %v", stackName, err)
+	}
+	// Verify the original API error is wrapped and accessible via errors.As
+	var unwrapped smithy.APIError
+	if !errors.As(err, &unwrapped) {
+		t.Errorf("expected error to wrap smithy.APIError, but errors.As failed")
+	}
+}
+
+// TestGetResourcesThrottlingRetryExhausted verifies that when throttling retry
+// also fails, the error is returned instead of exiting the process.
+func TestGetResourcesThrottlingRetryExhausted(t *testing.T) {
+	stackName := "throttle-fail-stack"
+	stacksOut := cloudformation.DescribeStacksOutput{
+		Stacks: []types.Stack{{StackName: aws.String(stackName)}},
+	}
+	throttleErr := mockAPIError{code: "Throttling", message: "Rate exceeded", fault: smithy.FaultServer}
+
+	mock := &mockCloudFormationClient{
+		describeStacksOutput:          stacksOut,
+		describeStackResourcesOutputs: []cloudformation.DescribeStackResourcesOutput{{}, {}},
+		describeStackResourcesErrs:    []error{throttleErr, fmt.Errorf("still throttled")},
+	}
+
+	got, err := GetResources(&stackName, mock)
+	if err == nil {
+		t.Fatal("expected error from GetResources when throttling retry fails, got nil")
+	}
+	if got != nil {
+		t.Errorf("expected nil resources on error, got %v", got)
+	}
+}
+
+// TestGetResourcesGenericDescribeStackResourcesError verifies that non-API errors
+// from DescribeStackResources are returned to the caller instead of exiting the process.
+func TestGetResourcesGenericDescribeStackResourcesError(t *testing.T) {
+	stackName := "generic-err-stack"
+	stacksOut := cloudformation.DescribeStacksOutput{
+		Stacks: []types.Stack{{StackName: aws.String(stackName)}},
+	}
+	mock := &mockCloudFormationClient{
+		describeStacksOutput:          stacksOut,
+		describeStackResourcesOutputs: []cloudformation.DescribeStackResourcesOutput{{}},
+		describeStackResourcesErrs:    []error{fmt.Errorf("unexpected network error")},
+	}
+
+	got, err := GetResources(&stackName, mock)
+	if err == nil {
+		t.Fatal("expected error from GetResources on generic error, got nil")
+	}
+	if got != nil {
+		t.Errorf("expected nil resources on error, got %v", got)
+	}
+	if !strings.Contains(err.Error(), "unexpected network error") {
+		t.Errorf("expected error to contain original message, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), stackName) {
+		t.Errorf("expected error to contain stack name %q, got: %v", stackName, err)
 	}
 }
