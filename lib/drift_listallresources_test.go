@@ -123,14 +123,20 @@ func TestListAllResources_NonSSOType_ReturnsResources(t *testing.T) {
 	}
 }
 
-// TestListAllResources_SSOTypes_StillWork verifies that the SSO-specific paths
-// continue to work after the refactoring.
-func TestListAllResources_SSOTypes_StillWork(t *testing.T) {
+// TestListAllResources_NonSSOType_WithNilSSOClient verifies that requesting a
+// non-SSO type with nil SSO and Organizations clients works fine, confirming
+// the dispatch logic never reaches the SSO code path for generic types.
+func TestListAllResources_NonSSOType_WithNilSSOClient(t *testing.T) {
 	t.Parallel()
 
-	// SSO types should not call Cloud Control at all, so pass nil for the CC client.
-	// We can't easily test the SSO paths here without the full SSO mock setup,
-	// but we verify the function dispatches correctly by checking that nil CC client
-	// doesn't cause issues when an SSO type is requested.
-	// The actual SSO functionality is tested in identitycenter_test.go.
+	got, err := ListAllResources("AWS::S3::Bucket", &mockCloudControlListResourcesClient{
+		outputs: []*cloudcontrol.ListResourcesOutput{{
+			ResourceDescriptions: []cctypes.ResourceDescription{
+				{Identifier: aws.String("test-bucket")},
+			},
+		}},
+	}, nil, nil)
+
+	require.NoError(t, err)
+	assert.Equal(t, map[string]string{"test-bucket": "AWS::S3::Bucket"}, got)
 }
