@@ -1,7 +1,7 @@
 # Bugfix Report: ListAllResources Empty Map for Non-SSO Types
 
 **Date:** 2026-03-20
-**Status:** In Progress
+**Status:** Fixed
 
 ## Description of the Issue
 
@@ -35,7 +35,15 @@ The Cloud Control `ListResources` API call in `ListAllResources` (lib/drift.go:1
 
 ## Resolution for the Issue
 
-_To be filled after fix is implemented._
+**Changes made:**
+- `lib/interfaces.go` - Added `CloudControlListResourcesAPI` interface defining the `ListResources` operation
+- `lib/drift.go:ListAllResources` - Changed function signature from concrete types (`*cloudcontrol.Client`, `*ssoadmin.Client`, `*organizations.Client`) to interfaces (`CloudControlListResourcesAPI`, SSO admin interface, `OrganizationsListAccountsAPI`). Implemented Cloud Control `ListResources` call with manual pagination via `NextToken`, replacing the commented-out code. Resources are returned as `map[identifier]typeName`.
+
+**Approach rationale:** Manual pagination was used instead of the SDK `NewListResourcesPaginator` to stay consistent with the pagination pattern already used in `GetDefaultStackDrift` in the same file. Using interfaces instead of concrete types enables unit testing with mock clients.
+
+**Alternatives considered:**
+- Using SDK paginator (`NewListResourcesPaginator`) - Would simplify the pagination loop, but introduces a different pattern from the rest of the file and makes mocking harder since the paginator constructor requires a `ListResourcesAPIClient` which wraps the interface differently
+- Returning an error for unsupported types - Rejected because Cloud Control API supports listing most CloudFormation resource types, so the generic path is the correct approach
 
 ## Regression Test
 
@@ -53,14 +61,14 @@ _To be filled after fix is implemented._
 | `lib/drift.go` | Implement Cloud Control ListResources with pagination |
 | `lib/interfaces.go` | Add CloudControlListResourcesAPI interface |
 | `lib/drift_listallresources_test.go` | Regression tests |
-| `cmd/drift.go` | Update caller to pass interface-compatible client |
+| `cmd/drift.go` | No changes needed (concrete clients satisfy the interfaces) |
 
 ## Verification
 
 **Automated:**
-- [ ] Regression test passes
-- [ ] Full test suite passes
-- [ ] Linters/validators pass
+- [x] Regression test passes
+- [x] Full test suite passes
+- [x] Linters/validators pass
 
 ## Prevention
 
