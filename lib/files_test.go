@@ -52,6 +52,14 @@ func TestReadFile(t *testing.T) {
 			wantErr:     false,
 		},
 		{
+			name:        "File name with extension in configured directory",
+			fileName:    "testfile.yaml",
+			fileType:    "testtype",
+			wantContent: testContent,
+			wantPath:    filepath.Join(tempDir, "testfile.yaml"),
+			wantErr:     false,
+		},
+		{
 			name:        "Non-existent file",
 			fileName:    "nonexistent",
 			fileType:    "testtype",
