@@ -81,8 +81,8 @@ func GetExports(stackname *string, exportname *string, svc CFNExportsAPI) []CfnO
 
 func getOutputsForStack(stack types.Stack, stackfilter string, exportfilter string, exportsOnly bool) []CfnOutput {
 	result := []CfnOutput{}
-	stackRegex := "^" + strings.ReplaceAll(stackfilter, "*", ".*") + "$"
-	exportRegex := "^" + strings.ReplaceAll(exportfilter, "*", ".*") + "$"
+	stackRegex := "^" + strings.ReplaceAll(regexp.QuoteMeta(stackfilter), "\\*", ".*") + "$"
+	exportRegex := "^" + strings.ReplaceAll(regexp.QuoteMeta(exportfilter), "\\*", ".*") + "$"
 	if strings.Contains(stackfilter, "*") {
 		if matched, err := regexp.MatchString(stackRegex, *stack.StackName); !matched || err != nil {
 			return result
