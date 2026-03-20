@@ -32,9 +32,19 @@ func (m MockCFNClient) ListImports(ctx context.Context, params *cloudformation.L
 	}
 	imports, ok := m.ImportsByExport[*params.ExportName]
 	if !ok {
-		return nil, errors.New("not found")
+		return nil, notImportedErr(*params.ExportName)
 	}
 	return &cloudformation.ListImportsOutput{Imports: imports}, nil
+}
+
+// notImportedErr creates the specific CloudFormation error returned when an
+// export has no importers. Uses smithy.GenericAPIError to match the real SDK
+// error shape.
+func notImportedErr(exportName string) error {
+	return &smithy.GenericAPIError{
+		Code:    "ValidationError",
+		Message: fmt.Sprintf("Export '%s' is not imported by any stack.", exportName),
+	}
 }
 
 // Test_getOutputsForStack verifies export filtering and parsing logic.
@@ -164,22 +174,31 @@ func Test_getOutputsForStack_regexMetacharacters(t *testing.T) {
 	}
 }
 
-// TestCfnOutput_FillImports checks success and error cases when populating import information.
+// TestCfnOutput_FillImports checks success and "not imported" cases.
 func TestCfnOutput_FillImports(t *testing.T) {
 	out := &CfnOutput{ExportName: "Export1"}
 	mock := MockCFNClient{ImportsByExport: map[string][]string{"Export1": {"stackA"}}}
 
-	out.FillImports(mock)
+	err := out.FillImports(mock)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
 	if !out.Imported || len(out.ImportedBy) != 1 || out.ImportedBy[0] != "stackA" {
 		t.Errorf("FillImports success case failed: %#v", out)
 	}
 
+	// "not imported" error should set Imported=false without returning an error
 	out2 := &CfnOutput{ExportName: "Export1"}
-	mockErr := MockCFNClient{ListImportsError: errors.New("fail")}
+	mockNotImported := MockCFNClient{
+		ListImportsError: notImportedErr("Export1"),
+	}
 
-	out2.FillImports(mockErr)
+	err = out2.FillImports(mockNotImported)
+	if err != nil {
+		t.Errorf("unexpected error for not-imported case: %v", err)
+	}
 	if out2.Imported {
-		t.Errorf("expected Imported=false on error")
+		t.Errorf("expected Imported=false for not-imported error")
 	}
 }
 
@@ -255,7 +274,7 @@ func (m paginatingMockCFNClient) ListImports(ctx context.Context, params *cloudf
 	}
 	imports, ok := m.ImportsByExport[*params.ExportName]
 	if !ok {
-		return nil, errors.New("not found")
+		return nil, notImportedErr(*params.ExportName)
 	}
 	return &cloudformation.ListImportsOutput{Imports: imports}, nil
 }
@@ -308,6 +327,191 @@ func TestGetExportsPagination(t *testing.T) {
 	}
 }
 
+// TestFillImports_NotImportedError verifies that the specific "is not imported
+// by any stack" error sets Imported=false without returning an error.
+func TestFillImports_NotImportedError(t *testing.T) {
+	out := &CfnOutput{ExportName: "MyExport"}
+	mock := MockCFNClient{ListImportsError: notImportedErr("MyExport")}
+
+	err := out.FillImports(mock)
+	if err != nil {
+		t.Errorf("expected no error for 'not imported' message, got: %v", err)
+	}
+	if out.Imported {
+		t.Errorf("expected Imported=false for 'not imported' error")
+	}
+}
+
+// TestFillImports_PropagatesRealErrors verifies that non-"not imported" errors
+// (e.g., throttling, permissions) are returned to the caller instead of being
+// silently treated as "not imported".
+func TestFillImports_PropagatesRealErrors(t *testing.T) {
+	tests := map[string]error{
+		"throttling":    fmt.Errorf("Rate exceeded"),
+		"access denied": fmt.Errorf("Access Denied"),
+		"generic":       fmt.Errorf("something went wrong"),
+	}
+	for name, testErr := range tests {
+		t.Run(name, func(t *testing.T) {
+			out := &CfnOutput{ExportName: "Export1"}
+			mock := MockCFNClient{ListImportsError: testErr}
+
+			err := out.FillImports(mock)
+			if err == nil {
+				t.Errorf("expected error to be propagated for %q, got nil", name)
+			}
+		})
+	}
+}
+
+// TestGetExports_PropagatesListImportsError verifies that GetExports returns an
+// error when ListImports fails with a non-"not imported" error instead of
+// silently setting Imported=false.
+func TestGetExports_PropagatesListImportsError(t *testing.T) {
+	stackName := "test-stack"
+	stacksOutput := cloudformation.DescribeStacksOutput{
+		Stacks: []types.Stack{
+			{
+				StackName: strPtrOut(stackName),
+				Outputs: []types.Output{
+					{
+						OutputKey:   strPtrOut("Key1"),
+						OutputValue: strPtrOut("Val1"),
+						ExportName:  strPtrOut("Export1"),
+					},
+				},
+			},
+		},
+	}
+	mock := MockCFNClient{
+		DescribeStacksOutput: stacksOutput,
+		ListImportsError:     fmt.Errorf("Rate exceeded"),
+	}
+
+	_, err := GetExports(&stackName, strPtrOut(""), mock)
+	if err == nil {
+		t.Error("expected GetExports to return an error when ListImports fails with a real error")
+	}
+}
+
+// TestGetExports_NotImportedErrorSetsImportedFalse verifies that GetExports
+// handles the specific "not imported" error correctly by setting Imported=false
+// without returning an error.
+func TestGetExports_NotImportedErrorSetsImportedFalse(t *testing.T) {
+	stackName := "test-stack"
+	stacksOutput := cloudformation.DescribeStacksOutput{
+		Stacks: []types.Stack{
+			{
+				StackName: strPtrOut(stackName),
+				Outputs: []types.Output{
+					{
+						OutputKey:   strPtrOut("Key1"),
+						OutputValue: strPtrOut("Val1"),
+						ExportName:  strPtrOut("Export1"),
+					},
+				},
+			},
+		},
+	}
+
+	// perExportMockCFNClient returns the "not imported" error for specific exports
+	mock := perExportMockCFNClient{
+		DescribeStacksOutput: stacksOutput,
+		errorByExport: map[string]error{
+			"Export1": notImportedErr("Export1"),
+		},
+	}
+
+	results, err := GetExports(&stackName, strPtrOut(""), mock)
+	if err != nil {
+		t.Errorf("expected no error for 'not imported' case, got: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(results))
+	}
+	if results[0].Imported {
+		t.Errorf("expected Imported=false for export with 'not imported' error")
+	}
+}
+
+// perExportMockCFNClient allows different ListImports errors per export name.
+type perExportMockCFNClient struct {
+	DescribeStacksOutput cloudformation.DescribeStacksOutput
+	errorByExport        map[string]error
+	importsByExport      map[string][]string
+}
+
+func (m perExportMockCFNClient) DescribeStacks(ctx context.Context, params *cloudformation.DescribeStacksInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStacksOutput, error) {
+	return &m.DescribeStacksOutput, nil
+}
+
+func (m perExportMockCFNClient) ListImports(ctx context.Context, params *cloudformation.ListImportsInput, optFns ...func(*cloudformation.Options)) (*cloudformation.ListImportsOutput, error) {
+	if err, ok := m.errorByExport[*params.ExportName]; ok {
+		return nil, err
+	}
+	if imports, ok := m.importsByExport[*params.ExportName]; ok {
+		return &cloudformation.ListImportsOutput{Imports: imports}, nil
+	}
+	return nil, notImportedErr(*params.ExportName)
+}
+
+// TestGetExports_MixedSuccessAndFailure verifies that GetExports returns
+// partial results alongside an error when some exports succeed and others
+// fail with a real error.
+func TestGetExports_MixedSuccessAndFailure(t *testing.T) {
+	stackName := "test-stack"
+	stacksOutput := cloudformation.DescribeStacksOutput{
+		Stacks: []types.Stack{
+			{
+				StackName: strPtrOut(stackName),
+				Outputs: []types.Output{
+					{OutputKey: strPtrOut("Key1"), OutputValue: strPtrOut("Val1"), ExportName: strPtrOut("Export1")},
+					{OutputKey: strPtrOut("Key2"), OutputValue: strPtrOut("Val2"), ExportName: strPtrOut("Export2")},
+					{OutputKey: strPtrOut("Key3"), OutputValue: strPtrOut("Val3"), ExportName: strPtrOut("Export3")},
+				},
+			},
+		},
+	}
+	mock := perExportMockCFNClient{
+		DescribeStacksOutput: stacksOutput,
+		importsByExport: map[string][]string{
+			"Export1": {"stackA"}, // succeeds
+		},
+		errorByExport: map[string]error{
+			"Export2": fmt.Errorf("Rate exceeded"), // real error
+			// Export3 falls through to notImportedErr (not imported)
+		},
+	}
+
+	results, err := GetExports(&stackName, strPtrOut(""), mock)
+	if err == nil {
+		t.Fatal("expected an error when some ListImports calls fail with real errors")
+	}
+
+	// Should still return all 3 results (partial results)
+	if len(results) != 3 {
+		t.Fatalf("expected 3 results (partial), got %d", len(results))
+	}
+
+	byName := map[string]CfnOutput{}
+	for _, r := range results {
+		byName[r.ExportName] = r
+	}
+
+	// Export1 should be imported
+	if e, ok := byName["Export1"]; ok {
+		if !e.Imported || len(e.ImportedBy) != 1 || e.ImportedBy[0] != "stackA" {
+			t.Errorf("expected Export1 imported by stackA: %#v", e)
+		}
+	}
+	// Export3 should be not imported (no error)
+	if e, ok := byName["Export3"]; ok {
+		if e.Imported {
+			t.Errorf("expected Export3 not imported: %#v", e)
+		}
+	}
+}
+
 // paginatingListImportsMock simulates multi-page ListImports responses.
 // ImportPages maps export name to a slice of pages, where each page is a slice
 // of stack names. ListImports returns one page at a time using NextToken.
@@ -323,7 +527,7 @@ func (m paginatingListImportsMock) DescribeStacks(ctx context.Context, params *c
 func (m paginatingListImportsMock) ListImports(ctx context.Context, params *cloudformation.ListImportsInput, optFns ...func(*cloudformation.Options)) (*cloudformation.ListImportsOutput, error) {
 	pages, ok := m.ImportPages[*params.ExportName]
 	if !ok || len(pages) == 0 {
-		return nil, errors.New("not found")
+		return nil, notImportedErr(*params.ExportName)
 	}
 
 	// Determine which page to return based on NextToken.
@@ -363,7 +567,10 @@ func TestFillImportsPagination(t *testing.T) {
 	}
 
 	out := &CfnOutput{ExportName: "Export1"}
-	out.FillImports(mock)
+	err := out.FillImports(mock)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	if !out.Imported {
 		t.Fatal("expected Imported=true")

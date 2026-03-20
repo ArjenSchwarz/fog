@@ -2,12 +2,14 @@ package lib
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
+	"github.com/aws/smithy-go"
 )
 
 // CfnOutput represents a CloudFormation stack output value
@@ -21,9 +23,17 @@ type CfnOutput struct {
 	ImportedBy  []string
 }
 
+// importResult carries the result of a concurrent ListImports call.
+type importResult struct {
+	output CfnOutput
+	err    error
+}
+
 // GetExports returns all the exports in the account and region. If stackname
 // is provided, results will be limited to that stack. Each export will also
 // be checked whether it is being imported or not.
+// Returns an error if any ListImports call fails with a non-"not imported" error
+// (e.g., throttling, permission denied).
 func GetExports(stackname *string, exportname *string, svc CFNExportsAPI) ([]CfnOutput, error) {
 	exports := []CfnOutput{}
 	input := &cloudformation.DescribeStacksInput{}
@@ -42,7 +52,7 @@ func GetExports(stackname *string, exportname *string, svc CFNExportsAPI) ([]Cfn
 	for _, stack := range allstacks {
 		exports = append(exports, getOutputsForStack(stack, *stackname, *exportname, true)...)
 	}
-	c := make(chan CfnOutput)
+	c := make(chan importResult)
 	results := make([]CfnOutput, len(exports))
 	for _, export := range exports {
 		go func(export CfnOutput) {
@@ -65,17 +75,29 @@ func GetExports(stackname *string, exportname *string, svc CFNExportsAPI) ([]Cfn
 				allImports = append(allImports, page.Imports...)
 			}
 			if paginationErr != nil {
-				// TODO limit this to only not found errors: "Export 'stackname' is not imported by any stack."
-				resexport.Imported = false
-			} else {
-				resexport.Imported = true
-				resexport.ImportedBy = allImports
+				if isNotImportedError(paginationErr) {
+					resexport.Imported = false
+					c <- importResult{output: resexport}
+				} else {
+					c <- importResult{output: resexport, err: fmt.Errorf("ListImports for %q: %w", export.ExportName, paginationErr)}
+				}
+				return
 			}
-			c <- resexport
+			resexport.Imported = true
+			resexport.ImportedBy = allImports
+			c <- importResult{output: resexport}
 		}(export)
 	}
+	var errs []error
 	for i := range results {
-		results[i] = <-c
+		r := <-c
+		results[i] = r.output
+		if r.err != nil {
+			errs = append(errs, r.err)
+		}
+	}
+	if len(errs) > 0 {
+		return results, errors.Join(errs...)
 	}
 	return results, nil
 }
@@ -110,10 +132,12 @@ func getOutputsForStack(stack types.Stack, stackfilter string, exportfilter stri
 	return result
 }
 
-// FillImports populates the import information for an exported output
-func (output *CfnOutput) FillImports(svc CFNListImportsAPI) {
+// FillImports populates the import information for an exported output.
+// Returns an error if ListImports fails with anything other than the expected
+// "is not imported by any stack" message (e.g., throttling, permission errors).
+func (output *CfnOutput) FillImports(svc CFNListImportsAPI) error {
 	if output.ExportName == "" {
-		return
+		return nil
 	}
 	paginator := cloudformation.NewListImportsPaginator(svc, &cloudformation.ListImportsInput{ExportName: &output.ExportName})
 	var allImports []string
@@ -127,10 +151,28 @@ func (output *CfnOutput) FillImports(svc CFNListImportsAPI) {
 		allImports = append(allImports, page.Imports...)
 	}
 	if paginationErr != nil {
-		// TODO limit this to only not found errors: "Export 'stackname' is not imported by any stack."
-		output.Imported = false
-	} else {
-		output.Imported = true
-		output.ImportedBy = allImports
+		if isNotImportedError(paginationErr) {
+			output.Imported = false
+			output.ImportedBy = nil
+			return nil
+		}
+		return fmt.Errorf("ListImports for %q: %w", output.ExportName, paginationErr)
 	}
+	output.Imported = true
+	output.ImportedBy = allImports
+	return nil
+}
+
+// isNotImportedError returns true when the error is the specific CloudFormation
+// message indicating an export has no importers: "Export '...' is not imported
+// by any stack." All other errors (throttling, permissions, etc.) return false.
+//
+// Checks for a smithy API error first (the typed representation from the AWS SDK),
+// then falls back to string matching on the error message.
+func isNotImportedError(err error) bool {
+	var apiErr smithy.APIError
+	if errors.As(err, &apiErr) {
+		return strings.Contains(apiErr.ErrorMessage(), "is not imported by any stack")
+	}
+	return strings.Contains(err.Error(), "is not imported by any stack")
 }
