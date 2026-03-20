@@ -65,7 +65,10 @@ func listResources(cmd *cobra.Command, args []string) {
 	if err != nil {
 		failWithError(err)
 	}
-	resources := lib.GetResources(&resourcesFlags.StackName, awsConfig.CloudformationClient())
+	resources, err := lib.GetResources(&resourcesFlags.StackName, awsConfig.CloudformationClient())
+	if err != nil {
+		failWithError(err)
+	}
 
 	// Build column keys based on verbose flag
 	keys := []string{"Type", "ID", "Stack"}

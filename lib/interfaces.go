@@ -3,6 +3,7 @@ package lib
 import (
 	"context"
 
+	"github.com/aws/aws-sdk-go-v2/service/cloudcontrol"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/organizations"
@@ -152,6 +153,11 @@ type CloudFormationDescribeStackResourceDriftsAPI interface {
 // CloudFormationGetTemplateAPI defines the CloudFormation GetTemplate operation
 type CloudFormationGetTemplateAPI interface {
 	GetTemplate(ctx context.Context, params *cloudformation.GetTemplateInput, optFns ...func(*cloudformation.Options)) (*cloudformation.GetTemplateOutput, error)
+}
+
+// CloudControlListResourcesAPI defines the Cloud Control ListResources operation.
+type CloudControlListResourcesAPI interface {
+	ListResources(ctx context.Context, params *cloudcontrol.ListResourcesInput, optFns ...func(*cloudcontrol.Options)) (*cloudcontrol.ListResourcesOutput, error)
 }
 
 // CloudFormationListExportsAPI defines the CloudFormation ListExports operation

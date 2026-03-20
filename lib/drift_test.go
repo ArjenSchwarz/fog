@@ -3,6 +3,7 @@ package lib
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -524,7 +525,8 @@ func TestGetUncheckedStackResources(t *testing.T) {
 			t.Parallel()
 
 			mockClient := tc.setupMock()
-			got := GetUncheckedStackResources(&tc.stackName, tc.checkedResources, mockClient)
+			got, err := GetUncheckedStackResources(&tc.stackName, tc.checkedResources, mockClient)
+			require.NoError(t, err, "GetUncheckedStackResources returned unexpected error")
 
 			require.Len(t, got, len(tc.want), "Expected %d unchecked resources", len(tc.want))
 
@@ -536,4 +538,20 @@ func TestGetUncheckedStackResources(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestGetUncheckedStackResourcesPropagatesError verifies that errors from
+// GetResources are propagated through GetUncheckedStackResources.
+func TestGetUncheckedStackResourcesPropagatesError(t *testing.T) {
+	stackName := "err-stack"
+	mockClient := &mockStacksAndResourcesClient{
+		describeStacksFn: func(ctx context.Context, params *cloudformation.DescribeStacksInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStacksOutput, error) {
+			return nil, fmt.Errorf("simulated failure")
+		},
+	}
+
+	got, err := GetUncheckedStackResources(&stackName, []string{}, mockClient)
+	require.Error(t, err, "expected error to propagate from GetResources")
+	assert.Nil(t, got, "expected nil resources on error")
+	assert.Contains(t, err.Error(), "simulated failure")
 }
