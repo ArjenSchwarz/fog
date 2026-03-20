@@ -8,8 +8,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/cloudcontrol"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
-	"github.com/aws/aws-sdk-go-v2/service/organizations"
-	"github.com/aws/aws-sdk-go-v2/service/ssoadmin"
 )
 
 // StartDriftDetection initiates drift detection for a stack and returns the detection ID
@@ -102,22 +100,48 @@ func GetResource(client *cloudcontrol.Client, typeName string, identifier string
 	return result, nil
 }
 
-// ListAllResources lists all resources of a given type using Cloud Control API or service-specific APIs
-func ListAllResources(typeName string, client *cloudcontrol.Client, ssoClient *ssoadmin.Client, organizationsClient *organizations.Client) (map[string]string, error) {
+// ListAllResources lists all resources of a given type using Cloud Control API or service-specific APIs.
+// For SSO types it delegates to service-specific functions. For all other types it uses the
+// Cloud Control ListResources API with pagination.
+func ListAllResources(typeName string, client CloudControlListResourcesAPI, ssoClient interface {
+	SSOAdminListInstancesAPI
+	SSOAdminListPermissionSetsAPI
+	SSOAdminListAccountAssignmentsAPI
+}, organizationsClient OrganizationsListAccountsAPI) (map[string]string, error) {
 	if typeName == "AWS::SSO::PermissionSet" {
 		return GetPermissionSetArns(ssoClient)
 	}
 	if typeName == "AWS::SSO::Assignment" {
 		return GetAssignmentArns(ssoClient, organizationsClient)
 	}
-	// input := &cloudcontrol.ListResourcesInput{
-	// 	TypeName: &typeName,
-	// }
 
-	// result, err := client.ListResources(context.TODO(), input)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to list resources: %w", err)
-	// }
+	resources := map[string]string{}
+	input := &cloudcontrol.ListResourcesInput{
+		TypeName: &typeName,
+	}
 
-	return map[string]string{}, nil
+	var nextToken *string
+	for {
+		if nextToken != nil {
+			input.NextToken = nextToken
+		}
+
+		result, err := client.ListResources(context.TODO(), input)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list resources of type %s: %w", typeName, err)
+		}
+
+		for _, desc := range result.ResourceDescriptions {
+			if desc.Identifier != nil {
+				resources[*desc.Identifier] = typeName
+			}
+		}
+
+		if result.NextToken == nil {
+			break
+		}
+		nextToken = result.NextToken
+	}
+
+	return resources, nil
 }
