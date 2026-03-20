@@ -1,6 +1,9 @@
 Unreleased
 ==========
 
+### Fixed
+- Fixed `writeLogToFile` silently discarding `file.Close()` errors due to unnamed return value in deferred close handler
+
 1.12.4 / 2026-03-06
 ===================
 
