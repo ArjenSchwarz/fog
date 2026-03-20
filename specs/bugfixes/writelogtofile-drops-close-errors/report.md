@@ -46,7 +46,7 @@ The function signature `func writeLogToFile(contents []byte, outputFile string) 
 
 **Test file:** `lib/logging_test.go`
 **Test names:**
-- `TestWriteLogToFile_PropagatesCloseError` — verifies the happy path still works
+- `TestWriteLogToFile_WritesContentToFile` — verifies the happy path still works after refactoring
 - `TestWriteToFile_PropagatesCloseError` — verifies close errors are returned when no write error occurs
 - `TestWriteToFile_WriteErrorTakesPrecedenceOverCloseError` — verifies write errors take precedence over close errors
 

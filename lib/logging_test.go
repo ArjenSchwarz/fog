@@ -534,10 +534,9 @@ func (w *errOnCloseWriter) Close() error {
 	return w.closeErr
 }
 
-func TestWriteLogToFile_PropagatesCloseError(t *testing.T) {
-	// This test verifies that writeLogToFile returns an error when file.Close()
-	// fails. Before the fix, the function had an unnamed return and the deferred
-	// close error was silently discarded (always returning nil on the happy path).
+func TestWriteLogToFile_WritesContentToFile(t *testing.T) {
+	// This test verifies that writeLogToFile correctly writes content to the
+	// specified file (happy path regression test for the refactoring).
 	tempDir := t.TempDir()
 	outputFile := filepath.Join(tempDir, "test.log")
 
