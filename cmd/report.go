@@ -155,7 +155,11 @@ func generateReport() error {
 	// Build frontmatter if requested
 	var frontMatter map[string]string
 	if reportFlags.FrontMatter && outputFormat == outputFormatMarkdown {
-		frontMatter = generateFrontMatter(stacks, awsConfig)
+		var fmErr error
+		frontMatter, fmErr = generateFrontMatter(stacks, awsConfig)
+		if fmErr != nil {
+			return fmErr
+		}
 	}
 
 	// Sort stacks by name
@@ -188,7 +192,9 @@ func generateReport() error {
 	// Generate report for each stack
 	for _, stackkey := range stackskeys {
 		fmt.Println(stackkey)
-		generateStackReport(stacks[stackkey], doc, awsConfig)
+		if err := generateStackReport(stacks[stackkey], doc, awsConfig); err != nil {
+			return err
+		}
 	}
 
 	// Get output options with S3/file configuration if needed
@@ -267,13 +273,13 @@ func reportPlaceholderParser(value string, stackname string, awsConfig config.AW
 }
 
 // generateStackReport creates the report for the provided stack
-func generateStackReport(stack lib.CfnStack, doc *output.Builder, awsConfig config.AWSConfig) {
+func generateStackReport(stack lib.CfnStack, doc *output.Builder, awsConfig config.AWSConfig) error {
 	// Add stack header
 	doc.Header(fmt.Sprintf("Stack %s", stack.Name))
 
 	events, err := stack.GetEvents(awsConfig.CloudformationClient())
 	if err != nil {
-		failWithError(err)
+		return err
 	}
 
 	for counter, event := range events {
@@ -295,14 +301,16 @@ func generateStackReport(stack lib.CfnStack, doc *output.Builder, awsConfig conf
 			doc.GanttChart(mermaidTitle, ganttTasks)
 		}
 	}
+
+	return nil
 }
 
-func generateFrontMatter(stacks map[string]lib.CfnStack, awsConfig config.AWSConfig) map[string]string {
+func generateFrontMatter(stacks map[string]lib.CfnStack, awsConfig config.AWSConfig) (map[string]string, error) {
 	result := make(map[string]string)
 	for _, stack := range stacks {
 		events, err := stack.GetEvents(awsConfig.CloudformationClient())
 		if err != nil {
-			failWithError(err)
+			return nil, err
 		}
 		for _, event := range events {
 			result["account"] = awsConfig.AccountID
@@ -327,7 +335,7 @@ func generateFrontMatter(stacks map[string]lib.CfnStack, awsConfig config.AWSCon
 			}
 		}
 	}
-	return result
+	return result, nil
 }
 
 // buildSimpleHTMLTable creates a simple HTML table from a data row
