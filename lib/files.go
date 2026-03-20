@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -26,11 +27,18 @@ func ReadFile(fileName *string, fileType string) (string, string, error) {
 		// fileName is not an actual file. Try to find it in the right subdirectory.
 		fileFound := false
 		fileDirectory := viper.GetString(fileType + ".directory")
-		for _, extension := range viper.GetStringSlice(fileType + ".extensions") {
-			filePath = fileDirectory + "/" + *fileName + extension
-			if _, err := os.Stat(filePath); !os.IsNotExist(err) {
-				fileFound = true
-				break
+		// First, try the bare name in the directory (handles names that already include an extension).
+		filePath = filepath.Join(fileDirectory, *fileName)
+		if _, err := os.Stat(filePath); !os.IsNotExist(err) {
+			fileFound = true
+		}
+		if !fileFound {
+			for _, extension := range viper.GetStringSlice(fileType + ".extensions") {
+				filePath = filepath.Join(fileDirectory, *fileName+extension)
+				if _, err := os.Stat(filePath); !os.IsNotExist(err) {
+					fileFound = true
+					break
+				}
 			}
 		}
 		if !fileFound {
@@ -82,12 +90,61 @@ func UploadTemplate(templateName *string, template string, bucketName *string, s
 	return generatedname, nil
 }
 
+// splitShellArgs splits a command string into arguments, respecting single
+// and double-quoted substrings. Quotes are stripped from the result and spaces
+// inside quotes are preserved as part of the argument. Backslash-escaped
+// quotes inside double-quoted strings are handled (e.g., "arg with \"escaped\" quotes").
+// Returns an error if the input contains unbalanced quotes.
+func splitShellArgs(s string) ([]string, error) {
+	var args []string
+	var current strings.Builder
+	inSingle := false
+	inDouble := false
+
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		switch {
+		case c == '\\' && inDouble && i+1 < len(s) && s[i+1] == '"':
+			// Escaped double quote inside a double-quoted string
+			current.WriteByte('"')
+			i++ // skip the escaped quote
+		case c == '\'' && !inDouble:
+			inSingle = !inSingle
+		case c == '"' && !inSingle:
+			inDouble = !inDouble
+		case c == ' ' && !inSingle && !inDouble:
+			if current.Len() > 0 || (i > 0 && (s[i-1] == '\'' || s[i-1] == '"')) {
+				args = append(args, current.String())
+				current.Reset()
+			}
+		default:
+			current.WriteByte(c)
+		}
+	}
+	if inSingle {
+		return nil, fmt.Errorf("unbalanced single quote in command: %s", s)
+	}
+	if inDouble {
+		return nil, fmt.Errorf("unbalanced double quote in command: %s", s)
+	}
+	if current.Len() > 0 || (len(s) > 0 && (s[len(s)-1] == '\'' || s[len(s)-1] == '"')) {
+		args = append(args, current.String())
+	}
+	return args, nil
+}
+
 // RunPrechecks executes configured template validation commands and returns results for each check.
 func RunPrechecks(deployment *DeployInfo) (map[string]string, error) {
 	results := make(map[string]string)
 	for _, precheck := range viper.GetStringSlice("templates.prechecks") {
 		precheck := strings.ReplaceAll(precheck, "$TEMPLATEPATH", deployment.TemplateRelativePath)
-		separated := strings.Split(precheck, " ")
+		separated, err := splitShellArgs(precheck)
+		if err != nil {
+			return results, err
+		}
+		if len(separated) == 0 {
+			return results, fmt.Errorf("precheck command is empty or only whitespace: %q", precheck)
+		}
 		command, args := separated[0], separated[1:]
 		//TODO: improve on this list or find a better solution to keep it safe
 		if stringInSlice(command, []string{"rm", "del", "kill"}) {
@@ -102,7 +159,7 @@ func RunPrechecks(deployment *DeployInfo) (map[string]string, error) {
 		var stderr bytes.Buffer
 		cmd.Stdout = &out
 		cmd.Stderr = &stderr
-		err := cmd.Run()
+		err = cmd.Run()
 		if err != nil {
 			results[precheck] = stderr.String() + out.String()
 			deployment.PrechecksFailed = true

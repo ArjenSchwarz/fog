@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"regexp"
 	"strings"
 
@@ -47,11 +46,7 @@ func GetExports(stackname *string, exportname *string, svc CFNExportsAPI) ([]Cfn
 	for paginator.HasMorePages() {
 		output, err := paginator.NextPage(context.TODO())
 		if err != nil {
-			var bne *smithy.OperationError
-			if errors.As(err, &bne) {
-				log.Fatalln("error:", bne.Err)
-			}
-			log.Fatalln(err)
+			return nil, fmt.Errorf("describing stacks: %w", err)
 		}
 		allstacks = append(allstacks, output.Stacks...)
 	}

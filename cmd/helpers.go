@@ -58,15 +58,6 @@ func stringInSlice(a string, list []string) bool {
 	return slices.Contains(list, a)
 }
 
-func stringValueInMap(a string, list map[string]string) bool {
-	for _, b := range list {
-		if b == a {
-			return true
-		}
-	}
-	return false
-}
-
 // addToField increases the integer value of the field by the provided value
 func addToField(field *map[string]any, key string, value int) {
 	(*field)[key] = (*field)[key].(int) + value
