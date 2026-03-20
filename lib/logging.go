@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"sort"
@@ -112,12 +113,19 @@ func (deploymentlog *DeploymentLog) Write() error {
 	return nil
 }
 
-// writeLogToFile appends the provided contents to the specified file path.
-func writeLogToFile(contents []byte, outputFile string) (err error) {
+// writeLogToFile opens the given file path and delegates to writeToFile.
+func writeLogToFile(contents []byte, outputFile string) error {
 	file, err := os.OpenFile(outputFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
 	}
+	return writeToFile(contents, file)
+}
+
+// writeToFile writes contents followed by a newline to the given writer and
+// closes it. A named return is used so the deferred Close error is propagated
+// when no prior write or flush error occurred.
+func writeToFile(contents []byte, file io.WriteCloser) (err error) {
 	defer func() {
 		if cerr := file.Close(); cerr != nil && err == nil {
 			err = cerr

@@ -53,15 +53,23 @@ func GetExports(stackname *string, exportname *string, svc CFNExportsAPI) ([]Cfn
 				ExportName:  export.ExportName,
 				Description: export.Description,
 			}
-			imports, err := svc.ListImports(
-				context.TODO(),
-				&cloudformation.ListImportsInput{ExportName: &export.ExportName})
-			if err != nil {
+			paginator := cloudformation.NewListImportsPaginator(svc, &cloudformation.ListImportsInput{ExportName: &export.ExportName})
+			var allImports []string
+			var paginationErr error
+			for paginator.HasMorePages() {
+				page, err := paginator.NextPage(context.TODO())
+				if err != nil {
+					paginationErr = err
+					break
+				}
+				allImports = append(allImports, page.Imports...)
+			}
+			if paginationErr != nil {
 				// TODO limit this to only not found errors: "Export 'stackname' is not imported by any stack."
 				resexport.Imported = false
 			} else {
 				resexport.Imported = true
-				resexport.ImportedBy = imports.Imports
+				resexport.ImportedBy = allImports
 			}
 			c <- resexport
 		}(export)
@@ -107,14 +115,22 @@ func (output *CfnOutput) FillImports(svc CFNListImportsAPI) {
 	if output.ExportName == "" {
 		return
 	}
-	imports, err := svc.ListImports(
-		context.TODO(),
-		&cloudformation.ListImportsInput{ExportName: &output.ExportName})
-	if err != nil {
+	paginator := cloudformation.NewListImportsPaginator(svc, &cloudformation.ListImportsInput{ExportName: &output.ExportName})
+	var allImports []string
+	var paginationErr error
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(context.TODO())
+		if err != nil {
+			paginationErr = err
+			break
+		}
+		allImports = append(allImports, page.Imports...)
+	}
+	if paginationErr != nil {
 		// TODO limit this to only not found errors: "Export 'stackname' is not imported by any stack."
 		output.Imported = false
 	} else {
 		output.Imported = true
-		output.ImportedBy = imports.Imports
+		output.ImportedBy = allImports
 	}
 }
