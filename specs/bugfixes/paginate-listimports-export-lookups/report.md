@@ -1,7 +1,7 @@
 # Bugfix Report: Paginate ListImports in Export Lookups
 
 **Date:** 2026-03-20
-**Status:** Investigating
+**Status:** Fixed
 
 ## Description of the Issue
 
@@ -34,7 +34,14 @@ Both `GetExports` (line 63) and `FillImports` (line 119) in `lib/outputs.go` mak
 
 ## Resolution for the Issue
 
-_To be filled in after fix is implemented._
+**Changes made:**
+- `lib/outputs.go:63-73` - Replaced single `svc.ListImports()` call in `GetExports` goroutine with `cloudformation.NewListImportsPaginator` loop that accumulates all imports across pages
+- `lib/outputs.go:127-137` - Replaced single `svc.ListImports()` call in `FillImports` with the same paginator pattern
+
+**Approach rationale:** The AWS SDK v2 provides `NewListImportsPaginator` which handles `NextToken` management automatically. This is the same pattern already used for `DescribeStacks` pagination in the same file, making the code consistent.
+
+**Alternatives considered:**
+- Manual `NextToken` loop calling `ListImports` directly - Not chosen because the SDK paginator is simpler, less error-prone, and consistent with the existing `DescribeStacks` pagination in the same file
 
 ## Regression Test
 
@@ -55,9 +62,9 @@ _To be filled in after fix is implemented._
 ## Verification
 
 **Automated:**
-- [ ] Regression test passes
-- [ ] Full test suite passes
-- [ ] Linters/validators pass
+- [x] Regression test passes
+- [x] Full test suite passes
+- [x] Linters/validators pass
 
 ## Prevention
 
