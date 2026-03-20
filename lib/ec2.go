@@ -40,7 +40,7 @@ func GetManagedPrefixLists(svc EC2DescribeManagedPrefixListsAPI) ([]types.Manage
 
 	var result []types.ManagedPrefixList
 	for paginator.HasMorePages() {
-		output, err := paginator.NextPage(context.Background())
+		output, err := paginator.NextPage(context.TODO())
 		if err != nil {
 			return nil, err
 		}
