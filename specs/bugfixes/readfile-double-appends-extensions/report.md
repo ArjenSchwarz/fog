@@ -1,7 +1,7 @@
 # Bugfix Report: ReadFile Double-Appends Extensions
 
 **Date:** 2026-03-20
-**Status:** In Progress
+**Status:** Fixed
 
 ## Description of the Issue
 
@@ -35,7 +35,14 @@ When the initial `os.Stat(filePath)` check fails (file not found at the literal 
 
 ## Resolution for the Issue
 
-_To be filled after fix is implemented._
+**Changes made:**
+- `lib/files.go:28-31` - Added a check that tries the bare filename in the configured directory before entering the extension-appending loop. If `<directory>/<name>` exists, it is used directly.
+
+**Approach rationale:** This is the minimal fix that preserves all existing behaviour. The bare-name check happens before the extension loop, so names without extensions still work exactly as before (the bare name won't match, and the loop appends extensions as usual). Names with extensions are found on the first check.
+
+**Alternatives considered:**
+- Strip known extensions before building candidate paths - More complex, fragile if extensions change, and would change behaviour for edge cases where a base name contains dots
+- Check `filepath.Ext()` to detect existing extensions - Would need to compare against the configured extension list, adding unnecessary complexity for the same result
 
 ## Regression Test
 
@@ -56,9 +63,9 @@ _To be filled after fix is implemented._
 ## Verification
 
 **Automated:**
-- [ ] Regression test passes
-- [ ] Full test suite passes
-- [ ] Linters/validators pass
+- [x] Regression test passes
+- [x] Full test suite passes
+- [x] Linters/validators pass (golangci-lint: 0 issues)
 
 ## Prevention
 
