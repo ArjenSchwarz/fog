@@ -251,9 +251,9 @@ func TestSplitShellArgs(t *testing.T) {
 	// the same argument and stripping the surrounding quotes.
 
 	tests := []struct {
-		name string
+		name  string
 		input string
-		want []string
+		want  []string
 	}{
 		{
 			name:  "Simple command without quotes",

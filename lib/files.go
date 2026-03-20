@@ -82,12 +82,51 @@ func UploadTemplate(templateName *string, template string, bucketName *string, s
 	return generatedname, nil
 }
 
+// splitShellArgs splits a command string into arguments, respecting single
+// and double-quoted substrings. Quotes are stripped from the result and spaces
+// inside quotes are preserved as part of the argument. Backslash-escaped
+// quotes inside double-quoted strings are handled (e.g., "arg with \"escaped\" quotes").
+func splitShellArgs(s string) []string {
+	var args []string
+	var current strings.Builder
+	inSingle := false
+	inDouble := false
+
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		switch {
+		case c == '\\' && inDouble && i+1 < len(s) && s[i+1] == '"':
+			// Escaped double quote inside a double-quoted string
+			current.WriteByte('"')
+			i++ // skip the escaped quote
+		case c == '\'' && !inDouble:
+			inSingle = !inSingle
+		case c == '"' && !inSingle:
+			inDouble = !inDouble
+		case c == ' ' && !inSingle && !inDouble:
+			if current.Len() > 0 || (i > 0 && (s[i-1] == '\'' || s[i-1] == '"')) {
+				args = append(args, current.String())
+				current.Reset()
+			}
+		default:
+			current.WriteByte(c)
+		}
+	}
+	if current.Len() > 0 || inSingle || inDouble || (len(s) > 0 && (s[len(s)-1] == '\'' || s[len(s)-1] == '"')) {
+		args = append(args, current.String())
+	}
+	return args
+}
+
 // RunPrechecks executes configured template validation commands and returns results for each check.
 func RunPrechecks(deployment *DeployInfo) (map[string]string, error) {
 	results := make(map[string]string)
 	for _, precheck := range viper.GetStringSlice("templates.prechecks") {
 		precheck := strings.ReplaceAll(precheck, "$TEMPLATEPATH", deployment.TemplateRelativePath)
-		separated := strings.Split(precheck, " ")
+		separated := splitShellArgs(precheck)
+		if len(separated) == 0 {
+			continue
+		}
 		command, args := separated[0], separated[1:]
 		//TODO: improve on this list or find a better solution to keep it safe
 		if stringInSlice(command, []string{"rm", "del", "kill"}) {

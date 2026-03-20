@@ -1,7 +1,7 @@
 # Bugfix Report: Fix RunPrechecks Command Parsing for Quoted Args
 
 **Date:** 2026-03-20
-**Status:** In Progress
+**Status:** Fixed
 
 ## Description of the Issue
 
@@ -35,7 +35,15 @@
 
 ## Resolution for the Issue
 
-*To be filled in after fix is implemented.*
+**Changes made:**
+- `lib/files.go` - Added `splitShellArgs()` function that parses command strings with awareness of single and double quotes, including backslash-escaped quotes inside double-quoted strings
+- `lib/files.go` - Changed `RunPrechecks` to use `splitShellArgs()` instead of `strings.Split(precheck, " ")`, and added a guard for empty parse results
+
+**Approach rationale:** A self-contained shell argument parser avoids adding an external dependency while correctly handling the most common quoting patterns that users encounter. The implementation follows standard shell quoting semantics: double quotes and single quotes delimit arguments, spaces inside quotes are preserved, and quotes are stripped from the result.
+
+**Alternatives considered:**
+- **Add `google/shlex` or `mattn/go-shellwords` dependency** - Would handle more edge cases but adds a dependency for a straightforward parsing task
+- **Document that spaces are unsupported** - Would leave the bug unfixed and limit usability
 
 ## Regression Test
 
@@ -52,15 +60,15 @@
 
 | File | Change |
 |------|--------|
-| `lib/files.go` | *To be filled in* |
+| `lib/files.go` | Added `splitShellArgs()`, updated `RunPrechecks` to use it |
 | `lib/files_test.go` | Added regression tests |
 
 ## Verification
 
 **Automated:**
-- [ ] Regression test passes
-- [ ] Full test suite passes
-- [ ] Linters/validators pass
+- [x] Regression test passes
+- [x] Full test suite passes
+- [x] Linters/validators pass
 
 **Manual verification:**
 - N/A (unit-testable fix)
