@@ -7,14 +7,14 @@ Drift detection lives in `cmd/drift.go` with helpers in `cmd/helpers.go`.
 ### Key functions
 
 - `separateSpecialCases()` — Builds the `logicalToPhysical` map from stack resources and exports. Also categorizes NACL, route table, and TGW resources for special-case handling.
-- `checkIfResourcesAreManaged()` — Compares resources discovered via `lib.ListAllResources()` against the `logicalToPhysical` map to identify UNMANAGED resources. Uses map key lookup on `logicalToPhysical` (keys = logical IDs, values = physical IDs).
+- `checkIfResourcesAreManaged()` — Compares resources discovered via `lib.ListAllResources()` against the `logicalToPhysical` map to identify UNMANAGED resources. Builds a set of managed physical IDs from `logicalToPhysical` values for O(1) lookups, since `allresources` keys are physical IDs from the Cloud Control API.
 - `checkNaclEntries()`, `checkRouteTableRoutes()`, `checkTransitGatewayRouteTableRoutes()` — Special-case drift checks for resources that need deeper template comparison.
 
 ### Data flow for unmanaged resource detection
 
 1. `lib.ListAllResources()` returns `map[string]string` where keys are resource identifiers and values are resource type strings (e.g., `"AWS::SSO::PermissionSet"`)
 2. `logicalToPhysical` maps logical resource IDs (CloudFormation) to physical resource IDs (AWS)
-3. `checkIfResourcesAreManaged` checks if each resource from step 1 exists as a **key** in `logicalToPhysical`
+3. `checkIfResourcesAreManaged` builds a set of physical IDs from `logicalToPhysical` values, then checks if each resource from step 1 exists in that set
 4. Resources not found are reported as UNMANAGED (unless in the ignore list via `drift.ignore-unmanaged-resources` config)
 
 ### Gotchas
@@ -26,4 +26,5 @@ Drift detection lives in `cmd/drift.go` with helpers in `cmd/helpers.go`.
 ## Tests
 
 - `cmd/drift_test.go` — Tests for output formatting, tag handling, field validation
-- `cmd/drift_managed_test.go` — Tests for `checkIfResourcesAreManaged` key lookup behavior (added in T-435)
+- `cmd/drift_managed_test.go` — Tests for `checkIfResourcesAreManaged` value-based lookup behavior (added in T-435, corrected in T-455)
+- `cmd/drift_unmanaged_test.go` — Tests for `checkIfResourcesAreManaged` with realistic physical ID data (added in T-455)

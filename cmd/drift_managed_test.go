@@ -6,16 +6,15 @@ import (
 	"github.com/spf13/viper"
 )
 
-// TestCheckIfResourcesAreManaged_KeyLookup verifies that checkIfResourcesAreManaged
-// correctly identifies managed resources by checking logicalToPhysical map keys
-// (logical IDs), not map values (physical IDs).
+// TestCheckIfResourcesAreManaged_ValueLookup verifies that checkIfResourcesAreManaged
+// correctly identifies managed resources by checking allresources keys (physical IDs
+// from AWS APIs) against logicalToPhysical map values (physical IDs from CloudFormation).
 //
-// Bug T-435: The original implementation used stringValueInMap which checks map
-// values (physical IDs). This means a resource is only found if its identifier
-// happens to match a physical ID, not a logical ID. The function should check
-// map keys instead, since allresources keys should be compared against logical
-// resource IDs in the logicalToPhysical map.
-func TestCheckIfResourcesAreManaged_KeyLookup(t *testing.T) {
+// The allresources map is populated by ListAllResources which uses the Cloud Control
+// API — its keys are physical resource identifiers (ARNs, IDs, etc.), not logical IDs.
+// The logicalToPhysical map has logical IDs as keys and physical IDs as values.
+// Therefore the check must match allresources keys against logicalToPhysical values.
+func TestCheckIfResourcesAreManaged_ValueLookup(t *testing.T) {
 	// NOTE: Cannot use t.Parallel() because settings uses viper global state
 
 	tests := map[string]struct {
@@ -26,11 +25,10 @@ func TestCheckIfResourcesAreManaged_KeyLookup(t *testing.T) {
 		wantLogicalIds    []string
 	}{
 		"managed_resource_not_marked_unmanaged": {
-			// The resource key "MyBucket" matches a key in logicalToPhysical.
-			// Before the fix, stringValueInMap checks values ("bucket-abc-123"),
-			// so "MyBucket" would NOT be found, falsely marking it UNMANAGED.
+			// The physical ID "bucket-abc-123" matches a value in logicalToPhysical,
+			// so it should be recognised as managed.
 			allresources: map[string]string{
-				"MyBucket": "AWS::S3::Bucket",
+				"bucket-abc-123": "AWS::S3::Bucket",
 			},
 			logicalToPhysical: map[string]string{
 				"MyBucket": "bucket-abc-123",
@@ -39,51 +37,50 @@ func TestCheckIfResourcesAreManaged_KeyLookup(t *testing.T) {
 			wantLogicalIds: nil,
 		},
 		"unmanaged_resource_correctly_reported": {
-			// "RogueResource" is not a key in logicalToPhysical,
+			// "rogue-bucket-456" is not a value in logicalToPhysical,
 			// so it should be reported as UNMANAGED.
 			allresources: map[string]string{
-				"RogueResource": "AWS::S3::Bucket",
+				"rogue-bucket-456": "AWS::S3::Bucket",
 			},
 			logicalToPhysical: map[string]string{
 				"MyBucket": "bucket-abc-123",
 			},
 			wantUnmanaged:  1,
-			wantLogicalIds: []string{"RogueResource"},
+			wantLogicalIds: []string{"rogue-bucket-456"},
 		},
-		"physical_id_match_does_not_count_as_managed": {
-			// "bucket-abc-123" matches a VALUE in logicalToPhysical but not a KEY.
-			// The old code (stringValueInMap) would wrongly consider this managed.
-			// The fix should report it as UNMANAGED.
+		"logical_id_match_does_not_count_as_managed": {
+			// "MyBucket" matches a KEY in logicalToPhysical but not a VALUE.
+			// The function should check values, so this should be UNMANAGED.
 			allresources: map[string]string{
-				"bucket-abc-123": "AWS::S3::Bucket",
+				"MyBucket": "AWS::S3::Bucket",
 			},
 			logicalToPhysical: map[string]string{
 				"MyBucket": "bucket-abc-123",
 			},
 			wantUnmanaged:  1,
-			wantLogicalIds: []string{"bucket-abc-123"},
+			wantLogicalIds: []string{"MyBucket"},
 		},
 		"mixed_managed_and_unmanaged": {
 			allresources: map[string]string{
-				"ManagedVPC":    "AWS::EC2::VPC",
-				"UnmanagedVPC":  "AWS::EC2::VPC",
-				"ManagedSubnet": "AWS::EC2::Subnet",
+				"vpc-12345":    "AWS::EC2::VPC",
+				"vpc-99999":    "AWS::EC2::VPC",
+				"subnet-67890": "AWS::EC2::Subnet",
 			},
 			logicalToPhysical: map[string]string{
 				"ManagedVPC":    "vpc-12345",
 				"ManagedSubnet": "subnet-67890",
 			},
 			wantUnmanaged:  1,
-			wantLogicalIds: []string{"UnmanagedVPC"},
+			wantLogicalIds: []string{"vpc-99999"},
 		},
 		"ignored_unmanaged_resource_not_reported": {
 			allresources: map[string]string{
-				"IgnoredResource": "AWS::S3::Bucket",
+				"ignored-bucket-789": "AWS::S3::Bucket",
 			},
 			logicalToPhysical: map[string]string{
 				"OtherResource": "other-physical-id",
 			},
-			ignoreResources: []string{"IgnoredResource"},
+			ignoreResources: []string{"ignored-bucket-789"},
 			wantUnmanaged:   0,
 			wantLogicalIds:  nil,
 		},
@@ -95,12 +92,12 @@ func TestCheckIfResourcesAreManaged_KeyLookup(t *testing.T) {
 		},
 		"empty_logicalToPhysical_all_unmanaged": {
 			allresources: map[string]string{
-				"Resource1": "AWS::S3::Bucket",
-				"Resource2": "AWS::EC2::VPC",
+				"resource-1": "AWS::S3::Bucket",
+				"vpc-99999":  "AWS::EC2::VPC",
 			},
 			logicalToPhysical: map[string]string{},
 			wantUnmanaged:     2,
-			wantLogicalIds:    []string{"Resource1", "Resource2"},
+			wantLogicalIds:    []string{"resource-1", "vpc-99999"},
 		},
 	}
 
