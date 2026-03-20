@@ -417,6 +417,61 @@ func TestGetManagedPrefixLists(t *testing.T) {
 			want:    nil,
 			wantErr: true,
 		},
+		{
+			// Regression: GetManagedPrefixLists must paginate through all pages.
+			// Before the fix, only the first page was returned and subsequent
+			// pages (indicated by NextToken) were silently dropped.
+			name: "paginated results returns all prefix lists",
+			args: args{svc: func() mockEC2DescribeManagedPrefixListsAPI {
+				callCount := 0
+				return mockEC2DescribeManagedPrefixListsAPI(func(ctx context.Context, params *ec2.DescribeManagedPrefixListsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeManagedPrefixListsOutput, error) {
+					callCount++
+					switch callCount {
+					case 1:
+						// First page: return pl1 with a NextToken indicating more pages
+						if params.NextToken != nil {
+							return nil, fmt.Errorf("first call should not have NextToken")
+						}
+						nextToken := "page2"
+						return &ec2.DescribeManagedPrefixListsOutput{
+							PrefixLists: []types.ManagedPrefixList{pl1},
+							NextToken:   &nextToken,
+						}, nil
+					case 2:
+						// Second page: return pl2 with no NextToken (last page)
+						if params.NextToken == nil || *params.NextToken != "page2" {
+							return nil, fmt.Errorf("second call should have NextToken=page2, got %v", params.NextToken)
+						}
+						return &ec2.DescribeManagedPrefixListsOutput{
+							PrefixLists: []types.ManagedPrefixList{pl2},
+						}, nil
+					default:
+						return nil, fmt.Errorf("unexpected call %d", callCount)
+					}
+				})
+			}()},
+			want: []types.ManagedPrefixList{pl1, pl2},
+		},
+		{
+			// Regression: error on a subsequent page must propagate.
+			name: "error on second page returns error",
+			args: args{svc: func() mockEC2DescribeManagedPrefixListsAPI {
+				callCount := 0
+				return mockEC2DescribeManagedPrefixListsAPI(func(ctx context.Context, params *ec2.DescribeManagedPrefixListsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeManagedPrefixListsOutput, error) {
+					callCount++
+					if callCount == 1 {
+						nextToken := "page2"
+						return &ec2.DescribeManagedPrefixListsOutput{
+							PrefixLists: []types.ManagedPrefixList{pl1},
+							NextToken:   &nextToken,
+						}, nil
+					}
+					return nil, fmt.Errorf("page 2 error")
+				})
+			}()},
+			want:    nil,
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
