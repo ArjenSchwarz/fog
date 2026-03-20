@@ -79,6 +79,88 @@ func Test_getOutputsForStack(t *testing.T) {
 	}
 }
 
+// Test_getOutputsForStack_regexMetacharacters verifies that regex metacharacters
+// in export and stack filters are treated as literal characters, not regex operators.
+// Regression test for T-511.
+func Test_getOutputsForStack_regexMetacharacters(t *testing.T) {
+	stack := types.Stack{
+		StackName: strPtrOut("my.stack.name"),
+		Outputs: []types.Output{
+			{
+				OutputKey:   strPtrOut("Key1"),
+				OutputValue: strPtrOut("Val1"),
+				ExportName:  strPtrOut("my.export.name"),
+			},
+			{
+				OutputKey:   strPtrOut("Key2"),
+				OutputValue: strPtrOut("Val2"),
+				ExportName:  strPtrOut("myXexportXname"),
+			},
+		},
+	}
+
+	// Export filter with dot should match only the literal dot, not any character.
+	// Before the fix, "my.export.name" would also match "myXexportXname" because
+	// '.' in regex means "any character".
+	res := getOutputsForStack(stack, "my.stack.name", "my.export.name", true)
+	if len(res) != 1 {
+		t.Fatalf("expected 1 export matching literal dot filter, got %d", len(res))
+	}
+	if res[0].ExportName != "my.export.name" {
+		t.Errorf("expected 'my.export.name', got %q", res[0].ExportName)
+	}
+
+	// Stack filter with dot should match only the literal dot.
+	// A stack named "myXstackXname" should not match filter "my.stack.name".
+	stackOther := types.Stack{
+		StackName: strPtrOut("myXstackXname"),
+		Outputs: []types.Output{
+			{
+				OutputKey:   strPtrOut("Key1"),
+				OutputValue: strPtrOut("Val1"),
+				ExportName:  strPtrOut("Export1"),
+			},
+		},
+	}
+	res2 := getOutputsForStack(stackOther, "my.stack.*", "", true)
+	if len(res2) != 0 {
+		t.Errorf("expected 0 results for stack 'myXstackXname' with filter 'my.stack.*', got %d", len(res2))
+	}
+
+	// Verify wildcard still works with metacharacters present.
+	res3 := getOutputsForStack(stack, "my.stack.*", "my.export.*", true)
+	if len(res3) != 1 {
+		t.Fatalf("expected 1 export with wildcard+dot filter, got %d", len(res3))
+	}
+	if res3[0].ExportName != "my.export.name" {
+		t.Errorf("expected 'my.export.name', got %q", res3[0].ExportName)
+	}
+
+	// Filter with other metacharacters like '+' and '?' should be literal.
+	stackPlus := types.Stack{
+		StackName: strPtrOut("test-stack"),
+		Outputs: []types.Output{
+			{
+				OutputKey:   strPtrOut("Key1"),
+				OutputValue: strPtrOut("Val1"),
+				ExportName:  strPtrOut("foo+bar"),
+			},
+			{
+				OutputKey:   strPtrOut("Key2"),
+				OutputValue: strPtrOut("Val2"),
+				ExportName:  strPtrOut("foobar"),
+			},
+		},
+	}
+	res4 := getOutputsForStack(stackPlus, "test-stack", "foo+bar", true)
+	if len(res4) != 1 {
+		t.Fatalf("expected 1 export matching literal '+' filter, got %d", len(res4))
+	}
+	if res4[0].ExportName != "foo+bar" {
+		t.Errorf("expected 'foo+bar', got %q", res4[0].ExportName)
+	}
+}
+
 // TestCfnOutput_FillImports checks success and error cases when populating import information.
 func TestCfnOutput_FillImports(t *testing.T) {
 	out := &CfnOutput{ExportName: "Export1"}
