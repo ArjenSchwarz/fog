@@ -3,6 +3,7 @@ package lib
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -225,6 +226,108 @@ func TestGetExportsPagination(t *testing.T) {
 	}
 }
 
+// paginatingListImportsMock simulates multi-page ListImports responses.
+// ImportPages maps export name to a slice of pages, where each page is a slice
+// of stack names. ListImports returns one page at a time using NextToken.
+type paginatingListImportsMock struct {
+	DescribeStacksOutput cloudformation.DescribeStacksOutput
+	ImportPages          map[string][][]string // export name -> pages of imports
+}
+
+func (m paginatingListImportsMock) DescribeStacks(ctx context.Context, params *cloudformation.DescribeStacksInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStacksOutput, error) {
+	return &m.DescribeStacksOutput, nil
+}
+
+func (m paginatingListImportsMock) ListImports(ctx context.Context, params *cloudformation.ListImportsInput, optFns ...func(*cloudformation.Options)) (*cloudformation.ListImportsOutput, error) {
+	pages, ok := m.ImportPages[*params.ExportName]
+	if !ok || len(pages) == 0 {
+		return nil, errors.New("not found")
+	}
+
+	// Determine which page to return based on NextToken.
+	// NextToken format: "page:<index>" where index is 1-based.
+	pageIdx := 0
+	if params.NextToken != nil {
+		var idx int
+		if _, err := fmt.Sscanf(*params.NextToken, "page:%d", &idx); err == nil {
+			pageIdx = idx
+		}
+	}
+
+	if pageIdx >= len(pages) {
+		return nil, errors.New("invalid token")
+	}
+
+	out := &cloudformation.ListImportsOutput{
+		Imports: pages[pageIdx],
+	}
+	if pageIdx+1 < len(pages) {
+		token := fmt.Sprintf("page:%d", pageIdx+1)
+		out.NextToken = &token
+	}
+	return out, nil
+}
+
+// TestFillImportsPagination verifies that FillImports collects imports across
+// multiple ListImports pages.
+func TestFillImportsPagination(t *testing.T) {
+	mock := paginatingListImportsMock{
+		ImportPages: map[string][][]string{
+			"Export1": {
+				{"stackA", "stackB"},           // page 1
+				{"stackC", "stackD", "stackE"}, // page 2
+			},
+		},
+	}
+
+	out := &CfnOutput{ExportName: "Export1"}
+	out.FillImports(mock)
+
+	if !out.Imported {
+		t.Fatal("expected Imported=true")
+	}
+	// All 5 stacks across 2 pages must be captured
+	if len(out.ImportedBy) != 5 {
+		t.Errorf("expected 5 importers across 2 pages, got %d: %v", len(out.ImportedBy), out.ImportedBy)
+	}
+}
+
+// TestGetExportsListImportsPagination verifies that GetExports collects imports
+// across multiple ListImports pages for each export.
+func TestGetExportsListImportsPagination(t *testing.T) {
+	stackName := "test-stack"
+	mock := paginatingListImportsMock{
+		DescribeStacksOutput: cloudformation.DescribeStacksOutput{
+			Stacks: []types.Stack{{
+				StackName: strPtrOut(stackName),
+				Outputs: []types.Output{
+					{OutputKey: strPtrOut("K1"), OutputValue: strPtrOut("V1"), ExportName: strPtrOut("Export1")},
+				},
+			}},
+		},
+		ImportPages: map[string][][]string{
+			"Export1": {
+				{"stackA", "stackB"},
+				{"stackC"},
+			},
+		},
+	}
+
+	results, err := GetExports(&stackName, strPtrOut(""), mock)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected 1 export, got %d", len(results))
+	}
+	if !results[0].Imported {
+		t.Fatal("expected export to be imported")
+	}
+	if len(results[0].ImportedBy) != 3 {
+		t.Errorf("expected 3 importers across 2 pages, got %d: %v", len(results[0].ImportedBy), results[0].ImportedBy)
+	}
+}
+
 // TestGetExports_PaginatorError verifies that GetExports returns an error
 // instead of terminating the process when the paginator encounters an error.
 // Regression test for T-464: GetExports exits process on paginator errors.
@@ -275,5 +378,6 @@ func TestGetExports_OperationError(t *testing.T) {
 		t.Errorf("expected error to contain operation name, got: %v", err)
 	}
 }
+
 
 func strPtrOut(s string) *string { return &s }
