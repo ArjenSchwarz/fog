@@ -1,0 +1,26 @@
+## PR Review: Fix T-511 — Export Filter Regex Metacharacter Escaping
+
+**Overall:** The fix is correct, well-tested, and well-documented.
+
+### Fix correctness
+
+The approach is right: `regexp.QuoteMeta` escapes `*` to `\*`, so the subsequent `ReplaceAll` correctly converts only user wildcard characters into regex wildcards while every other metacharacter remains escaped as a literal. Order of operations is correct.
+
+### Same bug exists in two other files
+
+The identical unescaped pattern appears unfixed in:
+
+- `lib/stacks.go:233`: `stackRegex` uses `strings.ReplaceAll` without `regexp.QuoteMeta`
+- `lib/resources.go:49`: same pattern
+
+Stack names in AWS commonly contain dots (e.g. `my.service.prod`), so a wildcard filter like `my.service.*` would incorrectly match a stack named `myXserviceXprod`. These should receive the same `regexp.QuoteMeta` treatment.
+
+### Minor observations
+
+- **Unused regex for non-wildcard stackfilter (pre-existing):** `stackRegex` is always computed but only used when `stackfilter` contains `*`. Minor inefficiency, not a bug introduced here.
+- **`?` mentioned in report but not tested:** Tests cover `.` and `+` but not `?`. Not a blocker — coverage is solid for the most common cases.
+- **Test structure is good:** Using `t.Fatalf` before array element access prevents panics on failure. The negative test case (`res2`) correctly verifies that `myXstackXname` does not match `my.stack.*` after the fix.
+
+### Summary
+
+The core fix is correct and minimal. The main actionable item is applying the same `regexp.QuoteMeta` fix to `lib/stacks.go:233` and `lib/resources.go:49` — either in this PR or a follow-up.
