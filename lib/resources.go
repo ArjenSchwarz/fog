@@ -38,10 +38,6 @@ func GetResources(stackname *string, svc interface {
 	for paginator.HasMorePages() {
 		output, err := paginator.NextPage(context.TODO())
 		if err != nil {
-			var bne *smithy.OperationError
-			if errors.As(err, &bne) {
-				return nil, fmt.Errorf("failed to describe stacks: %w", bne.Err)
-			}
 			return nil, fmt.Errorf("failed to describe stacks: %w", err)
 		}
 		allstacks = append(allstacks, output.Stacks...)
@@ -62,6 +58,7 @@ func GetResources(stackname *string, svc interface {
 			context.TODO(),
 			&cloudformation.DescribeStackResourcesInput{StackName: stack.StackName})
 		if err != nil {
+			stackLabel := aws.ToString(stack.StackName)
 			var ae smithy.APIError
 			if errors.As(err, &ae) {
 				// If the error is because of throttling, we'll wait 5 seconds before trying the same query again
@@ -72,15 +69,15 @@ func GetResources(stackname *string, svc interface {
 						&cloudformation.DescribeStackResourcesInput{StackName: stack.StackName})
 					// If it still fails after retry, return the error
 					if err != nil {
-						return nil, fmt.Errorf("failed to describe stack resources after throttling retry: %w", err)
+						return nil, fmt.Errorf("failed to describe stack resources for %s after throttling retry: %w", stackLabel, err)
 					}
 				} else {
-					// If it's another type of API error, return it
-					return nil, fmt.Errorf("failed to describe stack resources: code: %s, message: %s, fault: %s", ae.ErrorCode(), ae.ErrorMessage(), ae.ErrorFault().String())
+					// If it's another type of API error, return it with the original error wrapped
+					return nil, fmt.Errorf("failed to describe stack resources for %s (%s): %w", stackLabel, ae.ErrorCode(), ae)
 				}
 			} else {
 				// If it's a completely different type of error, return it
-				return nil, fmt.Errorf("failed to describe stack resources: %w", err)
+				return nil, fmt.Errorf("failed to describe stack resources for %s: %w", stackLabel, err)
 			}
 		}
 		for _, resource := range resources.StackResources {

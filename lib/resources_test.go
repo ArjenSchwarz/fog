@@ -6,6 +6,7 @@ package lib
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -310,6 +311,14 @@ func TestGetResourcesNonThrottlingAPIError(t *testing.T) {
 	if !strings.Contains(err.Error(), "ValidationError") {
 		t.Errorf("expected error to contain 'ValidationError', got: %v", err)
 	}
+	if !strings.Contains(err.Error(), stackName) {
+		t.Errorf("expected error to contain stack name %q, got: %v", stackName, err)
+	}
+	// Verify the original API error is wrapped and accessible via errors.As
+	var unwrapped smithy.APIError
+	if !errors.As(err, &unwrapped) {
+		t.Errorf("expected error to wrap smithy.APIError, but errors.As failed")
+	}
 }
 
 // TestGetResourcesThrottlingRetryExhausted verifies that when throttling retry
@@ -358,5 +367,8 @@ func TestGetResourcesGenericDescribeStackResourcesError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "unexpected network error") {
 		t.Errorf("expected error to contain original message, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), stackName) {
+		t.Errorf("expected error to contain stack name %q, got: %v", stackName, err)
 	}
 }
