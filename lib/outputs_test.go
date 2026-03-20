@@ -261,7 +261,7 @@ func (m paginatingListImportsMock) ListImports(ctx context.Context, params *clou
 }
 
 // TestFillImportsPagination verifies that FillImports collects imports across
-// multiple ListImports pages. This test will fail until pagination is implemented.
+// multiple ListImports pages.
 func TestFillImportsPagination(t *testing.T) {
 	mock := paginatingListImportsMock{
 		ImportPages: map[string][][]string{
