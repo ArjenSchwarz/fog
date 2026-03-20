@@ -189,7 +189,7 @@ func detectDrift(cmd *cobra.Command, args []string) {
 	if err != nil {
 		failWithError(err)
 	}
-	checkNaclEntries(naclResources, template, stack.Parameters, &rows, awsConfig)
+	checkNaclEntries(naclResources, template, stack.Parameters, logicalToPhysical, &rows, awsConfig)
 	checkRouteTableRoutes(routetableResources, template, stack.Parameters, logicalToPhysical, &rows, awsConfig)
 	checkTransitGatewayRouteTableRoutes(tgwRouteTableResources, template, stack.Parameters, logicalToPhysical, &rows, awsConfig)
 	for _, resourcetype := range settings.GetStringSlice("drift.detect-unmanaged-resources") {
@@ -311,7 +311,7 @@ func checkIfResourcesAreManaged(allresources map[string]string, logicalToPhysica
 }
 
 // checkNaclEntries verifies the NACL entries and if there are differences adds those to the provided rows slice
-func checkNaclEntries(naclResources map[string]string, template lib.CfnTemplateBody, parameters []types.Parameter, rows *[]map[string]any, awsConfig config.AWSConfig) {
+func checkNaclEntries(naclResources map[string]string, template lib.CfnTemplateBody, parameters []types.Parameter, logicalToPhysical map[string]string, rows *[]map[string]any, awsConfig config.AWSConfig) {
 	// Specific check for NACLs
 	for logicalId, physicalId := range naclResources {
 		rulechanges := []string{}
@@ -319,7 +319,7 @@ func checkNaclEntries(naclResources map[string]string, template lib.CfnTemplateB
 		if err != nil {
 			failWithError(err)
 		}
-		attachedRules := lib.FilterNaclEntriesByLogicalId(logicalId, template, parameters)
+		attachedRules := lib.FilterNaclEntriesByLogicalId(logicalId, template, parameters, logicalToPhysical)
 		for _, entry := range nacl.Entries {
 			rulenumberstring := "I"
 			if *entry.Egress {
