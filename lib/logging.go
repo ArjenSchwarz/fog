@@ -112,8 +112,8 @@ func (deploymentlog *DeploymentLog) Write() error {
 	return nil
 }
 
-// writeLogToFile prints the provided contents to stdout or the provided filepath
-func writeLogToFile(contents []byte, outputFile string) error {
+// writeLogToFile appends the provided contents to the specified file path.
+func writeLogToFile(contents []byte, outputFile string) (err error) {
 	file, err := os.OpenFile(outputFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
@@ -126,11 +126,11 @@ func writeLogToFile(contents []byte, outputFile string) error {
 
 	w := bufio.NewWriter(file)
 	contents = append(contents, '\n')
-	if _, werr := w.Write(contents); werr != nil {
-		return werr
+	if _, err = w.Write(contents); err != nil {
+		return err
 	}
-	if ferr := w.Flush(); ferr != nil {
-		return ferr
+	if err = w.Flush(); err != nil {
+		return err
 	}
 	return nil
 }
