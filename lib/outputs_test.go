@@ -246,8 +246,8 @@ func TestGetExports_PaginatorError(t *testing.T) {
 	}
 }
 
-// TestGetExports_OperationError verifies that GetExports returns the inner error
-// from smithy.OperationError instead of terminating the process.
+// TestGetExports_OperationError verifies that GetExports returns the full error
+// (including service and operation context) instead of terminating the process.
 // Regression test for T-464: GetExports exits process on paginator errors.
 func TestGetExports_OperationError(t *testing.T) {
 	stackName := ""
@@ -266,8 +266,13 @@ func TestGetExports_OperationError(t *testing.T) {
 	if results != nil {
 		t.Errorf("expected nil results on error, got %v", results)
 	}
+	// Verify inner error message is preserved
 	if !strings.Contains(err.Error(), "access denied") {
 		t.Errorf("expected error to contain inner error message, got: %v", err)
+	}
+	// Verify operation context is preserved (not stripped by unwrapping)
+	if !strings.Contains(err.Error(), "DescribeStacks") {
+		t.Errorf("expected error to contain operation name, got: %v", err)
 	}
 }
 

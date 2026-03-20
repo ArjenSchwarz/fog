@@ -2,7 +2,6 @@ package lib
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -10,7 +9,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
-	"github.com/aws/smithy-go"
 )
 
 // CfnOutput represents a CloudFormation stack output value
@@ -38,10 +36,6 @@ func GetExports(stackname *string, exportname *string, svc CFNExportsAPI) ([]Cfn
 	for paginator.HasMorePages() {
 		output, err := paginator.NextPage(context.TODO())
 		if err != nil {
-			var bne *smithy.OperationError
-			if errors.As(err, &bne) {
-				return nil, fmt.Errorf("describing stacks: %w", bne.Err)
-			}
 			return nil, fmt.Errorf("describing stacks: %w", err)
 		}
 		allstacks = append(allstacks, output.Stacks...)
