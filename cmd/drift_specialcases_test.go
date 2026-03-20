@@ -12,6 +12,8 @@ import (
 type mockSpecialCasesClient struct {
 	describeStackResourcesOutput cloudformation.DescribeStackResourcesOutput
 	listExportsOutput            cloudformation.ListExportsOutput
+	// listExportsPages supports multi-page responses keyed by NextToken ("" = first page).
+	listExportsPages map[string]cloudformation.ListExportsOutput
 }
 
 func (m *mockSpecialCasesClient) DescribeStackResources(ctx context.Context, params *cloudformation.DescribeStackResourcesInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStackResourcesOutput, error) {
@@ -19,6 +21,17 @@ func (m *mockSpecialCasesClient) DescribeStackResources(ctx context.Context, par
 }
 
 func (m *mockSpecialCasesClient) ListExports(ctx context.Context, params *cloudformation.ListExportsInput, optFns ...func(*cloudformation.Options)) (*cloudformation.ListExportsOutput, error) {
+	if m.listExportsPages != nil {
+		token := ""
+		if params.NextToken != nil {
+			token = *params.NextToken
+		}
+		page, ok := m.listExportsPages[token]
+		if !ok {
+			return &cloudformation.ListExportsOutput{}, nil
+		}
+		return &page, nil
+	}
 	return &m.listExportsOutput, nil
 }
 
@@ -82,5 +95,56 @@ func TestSeparateSpecialCasesSkipsNilPhysicalResourceID(t *testing.T) {
 	}
 	if got := tgwRouteTableResources["TransitGatewayResource"]; got != "tgw-rtb-123" {
 		t.Fatalf("expected TransitGatewayResource to map to tgw-rtb-123, got %q", got)
+	}
+}
+
+// TestSeparateSpecialCasesPaginatesListExports verifies that exports across
+// multiple ListExports pages are all collected into logicalToPhysical.
+// Before the fix, only the first page was read and subsequent pages were dropped.
+func TestSeparateSpecialCasesPaginatesListExports(t *testing.T) {
+	stackName := "test-stack"
+
+	mock := &mockSpecialCasesClient{
+		describeStackResourcesOutput: cloudformation.DescribeStackResourcesOutput{
+			StackResources: []types.StackResource{},
+		},
+		listExportsPages: map[string]cloudformation.ListExportsOutput{
+			"": {
+				Exports: []types.Export{
+					{Name: aws.String("ExportPage1"), Value: aws.String("value-page1")},
+				},
+				NextToken: aws.String("token2"),
+			},
+			"token2": {
+				Exports: []types.Export{
+					{Name: aws.String("ExportPage2"), Value: aws.String("value-page2")},
+				},
+				NextToken: aws.String("token3"),
+			},
+			"token3": {
+				Exports: []types.Export{
+					{Name: aws.String("ExportPage3"), Value: aws.String("value-page3")},
+				},
+				// No NextToken — last page.
+			},
+		},
+	}
+
+	_, _, _, logicalToPhysical := separateSpecialCases(nil, &stackName, mock)
+
+	for _, tc := range []struct {
+		key  string
+		want string
+	}{
+		{"ExportPage1", "value-page1"},
+		{"ExportPage2", "value-page2"},
+		{"ExportPage3", "value-page3"},
+	} {
+		got, ok := logicalToPhysical[tc.key]
+		if !ok {
+			t.Errorf("expected %s to be present in logicalToPhysical (pagination missed it)", tc.key)
+		} else if got != tc.want {
+			t.Errorf("expected %s=%q, got %q", tc.key, tc.want, got)
+		}
 	}
 }

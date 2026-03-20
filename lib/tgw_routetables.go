@@ -134,22 +134,70 @@ func TGWRouteResourceToTGWRoute(resource CfnTemplateResource, params []cfntypes.
 func FilterTGWRoutesByLogicalId(logicalId string, template CfnTemplateBody, params []cfntypes.Parameter, logicalToPhysical map[string]string) map[string]types.TransitGatewayRoute {
 	result := make(map[string]types.TransitGatewayRoute)
 
+	// Look up the physical ID for the target logical ID
+	physicalId := logicalToPhysical[logicalId]
+
 	for _, resource := range template.Resources {
 		if resource.Type == "AWS::EC2::TransitGatewayRoute" && template.ShouldHaveResource(resource) {
-			rtid := strings.Replace(resource.Properties["TransitGatewayRouteTableId"].(string), "REF: ", "", 1)
-
-			if rtid == logicalId {
-				// Convert CloudFormation resource to TransitGatewayRoute
-				route := TGWRouteResourceToTGWRoute(resource, params, logicalToPhysical)
-				destination := GetTGWRouteDestination(route)
-				// Store the route for comparison
-				if destination != "" {
-					result[destination] = route
-				}
+			if !tgwRouteMatchesRouteTable(resource, logicalId, physicalId, logicalToPhysical) {
+				continue
+			}
+			// Convert CloudFormation resource to TransitGatewayRoute
+			route := TGWRouteResourceToTGWRoute(resource, params, logicalToPhysical)
+			destination := GetTGWRouteDestination(route)
+			// Store the route for comparison
+			if destination != "" {
+				result[destination] = route
 			}
 		}
 	}
 	return result
+}
+
+// tgwRouteMatchesRouteTable checks whether a TGW route resource's TransitGatewayRouteTableId
+// matches the given logical ID. Handles all property formats: "REF: " strings, Ref maps,
+// Fn::ImportValue maps, and plain physical ID strings.
+//
+// The logicalToPhysical map serves a dual purpose: it maps both CloudFormation logical IDs
+// to their physical resource IDs, and stack export names to their exported values. This
+// allows Fn::ImportValue resolution by looking up the export name in the same map.
+func tgwRouteMatchesRouteTable(resource CfnTemplateResource, logicalId string, physicalId string, logicalToPhysical map[string]string) bool {
+	prop := resource.Properties["TransitGatewayRouteTableId"]
+	if prop == nil {
+		return false
+	}
+
+	switch value := prop.(type) {
+	case string:
+		// Handle "REF: LogicalId" format
+		rtid := strings.TrimPrefix(value, "REF: ")
+		if rtid == logicalId {
+			return true
+		}
+		// Handle plain physical ID string
+		if physicalId != "" && rtid == physicalId {
+			return true
+		}
+	case map[string]any:
+		// Handle {"Ref": "LogicalId"} format
+		if refName, ok := value["Ref"].(string); ok {
+			if refName == logicalId {
+				return true
+			}
+		}
+		// Handle {"Fn::ImportValue": "ExportName"} format.
+		// When physicalId is empty (the target logical ID has no entry in logicalToPhysical),
+		// ImportValue routes cannot be matched and are silently excluded. This is acceptable
+		// for drift detection because without a known physical ID there is nothing to compare against.
+		if importName, ok := value["Fn::ImportValue"].(string); ok {
+			if resolvedId, ok := logicalToPhysical[importName]; ok {
+				if physicalId != "" && resolvedId == physicalId {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
 
 // CompareTGWRoutes compares two Transit Gateway routes for equality
@@ -195,7 +243,7 @@ func extractStringProperty(array map[string]any, params []cfntypes.Parameter, lo
 	result := ""
 	switch value := array[value].(type) {
 	case string:
-		refvalue := strings.Replace(value, "REF: ", "", 1)
+		refvalue := strings.TrimPrefix(value, "REF: ")
 		if _, ok := logicalToPhysical[refvalue]; ok {
 			result = logicalToPhysical[refvalue]
 		} else {

@@ -34,6 +34,7 @@ THE SOFTWARE.
 package main
 
 import (
+	"fmt"
 	"os"
 	"time"
 
@@ -94,11 +95,18 @@ func main() {
 	}
 }
 
-// HandleRequest is the handler for the Lambda function
-func HandleRequest(message EventBridgeMessage) {
+// HandleRequest is the handler for the Lambda function. It returns an error so
+// that the Lambda runtime can report failures instead of silently succeeding.
+func HandleRequest(message EventBridgeMessage) error {
 	s3bucket := os.Getenv("ReportS3Bucket")
-	filename := os.Getenv("ReportNamePattern")
+	if s3bucket == "" {
+		return fmt.Errorf("required environment variable ReportS3Bucket is not set")
+	}
 	format := os.Getenv("ReportOutputFormat")
+	if format == "" {
+		return fmt.Errorf("required environment variable ReportOutputFormat is not set")
+	}
+	filename := os.Getenv("ReportNamePattern")
 	timezone := os.Getenv("ReportTimezone")
-	cmd.GenerateReportFromLambda(message.Detail.StackId, s3bucket, filename, format, timezone)
+	return cmd.GenerateReportFromLambda(message.Detail.StackId, s3bucket, filename, format, timezone)
 }
