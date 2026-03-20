@@ -1,7 +1,7 @@
 # Bugfix Report: Return Errors from Lambda Handler
 
 **Date:** 2026-03-20
-**Status:** In Progress
+**Status:** Fixed
 
 ## Description of the Issue
 
@@ -40,7 +40,13 @@ Three defects work together:
 
 ## Resolution for the Issue
 
-_To be completed after fix is implemented._
+**Changes made:**
+
+1. `main.go` — Changed `HandleRequest` signature from `func(message EventBridgeMessage)` to `func(message EventBridgeMessage) error`. Added validation for required environment variables `ReportS3Bucket` and `ReportOutputFormat`, returning descriptive errors when they are missing. The return value from `GenerateReportFromLambda` is now propagated to the Lambda runtime.
+
+2. `cmd/report.go` — Changed `generateReport` signature from `func()` to `func() error`, replacing all `failWithError(err)` calls with `return err`. Changed `GenerateReportFromLambda` signature from `func(...) ` to `func(...) error`, returning the error from `generateReport`. Updated `stackReport` (the CLI path) to call `failWithError` on the returned error, preserving existing CLI behavior.
+
+**Approach rationale:** By making `generateReport` return errors instead of calling `os.Exit`, both the CLI and Lambda paths can handle errors appropriately — the CLI path calls `failWithError` (which prints and exits), while the Lambda path returns the error to the runtime. This avoids duplicating report generation logic.
 
 ## Regression Test
 

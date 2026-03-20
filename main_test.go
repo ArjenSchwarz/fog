@@ -9,8 +9,6 @@ import (
 // Bug: T-483 — HandleRequest did not return errors, so Lambda always reported
 // success even when report generation could not proceed.
 func TestHandleRequestReturnsErrorOnMissingEnvVars(t *testing.T) {
-	t.Parallel()
-
 	// Ensure required env vars are not set
 	t.Setenv("ReportS3Bucket", "")
 	t.Setenv("ReportOutputFormat", "")
@@ -27,8 +25,6 @@ func TestHandleRequestReturnsErrorOnMissingEnvVars(t *testing.T) {
 // TestHandleRequestReturnsErrorOnMissingBucket verifies that a missing
 // ReportS3Bucket env var causes an error even when other vars are set.
 func TestHandleRequestReturnsErrorOnMissingBucket(t *testing.T) {
-	t.Parallel()
-
 	t.Setenv("ReportS3Bucket", "")
 	t.Setenv("ReportOutputFormat", "markdown")
 	t.Setenv("ReportNamePattern", "report-$STACKNAME.md")
@@ -46,8 +42,6 @@ func TestHandleRequestReturnsErrorOnMissingBucket(t *testing.T) {
 // TestHandleRequestReturnsErrorOnMissingFormat verifies that a missing
 // ReportOutputFormat env var causes an error.
 func TestHandleRequestReturnsErrorOnMissingFormat(t *testing.T) {
-	t.Parallel()
-
 	t.Setenv("ReportS3Bucket", "my-bucket")
 	t.Setenv("ReportOutputFormat", "")
 	t.Setenv("ReportNamePattern", "report-$STACKNAME.md")

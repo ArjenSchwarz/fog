@@ -101,11 +101,15 @@ func init() {
 }
 
 func stackReport(cmd *cobra.Command, args []string) {
-	generateReport()
+	if err := generateReport(); err != nil {
+		failWithError(err)
+	}
 }
 
-// GenerateReportFromLambda generates a CloudFormation deployment report for Lambda execution
-func GenerateReportFromLambda(stackname string, bucketname string, outputfilename string, outputformat string, timezone string) {
+// GenerateReportFromLambda generates a CloudFormation deployment report for Lambda execution.
+// It returns an error if report generation fails, allowing the Lambda runtime to
+// report the failure instead of silently swallowing it.
+func GenerateReportFromLambda(stackname string, bucketname string, outputfilename string, outputformat string, timezone string) error {
 	// Default settings for Lambda output: only latest, markdown, with frontmatter
 	reportFlags.LatestOnly = true // The Lambda always only retrieves the latest report
 	reportFlags.FrontMatter = true
@@ -114,7 +118,7 @@ func GenerateReportFromLambda(stackname string, bucketname string, outputfilenam
 	reportFlags.StackName = stackname
 	reportFlags.TargetBucket = bucketname
 	reportFlags.Outputfile = outputfilename
-	generateReport()
+	return generateReport()
 }
 
 // setTimezoneIfPresent overrides the viper timezone setting only when a
@@ -127,11 +131,13 @@ func setTimezoneIfPresent(timezone string) {
 	}
 }
 
-// generateReport creates the complete report
-func generateReport() {
+// generateReport creates the complete report. It returns an error instead of
+// calling os.Exit so that callers (especially the Lambda handler) can propagate
+// failures to their runtime.
+func generateReport() error {
 	awsConfig, err := config.DefaultAwsConfig(*settings)
 	if err != nil {
-		failWithError(err)
+		return err
 	}
 
 	// Determine if we need Mermaid output based on format
@@ -143,7 +149,7 @@ func generateReport() {
 
 	stacks, err := lib.GetCfnStacks(&reportFlags.StackName, awsConfig.CloudformationClient())
 	if err != nil {
-		failWithError(err)
+		return err
 	}
 
 	// Build frontmatter if requested
@@ -192,7 +198,7 @@ func generateReport() {
 	builtDoc := doc.Build()
 	out := output.NewOutput(outputOptions...)
 	if err := out.Render(context.Background(), builtDoc); err != nil {
-		failWithError(err)
+		return err
 	}
 
 	// Render to file separately if file format differs from console format
@@ -203,9 +209,11 @@ func generateReport() {
 		}
 		fileOut := output.NewOutput(fileOpts...)
 		if err := fileOut.Render(context.Background(), builtDoc); err != nil {
-			failWithError(err)
+			return err
 		}
 	}
+
+	return nil
 }
 
 // getReportOutputOptions creates output options with S3/file support
