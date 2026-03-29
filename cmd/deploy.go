@@ -359,18 +359,24 @@ func createChangeset(deployment *lib.DeployInfo, awsConfig config.AWSConfig) *li
 		printMessage(formatError(string(texts.DeployChangesetMessageCreationFailed)))
 		fmt.Fprintln(os.Stderr, changeset.StatusReason)
 		fmt.Fprintf(os.Stderr, "\n%v %v\n", texts.DeployChangesetMessageConsole, changeset.GenerateChangesetUrl(awsConfig))
-		var deleteChangesetConfirmation bool
-		if deployFlags.NonInteractive {
-			deleteChangesetConfirmation = true
-		} else {
-			askForConfirmation(string(texts.DeployChangesetMessageDeleteConfirm))
-		}
-		if deleteChangesetConfirmation {
-			deleteChangeset(*deployment, awsConfig)
-		}
+		handleFailedChangeset(deployment, awsConfig)
 		os.Exit(1)
 	}
 	return changeset
+}
+
+// handleFailedChangeset prompts the user (or auto-confirms in non-interactive
+// mode) and deletes a failed changeset when confirmed.
+func handleFailedChangeset(deployment *lib.DeployInfo, awsConfig config.AWSConfig) {
+	var deleteChangesetConfirmation bool
+	if deployFlags.NonInteractive {
+		deleteChangesetConfirmation = true
+	} else {
+		deleteChangesetConfirmation = askForConfirmationFunc(string(texts.DeployChangesetMessageDeleteConfirm))
+	}
+	if deleteChangesetConfirmation {
+		deleteChangesetFunc(*deployment, awsConfig)
+	}
 }
 
 func deleteChangeset(deployment lib.DeployInfo, awsConfig config.AWSConfig) {
