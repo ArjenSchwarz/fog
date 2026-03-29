@@ -171,6 +171,23 @@ func TestDeployInfo_GetCleanedStackName(t *testing.T) {
 			stackName: "arn:aws:cloudformation:ap-southeast-2:12345678901:stack/test-stack/5f584530-013c-11ee-9c69-0a254d5985de",
 			want:      "test-stack",
 		},
+		// Regression tests for T-659: malformed ARN input must not panic
+		"malformed ARN without slash returns original": {
+			stackName: "arn:aws:cloudformation:ap-southeast-2:123456789012",
+			want:      "arn:aws:cloudformation:ap-southeast-2:123456789012",
+		},
+		"ARN prefix only returns original": {
+			stackName: "arn:",
+			want:      "arn:",
+		},
+		"ARN with trailing slash returns empty stack name segment": {
+			stackName: "arn:aws:cloudformation:ap-southeast-2:123456789012:stack/",
+			want:      "",
+		},
+		"ARN with single slash and name returns name": {
+			stackName: "arn:aws:cloudformation:ap-southeast-2:123456789012:stack/my-stack",
+			want:      "my-stack",
+		},
 	}
 
 	for name, tc := range tests {
