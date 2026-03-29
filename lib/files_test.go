@@ -271,14 +271,14 @@ func TestRunPrechecksUnsafeCommandWithPath(t *testing.T) {
 		name    string
 		command string
 	}{
-		{"absolute path rm", "/bin/rm -rf /"},
-		{"absolute path del", "/usr/bin/del --force"},
-		{"absolute path kill", "/bin/kill -9 1"},
-		{"relative path rm", "./rm -rf /"},
-		{"relative path with dir", "../bin/rm -rf /"},
-		{"bare command rm", "rm -rf /"},
-		{"bare command del", "del something"},
-		{"bare command kill", "kill -9 1"},
+		{"absolute path rm", "/bin/rm --help"},
+		{"absolute path del", "/usr/bin/del --help"},
+		{"absolute path kill", "/bin/kill --help"},
+		{"relative path rm", "./rm --help"},
+		{"relative path with dir", "../bin/rm --help"},
+		{"bare command rm", "rm --help"},
+		{"bare command del", "del --help"},
+		{"bare command kill", "kill --help"},
 	}
 
 	for _, tc := range cases {

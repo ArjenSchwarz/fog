@@ -148,6 +148,8 @@ func RunPrechecks(deployment *DeployInfo) (map[string]string, error) {
 		command, args := separated[0], separated[1:]
 		// Normalise the executable name so that path-prefixed invocations
 		// (e.g. /bin/rm, ./rm) are caught by the denylist.
+		// NOTE: this denylist is intentionally minimal; an allowlist approach would
+		// provide stronger guarantees (see specs/bugfixes/block-unsafe-precheck-path/report.md).
 		baseName := filepath.Base(command)
 		if stringInSlice(baseName, []string{"rm", "del", "kill"}) {
 			return results, fmt.Errorf("unsafe command '%v' detected", command)
