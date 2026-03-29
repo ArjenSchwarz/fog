@@ -668,5 +668,4 @@ func TestGetExports_OperationError(t *testing.T) {
 	}
 }
 
-
 func strPtrOut(s string) *string { return &s }
