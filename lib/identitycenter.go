@@ -57,6 +57,10 @@ func GetSSOInstanceArn(ssoClient SSOAdminListInstancesAPI) (string, error) {
 		return "", fmt.Errorf("no SSO instances found")
 	}
 
+	if result.Instances[0].InstanceArn == nil {
+		return "", fmt.Errorf("SSO instance has nil InstanceArn")
+	}
+
 	return *result.Instances[0].InstanceArn, nil
 }
 
@@ -116,6 +120,9 @@ func GetAccountAssignmentArnsForPermissionSet(ssoClient SSOAdminListAccountAssig
 			}
 
 			for _, assignment := range result.AccountAssignments {
+				if assignment.AccountId == nil || assignment.PrincipalId == nil {
+					continue
+				}
 				assignmentArns[fmt.Sprintf("%s|%s|AWS_ACCOUNT|%s|%s|%s", ssoInstanceArn, *assignment.AccountId, permissionSetArn, assignment.PrincipalType, *assignment.PrincipalId)] = "AWS::SSO::Assignment"
 			}
 		}
@@ -138,6 +145,9 @@ func GetAccountIDs(organizationsClient OrganizationsListAccountsAPI) ([]string, 
 		}
 
 		for _, account := range output.Accounts {
+			if account.Id == nil {
+				continue
+			}
 			accounts = append(accounts, *account.Id)
 		}
 	}
