@@ -265,7 +265,7 @@ func TestDeploymentWorkflow_EndToEnd(t *testing.T) {
 			// For dry run or interactive without confirmation, we stop here
 			if !tc.isDryRun && tc.isNonInteractive {
 				// Create and show changeset
-				cs := createAndShowChangeset(&info, awsCfg, &logObj)
+				cs := createAndShowChangeset(&info, awsCfg, &logObj, true)
 				if cs == nil {
 					t.Fatal("expected changeset to be created")
 				}
@@ -336,15 +336,24 @@ func TestDeploymentWorkflow_WithPrechecks(t *testing.T) {
 			// Setup mock client
 			mockCFN := testutil.NewMockCFNClient()
 
+			// Track whether changeset creation was attempted
+			changesetCreated := false
+			origCreateChangeset := createChangesetFunc
 			originalLoadAWSConfig := loadAWSConfig
 			originalGetCfnClient := getCfnClient
 			origFlags := deployFlags
 			defer func() {
+				createChangesetFunc = origCreateChangeset
 				loadAWSConfig = originalLoadAWSConfig
 				getCfnClient = originalGetCfnClient
 				deployFlags = origFlags
 				viper.Reset()
 			}()
+
+			createChangesetFunc = func(info *lib.DeployInfo, cfg config.AWSConfig) *lib.ChangesetInfo {
+				changesetCreated = true
+				return &lib.ChangesetInfo{Name: "test-changeset"}
+			}
 
 			loadAWSConfig = func(c config.Config) (config.AWSConfig, error) {
 				return config.AWSConfig{
@@ -379,19 +388,25 @@ func TestDeploymentWorkflow_WithPrechecks(t *testing.T) {
 			// Create deployment log
 			logObj := lib.NewDeploymentLog(awsCfg, info)
 
-			// Run prechecks
-			runPrechecks(&info, &logObj)
+			// Run prechecks and check abort signal
+			_, abort := runPrechecks(&info, &logObj)
 
 			// Verify precheck status
 			if logObj.PreChecks != tc.wantPrecheckStatus {
 				t.Errorf("expected precheck status %q, got %q", tc.wantPrecheckStatus, logObj.PreChecks)
 			}
 
+			// Only proceed with changeset creation if prechecks did not signal abort
+			if !abort {
+				createAndShowChangeset(&info, awsCfg, &logObj, true)
+			}
+
 			// Verify deployment continuation based on prechecks
-			if tc.stopOnFailedPrecheck && info.PrechecksFailed {
-				if tc.expectDeployment {
-					t.Error("expected deployment to continue despite failed prechecks")
-				}
+			if tc.expectDeployment && !changesetCreated {
+				t.Error("expected changeset to be created but it was not")
+			}
+			if !tc.expectDeployment && changesetCreated {
+				t.Error("expected changeset creation to be skipped but it was created")
 			}
 		})
 	}
