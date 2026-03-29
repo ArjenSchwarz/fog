@@ -57,7 +57,8 @@ func init() {
 }
 
 func describeChangeset(cmd *cobra.Command, args []string) {
-	awsConfig, err := config.DefaultAwsConfig(*settings)
+	ctx := context.Background()
+	awsConfig, err := config.DefaultAwsConfig(ctx, *settings)
 	if err != nil {
 		failWithError(err)
 	}
@@ -79,7 +80,7 @@ func describeChangeset(cmd *cobra.Command, args []string) {
 	deployment.ChangesetName = describeFlags.ChangesetName
 	// We're calling an existing change set, so it can't be a dry run. Set explicitly.
 	deployment.IsDryRun = false
-	rawchangeset, err := deployment.GetChangeset(awsConfig.CloudformationClient())
+	rawchangeset, err := deployment.GetChangeset(ctx, awsConfig.CloudformationClient())
 	if err != nil {
 		message := fmt.Sprintf(string(texts.DeployChangesetMessageRetrieveFailed), deployment.ChangesetName)
 		fmt.Print(output.StyleNegative(message))

@@ -178,7 +178,7 @@ func extractFailedResources(deployment *lib.DeployInfo, client lib.CloudFormatio
 		return []FailedResource{}
 	}
 
-	events, err := deployment.GetEvents(client)
+	events, err := deployment.GetEvents(context.Background(), client)
 	if err != nil {
 		// Return empty slice if events are unavailable
 		return []FailedResource{}

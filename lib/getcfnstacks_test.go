@@ -1,6 +1,7 @@
 package lib
 
 import (
+	"context"
 	"testing"
 
 	"github.com/ArjenSchwarz/fog/lib/testutil"
@@ -24,7 +25,7 @@ func TestGetCfnStacks_MapKeysAreStackNames(t *testing.T) {
 		WithStack(stack2)
 
 	emptyFilter := ""
-	result, err := GetCfnStacks(&emptyFilter, client)
+	result, err := GetCfnStacks(context.Background(), &emptyFilter, client)
 	require.NoError(t, err)
 
 	// The map must be keyed by stack name, NOT by stack ID (ARN)
@@ -46,7 +47,7 @@ func TestGetCfnStacks_StackNameFieldMatchesKey(t *testing.T) {
 	client := testutil.NewMockCFNClient().WithStack(stack)
 
 	emptyFilter := ""
-	result, err := GetCfnStacks(&emptyFilter, client)
+	result, err := GetCfnStacks(context.Background(), &emptyFilter, client)
 	require.NoError(t, err)
 	require.Len(t, result, 1)
 
@@ -68,7 +69,7 @@ func TestGetCfnStacks_GlobFilterUsesStackName(t *testing.T) {
 		WithStack(stack3)
 
 	filter := "dev-*"
-	result, err := GetCfnStacks(&filter, client)
+	result, err := GetCfnStacks(context.Background(), &filter, client)
 	require.NoError(t, err)
 
 	assert.Len(t, result, 2, "glob filter 'dev-*' should match exactly 2 stacks")
@@ -85,7 +86,7 @@ func TestGetCfnStacks_SpecificStackFilter(t *testing.T) {
 	client := testutil.NewMockCFNClient().WithStack(stack)
 
 	filter := "my-specific-stack"
-	result, err := GetCfnStacks(&filter, client)
+	result, err := GetCfnStacks(context.Background(), &filter, client)
 	require.NoError(t, err)
 
 	assert.Len(t, result, 1)

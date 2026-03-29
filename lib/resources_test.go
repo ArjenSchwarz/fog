@@ -75,7 +75,7 @@ func TestGetResourcesSuccess(t *testing.T) {
 		describeStackResourcesOutputs: []cloudformation.DescribeStackResourcesOutput{resOut},
 	}
 
-	got, err := GetResources(&stackName, mock)
+	got, err := GetResources(context.Background(), &stackName, mock)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -115,7 +115,7 @@ func TestGetResourcesThrottlingRetry(t *testing.T) {
 	}
 
 	start := time.Now()
-	got, err := GetResources(&stackName, mock)
+	got, err := GetResources(context.Background(), &stackName, mock)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -194,7 +194,7 @@ func TestGetResourcesPagination(t *testing.T) {
 		},
 	}
 
-	got, err := GetResources(&stackName, mock)
+	got, err := GetResources(context.Background(), &stackName, mock)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -250,7 +250,7 @@ func TestGetResourcesSkipsMissingPhysicalResourceID(t *testing.T) {
 		describeStackResourcesOutputs: []cloudformation.DescribeStackResourcesOutput{resOut},
 	}
 
-	got, err := GetResources(&stackName, mock)
+	got, err := GetResources(context.Background(), &stackName, mock)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -275,7 +275,7 @@ func TestGetResourcesPaginationError(t *testing.T) {
 		describeStacksErr: opErr,
 	}
 
-	got, err := GetResources(&stackName, mock)
+	got, err := GetResources(context.Background(), &stackName, mock)
 	if err == nil {
 		t.Fatal("expected error from GetResources when DescribeStacks fails, got nil")
 	}
@@ -301,7 +301,7 @@ func TestGetResourcesNonThrottlingAPIError(t *testing.T) {
 		describeStackResourcesErrs:    []error{apiErr},
 	}
 
-	got, err := GetResources(&stackName, mock)
+	got, err := GetResources(context.Background(), &stackName, mock)
 	if err == nil {
 		t.Fatal("expected error from GetResources on non-throttling API error, got nil")
 	}
@@ -336,7 +336,7 @@ func TestGetResourcesThrottlingRetryExhausted(t *testing.T) {
 		describeStackResourcesErrs:    []error{throttleErr, fmt.Errorf("still throttled")},
 	}
 
-	got, err := GetResources(&stackName, mock)
+	got, err := GetResources(context.Background(), &stackName, mock)
 	if err == nil {
 		t.Fatal("expected error from GetResources when throttling retry fails, got nil")
 	}
@@ -358,7 +358,7 @@ func TestGetResourcesGenericDescribeStackResourcesError(t *testing.T) {
 		describeStackResourcesErrs:    []error{fmt.Errorf("unexpected network error")},
 	}
 
-	got, err := GetResources(&stackName, mock)
+	got, err := GetResources(context.Background(), &stackName, mock)
 	if err == nil {
 		t.Fatal("expected error from GetResources on generic error, got nil")
 	}

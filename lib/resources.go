@@ -24,7 +24,7 @@ type CfnResource struct {
 
 // GetResources returns all the resources in the account and region. If stackname
 // is provided, results will be limited to that stack.
-func GetResources(stackname *string, svc interface {
+func GetResources(ctx context.Context, stackname *string, svc interface {
 	CloudFormationDescribeStacksAPI
 	CloudFormationDescribeStackResourcesAPI
 }) ([]CfnResource, error) {
@@ -35,7 +35,7 @@ func GetResources(stackname *string, svc interface {
 	paginator := cloudformation.NewDescribeStacksPaginator(svc, input)
 	allstacks := make([]types.Stack, 0)
 	for paginator.HasMorePages() {
-		output, err := paginator.NextPage(context.TODO())
+		output, err := paginator.NextPage(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to describe stacks: %w", err)
 		}
@@ -53,7 +53,7 @@ func GetResources(stackname *string, svc interface {
 	resourcelist := make([]CfnResource, 0)
 	for _, stack := range tocheckstacks {
 		resources, err := svc.DescribeStackResources(
-			context.TODO(),
+			ctx,
 			&cloudformation.DescribeStackResourcesInput{StackName: stack.StackName})
 		if err != nil {
 			stackLabel := aws.ToString(stack.StackName)
@@ -63,7 +63,7 @@ func GetResources(stackname *string, svc interface {
 				if ae.ErrorCode() == "Throttling" && ae.ErrorMessage() == "Rate exceeded" {
 					time.Sleep(5 * time.Second)
 					resources, err = svc.DescribeStackResources(
-						context.TODO(),
+						ctx,
 						&cloudformation.DescribeStackResourcesInput{StackName: stack.StackName})
 					// If it still fails after retry, return the error
 					if err != nil {

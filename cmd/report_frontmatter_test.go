@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -61,7 +62,7 @@ func TestGenerateFrontMatter_DeterministicWithMultipleStacks(t *testing.T) {
 	// Run multiple times — result must be identical every time
 	var firstResult map[string]string
 	for i := 0; i < 20; i++ {
-		result, err := generateFrontMatter(stacks, awsConfig)
+		result, err := generateFrontMatter(context.Background(), stacks, awsConfig)
 		if err != nil {
 			t.Fatalf("iteration %d: unexpected error: %v", i, err)
 		}
@@ -134,7 +135,7 @@ func TestGenerateFrontMatter_SelectsLatestEventWithinStack(t *testing.T) {
 		stack.Id: stack,
 	}
 
-	result, err := generateFrontMatter(stacks, awsConfig)
+	result, err := generateFrontMatter(context.Background(), stacks, awsConfig)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -204,7 +205,7 @@ func TestGenerateFrontMatter_RespectsLatestOnly(t *testing.T) {
 		stack.Id: stack,
 	}
 
-	result, err := generateFrontMatter(stacks, awsConfig)
+	result, err := generateFrontMatter(context.Background(), stacks, awsConfig)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -282,7 +283,7 @@ func TestGenerateFrontMatter_MultipleStacksMultipleEvents(t *testing.T) {
 		stackB.Id: stackB,
 	}
 
-	result, err := generateFrontMatter(stacks, awsConfig)
+	result, err := generateFrontMatter(context.Background(), stacks, awsConfig)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -323,7 +324,7 @@ func TestGenerateFrontMatter_EmptyStacks(t *testing.T) {
 
 	stacks := map[string]lib.CfnStack{}
 
-	result, err := generateFrontMatter(stacks, awsConfig)
+	result, err := generateFrontMatter(context.Background(), stacks, awsConfig)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

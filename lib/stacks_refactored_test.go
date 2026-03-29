@@ -127,7 +127,7 @@ func TestGetStack_WithDependencyInjection(t *testing.T) {
 			if !tc.nilName {
 				stackNamePtr = &tc.stackName
 			}
-			got, err := GetStack(stackNamePtr, mockClient)
+			got, err := GetStack(context.Background(), stackNamePtr, mockClient)
 
 			// Assert
 			if tc.wantErr {
@@ -207,7 +207,7 @@ func TestStackExists_WithDependencyInjection(t *testing.T) {
 			}
 
 			// Execute
-			got := StackExists(deployment, mockClient)
+			got := StackExists(context.Background(), deployment, mockClient)
 
 			// Assert
 			assert.Equal(t, tc.want, got)
@@ -234,7 +234,7 @@ func TestStackExists_CachesRawStack(t *testing.T) {
 			StackName: "my-stack",
 		}
 
-		got := StackExists(deployment, mockClient)
+		got := StackExists(context.Background(), deployment, mockClient)
 
 		assert.True(t, got)
 		require.NotNil(t, deployment.RawStack, "RawStack should be cached when stack exists")
@@ -251,7 +251,7 @@ func TestStackExists_CachesRawStack(t *testing.T) {
 			StackName: "missing-stack",
 		}
 
-		got := StackExists(deployment, mockClient)
+		got := StackExists(context.Background(), deployment, mockClient)
 
 		assert.False(t, got)
 		assert.Nil(t, deployment.RawStack, "RawStack should remain nil when stack does not exist")
@@ -381,7 +381,7 @@ func TestDeployInfo_IsReadyForUpdate(t *testing.T) {
 			}
 
 			// Execute
-			gotReady, gotStatus := deployment.IsReadyForUpdate(mockClient)
+			gotReady, gotStatus := deployment.IsReadyForUpdate(context.Background(), mockClient)
 
 			// Assert
 			assert.Equal(t, tc.wantReady, gotReady)
@@ -474,7 +474,7 @@ func TestDeployInfo_IsOngoing(t *testing.T) {
 			}
 
 			// Execute
-			got := deployment.IsOngoing(mockClient)
+			got := deployment.IsOngoing(context.Background(), mockClient)
 
 			// Assert
 			assert.Equal(t, tc.want, got)
@@ -556,7 +556,7 @@ func TestDeployInfo_IsNewStack(t *testing.T) {
 			}
 
 			// Execute
-			got := deployment.IsNewStack(mockClient)
+			got := deployment.IsNewStack(context.Background(), mockClient)
 
 			// Assert
 			assert.Equal(t, tc.want, got)
@@ -647,7 +647,7 @@ func TestDeployInfo_CreateChangeSet(t *testing.T) {
 			}
 
 			// Execute
-			gotId, err := tc.deployment.CreateChangeSet(mockClient)
+			gotId, err := tc.deployment.CreateChangeSet(context.Background(), mockClient)
 
 			// Assert
 			if tc.wantErr {
@@ -767,7 +767,7 @@ func TestDeployInfo_GetChangeset(t *testing.T) {
 			}
 
 			// Execute
-			got, err := tc.deployment.GetChangeset(mockClient)
+			got, err := tc.deployment.GetChangeset(context.Background(), mockClient)
 
 			// Assert
 			if tc.wantErr {
@@ -833,7 +833,7 @@ func TestDeployInfo_DeleteStack(t *testing.T) {
 			}
 
 			// Execute
-			got := deployment.DeleteStack(mockClient)
+			got := deployment.DeleteStack(context.Background(), mockClient)
 
 			// Assert
 			assert.Equal(t, tc.want, got)
@@ -962,7 +962,7 @@ func TestDeployInfo_GetExecutionTimesRefactored(t *testing.T) {
 			}
 
 			// Execute
-			got, err := tc.deployment.GetExecutionTimes(mockClient)
+			got, err := tc.deployment.GetExecutionTimes(context.Background(), mockClient)
 
 			// Assert
 			if tc.wantErr {

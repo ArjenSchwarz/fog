@@ -109,7 +109,7 @@ func TestGetSSOInstanceArn(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := GetSSOInstanceArn(tt.client)
+			got, err := GetSSOInstanceArn(context.Background(), tt.client)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -163,7 +163,7 @@ func TestGetPermissionSetArns(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := GetPermissionSetArns(tt.client)
+			got, err := GetPermissionSetArns(context.Background(), tt.client)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -203,7 +203,7 @@ func TestGetAccountIDs(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := GetAccountIDs(tt.client)
+			got, err := GetAccountIDs(context.Background(), tt.client)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -260,7 +260,7 @@ func TestGetAccountAssignmentArnsForPermissionSet(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := GetAccountAssignmentArnsForPermissionSet(tt.sso, tt.orgs, instArn, psArn)
+			got, err := GetAccountAssignmentArnsForPermissionSet(context.Background(), tt.sso, tt.orgs, instArn, psArn)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -337,7 +337,7 @@ func TestGetAssignmentArns(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := GetAssignmentArns(tt.sso, tt.orgs)
+			got, err := GetAssignmentArns(context.Background(), tt.sso, tt.orgs)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -363,7 +363,7 @@ func TestGetPermissionSetArnsPagination(t *testing.T) {
 			{PermissionSets: []string{ps2, ps3}},
 		},
 	}
-	got, err := GetPermissionSetArns(client)
+	got, err := GetPermissionSetArns(context.Background(), client)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -398,7 +398,7 @@ func TestGetAccountAssignmentArnsForPermissionSetPagination(t *testing.T) {
 		},
 	}
 	orgs := &mockOrganizationsClient{outputs: []*organizations.ListAccountsOutput{{Accounts: []orgtypes.Account{{Id: aws.String(account)}}}}}
-	got, err := GetAccountAssignmentArnsForPermissionSet(sso, orgs, instArn, psArn)
+	got, err := GetAccountAssignmentArnsForPermissionSet(context.Background(), sso, orgs, instArn, psArn)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -422,7 +422,7 @@ func TestGetPermissionSetArnsPaginationErrorOnSecondPage(t *testing.T) {
 		},
 		listPermissionSetsErr: errors.New("second page error"),
 	}
-	_, err := GetPermissionSetArns(client)
+	_, err := GetPermissionSetArns(context.Background(), client)
 	if err == nil {
 		t.Fatal("expected error on second page, got nil")
 	}
@@ -444,7 +444,7 @@ func TestGetAccountAssignmentArnsPaginationErrorOnSecondPage(t *testing.T) {
 		listAccountAssignmentsErr: errors.New("second page error"),
 	}
 	orgs := &mockOrganizationsClient{outputs: []*organizations.ListAccountsOutput{{Accounts: []orgtypes.Account{{Id: aws.String(account)}}}}}
-	_, err := GetAccountAssignmentArnsForPermissionSet(sso, orgs, instArn, psArn)
+	_, err := GetAccountAssignmentArnsForPermissionSet(context.Background(), sso, orgs, instArn, psArn)
 	if err == nil {
 		t.Fatal("expected error on second page, got nil")
 	}
@@ -462,7 +462,7 @@ func TestGetSSOInstanceArnNilInstanceArn(t *testing.T) {
 			},
 		},
 	}
-	_, err := GetSSOInstanceArn(client)
+	_, err := GetSSOInstanceArn(context.Background(), client)
 	if err == nil {
 		t.Fatal("expected error for nil InstanceArn, got nil")
 	}
@@ -480,7 +480,7 @@ func TestGetSSOInstanceArnSkipsNilInstanceArn(t *testing.T) {
 			},
 		},
 	}
-	got, err := GetSSOInstanceArn(client)
+	got, err := GetSSOInstanceArn(context.Background(), client)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -503,7 +503,7 @@ func TestGetAccountIDsNilAccountId(t *testing.T) {
 			},
 		},
 	}
-	got, err := GetAccountIDs(client)
+	got, err := GetAccountIDs(context.Background(), client)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -530,7 +530,7 @@ func TestGetAccountAssignmentArnsNilAccountId(t *testing.T) {
 		},
 	}
 	orgs := &mockOrganizationsClient{outputs: []*organizations.ListAccountsOutput{{Accounts: []orgtypes.Account{{Id: aws.String(account)}}}}}
-	got, err := GetAccountAssignmentArnsForPermissionSet(sso, orgs, instArn, psArn)
+	got, err := GetAccountAssignmentArnsForPermissionSet(context.Background(), sso, orgs, instArn, psArn)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -560,7 +560,7 @@ func TestGetAccountAssignmentArnsNilPrincipalId(t *testing.T) {
 		},
 	}
 	orgs := &mockOrganizationsClient{outputs: []*organizations.ListAccountsOutput{{Accounts: []orgtypes.Account{{Id: aws.String(account)}}}}}
-	got, err := GetAccountAssignmentArnsForPermissionSet(sso, orgs, instArn, psArn)
+	got, err := GetAccountAssignmentArnsForPermissionSet(context.Background(), sso, orgs, instArn, psArn)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

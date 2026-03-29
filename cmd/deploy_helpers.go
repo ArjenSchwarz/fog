@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -31,7 +32,7 @@ var askForConfirmationFunc = askForConfirmation
 var showFailedEventsFunc = showFailedEvents
 var deleteStackIfNewFunc = deleteStackIfNew
 var getFreshStackFunc = func(info *lib.DeployInfo, svc lib.CloudFormationDescribeStacksAPI) (types.Stack, error) {
-	return info.GetFreshStack(svc)
+	return info.GetFreshStack(context.Background(), svc)
 }
 
 // prepareDeployment validates flags, loads AWS configuration and
@@ -40,6 +41,8 @@ func prepareDeployment() (lib.DeployInfo, config.AWSConfig, error) {
 	if err := deployFlags.Validate(); err != nil {
 		return lib.DeployInfo{}, config.AWSConfig{}, err
 	}
+
+	ctx := context.Background()
 
 	// Auto-enable non-interactive mode when quiet mode is enabled
 	if deployFlags.Quiet {
@@ -51,15 +54,15 @@ func prepareDeployment() (lib.DeployInfo, config.AWSConfig, error) {
 		deployment.ChangesetName = placeholderParser(viper.GetString("changeset.name-format"), &deployment)
 	}
 
-	awsCfg, err := loadAWSConfig(*settings)
+	awsCfg, err := loadAWSConfig(ctx, *settings)
 	if err != nil {
 		return lib.DeployInfo{}, config.AWSConfig{}, err
 	}
 
 	cfnClient := getCfnClient(awsCfg)
-	deployment.IsNew = deployment.IsNewStack(cfnClient)
+	deployment.IsNew = deployment.IsNewStack(ctx, cfnClient)
 	if !deployment.IsNew {
-		if err := validateStackReadiness(deployFlags.StackName, cfnClient); err != nil {
+		if err := validateStackReadiness(ctx, deployFlags.StackName, cfnClient); err != nil {
 			return lib.DeployInfo{}, config.AWSConfig{}, err
 		}
 	}
@@ -225,9 +228,9 @@ func printDeploymentResults(info *lib.DeployInfo, cfg config.AWSConfig, logObj *
 
 // validateStackReadiness checks if an existing stack is ready for updates.
 // Returns an error if the stack is in a non-updateable state.
-func validateStackReadiness(stackName string, client lib.CloudFormationDescribeStacksAPI) error {
+func validateStackReadiness(ctx context.Context, stackName string, client lib.CloudFormationDescribeStacksAPI) error {
 	deployment := lib.DeployInfo{StackName: stackName}
-	if ready, status := deployment.IsReadyForUpdate(client); !ready {
+	if ready, status := deployment.IsReadyForUpdate(ctx, client); !ready {
 		return fmt.Errorf("the stack '%v' is currently in status %v and can't be updated", stackName, status)
 	}
 	return nil

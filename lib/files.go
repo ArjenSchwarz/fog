@@ -74,7 +74,7 @@ func ReadDeploymentFile(deploymentmentFileName string) (string, string, error) {
 }
 
 // UploadTemplate uploads a CloudFormation template to S3 with a timestamped name and returns the generated key.
-func UploadTemplate(templateName *string, template string, bucketName *string, svc S3UploadAPI) (string, error) {
+func UploadTemplate(ctx context.Context, templateName *string, template string, bucketName *string, svc S3UploadAPI) (string, error) {
 	// use the template name with a timestamp that should be unique
 	// prefix with fog to make it easier to set up specific lifecycle rules
 	generatedname := fmt.Sprintf("fog/%v-%v", *templateName, time.Now().UnixNano())
@@ -83,7 +83,7 @@ func UploadTemplate(templateName *string, template string, bucketName *string, s
 		Key:    aws.String(generatedname),
 		Body:   strings.NewReader(template),
 	}
-	_, err := svc.PutObject(context.TODO(), &input)
+	_, err := svc.PutObject(ctx, &input)
 	if err != nil {
 		return generatedname, err
 	}

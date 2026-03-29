@@ -172,7 +172,8 @@ func readTemplateFromSource(deployment *lib.DeployInfo) (string, string) {
 
 // uploadTemplateToS3 uploads the template to S3 and returns the URL
 func uploadTemplateToS3(template string, awsConfig config.AWSConfig) string {
-	objectname, err := lib.UploadTemplate(&deployFlags.Template, template, &deployFlags.Bucket, awsConfig.S3Client())
+	ctx := context.Background()
+	objectname, err := lib.UploadTemplate(ctx, &deployFlags.Template, template, &deployFlags.Bucket, awsConfig.S3Client())
 	if err != nil {
 		printMessage(formatError("Failed to upload template to S3"))
 		log.Fatalln(err)
@@ -333,16 +334,17 @@ func loadParametersFromFiles(parameterFiles string) []types.Parameter {
 }
 
 func createChangeset(deployment *lib.DeployInfo, awsConfig config.AWSConfig) *lib.ChangesetInfo {
+	ctx := context.Background()
 	if deployment.TemplateUrl != "" && !deployFlags.Quiet {
 		text := fmt.Sprintf("Using template uploaded as %v", deployment.TemplateUrl)
 		printMessage(formatInfo(text))
 	}
-	_, err := deployment.CreateChangeSet(awsConfig.CloudformationClient())
+	_, err := deployment.CreateChangeSet(ctx, awsConfig.CloudformationClient())
 	if err != nil {
 		printMessage(formatError(string(texts.DeployChangesetMessageCreationFailed)))
 		log.Fatalln(err)
 	}
-	changeset, err := deployment.WaitUntilChangesetDone(awsConfig.CloudformationClient())
+	changeset, err := deployment.WaitUntilChangesetDone(ctx, awsConfig.CloudformationClient())
 	if err != nil {
 		printMessage(formatError(string(texts.DeployChangesetMessageCreationFailed)))
 		log.Fatalln(err)
@@ -386,6 +388,7 @@ func handleFailedChangeset(deployment *lib.DeployInfo, awsConfig config.AWSConfi
 }
 
 func deleteChangeset(deployment lib.DeployInfo, awsConfig config.AWSConfig) {
+	ctx := context.Background()
 	switch {
 	case deployFlags.Dryrun:
 		printMessage(formatInfo(string(texts.DeployChangesetMessageDryrunDelete)))
@@ -394,13 +397,13 @@ func deleteChangeset(deployment lib.DeployInfo, awsConfig config.AWSConfig) {
 	default:
 		printMessage(formatSuccess(string(texts.DeployChangesetMessageWillDelete)))
 	}
-	deleteAttempt := deployment.Changeset.DeleteChangeset(awsConfig.CloudformationClient())
+	deleteAttempt := deployment.Changeset.DeleteChangeset(ctx, awsConfig.CloudformationClient())
 	if !deleteAttempt {
 		printMessage(formatError(string(texts.DeployChangesetMessageDeleteFailed)))
 	}
 	// Likely a new deployment. Check if the stack is in status REVIEW_IN_PROGRESS and offer to delete
 	if deployment.IsNew {
-		stack, err := deployment.GetFreshStack(awsConfig.CloudformationClient())
+		stack, err := deployment.GetFreshStack(ctx, awsConfig.CloudformationClient())
 		if err != nil {
 			log.Fatalln(err)
 		}
@@ -411,6 +414,7 @@ func deleteChangeset(deployment lib.DeployInfo, awsConfig config.AWSConfig) {
 }
 
 func deleteStackIfNew(deployment lib.DeployInfo, awsConfig config.AWSConfig) {
+	ctx := context.Background()
 	fmt.Fprintln(os.Stderr, texts.DeployStackMessageNewStackDeleteInfo)
 	var deleteStackConfirmation bool
 	if deployFlags.Dryrun || deployFlags.NonInteractive {
@@ -419,7 +423,7 @@ func deleteStackIfNew(deployment lib.DeployInfo, awsConfig config.AWSConfig) {
 		deleteStackConfirmation = askForConfirmation("Do you want me to delete this empty stack for you?")
 	}
 	if deleteStackConfirmation {
-		if !deployment.DeleteStack(awsConfig.CloudformationClient()) {
+		if !deployment.DeleteStack(ctx, awsConfig.CloudformationClient()) {
 			printMessage(formatError("Something went wrong while trying to delete the stack. Please check manually."))
 		} else {
 			switch {
@@ -437,6 +441,7 @@ func deleteStackIfNew(deployment lib.DeployInfo, awsConfig config.AWSConfig) {
 }
 
 func deployChangeset(deployment lib.DeployInfo, awsConfig config.AWSConfig) {
+	ctx := context.Background()
 	if !deployFlags.Quiet {
 		if deployFlags.NonInteractive {
 			printMessage(formatInfo(string(texts.DeployChangesetMessageAutoDeploy)))
@@ -444,7 +449,7 @@ func deployChangeset(deployment lib.DeployInfo, awsConfig config.AWSConfig) {
 			printMessage(formatSuccess(string(texts.DeployChangesetMessageWillDeploy)))
 		}
 	}
-	err := deployment.Changeset.DeployChangeset(awsConfig.CloudformationClient())
+	err := deployment.Changeset.DeployChangeset(ctx, awsConfig.CloudformationClient())
 	if err != nil {
 		printMessage(formatError("Could not execute changeset! See details below"))
 		fmt.Fprintln(os.Stderr, err)
@@ -458,7 +463,7 @@ func deployChangeset(deployment lib.DeployInfo, awsConfig config.AWSConfig) {
 	for ongoing {
 		latest = showEvents(deployment, latest, awsConfig, deployFlags.Quiet)
 		time.Sleep(3 * time.Second)
-		ongoing = deployment.IsOngoing(awsConfig.CloudformationClient())
+		ongoing = deployment.IsOngoing(ctx, awsConfig.CloudformationClient())
 	}
 	// One last time after the deployment finished in case of a timing mismatch
 	showEvents(deployment, latest, awsConfig, deployFlags.Quiet)
@@ -470,7 +475,8 @@ func showEvents(deployment lib.DeployInfo, latest time.Time, awsConfig config.AW
 		return latest
 	}
 
-	events, err := deployment.GetEvents(awsConfig.CloudformationClient())
+	ctx := context.Background()
+	events, err := deployment.GetEvents(ctx, awsConfig.CloudformationClient())
 	if err != nil {
 		printMessage(formatError("Something went wrong trying to get the events of the stack"))
 		fmt.Fprintln(os.Stderr, err)
@@ -497,7 +503,8 @@ func showEvents(deployment lib.DeployInfo, latest time.Time, awsConfig config.AW
 }
 
 func showFailedEvents(deployment lib.DeployInfo, awsConfig config.AWSConfig, prefixMessage string) []map[string]any {
-	events, err := deployment.GetEvents(awsConfig.CloudformationClient())
+	ctx := context.Background()
+	events, err := deployment.GetEvents(ctx, awsConfig.CloudformationClient())
 	if err != nil {
 		printMessage(formatError("Something went wrong trying to get the events of the stack"))
 		fmt.Fprintln(os.Stderr, err)

@@ -192,7 +192,7 @@ func (deployment *DeployInfo) ChangesetType() types.ChangeSetType {
 
 // GetStack retrieves a single stack by name or ARN. stackname must be non-nil
 // and non-empty. Returns an error if zero or more than one stack matches.
-func GetStack(stackname *string, svc CloudFormationDescribeStacksAPI) (types.Stack, error) {
+func GetStack(ctx context.Context, stackname *string, svc CloudFormationDescribeStacksAPI) (types.Stack, error) {
 	if stackname == nil {
 		return types.Stack{}, fmt.Errorf("stack name must not be nil")
 	}
@@ -200,7 +200,7 @@ func GetStack(stackname *string, svc CloudFormationDescribeStacksAPI) (types.Sta
 	if *stackname != "" && !strings.Contains(*stackname, "*") {
 		input.StackName = stackname
 	}
-	resp, err := svc.DescribeStacks(context.TODO(), input)
+	resp, err := svc.DescribeStacks(ctx, input)
 	if err != nil {
 		return types.Stack{}, err
 	}
@@ -214,7 +214,7 @@ func GetStack(stackname *string, svc CloudFormationDescribeStacksAPI) (types.Sta
 }
 
 // GetCfnStacks retrieves stacks matching the given name pattern with their outputs and import information
-func GetCfnStacks(stackname *string, svc CFNExportsAPI) (map[string]CfnStack, error) {
+func GetCfnStacks(ctx context.Context, stackname *string, svc CFNExportsAPI) (map[string]CfnStack, error) {
 	result := make(map[string]CfnStack)
 	input := &cloudformation.DescribeStacksInput{}
 	if *stackname != "" && !strings.Contains(*stackname, "*") {
@@ -223,7 +223,7 @@ func GetCfnStacks(stackname *string, svc CFNExportsAPI) (map[string]CfnStack, er
 	paginator := cloudformation.NewDescribeStacksPaginator(svc, input)
 	allstacks := make([]types.Stack, 0)
 	for paginator.HasMorePages() {
-		output, err := paginator.NextPage(context.TODO())
+		output, err := paginator.NextPage(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -249,7 +249,7 @@ func GetCfnStacks(stackname *string, svc CFNExportsAPI) (map[string]CfnStack, er
 		}
 		outputs := getOutputsForStack(stack, "", "", false)
 		for i := range outputs {
-			if err := outputs[i].FillImports(svc); err != nil {
+			if err := outputs[i].FillImports(ctx, svc); err != nil {
 				return nil, fmt.Errorf("stack %q: %w", *stack.StackName, err)
 			}
 			if outputs[i].Imported {
@@ -263,8 +263,8 @@ func GetCfnStacks(stackname *string, svc CFNExportsAPI) (map[string]CfnStack, er
 }
 
 // StackExists checks whether the stack in the deployment exists
-func StackExists(deployment *DeployInfo, svc CloudFormationDescribeStacksAPI) bool {
-	stack, err := GetStack(&deployment.StackName, svc)
+func StackExists(ctx context.Context, deployment *DeployInfo, svc CloudFormationDescribeStacksAPI) bool {
+	stack, err := GetStack(ctx, &deployment.StackName, svc)
 	if err == nil {
 		deployment.RawStack = &stack
 	}
@@ -272,8 +272,8 @@ func StackExists(deployment *DeployInfo, svc CloudFormationDescribeStacksAPI) bo
 }
 
 // IsReadyForUpdate checks if the stack is in a state that allows updates
-func (deployment DeployInfo) IsReadyForUpdate(svc CloudFormationDescribeStacksAPI) (bool, string) {
-	stack, err := deployment.GetStack(svc)
+func (deployment DeployInfo) IsReadyForUpdate(ctx context.Context, svc CloudFormationDescribeStacksAPI) (bool, string) {
+	stack, err := deployment.GetStack(ctx, svc)
 	if err != nil {
 		return false, ""
 	}
@@ -288,8 +288,8 @@ func (deployment DeployInfo) IsReadyForUpdate(svc CloudFormationDescribeStacksAP
 }
 
 // IsOngoing checks if there is an ongoing operation on the stack
-func (deployment DeployInfo) IsOngoing(svc CloudFormationDescribeStacksAPI) bool {
-	stack, err := deployment.GetFreshStack(svc)
+func (deployment DeployInfo) IsOngoing(ctx context.Context, svc CloudFormationDescribeStacksAPI) bool {
+	stack, err := deployment.GetFreshStack(ctx, svc)
 	if err != nil {
 		return false
 	}
@@ -304,12 +304,12 @@ func (deployment DeployInfo) IsOngoing(svc CloudFormationDescribeStacksAPI) bool
 }
 
 // IsNewStack verifies if a stack is new. This can mean either that it doesn't exist yet or is in review in progress state
-func (deployment DeployInfo) IsNewStack(svc CloudFormationDescribeStacksAPI) bool {
-	stackExists := StackExists(&deployment, svc)
+func (deployment DeployInfo) IsNewStack(ctx context.Context, svc CloudFormationDescribeStacksAPI) bool {
+	stackExists := StackExists(ctx, &deployment, svc)
 	if !stackExists {
 		return true
 	}
-	stack, err := deployment.GetFreshStack(svc)
+	stack, err := deployment.GetFreshStack(ctx, svc)
 	if err != nil {
 		return false
 	}
@@ -339,7 +339,7 @@ func stringInSlice(a string, list []string) bool {
 }
 
 // CreateChangeSet creates a changeset for the deployment and returns its ID
-func (deployment *DeployInfo) CreateChangeSet(svc CloudFormationCreateChangeSetAPI) (string, error) {
+func (deployment *DeployInfo) CreateChangeSet(ctx context.Context, svc CloudFormationCreateChangeSetAPI) (string, error) {
 	input := &cloudformation.CreateChangeSetInput{
 		StackName:     &deployment.StackName,
 		ChangeSetType: deployment.ChangesetType(),
@@ -360,7 +360,7 @@ func (deployment *DeployInfo) CreateChangeSet(svc CloudFormationCreateChangeSetA
 	if len(deployment.Tags) != 0 {
 		input.Tags = deployment.Tags
 	}
-	resp, err := svc.CreateChangeSet(context.TODO(), input)
+	resp, err := svc.CreateChangeSet(ctx, input)
 	if err != nil {
 		return "", err
 	}
@@ -414,7 +414,7 @@ func ParseTagString(tags string) ([]types.Tag, error) {
 }
 
 // WaitUntilChangesetDone polls until the changeset creation completes and returns the changeset info
-func (deployment *DeployInfo) WaitUntilChangesetDone(svc CloudFormationDescribeChangeSetAPI) (*ChangesetInfo, error) {
+func (deployment *DeployInfo) WaitUntilChangesetDone(ctx context.Context, svc CloudFormationDescribeChangeSetAPI) (*ChangesetInfo, error) {
 	time.Sleep(5 * time.Second)
 	changeset := ChangesetInfo{}
 	availableStatuses := []string{
@@ -422,14 +422,14 @@ func (deployment *DeployInfo) WaitUntilChangesetDone(svc CloudFormationDescribeC
 		string(types.ChangeSetStatusFailed),
 		string(types.ChangeSetStatusDeleteFailed),
 	}
-	resp, err := deployment.GetChangeset(svc)
+	resp, err := deployment.GetChangeset(ctx, svc)
 	if err != nil {
 		return &changeset, err
 	}
 
 	for !stringInSlice(string(resp[0].Status), availableStatuses) {
 		time.Sleep(5 * time.Second)
-		resp, err = deployment.GetChangeset(svc)
+		resp, err = deployment.GetChangeset(ctx, svc)
 		if err != nil {
 			return &changeset, err
 		}
@@ -474,14 +474,14 @@ func (deployment *DeployInfo) AddChangeset(resp []cloudformation.DescribeChangeS
 }
 
 // GetChangeset retrieves the changeset details for the deployment
-func (deployment *DeployInfo) GetChangeset(svc CloudFormationDescribeChangeSetAPI) ([]cloudformation.DescribeChangeSetOutput, error) {
+func (deployment *DeployInfo) GetChangeset(ctx context.Context, svc CloudFormationDescribeChangeSetAPI) ([]cloudformation.DescribeChangeSetOutput, error) {
 	results := []cloudformation.DescribeChangeSetOutput{}
 	input := &cloudformation.DescribeChangeSetInput{
 		ChangeSetName: &deployment.ChangesetName,
 		NextToken:     nil,
 		StackName:     &deployment.StackName,
 	}
-	resp, err := svc.DescribeChangeSet(context.TODO(), input)
+	resp, err := svc.DescribeChangeSet(ctx, input)
 	if err != nil {
 		return results, err
 	}
@@ -493,7 +493,7 @@ func (deployment *DeployInfo) GetChangeset(svc CloudFormationDescribeChangeSetAP
 			NextToken:     resp.NextToken,
 			StackName:     &deployment.StackName,
 		}
-		resp, err = svc.DescribeChangeSet(context.TODO(), input)
+		resp, err = svc.DescribeChangeSet(ctx, input)
 		if err != nil {
 			return results, err
 		}
@@ -503,14 +503,14 @@ func (deployment *DeployInfo) GetChangeset(svc CloudFormationDescribeChangeSetAP
 }
 
 // GetFreshStack retrieves the latest stack information from AWS
-func (deployment *DeployInfo) GetFreshStack(svc CloudFormationDescribeStacksAPI) (types.Stack, error) {
-	return GetStack(&deployment.StackArn, svc)
+func (deployment *DeployInfo) GetFreshStack(ctx context.Context, svc CloudFormationDescribeStacksAPI) (types.Stack, error) {
+	return GetStack(ctx, &deployment.StackArn, svc)
 }
 
 // GetStack retrieves the stack information, using cached data if available
-func (deployment *DeployInfo) GetStack(svc CloudFormationDescribeStacksAPI) (types.Stack, error) {
+func (deployment *DeployInfo) GetStack(ctx context.Context, svc CloudFormationDescribeStacksAPI) (types.Stack, error) {
 	if deployment.RawStack == nil {
-		stack, err := GetStack(&deployment.StackName, svc)
+		stack, err := GetStack(ctx, &deployment.StackName, svc)
 		if err != nil {
 			return stack, err
 		}
@@ -520,13 +520,13 @@ func (deployment *DeployInfo) GetStack(svc CloudFormationDescribeStacksAPI) (typ
 }
 
 // GetEvents retrieves all events for the deployment's stack, paginating through all results.
-func (deployment *DeployInfo) GetEvents(svc CloudFormationDescribeStackEventsAPI) ([]types.StackEvent, error) {
+func (deployment *DeployInfo) GetEvents(ctx context.Context, svc CloudFormationDescribeStackEventsAPI) ([]types.StackEvent, error) {
 	var allEvents []types.StackEvent
 	input := &cloudformation.DescribeStackEventsInput{
 		StackName: &deployment.StackName,
 	}
 	for {
-		resp, err := svc.DescribeStackEvents(context.TODO(), input)
+		resp, err := svc.DescribeStackEvents(ctx, input)
 		if err != nil {
 			// Return nil rather than partial results — callers cannot
 			// meaningfully act on an incomplete event list.
@@ -556,12 +556,12 @@ func (deployment *DeployInfo) GetCleanedStackName() string {
 }
 
 // GetEvents retrieves and processes all events for the stack, organizing them by stack-level events
-func (stack *CfnStack) GetEvents(svc CloudFormationDescribeStackEventsAPI) ([]StackEvent, error) {
+func (stack *CfnStack) GetEvents(ctx context.Context, svc CloudFormationDescribeStackEventsAPI) ([]StackEvent, error) {
 	if len(stack.Events) != 0 {
 		return stack.Events, nil
 	}
 
-	allevents, err := fetchAllStackEvents(stack.Id, svc)
+	allevents, err := fetchAllStackEvents(ctx, stack.Id, svc)
 	if err != nil {
 		return nil, err
 	}
@@ -571,14 +571,14 @@ func (stack *CfnStack) GetEvents(svc CloudFormationDescribeStackEventsAPI) ([]St
 }
 
 // fetchAllStackEvents retrieves all stack events from AWS using pagination
-func fetchAllStackEvents(stackId string, svc CloudFormationDescribeStackEventsAPI) ([]types.StackEvent, error) {
+func fetchAllStackEvents(ctx context.Context, stackId string, svc CloudFormationDescribeStackEventsAPI) ([]types.StackEvent, error) {
 	input := &cloudformation.DescribeStackEventsInput{
 		StackName: &stackId,
 	}
 	paginator := cloudformation.NewDescribeStackEventsPaginator(svc, input)
 	allevents := make([]types.StackEvent, 0)
 	for paginator.HasMorePages() {
-		output, err := paginator.NextPage(context.TODO())
+		output, err := paginator.NextPage(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -828,24 +828,24 @@ func (event *StackEvent) GetDuration() time.Duration {
 }
 
 // GetEventSummaries retrieves basic event information for the stack using pagination
-func (stack *CfnStack) GetEventSummaries(svc CloudFormationDescribeStackEventsAPI) ([]types.StackEvent, error) {
-	return fetchAllStackEvents(stack.Id, svc)
+func (stack *CfnStack) GetEventSummaries(ctx context.Context, svc CloudFormationDescribeStackEventsAPI) ([]types.StackEvent, error) {
+	return fetchAllStackEvents(ctx, stack.Id, svc)
 }
 
 // DeleteStack deletes the stack and returns true if successful
-func (deployment *DeployInfo) DeleteStack(svc CloudFormationDeleteStackAPI) bool {
+func (deployment *DeployInfo) DeleteStack(ctx context.Context, svc CloudFormationDeleteStackAPI) bool {
 	input := &cloudformation.DeleteStackInput{
 		StackName: &deployment.StackName,
 	}
-	_, err := svc.DeleteStack(context.TODO(), input)
+	_, err := svc.DeleteStack(ctx, input)
 
 	return err == nil
 }
 
 // GetExecutionTimes retrieves timing information for each resource in the deployment
-func (deployment *DeployInfo) GetExecutionTimes(svc CloudFormationDescribeStackEventsAPI) (map[string]map[string]time.Time, error) {
+func (deployment *DeployInfo) GetExecutionTimes(ctx context.Context, svc CloudFormationDescribeStackEventsAPI) (map[string]map[string]time.Time, error) {
 	result := make(map[string]map[string]time.Time)
-	events, err := deployment.GetEvents(svc)
+	events, err := deployment.GetEvents(ctx, svc)
 	if err != nil {
 		return result, err
 	}
