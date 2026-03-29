@@ -790,3 +790,162 @@ func TestDriftHasRequiredFields(t *testing.T) {
 func stringPtr(value string) *string {
 	return &value
 }
+
+// TestTagDifferences_MalformedPaths tests that tagDifferences handles
+// malformed property paths and nil pointer fields without panicking.
+// Regression tests for T-589.
+func TestTagDifferences_MalformedPaths(t *testing.T) {
+	// NOTE: Cannot use t.Parallel() because driftFlags uses global state
+
+	resourceType := "AWS::EC2::VPC"
+	logicalID := "MyVPC"
+
+	makeDrift := func() types.StackResourceDrift {
+		return types.StackResourceDrift{
+			ResourceType:      &resourceType,
+			LogicalResourceId: &logicalID,
+		}
+	}
+
+	t.Run("nil_property_path", func(t *testing.T) {
+		driftFlags = DriftFlags{}
+		viper.Reset()
+		drift := makeDrift()
+		expected := `{"Key":"Env","Value":"Prod"}`
+		actual := "null"
+		property := types.PropertyDifference{
+			DifferenceType: types.DifferenceTypeRemove,
+			PropertyPath:   nil,
+			ExpectedValue:  &expected,
+			ActualValue:    &actual,
+		}
+		// Must not panic — should return empty strings gracefully
+		result, handled := tagDifferences(property, []string{}, map[string]map[string]string{}, []string{}, &drift)
+		if result != "" || handled != "" {
+			t.Errorf("expected empty results for nil PropertyPath, got result=%q handled=%q", result, handled)
+		}
+	})
+
+	t.Run("short_path_default_case", func(t *testing.T) {
+		// Path "/Tags/0" splits into ["", "Tags", "0"] — only 3 segments.
+		// The default case accesses pathsplit[3] which is out of bounds.
+		driftFlags = DriftFlags{}
+		viper.Reset()
+		drift := makeDrift()
+		path := "/Tags/0"
+		expected := `"OldVal"`
+		actual := `"NewVal"`
+		property := types.PropertyDifference{
+			DifferenceType: types.DifferenceTypeNotEqual,
+			PropertyPath:   &path,
+			ExpectedValue:  &expected,
+			ActualValue:    &actual,
+		}
+		tagMap := map[string]map[string]string{
+			"SomeTag": {"Expected": `"OldVal"`, "Actual": `"NewVal"`},
+		}
+		// Must not panic — should still produce output
+		result, _ := tagDifferences(property, []string{}, tagMap, []string{}, &drift)
+		if result == "" {
+			t.Error("expected non-empty result for short path in default case")
+		}
+	})
+
+	t.Run("single_segment_path", func(t *testing.T) {
+		// Path "/Tags" splits into ["", "Tags"] — only 2 segments.
+		driftFlags = DriftFlags{}
+		viper.Reset()
+		drift := makeDrift()
+		path := "/Tags"
+		expected := `{"Key":"Env","Value":"Prod"}`
+		actual := "null"
+		property := types.PropertyDifference{
+			DifferenceType: types.DifferenceTypeRemove,
+			PropertyPath:   &path,
+			ExpectedValue:  &expected,
+			ActualValue:    &actual,
+		}
+		// Must not panic
+		_, _ = tagDifferences(property, []string{}, map[string]map[string]string{}, []string{}, &drift)
+	})
+
+	t.Run("nil_expected_value_default_case", func(t *testing.T) {
+		// ExpectedValue is nil — the default case dereferences it directly on line 667.
+		driftFlags = DriftFlags{}
+		viper.Reset()
+		drift := makeDrift()
+		path := "/Tags/0/Value"
+		actual := `"NewVal"`
+		property := types.PropertyDifference{
+			DifferenceType: types.DifferenceTypeNotEqual,
+			PropertyPath:   &path,
+			ExpectedValue:  nil,
+			ActualValue:    &actual,
+		}
+		tagMap := map[string]map[string]string{
+			"SomeTag": {"Expected": `"OldVal"`, "Actual": `"NewVal"`},
+		}
+		// Must not panic
+		_, _ = tagDifferences(property, []string{}, tagMap, []string{}, &drift)
+	})
+
+	t.Run("nil_actual_value_default_case", func(t *testing.T) {
+		// ActualValue is nil — the default case dereferences it directly on line 667.
+		driftFlags = DriftFlags{}
+		viper.Reset()
+		drift := makeDrift()
+		path := "/Tags/0/Value"
+		expected := `"OldVal"`
+		property := types.PropertyDifference{
+			DifferenceType: types.DifferenceTypeNotEqual,
+			PropertyPath:   &path,
+			ExpectedValue:  &expected,
+			ActualValue:    nil,
+		}
+		tagMap := map[string]map[string]string{
+			"SomeTag": {"Expected": `"OldVal"`, "Actual": `"NewVal"`},
+		}
+		// Must not panic
+		_, _ = tagDifferences(property, []string{}, tagMap, []string{}, &drift)
+	})
+
+	t.Run("empty_property_path", func(t *testing.T) {
+		// Empty string splits into [""] — only 1 segment, pathsplit[1] is out of bounds.
+		driftFlags = DriftFlags{}
+		viper.Reset()
+		drift := makeDrift()
+		path := ""
+		expected := `{"Key":"Env","Value":"Prod"}`
+		actual := "null"
+		property := types.PropertyDifference{
+			DifferenceType: types.DifferenceTypeRemove,
+			PropertyPath:   &path,
+			ExpectedValue:  &expected,
+			ActualValue:    &actual,
+		}
+		// Must not panic
+		result, handled := tagDifferences(property, []string{}, map[string]map[string]string{}, []string{}, &drift)
+		if result != "" || handled != "" {
+			t.Errorf("expected empty results for empty PropertyPath, got result=%q handled=%q", result, handled)
+		}
+	})
+
+	t.Run("nil_both_values_add_case", func(t *testing.T) {
+		// Both ExpectedValue and ActualValue are nil in Add case
+		driftFlags = DriftFlags{}
+		viper.Reset()
+		drift := makeDrift()
+		path := "/Tags/0"
+		property := types.PropertyDifference{
+			DifferenceType: types.DifferenceTypeAdd,
+			PropertyPath:   &path,
+			ExpectedValue:  nil,
+			ActualValue:    nil,
+		}
+		// Must not panic — aws.ToString handles nil but json.Indent on "" may fail
+		result, handled := tagDifferences(property, []string{}, map[string]map[string]string{}, []string{}, &drift)
+		if result != "" || handled != "" {
+			t.Errorf("expected empty results for nil values, got result=%q handled=%q", result, handled)
+		}
+	})
+}

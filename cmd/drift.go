@@ -621,22 +621,36 @@ func tagDifferences(property types.PropertyDifference, handledtags []string, tag
 		Key   string
 		Value string
 	}
-	pathsplit := strings.Split(*property.PropertyPath, "/")
-	var expected, actual bytes.Buffer
-	if err := json.Indent(&expected, []byte(aws.ToString(property.ExpectedValue)), "", "  "); err != nil {
-		failWithError(err)
+	if property.PropertyPath == nil || *property.PropertyPath == "" {
+		return "", ""
 	}
-	if err := json.Indent(&actual, []byte(aws.ToString(property.ActualValue)), "", "  "); err != nil {
-		failWithError(err)
+	pathsplit := strings.Split(*property.PropertyPath, "/")
+	// Paths like "/Tags/0/Key" split into ["", "Tags", "0", "Key"].
+	// We need at least 2 segments to extract the tag category at pathsplit[1].
+	if len(pathsplit) < 2 {
+		return "", ""
+	}
+	var expected, actual bytes.Buffer
+	expectedStr := aws.ToString(property.ExpectedValue)
+	actualStr := aws.ToString(property.ActualValue)
+	if json.Valid([]byte(expectedStr)) {
+		if err := json.Indent(&expected, []byte(expectedStr), "", "  "); err != nil {
+			failWithError(err)
+		}
+	}
+	if json.Valid([]byte(actualStr)) {
+		if err := json.Indent(&actual, []byte(actualStr), "", "  "); err != nil {
+			failWithError(err)
+		}
 	}
 	switch property.DifferenceType {
 	case types.DifferenceTypeRemove:
 		tagstructs := []tag{}
-		if expected.String()[0] == '[' {
+		if expected.Len() > 0 && expected.String()[0] == '[' {
 			if err := json.Unmarshal(expected.Bytes(), &tagstructs); err != nil {
 				failWithError(err)
 			}
-		} else {
+		} else if expected.Len() > 0 {
 			tagstruct := tag{}
 			if err := json.Unmarshal(expected.Bytes(), &tagstruct); err != nil {
 				failWithError(err)
@@ -651,6 +665,9 @@ func tagDifferences(property types.PropertyDifference, handledtags []string, tag
 		}
 		return "", ""
 	case types.DifferenceTypeAdd:
+		if actual.Len() == 0 {
+			return "", ""
+		}
 		tagstruct := tag{}
 		if err := json.Unmarshal(actual.Bytes(), &tagstruct); err != nil {
 			failWithError(err)
@@ -664,7 +681,7 @@ func tagDifferences(property types.PropertyDifference, handledtags []string, tag
 		tags := map[string]string{}
 		// loop over the tags in the tagMap and see if the "Expected" value matches *property.ExpectedValue
 		for key, values := range tagMap {
-			if values["Expected"] == *property.ExpectedValue && values["Actual"] == *property.ActualValue {
+			if values["Expected"] == expectedStr && values["Actual"] == actualStr {
 				tagKey = key
 				tags = values
 			}
@@ -672,12 +689,16 @@ func tagDifferences(property types.PropertyDifference, handledtags []string, tag
 		if !shouldTagBeHandled(tagKey, *drift) {
 			return "", ""
 		}
-		if pathsplit[3] == "Key" {
-			if tags["Expected"] == tags["Actual"] {
-				return fmt.Sprintf("%s: Tag %s sequence change", property.DifferenceType, aws.ToString(property.ExpectedValue)), pathsplit[2]
+		// Full tag property paths have 4 segments (e.g. "/Tags/0/Key"),
+		// shorter paths skip the Key/Value-specific logic.
+		if len(pathsplit) >= 4 {
+			if pathsplit[3] == "Key" {
+				if tags["Expected"] == tags["Actual"] {
+					return fmt.Sprintf("%s: Tag %s sequence change", property.DifferenceType, aws.ToString(property.ExpectedValue)), pathsplit[2]
+				}
+			} else if pathsplit[3] == "Value" && stringInSlice(pathsplit[2], handledtags) {
+				return "", ""
 			}
-		} else if pathsplit[3] == "Value" && stringInSlice(pathsplit[2], handledtags) {
-			return "", ""
 		}
 		return fmt.Sprintf("%s: %s - %s => %s", property.DifferenceType, tagKey, tags["Expected"], tags["Actual"]), ""
 	}
