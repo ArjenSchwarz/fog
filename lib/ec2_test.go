@@ -126,6 +126,10 @@ func TestGetNacl(t *testing.T) {
 		{"Test Get Nacl Nil Result", args{"acl-00000000", mockEC2DescribeNaclsAPI(func(ctx context.Context, params *ec2.DescribeNetworkAclsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeNetworkAclsOutput, error) {
 			return &ec2.DescribeNetworkAclsOutput{}, nil
 		})}, types.NetworkAcl{}, true},
+		// Regression: nil output (nil, nil) must return an error, not panic with nil dereference
+		{"Test Get Nacl Nil Output", args{"acl-00000000", mockEC2DescribeNaclsAPI(func(ctx context.Context, params *ec2.DescribeNetworkAclsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeNetworkAclsOutput, error) {
+			return nil, nil
+		})}, types.NetworkAcl{}, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -693,6 +697,17 @@ func TestGetRouteTable(t *testing.T) {
 				routetableId: "rtb-00000000",
 				svc: mockEC2DescribeRouteTablesAPI(func(ctx context.Context, params *ec2.DescribeRouteTablesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeRouteTablesOutput, error) {
 					return &ec2.DescribeRouteTablesOutput{}, nil
+				}),
+			},
+			wantErr: true,
+		},
+		// Regression: nil output (nil, nil) must return an error, not panic with nil dereference
+		{
+			name: "Error - nil output",
+			args: args{
+				routetableId: "rtb-00000000",
+				svc: mockEC2DescribeRouteTablesAPI(func(ctx context.Context, params *ec2.DescribeRouteTablesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeRouteTablesOutput, error) {
+					return nil, nil
 				}),
 			},
 			wantErr: true,

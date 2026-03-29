@@ -18,7 +18,7 @@ func GetNacl(naclid string, svc EC2DescribeNaclsAPI) (types.NetworkAcl, error) {
 	if err != nil {
 		return types.NetworkAcl{}, err
 	}
-	if len(result.NetworkAcls) == 0 {
+	if result == nil || len(result.NetworkAcls) == 0 {
 		return types.NetworkAcl{}, fmt.Errorf("no network ACL found for id %s", naclid)
 	}
 	return result.NetworkAcls[0], nil
@@ -34,7 +34,7 @@ func GetRouteTable(routetableId string, svc EC2DescribeRouteTablesAPI) (types.Ro
 	if err != nil {
 		return types.RouteTable{}, err
 	}
-	if len(result.RouteTables) == 0 {
+	if result == nil || len(result.RouteTables) == 0 {
 		return types.RouteTable{}, fmt.Errorf("no route table found for id %s", routetableId)
 	}
 	return result.RouteTables[0], nil

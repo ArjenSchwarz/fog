@@ -32,8 +32,8 @@ Both `GetNacl` and `GetRouteTable` assume that a nil error from the AWS API guar
 ## Resolution for the Issue
 
 **Changes made:**
-- `lib/ec2.go:19-21` — Added `len(result.NetworkAcls) == 0` guard before indexing, returning a descriptive error
-- `lib/ec2.go:32-34` — Added `len(result.RouteTables) == 0` guard before indexing, returning a descriptive error
+- `lib/ec2.go:21-22` — Added `result == nil || len(result.NetworkAcls) == 0` guard before indexing, returning a descriptive error
+- `lib/ec2.go:37-38` — Added `result == nil || len(result.RouteTables) == 0` guard before indexing, returning a descriptive error
 
 **Approach rationale:** A simple length check before indexing is the minimal, idiomatic Go fix. The error messages include the requested ID to aid debugging.
 
@@ -44,12 +44,14 @@ Both `GetNacl` and `GetRouteTable` assume that a nil error from the AWS API guar
 
 **Test file:** `lib/ec2_test.go`
 **Test names:**
-- `TestGetNacl/Test_Get_Nacl_Empty_Result`
-- `TestGetNacl/Test_Get_Nacl_Nil_Result`
-- `TestGetRouteTable/Error_-_empty_result_list`
-- `TestGetRouteTable/Error_-_nil_result_list`
+- `TestGetNacl/Test Get Nacl Empty Result`
+- `TestGetNacl/Test Get Nacl Nil Result`
+- `TestGetNacl/Test Get Nacl Nil Output`
+- `TestGetRouteTable/Error - empty result list`
+- `TestGetRouteTable/Error - nil result list`
+- `TestGetRouteTable/Error - nil output`
 
-**What it verifies:** When the AWS API returns a successful response with an empty (or nil) slice, the functions return an error instead of panicking.
+**What it verifies:** When the AWS API returns a successful response with an empty (or nil) slice, or a nil output, the functions return an error instead of panicking.
 
 **Run command:** `go test ./lib -run "TestGetNacl$|TestGetRouteTable$" -v`
 
@@ -57,8 +59,8 @@ Both `GetNacl` and `GetRouteTable` assume that a nil error from the AWS API guar
 
 | File | Change |
 |------|--------|
-| `lib/ec2.go` | Added empty-slice guard in `GetNacl` and `GetRouteTable` |
-| `lib/ec2_test.go` | Added 4 regression tests for empty/nil result lists |
+| `lib/ec2.go` | Added nil-result and empty-slice guards in `GetNacl` and `GetRouteTable` |
+| `lib/ec2_test.go` | Added 6 regression tests for empty, nil, and nil-output result cases |
 
 ## Verification
 
