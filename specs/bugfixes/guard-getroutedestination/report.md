@@ -33,7 +33,15 @@ The `switch` statement in `GetRouteDestination` checks `DestinationCidrBlock` an
 
 ## Resolution for the Issue
 
-_Filled in after fix is implemented._
+**Changes made:**
+- `lib/ec2.go:177` — Changed the `default` branch to an explicit `case route.DestinationIpv6CidrBlock != nil` check. When all three destination pointers are nil the switch falls through with the zero-value empty string.
+- `lib/template.go:372-374` — Skip routes whose resolved destination is empty so they don't create an empty-string key in the result map.
+
+**Approach rationale:** This mirrors the safe pattern already used by the sibling `GetRouteTarget` function, which never dereferences a pointer in a default branch and naturally returns an empty string when no target field is set. The fix is minimal (one keyword change) and preserves all existing behaviour for well-formed routes.
+
+**Alternatives considered:**
+- Return `(string, error)` — rejected because it would change the function signature and require updates to all three callers; the empty-string sentinel is sufficient and consistent with `GetRouteTarget`.
+- Add a nil check only in callers — rejected because the root cause belongs in `GetRouteDestination` itself; callers shouldn't need to guard against a panic from a library function.
 
 ## Regression Test
 
@@ -55,9 +63,9 @@ _Filled in after fix is implemented._
 ## Verification
 
 **Automated:**
-- [ ] Regression test passes
-- [ ] Full test suite passes
-- [ ] Linters/validators pass
+- [x] Regression test passes
+- [x] Full test suite passes
+- [x] Linters/validators pass
 
 ## Prevention
 
