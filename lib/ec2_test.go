@@ -447,13 +447,12 @@ func TestGetRouteDestinationNilFields(t *testing.T) {
 	}
 }
 
-// TestGetRouteDestinationOnlyIPv6Nil verifies the default branch handles a
-// nil DestinationIpv6CidrBlock when the other two fields are also nil.
-func TestGetRouteDestinationOnlyIPv6Nil(t *testing.T) {
-	// Route where only DestinationIpv6CidrBlock would be checked (others nil)
-	// but it is also nil — should return empty string, not panic.
+// TestGetRouteDestinationTargetOnlyReturnsEmpty verifies that a route with
+// a target set but no destination fields returns an empty destination string.
+func TestGetRouteDestinationTargetOnlyReturnsEmpty(t *testing.T) {
+	// Route with GatewayId (a target) set, but all destination fields are nil.
 	route := types.Route{
-		GatewayId: aws.String("igw-12345"), // has a target but no destination
+		GatewayId: aws.String("igw-12345"),
 	}
 
 	got := GetRouteDestination(route)

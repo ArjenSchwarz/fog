@@ -351,6 +351,51 @@ func TestFilterRoutesByLogicalId(t *testing.T) {
 	}
 }
 
+// TestFilterRoutesByLogicalId_NoDestination verifies that a route resource
+// missing all destination properties is excluded from the result map, rather
+// than being inserted with an empty-string key.
+func TestFilterRoutesByLogicalId_NoDestination(t *testing.T) {
+	template := CfnTemplateBody{
+		Resources: map[string]CfnTemplateResource{
+			"RouteNoDestination": {
+				Type: "AWS::EC2::Route",
+				Properties: map[string]any{
+					"RouteTableId": "REF: TestRouteTable",
+					"GatewayId":    "local",
+				},
+			},
+			"RouteWithDestination": {
+				Type: "AWS::EC2::Route",
+				Properties: map[string]any{
+					"RouteTableId":         "REF: TestRouteTable",
+					"DestinationCidrBlock": "10.0.0.0/8",
+					"GatewayId":            "igw-123",
+				},
+			},
+		},
+		Conditions: map[string]bool{},
+	}
+
+	results := FilterRoutesByLogicalId(
+		"TestRouteTable",
+		template,
+		[]cfntypes.Parameter{},
+		map[string]string{},
+	)
+
+	// Only the route with a destination should be present
+	if len(results) != 1 {
+		t.Errorf("Expected 1 route, got %d", len(results))
+	}
+	if _, ok := results["10.0.0.0/8"]; !ok {
+		t.Errorf("Expected route with destination 10.0.0.0/8 to be present")
+	}
+	// The route with no destination should not create an empty-string key
+	if _, ok := results[""]; ok {
+		t.Errorf("Route with no destination should not appear in results")
+	}
+}
+
 // TestCfnTemplateTransform_Value ensures that the Value method returns the
 // correct type based on which field is populated.
 func TestCfnTemplateTransform_Value(t *testing.T) {
