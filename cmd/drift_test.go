@@ -827,8 +827,9 @@ func TestTagDifferences_MalformedPaths(t *testing.T) {
 	})
 
 	t.Run("short_path_default_case", func(t *testing.T) {
-		// Path "/Tags/0" splits into ["", "Tags", "0"] — only 3 segments.
-		// The default case accesses pathsplit[3] which is out of bounds.
+		// Path "/Tags/0" splits into ["", "Tags", "0"] — only 3 segments,
+		// so the Key/Value-specific logic (which needs pathsplit[3]) is skipped.
+		// shouldTagBeHandled returns true because no ignore-tags are configured.
 		driftFlags = DriftFlags{}
 		viper.Reset()
 		drift := makeDrift()
@@ -870,7 +871,7 @@ func TestTagDifferences_MalformedPaths(t *testing.T) {
 	})
 
 	t.Run("nil_expected_value_default_case", func(t *testing.T) {
-		// ExpectedValue is nil — the default case dereferences it directly on line 667.
+		// ExpectedValue is nil — the default case previously dereferenced it directly.
 		driftFlags = DriftFlags{}
 		viper.Reset()
 		drift := makeDrift()
@@ -890,7 +891,7 @@ func TestTagDifferences_MalformedPaths(t *testing.T) {
 	})
 
 	t.Run("nil_actual_value_default_case", func(t *testing.T) {
-		// ActualValue is nil — the default case dereferences it directly on line 667.
+		// ActualValue is nil — the default case previously dereferenced it directly.
 		driftFlags = DriftFlags{}
 		viper.Reset()
 		drift := makeDrift()
@@ -942,7 +943,7 @@ func TestTagDifferences_MalformedPaths(t *testing.T) {
 			ExpectedValue:  nil,
 			ActualValue:    nil,
 		}
-		// Must not panic — aws.ToString handles nil but json.Indent on "" may fail
+		// Must not panic — nil values produce empty JSON that is safely skipped
 		result, handled := tagDifferences(property, []string{}, map[string]map[string]string{}, []string{}, &drift)
 		if result != "" || handled != "" {
 			t.Errorf("expected empty results for nil values, got result=%q handled=%q", result, handled)

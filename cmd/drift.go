@@ -132,7 +132,11 @@ func detectDrift(cmd *cobra.Command, args []string) {
 		handledtags := []string{}
 
 		for _, property := range drift.PropertyDifferences {
-			pathsplit := strings.Split(*property.PropertyPath, "/")
+			propertyPath := aws.ToString(property.PropertyPath)
+			if propertyPath == "" {
+				continue
+			}
+			pathsplit := strings.Split(propertyPath, "/")
 			if stringInSlice("Tags", pathsplit) {
 				tagprop, taghandled := tagDifferences(property, handledtags, tagMap, properties, &drift)
 				if tagprop != "" {
@@ -625,8 +629,8 @@ func tagDifferences(property types.PropertyDifference, handledtags []string, tag
 		return "", ""
 	}
 	pathsplit := strings.Split(*property.PropertyPath, "/")
-	// Paths like "/Tags/0/Key" split into ["", "Tags", "0", "Key"].
-	// We need at least 2 segments to extract the tag category at pathsplit[1].
+	// Leading "/" means element [0] is always ""; the tag category sits at [1].
+	// e.g. "/Tags/0/Key" → ["", "Tags", "0", "Key"] (5 elements incl. empty prefix).
 	if len(pathsplit) < 2 {
 		return "", ""
 	}
@@ -645,6 +649,8 @@ func tagDifferences(property types.PropertyDifference, handledtags []string, tag
 	}
 	switch property.DifferenceType {
 	case types.DifferenceTypeRemove:
+		// When expected is empty (nil ExpectedValue), no tag data is available
+		// to report so we fall through to the empty return below.
 		tagstructs := []tag{}
 		if expected.Len() > 0 && expected.String()[0] == '[' {
 			if err := json.Unmarshal(expected.Bytes(), &tagstructs); err != nil {
@@ -665,6 +671,8 @@ func tagDifferences(property types.PropertyDifference, handledtags []string, tag
 		}
 		return "", ""
 	case types.DifferenceTypeAdd:
+		// When actual is empty (nil ActualValue), no tag data is available
+		// to report so we return early.
 		if actual.Len() == 0 {
 			return "", ""
 		}
