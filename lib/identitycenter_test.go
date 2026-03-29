@@ -468,6 +468,27 @@ func TestGetSSOInstanceArnNilInstanceArn(t *testing.T) {
 	}
 }
 
+// TestGetSSOInstanceArnSkipsNilInstanceArn verifies that GetSSOInstanceArn
+// skips instances with nil InstanceArn and returns the first valid one.
+func TestGetSSOInstanceArnSkipsNilInstanceArn(t *testing.T) {
+	validArn := "arn:aws:sso:::instance/ins2"
+	client := &mockSSOAdminClient{
+		listInstancesOutput: &ssoadmin.ListInstancesOutput{
+			Instances: []ssotypes.InstanceMetadata{
+				{InstanceArn: nil},
+				{InstanceArn: aws.String(validArn)},
+			},
+		},
+	}
+	got, err := GetSSOInstanceArn(client)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != validArn {
+		t.Errorf("got = %v, want %v", got, validArn)
+	}
+}
+
 // TestGetAccountIDsNilAccountId verifies that GetAccountIDs skips accounts
 // with nil Id fields instead of panicking.
 func TestGetAccountIDsNilAccountId(t *testing.T) {
@@ -493,7 +514,7 @@ func TestGetAccountIDsNilAccountId(t *testing.T) {
 }
 
 // TestGetAccountAssignmentArnsNilAccountId verifies that assignments with nil
-// AccountId are skipped instead of causing a panic.
+// AccountId fall back to the request's account ID instead of being skipped.
 func TestGetAccountAssignmentArnsNilAccountId(t *testing.T) {
 	instArn := "arn:aws:sso:::instance/ins1"
 	psArn := "ps1"
@@ -514,6 +535,7 @@ func TestGetAccountAssignmentArnsNilAccountId(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	want := map[string]string{
+		fmt.Sprintf("%s|%s|AWS_ACCOUNT|%s|%s|%s", instArn, account, psArn, ssotypes.PrincipalTypeUser, "user1"): "AWS::SSO::Assignment",
 		fmt.Sprintf("%s|%s|AWS_ACCOUNT|%s|%s|%s", instArn, account, psArn, ssotypes.PrincipalTypeUser, "user2"): "AWS::SSO::Assignment",
 	}
 	if !reflect.DeepEqual(got, want) {

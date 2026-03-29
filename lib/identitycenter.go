@@ -57,11 +57,13 @@ func GetSSOInstanceArn(ssoClient SSOAdminListInstancesAPI) (string, error) {
 		return "", fmt.Errorf("no SSO instances found")
 	}
 
-	if result.Instances[0].InstanceArn == nil {
-		return "", fmt.Errorf("SSO instance has nil InstanceArn")
+	for _, instance := range result.Instances {
+		if instance.InstanceArn != nil {
+			return *instance.InstanceArn, nil
+		}
 	}
 
-	return *result.Instances[0].InstanceArn, nil
+	return "", fmt.Errorf("no SSO instances with non-nil InstanceArn found")
 }
 
 // GetAssignmentArns retrieves all SSO account assignment ARNs across all accounts and permission sets.
@@ -120,10 +122,17 @@ func GetAccountAssignmentArnsForPermissionSet(ssoClient SSOAdminListAccountAssig
 			}
 
 			for _, assignment := range result.AccountAssignments {
-				if assignment.AccountId == nil || assignment.PrincipalId == nil {
+				if assignment.PrincipalId == nil {
 					continue
 				}
-				assignmentArns[fmt.Sprintf("%s|%s|AWS_ACCOUNT|%s|%s|%s", ssoInstanceArn, *assignment.AccountId, permissionSetArn, assignment.PrincipalType, *assignment.PrincipalId)] = "AWS::SSO::Assignment"
+
+				// Use the known request account when the response omits AccountId
+				accountID := assignment.AccountId
+				if accountID == nil {
+					accountID = &account
+				}
+
+				assignmentArns[fmt.Sprintf("%s|%s|AWS_ACCOUNT|%s|%s|%s", ssoInstanceArn, *accountID, permissionSetArn, assignment.PrincipalType, *assignment.PrincipalId)] = resourceTypeSSOAssignment
 			}
 		}
 	}
