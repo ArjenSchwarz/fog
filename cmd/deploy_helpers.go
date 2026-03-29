@@ -101,7 +101,16 @@ func runPrechecks(info *lib.DeployInfo, logObj *lib.DeploymentLog) string {
 	builder.WriteString(formatInfo(precheckMessage))
 	results, err := lib.RunPrechecks(info)
 	if err != nil {
+		// Treat execution/configuration errors as failed prechecks so
+		// that the stop flag is honored and the log records the failure.
+		info.PrechecksFailed = true
+		logObj.PreChecks = lib.DeploymentLogPreChecksFailed
 		builder.WriteString(formatError(err.Error()))
+		if viper.GetBool("templates.stop-on-failed-prechecks") {
+			builder.WriteString(formatError(string(texts.FilePrecheckFailureStop)))
+		} else {
+			builder.WriteString(formatError(string(texts.FilePrecheckFailureContinue)))
+		}
 		return builder.String()
 	}
 	if info.PrechecksFailed {

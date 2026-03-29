@@ -210,6 +210,30 @@ func TestRunPrechecks(t *testing.T) {
 			wantLogStatus:        lib.DeploymentLogPreChecksFailed,
 			wantOutputContains:   "Issues detected",
 		},
+		// T-577: execution errors (e.g. missing command) must be treated as
+		// failed prechecks so the stop flag is honored and the log records
+		// the failure.
+		"execution error missing command marks failed": {
+			precheckCommands:     []string{"nonexistent-cmd-t577 $TEMPLATEPATH"},
+			stopOnFailedPrecheck: false,
+			wantPrechecksPassed:  false,
+			wantLogStatus:        lib.DeploymentLogPreChecksFailed,
+			wantOutputContains:   "cannot be found",
+		},
+		"execution error missing command honors stop flag": {
+			precheckCommands:     []string{"nonexistent-cmd-t577 $TEMPLATEPATH"},
+			stopOnFailedPrecheck: true,
+			wantPrechecksPassed:  false,
+			wantLogStatus:        lib.DeploymentLogPreChecksFailed,
+			wantOutputContains:   "cannot be found",
+		},
+		"execution error unsafe command marks failed": {
+			precheckCommands:     []string{"rm -rf /"},
+			stopOnFailedPrecheck: true,
+			wantPrechecksPassed:  false,
+			wantLogStatus:        lib.DeploymentLogPreChecksFailed,
+			wantOutputContains:   "unsafe command",
+		},
 	}
 
 	for name, tc := range tests {
