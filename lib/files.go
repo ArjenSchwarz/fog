@@ -94,6 +94,8 @@ func UploadTemplate(templateName *string, template string, bucketName *string, s
 // and double-quoted substrings. Quotes are stripped from the result and spaces
 // inside quotes are preserved as part of the argument. Backslash-escaped
 // quotes inside double-quoted strings are handled (e.g., "arg with \"escaped\" quotes").
+// Backslash-escaped spaces outside quotes are treated as literal spaces within
+// the current argument (e.g., path\ with\ spaces becomes "path with spaces").
 // Returns an error if the input contains unbalanced quotes.
 func splitShellArgs(s string) ([]string, error) {
 	var args []string
@@ -108,6 +110,10 @@ func splitShellArgs(s string) ([]string, error) {
 			// Escaped double quote inside a double-quoted string
 			current.WriteByte('"')
 			i++ // skip the escaped quote
+		case c == '\\' && !inSingle && !inDouble && i+1 < len(s):
+			// Backslash escape outside quotes: treat next character literally
+			i++
+			current.WriteByte(s[i])
 		case c == '\'' && !inDouble:
 			inSingle = !inSingle
 		case c == '"' && !inSingle:
