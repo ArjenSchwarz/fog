@@ -2,6 +2,7 @@ package lib
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
@@ -17,6 +18,9 @@ func GetNacl(naclid string, svc EC2DescribeNaclsAPI) (types.NetworkAcl, error) {
 	if err != nil {
 		return types.NetworkAcl{}, err
 	}
+	if len(result.NetworkAcls) == 0 {
+		return types.NetworkAcl{}, fmt.Errorf("no network ACL found for id %s", naclid)
+	}
 	return result.NetworkAcls[0], nil
 }
 
@@ -29,6 +33,9 @@ func GetRouteTable(routetableId string, svc EC2DescribeRouteTablesAPI) (types.Ro
 	result, err := svc.DescribeRouteTables(context.TODO(), &input)
 	if err != nil {
 		return types.RouteTable{}, err
+	}
+	if len(result.RouteTables) == 0 {
+		return types.RouteTable{}, fmt.Errorf("no route table found for id %s", routetableId)
 	}
 	return result.RouteTables[0], nil
 }
