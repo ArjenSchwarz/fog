@@ -152,8 +152,12 @@ func RunPrechecks(deployment *DeployInfo) (map[string]string, error) {
 			return results, fmt.Errorf("precheck command is empty or only whitespace: %q", precheck)
 		}
 		command, args := separated[0], separated[1:]
-		//TODO: improve on this list or find a better solution to keep it safe
-		if stringInSlice(command, []string{"rm", "del", "kill"}) {
+		// Normalise the executable name so that path-prefixed invocations
+		// (e.g. /bin/rm, ./rm) are caught by the denylist.
+		// NOTE: this denylist is intentionally minimal; an allowlist approach would
+		// provide stronger guarantees (see specs/bugfixes/block-unsafe-precheck-path/report.md).
+		baseName := strings.ToLower(filepath.Base(command))
+		if stringInSlice(baseName, []string{"rm", "del", "kill"}) {
 			return results, fmt.Errorf("unsafe command '%v' detected", command)
 		}
 		binary, lookErr := exec.LookPath(command)

@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/spf13/viper"
@@ -252,6 +253,47 @@ func TestRunPrechecksQuotedArgs(t *testing.T) {
 	}
 	if deployment2.PrechecksFailed {
 		t.Errorf("RunPrechecks() single-quoted precheck should not have failed, results: %v", results)
+	}
+}
+
+func TestRunPrechecksUnsafeCommandWithPath(t *testing.T) {
+	// Regression test for T-611: RunPrechecks must block unsafe commands
+	// even when invoked via absolute or relative paths (e.g. /bin/rm, ./rm).
+	// The denylist must normalise the executable name with filepath.Base
+	// before checking against the blocked list.
+	t.Cleanup(viper.Reset)
+
+	deployment := &DeployInfo{
+		TemplateRelativePath: "test/path.yaml",
+	}
+
+	cases := []struct {
+		name    string
+		command string
+	}{
+		{"absolute path rm", "/bin/rm --help"},
+		{"absolute path del", "/usr/bin/del --help"},
+		{"absolute path kill", "/bin/kill --help"},
+		{"relative path rm", "./rm --help"},
+		{"relative path with dir", "../bin/rm --help"},
+		{"bare command rm", "rm --help"},
+		{"bare command del", "del --help"},
+		{"bare command kill", "kill --help"},
+		{"uppercase RM", "/bin/RM --help"},
+		{"uppercase KILL", "KILL --help"},
+		{"mixed case Del", "./Del --help"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			viper.Set("templates.prechecks", []string{tc.command})
+			results, err := RunPrechecks(deployment)
+			if err == nil {
+				t.Errorf("RunPrechecks(%q) should detect unsafe command, got results: %v", tc.command, results)
+			} else if !strings.Contains(err.Error(), "unsafe command") {
+				t.Errorf("RunPrechecks(%q) error should mention 'unsafe command', got: %v", tc.command, err)
+			}
+		})
 	}
 }
 
