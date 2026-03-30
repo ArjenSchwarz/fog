@@ -180,9 +180,9 @@ func TestDeployInfo_GetCleanedStackName(t *testing.T) {
 			stackName: "arn:",
 			want:      "arn:",
 		},
-		"ARN with trailing slash returns empty stack name segment": {
+		"ARN with trailing slash returns original ARN": {
 			stackName: "arn:aws:cloudformation:ap-southeast-2:123456789012:stack/",
-			want:      "",
+			want:      "arn:aws:cloudformation:ap-southeast-2:123456789012:stack/",
 		},
 		"ARN with single slash and name returns name": {
 			stackName: "arn:aws:cloudformation:ap-southeast-2:123456789012:stack/my-stack",

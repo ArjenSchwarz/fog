@@ -547,7 +547,7 @@ func (deployment *DeployInfo) GetCleanedStackName() string {
 	if strings.HasPrefix(deployment.StackName, "arn:") {
 		filtered := strings.Split(deployment.StackName, "/")
 		// Guard against malformed ARNs that don't contain a "/" separator
-		if len(filtered) < 2 {
+		if len(filtered) < 2 || filtered[1] == "" {
 			return deployment.StackName
 		}
 		return filtered[1]
