@@ -352,6 +352,38 @@ func TestSplitShellArgs(t *testing.T) {
 			input:   `cmd 'unterminated`,
 			wantErr: true,
 		},
+		// T-612: Backslash-escaped spaces outside quotes should be treated
+		// as literal spaces within the same argument, matching shell behaviour.
+		{
+			name:  "Escaped space outside quotes",
+			input: `cfn-lint -t path\ with\ spaces/template.yaml`,
+			want:  []string{"cfn-lint", "-t", "path with spaces/template.yaml"},
+		},
+		{
+			name:  "Multiple escaped spaces in different arguments",
+			input: `cmd first\ arg second\ arg`,
+			want:  []string{"cmd", "first arg", "second arg"},
+		},
+		{
+			name:  "Mixed escaped spaces and quoted strings",
+			input: `cmd path\ one "path two" 'path three'`,
+			want:  []string{"cmd", "path one", "path two", "path three"},
+		},
+		{
+			name:  "Escaped space at start of argument",
+			input: `cmd \ leading`,
+			want:  []string{"cmd", " leading"},
+		},
+		{
+			name:  "Backslash followed by non-space outside quotes",
+			input: `cmd path\\file`,
+			want:  []string{"cmd", `path\file`},
+		},
+		{
+			name:  "Trailing backslash preserved",
+			input: `cmd arg\`,
+			want:  []string{"cmd", `arg\`},
+		},
 	}
 
 	for _, tt := range tests {
