@@ -93,6 +93,7 @@ func deployTemplate(cmd *cobra.Command, args []string) {
 
 	// Stop before changeset creation when prechecks failed and the stop flag is set
 	if deployment.PrechecksFailed && viper.GetBool("templates.stop-on-failed-prechecks") {
+		deploymentLog.Failed(nil)
 		os.Exit(1)
 	}
 
