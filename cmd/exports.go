@@ -58,11 +58,12 @@ func init() {
 }
 
 func listExports(cmd *cobra.Command, args []string) {
-	awsConfig, err := config.DefaultAwsConfig(*settings)
+	ctx := context.Background()
+	awsConfig, err := config.DefaultAwsConfig(ctx, *settings)
 	if err != nil {
 		failWithError(err)
 	}
-	exports, err := lib.GetExports(&exportsFlags.StackName, &exportsFlags.ExportName, awsConfig.CloudformationClient())
+	exports, err := lib.GetExports(ctx, &exportsFlags.StackName, &exportsFlags.ExportName, awsConfig.CloudformationClient())
 	if err != nil {
 		failWithError(err)
 	}

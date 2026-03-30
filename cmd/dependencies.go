@@ -57,12 +57,13 @@ func init() {
 }
 
 func showDependencies(cmd *cobra.Command, args []string) {
-	awsConfig, err := config.DefaultAwsConfig(*settings)
+	ctx := context.Background()
+	awsConfig, err := config.DefaultAwsConfig(ctx, *settings)
 	if err != nil {
 		failWithError(err)
 	}
 	emptystring := ""
-	stacks, err := lib.GetCfnStacks(&emptystring, awsConfig.CloudformationClient())
+	stacks, err := lib.GetCfnStacks(ctx, &emptystring, awsConfig.CloudformationClient())
 	if err != nil {
 		failWithError(err)
 	}

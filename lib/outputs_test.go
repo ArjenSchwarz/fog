@@ -179,7 +179,7 @@ func TestCfnOutput_FillImports(t *testing.T) {
 	out := &CfnOutput{ExportName: "Export1"}
 	mock := MockCFNClient{ImportsByExport: map[string][]string{"Export1": {"stackA"}}}
 
-	err := out.FillImports(mock)
+	err := out.FillImports(context.Background(), mock)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -193,7 +193,7 @@ func TestCfnOutput_FillImports(t *testing.T) {
 		ListImportsError: notImportedErr("Export1"),
 	}
 
-	err = out2.FillImports(mockNotImported)
+	err = out2.FillImports(context.Background(), mockNotImported)
 	if err != nil {
 		t.Errorf("unexpected error for not-imported case: %v", err)
 	}
@@ -230,7 +230,7 @@ func TestGetExports(t *testing.T) {
 		},
 	}
 
-	results, err := GetExports(&stackName, strPtrOut(""), mock)
+	results, err := GetExports(context.Background(), &stackName, strPtrOut(""), mock)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -307,7 +307,7 @@ func TestGetExportsPagination(t *testing.T) {
 		ImportsByExport: map[string][]string{},
 	}
 
-	results, err := GetExports(&stackName, strPtrOut(""), mock)
+	results, err := GetExports(context.Background(), &stackName, strPtrOut(""), mock)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -333,7 +333,7 @@ func TestFillImports_NotImportedError(t *testing.T) {
 	out := &CfnOutput{ExportName: "MyExport"}
 	mock := MockCFNClient{ListImportsError: notImportedErr("MyExport")}
 
-	err := out.FillImports(mock)
+	err := out.FillImports(context.Background(), mock)
 	if err != nil {
 		t.Errorf("expected no error for 'not imported' message, got: %v", err)
 	}
@@ -356,7 +356,7 @@ func TestFillImports_PropagatesRealErrors(t *testing.T) {
 			out := &CfnOutput{ExportName: "Export1"}
 			mock := MockCFNClient{ListImportsError: testErr}
 
-			err := out.FillImports(mock)
+			err := out.FillImports(context.Background(), mock)
 			if err == nil {
 				t.Errorf("expected error to be propagated for %q, got nil", name)
 			}
@@ -388,7 +388,7 @@ func TestGetExports_PropagatesListImportsError(t *testing.T) {
 		ListImportsError:     fmt.Errorf("Rate exceeded"),
 	}
 
-	_, err := GetExports(&stackName, strPtrOut(""), mock)
+	_, err := GetExports(context.Background(), &stackName, strPtrOut(""), mock)
 	if err == nil {
 		t.Error("expected GetExports to return an error when ListImports fails with a real error")
 	}
@@ -422,7 +422,7 @@ func TestGetExports_NotImportedErrorSetsImportedFalse(t *testing.T) {
 		},
 	}
 
-	results, err := GetExports(&stackName, strPtrOut(""), mock)
+	results, err := GetExports(context.Background(), &stackName, strPtrOut(""), mock)
 	if err != nil {
 		t.Errorf("expected no error for 'not imported' case, got: %v", err)
 	}
@@ -483,7 +483,7 @@ func TestGetExports_MixedSuccessAndFailure(t *testing.T) {
 		},
 	}
 
-	results, err := GetExports(&stackName, strPtrOut(""), mock)
+	results, err := GetExports(context.Background(), &stackName, strPtrOut(""), mock)
 	if err == nil {
 		t.Fatal("expected an error when some ListImports calls fail with real errors")
 	}
@@ -567,7 +567,7 @@ func TestFillImportsPagination(t *testing.T) {
 	}
 
 	out := &CfnOutput{ExportName: "Export1"}
-	err := out.FillImports(mock)
+	err := out.FillImports(context.Background(), mock)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -602,7 +602,7 @@ func TestGetExportsListImportsPagination(t *testing.T) {
 		},
 	}
 
-	results, err := GetExports(&stackName, strPtrOut(""), mock)
+	results, err := GetExports(context.Background(), &stackName, strPtrOut(""), mock)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -626,7 +626,7 @@ func TestGetExports_PaginatorError(t *testing.T) {
 		DescribeStacksError: errors.New("simulated API error"),
 	}
 
-	results, err := GetExports(&stackName, strPtrOut(""), mock)
+	results, err := GetExports(context.Background(), &stackName, strPtrOut(""), mock)
 	if err == nil {
 		t.Fatal("expected error from GetExports when paginator fails, got nil")
 	}
@@ -651,7 +651,7 @@ func TestGetExports_OperationError(t *testing.T) {
 		},
 	}
 
-	results, err := GetExports(&stackName, strPtrOut(""), mock)
+	results, err := GetExports(context.Background(), &stackName, strPtrOut(""), mock)
 	if err == nil {
 		t.Fatal("expected error from GetExports on OperationError, got nil")
 	}

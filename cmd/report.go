@@ -135,7 +135,8 @@ func setTimezoneIfPresent(timezone string) {
 // calling os.Exit so that callers (especially the Lambda handler) can propagate
 // failures to their runtime.
 func generateReport() error {
-	awsConfig, err := config.DefaultAwsConfig(*settings)
+	ctx := context.Background()
+	awsConfig, err := config.DefaultAwsConfig(ctx, *settings)
 	if err != nil {
 		return err
 	}
@@ -147,7 +148,7 @@ func generateReport() error {
 		reportFlags.HasMermaid = true
 	}
 
-	stacks, err := lib.GetCfnStacks(&reportFlags.StackName, awsConfig.CloudformationClient())
+	stacks, err := lib.GetCfnStacks(ctx, &reportFlags.StackName, awsConfig.CloudformationClient())
 	if err != nil {
 		return err
 	}
@@ -156,7 +157,7 @@ func generateReport() error {
 	var frontMatter map[string]string
 	if reportFlags.FrontMatter && outputFormat == outputFormatMarkdown {
 		var fmErr error
-		frontMatter, fmErr = generateFrontMatter(stacks, awsConfig)
+		frontMatter, fmErr = generateFrontMatter(ctx, stacks, awsConfig)
 		if fmErr != nil {
 			return fmErr
 		}
@@ -192,7 +193,7 @@ func generateReport() error {
 	// Generate report for each stack
 	for _, stackkey := range stackskeys {
 		fmt.Println(stackkey)
-		if err := generateStackReport(stacks[stackkey], doc, awsConfig); err != nil {
+		if err := generateStackReport(ctx, stacks[stackkey], doc, awsConfig); err != nil {
 			return err
 		}
 	}
@@ -273,11 +274,11 @@ func reportPlaceholderParser(value string, stackname string, awsConfig config.AW
 }
 
 // generateStackReport creates the report for the provided stack
-func generateStackReport(stack lib.CfnStack, doc *output.Builder, awsConfig config.AWSConfig) error {
+func generateStackReport(ctx context.Context, stack lib.CfnStack, doc *output.Builder, awsConfig config.AWSConfig) error {
 	// Add stack header
 	doc.Header(fmt.Sprintf("Stack %s", stack.Name))
 
-	events, err := stack.GetEvents(awsConfig.CloudformationClient())
+	events, err := stack.GetEvents(ctx, awsConfig.CloudformationClient())
 	if err != nil {
 		return err
 	}
@@ -310,7 +311,7 @@ func generateStackReport(stack lib.CfnStack, doc *output.Builder, awsConfig conf
 // stacks, iterating stacks in sorted key order so the result is stable
 // between runs. When reportFlags.LatestOnly is set, only the latest event
 // per stack is considered — matching the filtering applied by the report body.
-func generateFrontMatter(stacks map[string]lib.CfnStack, awsConfig config.AWSConfig) (map[string]string, error) {
+func generateFrontMatter(ctx context.Context, stacks map[string]lib.CfnStack, awsConfig config.AWSConfig) (map[string]string, error) {
 	result := make(map[string]string)
 
 	// Sort stacks by key for deterministic iteration (matches report body)
@@ -327,7 +328,7 @@ func generateFrontMatter(stacks map[string]lib.CfnStack, awsConfig config.AWSCon
 
 	for _, key := range stackKeys {
 		stack := stacks[key]
-		events, err := stack.GetEvents(awsConfig.CloudformationClient())
+		events, err := stack.GetEvents(ctx, awsConfig.CloudformationClient())
 		if err != nil {
 			return nil, err
 		}

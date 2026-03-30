@@ -73,7 +73,7 @@ func TestChangesetInfo_DeleteChangeset(t *testing.T) {
 				deleteChangeSetError: tc.mockError,
 			}
 
-			got := tc.changeset.DeleteChangeset(mockClient)
+			got := tc.changeset.DeleteChangeset(context.Background(), mockClient)
 			assert.Equal(t, tc.want, got)
 		})
 	}
@@ -114,7 +114,7 @@ func TestChangesetInfo_DeployChangeset(t *testing.T) {
 				executeChangeSetError: tc.mockError,
 			}
 
-			err := tc.changeset.DeployChangeset(mockClient)
+			err := tc.changeset.DeployChangeset(context.Background(), mockClient)
 
 			if tc.wantErr {
 				require.Error(t, err)
@@ -271,7 +271,7 @@ func TestChangesetInfo_GetStack(t *testing.T) {
 				describeStacksError:  tc.mockError,
 			}
 
-			got, err := tc.changeset.GetStack(mockClient)
+			got, err := tc.changeset.GetStack(context.Background(), mockClient)
 
 			if tc.wantErr {
 				require.Error(t, err)

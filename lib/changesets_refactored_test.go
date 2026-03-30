@@ -1,6 +1,7 @@
 package lib
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -68,7 +69,7 @@ func TestChangesetInfo_DeleteChangesetRefactored(t *testing.T) {
 			}
 
 			// Execute
-			got := tc.changeset.DeleteChangeset(mockClient)
+			got := tc.changeset.DeleteChangeset(context.Background(), mockClient)
 
 			// Assert
 			assert.Equal(t, tc.want, got)
@@ -149,7 +150,7 @@ func TestChangesetInfo_DeployChangesetRefactored(t *testing.T) {
 			}
 
 			// Execute
-			err := tc.changeset.DeployChangeset(mockClient)
+			err := tc.changeset.DeployChangeset(context.Background(), mockClient)
 
 			// Assert
 			if tc.wantErr {
@@ -377,7 +378,7 @@ func TestChangesetInfo_GetStackRefactored(t *testing.T) {
 			}
 
 			// Execute
-			got, err := tc.changeset.GetStack(mockClient)
+			got, err := tc.changeset.GetStack(context.Background(), mockClient)
 
 			// Assert
 			if tc.wantErr {

@@ -28,17 +28,17 @@ type AWSConfig struct {
 }
 
 // DefaultAwsConfig loads default AWS Config
-func DefaultAwsConfig(config Config) (AWSConfig, error) {
+func DefaultAwsConfig(ctx context.Context, config Config) (AWSConfig, error) {
 	awsConfig := AWSConfig{}
 	if config.GetLCString("profile") != "" {
 		awsConfig.ProfileName = config.GetLCString("profile")
-		cfg, err := external.LoadDefaultConfig(context.TODO(), external.WithSharedConfigProfile(config.GetLCString("profile")))
+		cfg, err := external.LoadDefaultConfig(ctx, external.WithSharedConfigProfile(config.GetLCString("profile")))
 		if err != nil {
 			return awsConfig, err
 		}
 		awsConfig.Config = cfg
 	} else {
-		cfg, err := external.LoadDefaultConfig(context.TODO(), external.WithRetryer(func() aws.Retryer {
+		cfg, err := external.LoadDefaultConfig(ctx, external.WithRetryer(func() aws.Retryer {
 			return retry.AddWithMaxAttempts(retry.NewStandard(), 0)
 		}))
 
@@ -51,11 +51,11 @@ func DefaultAwsConfig(config Config) (AWSConfig, error) {
 		awsConfig.Config.Region = config.GetLCString("region")
 	}
 	awsConfig.Region = awsConfig.Config.Region
-	err := awsConfig.setCallerInfo()
+	err := awsConfig.setCallerInfo(ctx)
 	if err != nil {
 		return awsConfig, err
 	}
-	awsConfig.setAlias()
+	awsConfig.setAlias(ctx)
 	return awsConfig, nil
 }
 
@@ -99,9 +99,9 @@ func (config *AWSConfig) OrganizationsClient() *organizations.Client {
 	return organizations.NewFromConfig(config.Config)
 }
 
-func (config *AWSConfig) setCallerInfo() error {
+func (config *AWSConfig) setCallerInfo(ctx context.Context) error {
 	c := config.StsClient()
-	result, err := c.GetCallerIdentity(context.TODO(), &sts.GetCallerIdentityInput{})
+	result, err := c.GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})
 	if err != nil {
 		return err
 	}
@@ -110,9 +110,9 @@ func (config *AWSConfig) setCallerInfo() error {
 	return nil
 }
 
-func (config *AWSConfig) setAlias() {
+func (config *AWSConfig) setAlias(ctx context.Context) {
 	c := config.IAMClient()
-	result, err := c.ListAccountAliases(context.TODO(), &iam.ListAccountAliasesInput{})
+	result, err := c.ListAccountAliases(ctx, &iam.ListAccountAliasesInput{})
 	if err != nil || len(result.AccountAliases) == 0 {
 		// If the user doesn't have permission to see the aliases or the account has no aliases, continue without
 		return

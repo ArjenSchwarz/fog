@@ -11,11 +11,11 @@ import (
 )
 
 // StartDriftDetection initiates drift detection for a stack and returns the detection ID
-func StartDriftDetection(stackName *string, svc CloudFormationDetectStackDriftAPI) (*string, error) {
+func StartDriftDetection(ctx context.Context, stackName *string, svc CloudFormationDetectStackDriftAPI) (*string, error) {
 	input := &cloudformation.DetectStackDriftInput{
 		StackName: stackName,
 	}
-	result, err := svc.DetectStackDrift(context.TODO(), input)
+	result, err := svc.DetectStackDrift(ctx, input)
 	if err != nil {
 		return nil, fmt.Errorf("failed to start drift detection: %w", err)
 	}
@@ -23,12 +23,12 @@ func StartDriftDetection(stackName *string, svc CloudFormationDetectStackDriftAP
 }
 
 // WaitForDriftDetectionToFinish polls until drift detection completes and returns the final status
-func WaitForDriftDetectionToFinish(driftDetectionId *string, svc CloudFormationDescribeStackDriftDetectionStatusAPI) (types.StackDriftDetectionStatus, error) {
+func WaitForDriftDetectionToFinish(ctx context.Context, driftDetectionId *string, svc CloudFormationDescribeStackDriftDetectionStatusAPI) (types.StackDriftDetectionStatus, error) {
 	input := &cloudformation.DescribeStackDriftDetectionStatusInput{
 		StackDriftDetectionId: driftDetectionId,
 	}
 	for {
-		result, err := svc.DescribeStackDriftDetectionStatus(context.TODO(), input)
+		result, err := svc.DescribeStackDriftDetectionStatus(ctx, input)
 		if err != nil {
 			return "", fmt.Errorf("failed to check drift detection status: %w", err)
 		}
@@ -40,7 +40,7 @@ func WaitForDriftDetectionToFinish(driftDetectionId *string, svc CloudFormationD
 }
 
 // GetDefaultStackDrift retrieves all resource drift information for a stack
-func GetDefaultStackDrift(stackName *string, svc CloudFormationDescribeStackResourceDriftsAPI) ([]types.StackResourceDrift, error) {
+func GetDefaultStackDrift(ctx context.Context, stackName *string, svc CloudFormationDescribeStackResourceDriftsAPI) ([]types.StackResourceDrift, error) {
 	input := &cloudformation.DescribeStackResourceDriftsInput{
 		StackName: stackName,
 	}
@@ -53,7 +53,7 @@ func GetDefaultStackDrift(stackName *string, svc CloudFormationDescribeStackReso
 			input.NextToken = nextToken
 		}
 
-		output, err := svc.DescribeStackResourceDrifts(context.TODO(), input)
+		output, err := svc.DescribeStackResourceDrifts(ctx, input)
 		if err != nil {
 			return nil, fmt.Errorf("failed to retrieve stack drifts: %w", err)
 		}
@@ -70,11 +70,11 @@ func GetDefaultStackDrift(stackName *string, svc CloudFormationDescribeStackReso
 }
 
 // GetUncheckedStackResources returns stack resources that have not been checked for drift
-func GetUncheckedStackResources(stackName *string, checkedResources []string, svc interface {
+func GetUncheckedStackResources(ctx context.Context, stackName *string, checkedResources []string, svc interface {
 	CloudFormationDescribeStacksAPI
 	CloudFormationDescribeStackResourcesAPI
 }) ([]CfnResource, error) {
-	resources, err := GetResources(stackName, svc)
+	resources, err := GetResources(ctx, stackName, svc)
 	if err != nil {
 		return nil, err
 	}
@@ -89,13 +89,13 @@ func GetUncheckedStackResources(stackName *string, checkedResources []string, sv
 }
 
 // GetResource retrieves a specific resource using Cloud Control API
-func GetResource(client *cloudcontrol.Client, typeName string, identifier string) (*cloudcontrol.GetResourceOutput, error) {
+func GetResource(ctx context.Context, client *cloudcontrol.Client, typeName string, identifier string) (*cloudcontrol.GetResourceOutput, error) {
 	input := &cloudcontrol.GetResourceInput{
 		TypeName:   &typeName,
 		Identifier: &identifier,
 	}
 
-	result, err := client.GetResource(context.TODO(), input)
+	result, err := client.GetResource(ctx, input)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get resource: %w", err)
 	}
@@ -106,16 +106,16 @@ func GetResource(client *cloudcontrol.Client, typeName string, identifier string
 // ListAllResources lists all resources of a given type using Cloud Control API or service-specific APIs.
 // For SSO types it delegates to service-specific functions. For all other types it uses the
 // Cloud Control ListResources API with pagination.
-func ListAllResources(typeName string, client CloudControlListResourcesAPI, ssoClient interface {
+func ListAllResources(ctx context.Context, typeName string, client CloudControlListResourcesAPI, ssoClient interface {
 	SSOAdminListInstancesAPI
 	SSOAdminListPermissionSetsAPI
 	SSOAdminListAccountAssignmentsAPI
 }, organizationsClient OrganizationsListAccountsAPI) (map[string]string, error) {
 	if typeName == "AWS::SSO::PermissionSet" {
-		return GetPermissionSetArns(ssoClient)
+		return GetPermissionSetArns(ctx, ssoClient)
 	}
 	if typeName == "AWS::SSO::Assignment" {
-		return GetAssignmentArns(ssoClient, organizationsClient)
+		return GetAssignmentArns(ctx, ssoClient, organizationsClient)
 	}
 
 	resources := map[string]string{}
@@ -129,7 +129,7 @@ func ListAllResources(typeName string, client CloudControlListResourcesAPI, ssoC
 			input.NextToken = nextToken
 		}
 
-		result, err := client.ListResources(context.TODO(), input)
+		result, err := client.ListResources(ctx, input)
 		if err != nil {
 			return nil, fmt.Errorf("failed to list resources of type %s: %w", typeName, err)
 		}

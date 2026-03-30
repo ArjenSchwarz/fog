@@ -204,11 +204,11 @@ func (t *CfnTemplateTransform) UnmarshalJSON(b []byte) error {
 }
 
 // GetTemplateBody retrieves and parses a CloudFormation template from a stack
-func GetTemplateBody(stackname *string, parameters *map[string]any, svc CloudFormationGetTemplateAPI) (CfnTemplateBody, error) {
+func GetTemplateBody(ctx context.Context, stackname *string, parameters *map[string]any, svc CloudFormationGetTemplateAPI) (CfnTemplateBody, error) {
 	input := cloudformation.GetTemplateInput{
 		StackName: stackname,
 	}
-	result, err := svc.GetTemplate(context.TODO(), &input)
+	result, err := svc.GetTemplate(ctx, &input)
 	if err != nil {
 		return CfnTemplateBody{}, fmt.Errorf("failed to get template for stack %q: %w", *stackname, err)
 	}

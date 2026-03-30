@@ -76,7 +76,7 @@ func TestValidateStackReadiness(t *testing.T) {
 				tc.setup(mockClient)
 			}
 
-			err := validateStackReadiness(tc.stackName, mockClient)
+			err := validateStackReadiness(context.Background(), tc.stackName, mockClient)
 
 			if tc.wantErr {
 				if err == nil {
@@ -290,7 +290,7 @@ func TestPrepareDeployment(t *testing.T) {
 		stackName     string
 		template      string
 		setup         func(*testutil.MockCFNClient)
-		mockAWSConfig func(config.Config) (config.AWSConfig, error)
+		mockAWSConfig func(context.Context, config.Config) (config.AWSConfig, error)
 		wantIsNew     bool
 		wantErr       bool
 		errMsg        string
@@ -301,7 +301,7 @@ func TestPrepareDeployment(t *testing.T) {
 			setup: func(m *testutil.MockCFNClient) {
 				m.WithError(errors.New("stack not found"))
 			},
-			mockAWSConfig: func(c config.Config) (config.AWSConfig, error) {
+			mockAWSConfig: func(ctx context.Context, c config.Config) (config.AWSConfig, error) {
 				return config.AWSConfig{AccountID: "123", Region: "us-west-2"}, nil
 			},
 			wantIsNew: true,
@@ -316,7 +316,7 @@ func TestPrepareDeployment(t *testing.T) {
 					Build()
 				m.WithStack(stack)
 			},
-			mockAWSConfig: func(c config.Config) (config.AWSConfig, error) {
+			mockAWSConfig: func(ctx context.Context, c config.Config) (config.AWSConfig, error) {
 				return config.AWSConfig{AccountID: "123", Region: "us-west-2"}, nil
 			},
 			wantIsNew: false,
@@ -331,7 +331,7 @@ func TestPrepareDeployment(t *testing.T) {
 					Build()
 				m.WithStack(stack)
 			},
-			mockAWSConfig: func(c config.Config) (config.AWSConfig, error) {
+			mockAWSConfig: func(ctx context.Context, c config.Config) (config.AWSConfig, error) {
 				return config.AWSConfig{AccountID: "123", Region: "us-west-2"}, nil
 			},
 			wantIsNew: false,
@@ -342,7 +342,7 @@ func TestPrepareDeployment(t *testing.T) {
 			stackName: "test-stack",
 			template:  "../examples/templates/basicvpc.yaml",
 			setup:     func(m *testutil.MockCFNClient) {},
-			mockAWSConfig: func(c config.Config) (config.AWSConfig, error) {
+			mockAWSConfig: func(ctx context.Context, c config.Config) (config.AWSConfig, error) {
 				return config.AWSConfig{}, errors.New("failed to load AWS config")
 			},
 			wantErr: true,
@@ -373,7 +373,7 @@ func TestPrepareDeployment(t *testing.T) {
 			if tc.mockAWSConfig != nil {
 				loadAWSConfig = tc.mockAWSConfig
 			} else {
-				loadAWSConfig = func(c config.Config) (config.AWSConfig, error) {
+				loadAWSConfig = func(ctx context.Context, c config.Config) (config.AWSConfig, error) {
 					return config.AWSConfig{AccountID: "123", Region: "us-west-2"}, nil
 				}
 			}

@@ -34,7 +34,7 @@ type importResult struct {
 // be checked whether it is being imported or not.
 // Returns an error if any ListImports call fails with a non-"not imported" error
 // (e.g., throttling, permission denied).
-func GetExports(stackname *string, exportname *string, svc CFNExportsAPI) ([]CfnOutput, error) {
+func GetExports(ctx context.Context, stackname *string, exportname *string, svc CFNExportsAPI) ([]CfnOutput, error) {
 	exports := []CfnOutput{}
 	input := &cloudformation.DescribeStacksInput{}
 	if *stackname != "" && !strings.Contains(*stackname, "*") {
@@ -43,7 +43,7 @@ func GetExports(stackname *string, exportname *string, svc CFNExportsAPI) ([]Cfn
 	paginator := cloudformation.NewDescribeStacksPaginator(svc, input)
 	allstacks := make([]types.Stack, 0)
 	for paginator.HasMorePages() {
-		output, err := paginator.NextPage(context.TODO())
+		output, err := paginator.NextPage(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("describing stacks: %w", err)
 		}
@@ -67,7 +67,7 @@ func GetExports(stackname *string, exportname *string, svc CFNExportsAPI) ([]Cfn
 			var allImports []string
 			var paginationErr error
 			for paginator.HasMorePages() {
-				page, err := paginator.NextPage(context.TODO())
+				page, err := paginator.NextPage(ctx)
 				if err != nil {
 					paginationErr = err
 					break
@@ -135,7 +135,7 @@ func getOutputsForStack(stack types.Stack, stackfilter string, exportfilter stri
 // FillImports populates the import information for an exported output.
 // Returns an error if ListImports fails with anything other than the expected
 // "is not imported by any stack" message (e.g., throttling, permission errors).
-func (output *CfnOutput) FillImports(svc CFNListImportsAPI) error {
+func (output *CfnOutput) FillImports(ctx context.Context, svc CFNListImportsAPI) error {
 	if output.ExportName == "" {
 		return nil
 	}
@@ -143,7 +143,7 @@ func (output *CfnOutput) FillImports(svc CFNListImportsAPI) error {
 	var allImports []string
 	var paginationErr error
 	for paginator.HasMorePages() {
-		page, err := paginator.NextPage(context.TODO())
+		page, err := paginator.NextPage(ctx)
 		if err != nil {
 			paginationErr = err
 			break

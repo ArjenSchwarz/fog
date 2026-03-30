@@ -61,11 +61,12 @@ func init() {
 }
 
 func listResources(cmd *cobra.Command, args []string) {
-	awsConfig, err := config.DefaultAwsConfig(*settings)
+	ctx := context.Background()
+	awsConfig, err := config.DefaultAwsConfig(ctx, *settings)
 	if err != nil {
 		failWithError(err)
 	}
-	resources, err := lib.GetResources(&resourcesFlags.StackName, awsConfig.CloudformationClient())
+	resources, err := lib.GetResources(ctx, &resourcesFlags.StackName, awsConfig.CloudformationClient())
 	if err != nil {
 		failWithError(err)
 	}

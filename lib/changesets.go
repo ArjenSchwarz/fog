@@ -38,23 +38,23 @@ type ChangesetChanges struct {
 }
 
 // DeleteChangeset deletes the changeset and returns true if successful
-func (changeset *ChangesetInfo) DeleteChangeset(svc CloudFormationDeleteChangeSetAPI) bool {
+func (changeset *ChangesetInfo) DeleteChangeset(ctx context.Context, svc CloudFormationDeleteChangeSetAPI) bool {
 	input := &cloudformation.DeleteChangeSetInput{
 		StackName:     &changeset.StackName,
 		ChangeSetName: &changeset.Name,
 	}
-	_, err := svc.DeleteChangeSet(context.TODO(), input)
+	_, err := svc.DeleteChangeSet(ctx, input)
 
 	return err == nil
 }
 
 // DeployChangeset executes the changeset to deploy the changes
-func (changeset *ChangesetInfo) DeployChangeset(svc CloudFormationExecuteChangeSetAPI) error {
+func (changeset *ChangesetInfo) DeployChangeset(ctx context.Context, svc CloudFormationExecuteChangeSetAPI) error {
 	input := &cloudformation.ExecuteChangeSetInput{
 		ChangeSetName: &changeset.Name,
 		StackName:     &changeset.StackName,
 	}
-	_, err := svc.ExecuteChangeSet(context.TODO(), input)
+	_, err := svc.ExecuteChangeSet(ctx, input)
 	return err
 }
 
@@ -72,8 +72,8 @@ func (changeset *ChangesetInfo) AddChange(changes ChangesetChanges) {
 }
 
 // GetStack retrieves the stack associated with this changeset
-func (changeset *ChangesetInfo) GetStack(svc CloudFormationDescribeStacksAPI) (types.Stack, error) {
-	return GetStack(&changeset.StackID, svc)
+func (changeset *ChangesetInfo) GetStack(ctx context.Context, svc CloudFormationDescribeStacksAPI) (types.Stack, error) {
+	return GetStack(ctx, &changeset.StackID, svc)
 }
 
 // GenerateChangesetUrl generates the AWS console URL for viewing the changeset

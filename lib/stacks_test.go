@@ -143,7 +143,7 @@ func TestDeployInfo_GetEvents(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := tc.deployment.GetEvents(tc.mock)
+			got, err := tc.deployment.GetEvents(context.Background(), tc.mock)
 
 			if tc.wantErr {
 				require.Error(t, err)
@@ -266,7 +266,7 @@ func TestDeployInfo_GetExecutionTimes(t *testing.T) {
 
 			mockSvc := newSinglePageMock(cloudformation.DescribeStackEventsOutput{StackEvents: tc.events}, nil)
 
-			got, err := tc.deployment.GetExecutionTimes(mockSvc)
+			got, err := tc.deployment.GetExecutionTimes(context.Background(), mockSvc)
 
 			if tc.wantErr {
 				require.Error(t, err)
@@ -483,7 +483,7 @@ func TestGetStack(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := GetStack(tc.stackName, tc.client)
+			got, err := GetStack(context.Background(), tc.stackName, tc.client)
 
 			if tc.wantErr {
 				require.Error(t, err)
@@ -888,7 +888,7 @@ func TestCfnStack_GetEventSummaries(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := tc.stack.GetEventSummaries(tc.mock)
+			got, err := tc.stack.GetEventSummaries(context.Background(), tc.mock)
 
 			if tc.wantErr {
 				require.Error(t, err)

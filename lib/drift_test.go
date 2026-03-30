@@ -118,7 +118,7 @@ func TestStartDriftDetection(t *testing.T) {
 
 			mockClient := tc.setupMock()
 
-			got, err := StartDriftDetection(&tc.stackName, mockClient)
+			got, err := StartDriftDetection(context.Background(), &tc.stackName, mockClient)
 
 			if tc.wantErr {
 				assert.Error(t, err)
@@ -207,7 +207,7 @@ func TestWaitForDriftDetectionToFinish(t *testing.T) {
 			// Cannot run in parallel due to sleep timing dependencies
 			mockClient := tc.setupMock()
 
-			got, err := WaitForDriftDetectionToFinish(&tc.driftDetectionID, mockClient)
+			got, err := WaitForDriftDetectionToFinish(context.Background(), &tc.driftDetectionID, mockClient)
 
 			if tc.wantErr {
 				assert.Error(t, err)
@@ -358,7 +358,7 @@ func TestGetDefaultStackDrift(t *testing.T) {
 
 			mockClient := tc.setupMock()
 
-			got, err := GetDefaultStackDrift(&tc.stackName, mockClient)
+			got, err := GetDefaultStackDrift(context.Background(), &tc.stackName, mockClient)
 
 			if tc.wantErr {
 				assert.Error(t, err)
@@ -525,7 +525,7 @@ func TestGetUncheckedStackResources(t *testing.T) {
 			t.Parallel()
 
 			mockClient := tc.setupMock()
-			got, err := GetUncheckedStackResources(&tc.stackName, tc.checkedResources, mockClient)
+			got, err := GetUncheckedStackResources(context.Background(), &tc.stackName, tc.checkedResources, mockClient)
 			require.NoError(t, err, "GetUncheckedStackResources returned unexpected error")
 
 			require.Len(t, got, len(tc.want), "Expected %d unchecked resources", len(tc.want))
@@ -550,7 +550,7 @@ func TestGetUncheckedStackResourcesPropagatesError(t *testing.T) {
 		},
 	}
 
-	got, err := GetUncheckedStackResources(&stackName, []string{}, mockClient)
+	got, err := GetUncheckedStackResources(context.Background(), &stackName, []string{}, mockClient)
 	require.Error(t, err, "expected error to propagate from GetResources")
 	assert.Nil(t, got, "expected nil resources on error")
 	assert.Contains(t, err.Error(), "simulated failure")

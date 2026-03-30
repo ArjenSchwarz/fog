@@ -110,7 +110,7 @@ func TestListAllResources_NonSSOType_ReturnsResources(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := ListAllResources(tc.typeName, tc.ccClient, nil, nil)
+			got, err := ListAllResources(context.Background(), tc.typeName, tc.ccClient, nil, nil)
 
 			if tc.wantErr {
 				assert.Error(t, err)
@@ -129,7 +129,7 @@ func TestListAllResources_NonSSOType_ReturnsResources(t *testing.T) {
 func TestListAllResources_NonSSOType_WithNilSSOClient(t *testing.T) {
 	t.Parallel()
 
-	got, err := ListAllResources("AWS::S3::Bucket", &mockCloudControlListResourcesClient{
+	got, err := ListAllResources(context.Background(), "AWS::S3::Bucket", &mockCloudControlListResourcesClient{
 		outputs: []*cloudcontrol.ListResourcesOutput{{
 			ResourceDescriptions: []cctypes.ResourceDescription{
 				{Identifier: aws.String("test-bucket")},

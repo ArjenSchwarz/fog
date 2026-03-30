@@ -69,7 +69,8 @@ func init() {
 }
 
 func detectDrift(cmd *cobra.Command, args []string) {
-	awsConfig, err := config.DefaultAwsConfig(*settings)
+	ctx := context.Background()
+	awsConfig, err := config.DefaultAwsConfig(ctx, *settings)
 	if err != nil {
 		failWithError(err)
 	}
@@ -78,11 +79,11 @@ func detectDrift(cmd *cobra.Command, args []string) {
 	keys := []string{"LogicalId", "Type", "ChangeType", "Details"}
 
 	if !driftFlags.ResultsOnly {
-		driftid, err := lib.StartDriftDetection(&driftFlags.StackName, svc)
+		driftid, err := lib.StartDriftDetection(ctx, &driftFlags.StackName, svc)
 		if err != nil {
 			failWithError(err)
 		}
-		status, err := lib.WaitForDriftDetectionToFinish(driftid, svc)
+		status, err := lib.WaitForDriftDetectionToFinish(ctx, driftid, svc)
 		if err != nil {
 			failWithError(err)
 		}
@@ -90,15 +91,15 @@ func detectDrift(cmd *cobra.Command, args []string) {
 			failWithError(fmt.Errorf("drift detection completed with status: %s", status))
 		}
 	}
-	defaultDrift, err := lib.GetDefaultStackDrift(&driftFlags.StackName, svc)
+	defaultDrift, err := lib.GetDefaultStackDrift(ctx, &driftFlags.StackName, svc)
 	if err != nil {
 		failWithError(err)
 	}
-	stack, err := lib.GetStack(&driftFlags.StackName, svc)
+	stack, err := lib.GetStack(ctx, &driftFlags.StackName, svc)
 	if err != nil {
 		failWithError(err)
 	}
-	naclResources, routetableResources, tgwRouteTableResources, logicalToPhysical := separateSpecialCases(defaultDrift, &driftFlags.StackName, svc)
+	naclResources, routetableResources, tgwRouteTableResources, logicalToPhysical := separateSpecialCases(ctx, defaultDrift, &driftFlags.StackName, svc)
 	// Build rows incrementally
 	rows := make([]map[string]any, 0)
 
@@ -189,15 +190,15 @@ func detectDrift(cmd *cobra.Command, args []string) {
 		}
 	}
 	params := lib.GetParametersMap(stack.Parameters)
-	template, err := lib.GetTemplateBody(&driftFlags.StackName, params, svc)
+	template, err := lib.GetTemplateBody(ctx, &driftFlags.StackName, params, svc)
 	if err != nil {
 		failWithError(err)
 	}
-	checkNaclEntries(naclResources, template, stack.Parameters, logicalToPhysical, &rows, awsConfig)
-	checkRouteTableRoutes(routetableResources, template, stack.Parameters, logicalToPhysical, &rows, awsConfig)
-	checkTransitGatewayRouteTableRoutes(tgwRouteTableResources, template, stack.Parameters, logicalToPhysical, &rows, awsConfig)
+	checkNaclEntries(ctx, naclResources, template, stack.Parameters, logicalToPhysical, &rows, awsConfig)
+	checkRouteTableRoutes(ctx, routetableResources, template, stack.Parameters, logicalToPhysical, &rows, awsConfig)
+	checkTransitGatewayRouteTableRoutes(ctx, tgwRouteTableResources, template, stack.Parameters, logicalToPhysical, &rows, awsConfig)
 	for _, resourcetype := range settings.GetStringSlice("drift.detect-unmanaged-resources") {
-		allresources, err := lib.ListAllResources(resourcetype, awsConfig.CloudControlClient(), awsConfig.SSOAdminClient(), awsConfig.OrganizationsClient())
+		allresources, err := lib.ListAllResources(ctx, resourcetype, awsConfig.CloudControlClient(), awsConfig.SSOAdminClient(), awsConfig.OrganizationsClient())
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -236,7 +237,7 @@ func driftHasRequiredFields(drift types.StackResourceDrift) bool {
 	return drift.LogicalResourceId != nil && drift.ResourceType != nil
 }
 
-func separateSpecialCases(defaultDrift []types.StackResourceDrift, stackName *string, svc interface {
+func separateSpecialCases(ctx context.Context, defaultDrift []types.StackResourceDrift, stackName *string, svc interface {
 	lib.CloudFormationDescribeStackResourcesAPI
 	lib.CloudFormationListExportsAPI
 }) (map[string]string, map[string]string, map[string]string, map[string]string) {
@@ -247,7 +248,7 @@ func separateSpecialCases(defaultDrift []types.StackResourceDrift, stackName *st
 
 	// Build logicalToPhysical map from ALL stack resources
 	// This ensures attachments and other resources are available for template resolution
-	stackResourcesResp, err := svc.DescribeStackResources(context.TODO(), &cloudformation.DescribeStackResourcesInput{
+	stackResourcesResp, err := svc.DescribeStackResources(ctx, &cloudformation.DescribeStackResourcesInput{
 		StackName: stackName,
 	})
 	if err != nil {
@@ -265,7 +266,7 @@ func separateSpecialCases(defaultDrift []types.StackResourceDrift, stackName *st
 	// Paginate to ensure all exports are collected (API returns max 100 per page).
 	exportsPaginator := cloudformation.NewListExportsPaginator(svc, &cloudformation.ListExportsInput{})
 	for exportsPaginator.HasMorePages() {
-		exportsResp, err := exportsPaginator.NextPage(context.TODO())
+		exportsResp, err := exportsPaginator.NextPage(ctx)
 		if err != nil {
 			// Non-fatal - just log and continue without remaining exports
 			log.Printf("Warning: Could not list CloudFormation exports: %v", err)
@@ -325,11 +326,11 @@ func checkIfResourcesAreManaged(allresources map[string]string, logicalToPhysica
 }
 
 // checkNaclEntries verifies the NACL entries and if there are differences adds those to the provided rows slice
-func checkNaclEntries(naclResources map[string]string, template lib.CfnTemplateBody, parameters []types.Parameter, logicalToPhysical map[string]string, rows *[]map[string]any, awsConfig config.AWSConfig) {
+func checkNaclEntries(ctx context.Context, naclResources map[string]string, template lib.CfnTemplateBody, parameters []types.Parameter, logicalToPhysical map[string]string, rows *[]map[string]any, awsConfig config.AWSConfig) {
 	// Specific check for NACLs
 	for logicalId, physicalId := range naclResources {
 		rulechanges := []string{}
-		nacl, err := lib.GetNacl(physicalId, awsConfig.EC2Client())
+		nacl, err := lib.GetNacl(ctx, physicalId, awsConfig.EC2Client())
 		if err != nil {
 			failWithError(err)
 		}
@@ -386,9 +387,9 @@ func checkNaclEntries(naclResources map[string]string, template lib.CfnTemplateB
 }
 
 // checkRouteTableRoutes verifies the routes and if there are differences adds those to the provided rows slice
-func checkRouteTableRoutes(routetableResources map[string]string, template lib.CfnTemplateBody, parameters []types.Parameter, logicalToPhysical map[string]string, rows *[]map[string]any, awsConfig config.AWSConfig) {
+func checkRouteTableRoutes(ctx context.Context, routetableResources map[string]string, template lib.CfnTemplateBody, parameters []types.Parameter, logicalToPhysical map[string]string, rows *[]map[string]any, awsConfig config.AWSConfig) {
 	// Create a list of all AWS managed prefixes
-	managedPrefixLists, err := lib.GetManagedPrefixLists(awsConfig.EC2Client())
+	managedPrefixLists, err := lib.GetManagedPrefixLists(ctx, awsConfig.EC2Client())
 	if err != nil {
 		failWithError(err)
 	}
@@ -401,7 +402,7 @@ func checkRouteTableRoutes(routetableResources map[string]string, template lib.C
 	// Specific check for NACLs
 	for logicalId, physicalId := range routetableResources {
 		rulechanges := []string{}
-		routetable, err := lib.GetRouteTable(physicalId, awsConfig.EC2Client())
+		routetable, err := lib.GetRouteTable(ctx, physicalId, awsConfig.EC2Client())
 		if err != nil {
 			failWithError(err)
 		}
@@ -463,13 +464,13 @@ func checkRouteTableRoutes(routetableResources map[string]string, template lib.C
 }
 
 // checkTransitGatewayRouteTableRoutes verifies Transit Gateway routes and reports any differences
-func checkTransitGatewayRouteTableRoutes(tgwRouteTableResources map[string]string, template lib.CfnTemplateBody, parameters []types.Parameter, logicalToPhysical map[string]string, rows *[]map[string]any, awsConfig config.AWSConfig) {
+func checkTransitGatewayRouteTableRoutes(ctx context.Context, tgwRouteTableResources map[string]string, template lib.CfnTemplateBody, parameters []types.Parameter, logicalToPhysical map[string]string, rows *[]map[string]any, awsConfig config.AWSConfig) {
 	// Iterate through each Transit Gateway route table
 	for logicalId, physicalId := range tgwRouteTableResources {
 		rulechanges := []string{}
 
 		// Get actual routes from AWS
-		routes, err := lib.GetTransitGatewayRouteTableRoutes(context.TODO(), physicalId, awsConfig.EC2Client())
+		routes, err := lib.GetTransitGatewayRouteTableRoutes(ctx, physicalId, awsConfig.EC2Client())
 		if err != nil {
 			failWithError(err)
 		}

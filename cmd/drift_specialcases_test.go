@@ -75,7 +75,7 @@ func TestSeparateSpecialCasesSkipsNilPhysicalResourceID(t *testing.T) {
 		},
 	}
 
-	naclResources, routetableResources, tgwRouteTableResources, logicalToPhysical := separateSpecialCases(defaultDrift, &stackName, mock)
+	naclResources, routetableResources, tgwRouteTableResources, logicalToPhysical := separateSpecialCases(context.Background(), defaultDrift, &stackName, mock)
 
 	if got := logicalToPhysical["SubnetResource"]; got != "subnet-123" {
 		t.Fatalf("expected SubnetResource to map to subnet-123, got %q", got)
@@ -130,7 +130,7 @@ func TestSeparateSpecialCasesPaginatesListExports(t *testing.T) {
 		},
 	}
 
-	_, _, _, logicalToPhysical := separateSpecialCases(nil, &stackName, mock)
+	_, _, _, logicalToPhysical := separateSpecialCases(context.Background(), nil, &stackName, mock)
 
 	for _, tc := range []struct {
 		key  string

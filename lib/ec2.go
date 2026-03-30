@@ -9,12 +9,12 @@ import (
 )
 
 // GetNacl returns the Network ACL for the given ID
-func GetNacl(naclid string, svc EC2DescribeNaclsAPI) (types.NetworkAcl, error) {
+func GetNacl(ctx context.Context, naclid string, svc EC2DescribeNaclsAPI) (types.NetworkAcl, error) {
 	naclids := []string{naclid}
 	input := ec2.DescribeNetworkAclsInput{
 		NetworkAclIds: naclids,
 	}
-	result, err := svc.DescribeNetworkAcls(context.TODO(), &input)
+	result, err := svc.DescribeNetworkAcls(ctx, &input)
 	if err != nil {
 		return types.NetworkAcl{}, err
 	}
@@ -25,12 +25,12 @@ func GetNacl(naclid string, svc EC2DescribeNaclsAPI) (types.NetworkAcl, error) {
 }
 
 // GetRouteTable returns the Route Table for the given ID
-func GetRouteTable(routetableId string, svc EC2DescribeRouteTablesAPI) (types.RouteTable, error) {
+func GetRouteTable(ctx context.Context, routetableId string, svc EC2DescribeRouteTablesAPI) (types.RouteTable, error) {
 	routetableids := []string{routetableId}
 	input := ec2.DescribeRouteTablesInput{
 		RouteTableIds: routetableids,
 	}
-	result, err := svc.DescribeRouteTables(context.TODO(), &input)
+	result, err := svc.DescribeRouteTables(ctx, &input)
 	if err != nil {
 		return types.RouteTable{}, err
 	}
@@ -41,13 +41,13 @@ func GetRouteTable(routetableId string, svc EC2DescribeRouteTablesAPI) (types.Ro
 }
 
 // GetManagedPrefixLists returns all managed prefix lists for the region/account
-func GetManagedPrefixLists(svc EC2DescribeManagedPrefixListsAPI) ([]types.ManagedPrefixList, error) {
+func GetManagedPrefixLists(ctx context.Context, svc EC2DescribeManagedPrefixListsAPI) ([]types.ManagedPrefixList, error) {
 	input := ec2.DescribeManagedPrefixListsInput{}
 	paginator := ec2.NewDescribeManagedPrefixListsPaginator(svc, &input)
 
 	var result []types.ManagedPrefixList
 	for paginator.HasMorePages() {
-		output, err := paginator.NextPage(context.TODO())
+		output, err := paginator.NextPage(ctx)
 		if err != nil {
 			return nil, err
 		}

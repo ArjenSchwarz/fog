@@ -192,13 +192,13 @@ Resources:
 			mockClient := tc.setupMock()
 
 			if tc.wantErr {
-				_, err := GetTemplateBody(&tc.stackName, tc.parameters, mockClient)
+				_, err := GetTemplateBody(context.Background(), &tc.stackName, tc.parameters, mockClient)
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tc.errMsg)
 				return
 			}
 
-			got, err := GetTemplateBody(&tc.stackName, tc.parameters, mockClient)
+			got, err := GetTemplateBody(context.Background(), &tc.stackName, tc.parameters, mockClient)
 			require.NoError(t, err)
 
 			// Compare key fields

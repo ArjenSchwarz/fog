@@ -133,7 +133,7 @@ func TestGetNacl(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := GetNacl(tt.args.naclid, tt.args.svc)
+			got, err := GetNacl(context.Background(), tt.args.naclid, tt.args.svc)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetNacl() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -602,7 +602,7 @@ func TestGetManagedPrefixLists(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := GetManagedPrefixLists(tt.args.svc)
+			got, err := GetManagedPrefixLists(context.Background(), tt.args.svc)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetManagedPrefixLists() error = %v, wantErr %v", err, tt.wantErr)
@@ -742,7 +742,7 @@ func TestGetRouteTable(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := GetRouteTable(tt.args.routetableId, tt.args.svc)
+			got, err := GetRouteTable(context.Background(), tt.args.routetableId, tt.args.svc)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetRouteTable() error = %v, wantErr %v", err, tt.wantErr)
 				return

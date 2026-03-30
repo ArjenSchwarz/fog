@@ -14,12 +14,12 @@ const (
 )
 
 // GetPermissionSetArns retrieves all SSO permission set ARNs for the organization and returns them as a map.
-func GetPermissionSetArns(ssoClient interface {
+func GetPermissionSetArns(ctx context.Context, ssoClient interface {
 	SSOAdminListInstancesAPI
 	SSOAdminListPermissionSetsAPI
 }) (map[string]string, error) {
 	// Get the SSO instance ARN
-	ssoInstanceArn, err := GetSSOInstanceArn(ssoClient)
+	ssoInstanceArn, err := GetSSOInstanceArn(ctx, ssoClient)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get SSO instance ARN: %w", err)
 	}
@@ -31,7 +31,7 @@ func GetPermissionSetArns(ssoClient interface {
 	paginator := ssoadmin.NewListPermissionSetsPaginator(ssoClient, input)
 
 	for paginator.HasMorePages() {
-		result, err := paginator.NextPage(context.TODO())
+		result, err := paginator.NextPage(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to list permission sets: %w", err)
 		}
@@ -45,10 +45,10 @@ func GetPermissionSetArns(ssoClient interface {
 }
 
 // GetSSOInstanceArn retrieves the ARN of the first SSO instance in the organization.
-func GetSSOInstanceArn(ssoClient SSOAdminListInstancesAPI) (string, error) {
+func GetSSOInstanceArn(ctx context.Context, ssoClient SSOAdminListInstancesAPI) (string, error) {
 	input := &ssoadmin.ListInstancesInput{}
 
-	result, err := ssoClient.ListInstances(context.TODO(), input)
+	result, err := ssoClient.ListInstances(ctx, input)
 	if err != nil {
 		return "", fmt.Errorf("failed to list SSO instances: %w", err)
 	}
@@ -67,17 +67,17 @@ func GetSSOInstanceArn(ssoClient SSOAdminListInstancesAPI) (string, error) {
 }
 
 // GetAssignmentArns retrieves all SSO account assignment ARNs across all accounts and permission sets.
-func GetAssignmentArns(ssoClient interface {
+func GetAssignmentArns(ctx context.Context, ssoClient interface {
 	SSOAdminListInstancesAPI
 	SSOAdminListPermissionSetsAPI
 	SSOAdminListAccountAssignmentsAPI
 }, organizationsClient OrganizationsListAccountsAPI) (map[string]string, error) {
 	// Get the SSO instance ARN
-	ssoInstanceArn, err := GetSSOInstanceArn(ssoClient)
+	ssoInstanceArn, err := GetSSOInstanceArn(ctx, ssoClient)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get SSO instance ARN: %w", err)
 	}
-	permissionSets, err := GetPermissionSetArns(ssoClient)
+	permissionSets, err := GetPermissionSetArns(ctx, ssoClient)
 	if err != nil {
 		return map[string]string{}, err
 	}
@@ -85,7 +85,7 @@ func GetAssignmentArns(ssoClient interface {
 	// for all permission sets loop over the accounts and get the assignments
 	for permissionSet := range permissionSets {
 		permissionSetArn := strings.Split(permissionSet, "|")[1]
-		assignments, err := GetAccountAssignmentArnsForPermissionSet(ssoClient, organizationsClient, ssoInstanceArn, permissionSetArn)
+		assignments, err := GetAccountAssignmentArnsForPermissionSet(ctx, ssoClient, organizationsClient, ssoInstanceArn, permissionSetArn)
 		if err != nil {
 			return map[string]string{}, err
 		}
@@ -98,9 +98,9 @@ func GetAssignmentArns(ssoClient interface {
 }
 
 // GetAccountAssignmentArnsForPermissionSet retrieves all account assignment ARNs for a specific permission set across all accounts.
-func GetAccountAssignmentArnsForPermissionSet(ssoClient SSOAdminListAccountAssignmentsAPI, organizationsClient OrganizationsListAccountsAPI, ssoInstanceArn string, permissionSetArn string) (map[string]string, error) {
+func GetAccountAssignmentArnsForPermissionSet(ctx context.Context, ssoClient SSOAdminListAccountAssignmentsAPI, organizationsClient OrganizationsListAccountsAPI, ssoInstanceArn string, permissionSetArn string) (map[string]string, error) {
 	// Get the list of accounts
-	accounts, err := GetAccountIDs(organizationsClient)
+	accounts, err := GetAccountIDs(ctx, organizationsClient)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get accounts: %w", err)
 	}
@@ -116,7 +116,7 @@ func GetAccountAssignmentArnsForPermissionSet(ssoClient SSOAdminListAccountAssig
 		paginator := ssoadmin.NewListAccountAssignmentsPaginator(ssoClient, input)
 
 		for paginator.HasMorePages() {
-			result, err := paginator.NextPage(context.TODO())
+			result, err := paginator.NextPage(ctx)
 			if err != nil {
 				return nil, fmt.Errorf("failed to list account assignments: %w", err)
 			}
@@ -141,14 +141,14 @@ func GetAccountAssignmentArnsForPermissionSet(ssoClient SSOAdminListAccountAssig
 }
 
 // GetAccountIDs retrieves all AWS account IDs in the organization.
-func GetAccountIDs(organizationsClient OrganizationsListAccountsAPI) ([]string, error) {
+func GetAccountIDs(ctx context.Context, organizationsClient OrganizationsListAccountsAPI) ([]string, error) {
 	input := &organizations.ListAccountsInput{}
 
 	var accounts []string
 	paginator := organizations.NewListAccountsPaginator(organizationsClient, input)
 
 	for paginator.HasMorePages() {
-		output, err := paginator.NextPage(context.TODO())
+		output, err := paginator.NextPage(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to list accounts: %w", err)
 		}
