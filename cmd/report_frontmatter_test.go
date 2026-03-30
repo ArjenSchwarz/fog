@@ -14,7 +14,6 @@ import (
 // exist in the map. Before the fix, Go map iteration order caused the
 // frontmatter to reflect a random stack's event on each run.
 func TestGenerateFrontMatter_DeterministicWithMultipleStacks(t *testing.T) {
-	t.Parallel()
 	viper.SetDefault("timezone", "UTC")
 
 	oldSettings := settings
@@ -93,7 +92,6 @@ func TestGenerateFrontMatter_DeterministicWithMultipleStacks(t *testing.T) {
 // single stack has multiple events, the frontmatter describes the latest event
 // (newest StartDate) rather than an arbitrary one.
 func TestGenerateFrontMatter_SelectsLatestEventWithinStack(t *testing.T) {
-	t.Parallel()
 	viper.SetDefault("timezone", "UTC")
 
 	oldSettings := settings
@@ -158,7 +156,6 @@ func TestGenerateFrontMatter_SelectsLatestEventWithinStack(t *testing.T) {
 // per stack — matching the filtering done in the report body by
 // generateStackReport. This ensures frontmatter and body describe the same event.
 func TestGenerateFrontMatter_RespectsLatestOnly(t *testing.T) {
-	t.Parallel()
 	viper.SetDefault("timezone", "UTC")
 
 	oldSettings := settings
@@ -226,7 +223,6 @@ func TestGenerateFrontMatter_RespectsLatestOnly(t *testing.T) {
 // of multiple stacks each with multiple events. Verifies deterministic
 // selection of the newest event overall.
 func TestGenerateFrontMatter_MultipleStacksMultipleEvents(t *testing.T) {
-	t.Parallel()
 	viper.SetDefault("timezone", "UTC")
 
 	oldSettings := settings
@@ -314,7 +310,6 @@ func TestGenerateFrontMatter_MultipleStacksMultipleEvents(t *testing.T) {
 
 // TestGenerateFrontMatter_EmptyStacks verifies graceful handling of no stacks.
 func TestGenerateFrontMatter_EmptyStacks(t *testing.T) {
-	t.Parallel()
 	viper.SetDefault("timezone", "UTC")
 
 	oldSettings := settings

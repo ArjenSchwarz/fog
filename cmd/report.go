@@ -335,8 +335,8 @@ func generateFrontMatter(stacks map[string]lib.CfnStack, awsConfig config.AWSCon
 			continue
 		}
 
-		// When LatestOnly is set, only consider the last event per stack
-		// (events are chronologically ordered, oldest first)
+		// When LatestOnly is set, only consider the last event per stack.
+		// GetEvents returns events oldest-first; the last element is the newest.
 		candidates := events
 		if reportFlags.LatestOnly {
 			candidates = events[len(events)-1:]
