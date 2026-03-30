@@ -449,3 +449,125 @@ func TestGetAccountAssignmentArnsPaginationErrorOnSecondPage(t *testing.T) {
 		t.Fatal("expected error on second page, got nil")
 	}
 }
+
+// --- Regression tests for nil SSO API pointer fields (T-660) ---
+
+// TestGetSSOInstanceArnNilInstanceArn verifies that GetSSOInstanceArn returns
+// an error instead of panicking when InstanceArn is nil.
+func TestGetSSOInstanceArnNilInstanceArn(t *testing.T) {
+	client := &mockSSOAdminClient{
+		listInstancesOutput: &ssoadmin.ListInstancesOutput{
+			Instances: []ssotypes.InstanceMetadata{
+				{InstanceArn: nil},
+			},
+		},
+	}
+	_, err := GetSSOInstanceArn(client)
+	if err == nil {
+		t.Fatal("expected error for nil InstanceArn, got nil")
+	}
+}
+
+// TestGetSSOInstanceArnSkipsNilInstanceArn verifies that GetSSOInstanceArn
+// skips instances with nil InstanceArn and returns the first valid one.
+func TestGetSSOInstanceArnSkipsNilInstanceArn(t *testing.T) {
+	validArn := "arn:aws:sso:::instance/ins2"
+	client := &mockSSOAdminClient{
+		listInstancesOutput: &ssoadmin.ListInstancesOutput{
+			Instances: []ssotypes.InstanceMetadata{
+				{InstanceArn: nil},
+				{InstanceArn: aws.String(validArn)},
+			},
+		},
+	}
+	got, err := GetSSOInstanceArn(client)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != validArn {
+		t.Errorf("got = %v, want %v", got, validArn)
+	}
+}
+
+// TestGetAccountIDsNilAccountId verifies that GetAccountIDs skips accounts
+// with nil Id fields instead of panicking.
+func TestGetAccountIDsNilAccountId(t *testing.T) {
+	client := &mockOrganizationsClient{
+		outputs: []*organizations.ListAccountsOutput{
+			{
+				Accounts: []orgtypes.Account{
+					{Id: aws.String("111111111111")},
+					{Id: nil},
+					{Id: aws.String("333333333333")},
+				},
+			},
+		},
+	}
+	got, err := GetAccountIDs(client)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := []string{"111111111111", "333333333333"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got = %v, want %v", got, want)
+	}
+}
+
+// TestGetAccountAssignmentArnsNilAccountId verifies that assignments with nil
+// AccountId fall back to the request's account ID instead of being skipped.
+func TestGetAccountAssignmentArnsNilAccountId(t *testing.T) {
+	instArn := "arn:aws:sso:::instance/ins1"
+	psArn := "ps1"
+	account := "111111111111"
+	sso := &mockSSOAdminClient{
+		listAccountAssignmentsOutputs: []*ssoadmin.ListAccountAssignmentsOutput{
+			{
+				AccountAssignments: []ssotypes.AccountAssignment{
+					{AccountId: nil, PermissionSetArn: aws.String(psArn), PrincipalId: aws.String("user1"), PrincipalType: ssotypes.PrincipalTypeUser},
+					{AccountId: aws.String(account), PermissionSetArn: aws.String(psArn), PrincipalId: aws.String("user2"), PrincipalType: ssotypes.PrincipalTypeUser},
+				},
+			},
+		},
+	}
+	orgs := &mockOrganizationsClient{outputs: []*organizations.ListAccountsOutput{{Accounts: []orgtypes.Account{{Id: aws.String(account)}}}}}
+	got, err := GetAccountAssignmentArnsForPermissionSet(sso, orgs, instArn, psArn)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := map[string]string{
+		fmt.Sprintf("%s|%s|AWS_ACCOUNT|%s|%s|%s", instArn, account, psArn, ssotypes.PrincipalTypeUser, "user1"): "AWS::SSO::Assignment",
+		fmt.Sprintf("%s|%s|AWS_ACCOUNT|%s|%s|%s", instArn, account, psArn, ssotypes.PrincipalTypeUser, "user2"): "AWS::SSO::Assignment",
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got = %v, want %v", got, want)
+	}
+}
+
+// TestGetAccountAssignmentArnsNilPrincipalId verifies that assignments with nil
+// PrincipalId are skipped instead of causing a panic.
+func TestGetAccountAssignmentArnsNilPrincipalId(t *testing.T) {
+	instArn := "arn:aws:sso:::instance/ins1"
+	psArn := "ps1"
+	account := "111111111111"
+	sso := &mockSSOAdminClient{
+		listAccountAssignmentsOutputs: []*ssoadmin.ListAccountAssignmentsOutput{
+			{
+				AccountAssignments: []ssotypes.AccountAssignment{
+					{AccountId: aws.String(account), PermissionSetArn: aws.String(psArn), PrincipalId: nil, PrincipalType: ssotypes.PrincipalTypeUser},
+					{AccountId: aws.String(account), PermissionSetArn: aws.String(psArn), PrincipalId: aws.String("user2"), PrincipalType: ssotypes.PrincipalTypeUser},
+				},
+			},
+		},
+	}
+	orgs := &mockOrganizationsClient{outputs: []*organizations.ListAccountsOutput{{Accounts: []orgtypes.Account{{Id: aws.String(account)}}}}}
+	got, err := GetAccountAssignmentArnsForPermissionSet(sso, orgs, instArn, psArn)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := map[string]string{
+		fmt.Sprintf("%s|%s|AWS_ACCOUNT|%s|%s|%s", instArn, account, psArn, ssotypes.PrincipalTypeUser, "user2"): "AWS::SSO::Assignment",
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got = %v, want %v", got, want)
+	}
+}
