@@ -88,12 +88,13 @@ func prepareDeployment() (lib.DeployInfo, config.AWSConfig, error) {
 }
 
 // runPrechecks executes all prechecks for the deployment and updates
-// the deployment log accordingly. The collected output is returned so
-// the caller can decide how to display it.
-func runPrechecks(info *lib.DeployInfo, logObj *lib.DeploymentLog) string {
+// the deployment log accordingly. It returns the collected output and
+// whether the deployment should be aborted (true when prechecks fail
+// and stop-on-failed-prechecks is enabled).
+func runPrechecks(info *lib.DeployInfo, logObj *lib.DeploymentLog) (string, bool) {
 	commands := viper.GetStringSlice("templates.prechecks")
 	if len(commands) == 0 {
-		return ""
+		return "", false
 	}
 	var builder strings.Builder
 	precheckMessage := fmt.Sprintf(string(texts.FilePrecheckStarted), len(commands))
@@ -111,11 +112,12 @@ func runPrechecks(info *lib.DeployInfo, logObj *lib.DeploymentLog) string {
 		} else {
 			builder.WriteString(formatError(string(texts.FilePrecheckFailureContinue)))
 		}
-		return builder.String()
+		return builder.String(), true
 	}
 	if info.PrechecksFailed {
 		logObj.PreChecks = lib.DeploymentLogPreChecksFailed
-		if viper.GetBool("templates.stop-on-failed-prechecks") {
+		stopOnFailed := viper.GetBool("templates.stop-on-failed-prechecks")
+		if stopOnFailed {
 			builder.WriteString(formatError(string(texts.FilePrecheckFailureStop)))
 		} else {
 			builder.WriteString(formatError(string(texts.FilePrecheckFailureContinue)))
@@ -126,11 +128,11 @@ func runPrechecks(info *lib.DeployInfo, logObj *lib.DeploymentLog) string {
 			builder.WriteString(out)
 			builder.WriteString("\n")
 		}
-	} else {
-		logObj.PreChecks = lib.DeploymentLogPreChecksPassed
-		builder.WriteString(formatPositive(string(texts.FilePrecheckSuccess)))
+		return builder.String(), stopOnFailed
 	}
-	return builder.String()
+	logObj.PreChecks = lib.DeploymentLogPreChecksPassed
+	builder.WriteString(formatPositive(string(texts.FilePrecheckSuccess)))
+	return builder.String(), false
 }
 
 // createAndShowChangeset creates a change set, displays it and

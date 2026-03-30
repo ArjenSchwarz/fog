@@ -86,9 +86,12 @@ func deployTemplate(cmd *cobra.Command, args []string) {
 
 	deploymentLog := lib.NewDeploymentLog(awsConfig, deployment)
 
-	precheckOutput := runPrechecks(&deployment, &deploymentLog)
+	precheckOutput, abort := runPrechecks(&deployment, &deploymentLog)
 	if precheckOutput != "" {
 		printMessage(precheckOutput)
+	}
+	if abort {
+		os.Exit(1)
 	}
 
 	// Stop before changeset creation when prechecks failed and the stop flag is set

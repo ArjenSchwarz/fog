@@ -182,17 +182,20 @@ func TestRunPrechecks(t *testing.T) {
 		precheckCommands     []string
 		stopOnFailedPrecheck bool
 		wantPrechecksPassed  bool
+		wantAbort            bool
 		wantLogStatus        lib.DeploymentLogPreChecks
 		wantOutputContains   string
 	}{
 		"no prechecks configured": {
 			precheckCommands:    []string{},
 			wantPrechecksPassed: true,
+			wantAbort:           false,
 			wantOutputContains:  "",
 		},
 		"successful precheck": {
 			precheckCommands:    []string{"echo hello"},
 			wantPrechecksPassed: true,
+			wantAbort:           false,
 			wantLogStatus:       lib.DeploymentLogPreChecksPassed,
 			wantOutputContains:  "precheck",
 		},
@@ -200,6 +203,7 @@ func TestRunPrechecks(t *testing.T) {
 			precheckCommands:     []string{"sh -c 'exit 1'"},
 			stopOnFailedPrecheck: false,
 			wantPrechecksPassed:  false,
+			wantAbort:            false,
 			wantLogStatus:        lib.DeploymentLogPreChecksFailed,
 			wantOutputContains:   "Issues detected",
 		},
@@ -207,6 +211,7 @@ func TestRunPrechecks(t *testing.T) {
 			precheckCommands:     []string{"sh -c 'exit 1'"},
 			stopOnFailedPrecheck: true,
 			wantPrechecksPassed:  false,
+			wantAbort:            true,
 			wantLogStatus:        lib.DeploymentLogPreChecksFailed,
 			wantOutputContains:   "Issues detected",
 		},
@@ -217,6 +222,7 @@ func TestRunPrechecks(t *testing.T) {
 			precheckCommands:     []string{"nonexistent-cmd-t577 $TEMPLATEPATH"},
 			stopOnFailedPrecheck: false,
 			wantPrechecksPassed:  false,
+			wantAbort:            true,
 			wantLogStatus:        lib.DeploymentLogPreChecksFailed,
 			wantOutputContains:   "cannot be found",
 		},
@@ -224,6 +230,7 @@ func TestRunPrechecks(t *testing.T) {
 			precheckCommands:     []string{"nonexistent-cmd-t577 $TEMPLATEPATH"},
 			stopOnFailedPrecheck: true,
 			wantPrechecksPassed:  false,
+			wantAbort:            true,
 			wantLogStatus:        lib.DeploymentLogPreChecksFailed,
 			wantOutputContains:   "cannot be found",
 		},
@@ -231,6 +238,7 @@ func TestRunPrechecks(t *testing.T) {
 			precheckCommands:     []string{"rm -rf /"},
 			stopOnFailedPrecheck: true,
 			wantPrechecksPassed:  false,
+			wantAbort:            true,
 			wantLogStatus:        lib.DeploymentLogPreChecksFailed,
 			wantOutputContains:   "unsafe command",
 		},
@@ -248,7 +256,12 @@ func TestRunPrechecks(t *testing.T) {
 			info := lib.DeployInfo{TemplateRelativePath: "test"}
 			logObj := lib.DeploymentLog{}
 
-			out := runPrechecks(&info, &logObj)
+			out, abort := runPrechecks(&info, &logObj)
+
+			// Verify the abort signal matches expectations
+			if abort != tc.wantAbort {
+				t.Errorf("expected abort=%v, got %v", tc.wantAbort, abort)
+			}
 
 			// Check if prechecks failed or passed
 			if len(tc.precheckCommands) > 0 {
