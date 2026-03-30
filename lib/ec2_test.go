@@ -434,6 +434,33 @@ func TestGetRouteDestination(t *testing.T) {
 	}
 }
 
+// TestGetRouteDestinationNilFields verifies that GetRouteDestination does not
+// panic when all destination pointer fields are nil, and returns an empty string.
+func TestGetRouteDestinationNilFields(t *testing.T) {
+	// A route with no destination fields set at all — this previously caused
+	// a nil pointer dereference in the default switch branch.
+	emptyRoute := types.Route{}
+
+	got := GetRouteDestination(emptyRoute)
+	if got != "" {
+		t.Errorf("GetRouteDestination(empty route) = %q, want empty string", got)
+	}
+}
+
+// TestGetRouteDestinationTargetOnlyReturnsEmpty verifies that a route with
+// a target set but no destination fields returns an empty destination string.
+func TestGetRouteDestinationTargetOnlyReturnsEmpty(t *testing.T) {
+	// Route with GatewayId (a target) set, but all destination fields are nil.
+	route := types.Route{
+		GatewayId: aws.String("igw-12345"),
+	}
+
+	got := GetRouteDestination(route)
+	if got != "" {
+		t.Errorf("GetRouteDestination(route with target only) = %q, want empty string", got)
+	}
+}
+
 func Test_stringPointerValueMatch(t *testing.T) {
 	type args struct {
 		pointer1 *string

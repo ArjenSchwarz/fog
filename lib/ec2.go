@@ -166,7 +166,8 @@ func isIgnoredBlackhole(route types.Route, blackholeIgnore []string) bool {
 }
 
 // GetRouteDestination returns the destination of a route
-// Either DestinationCidrBlock, DestinationPrefixListId or DestinationIpv6CidrBlock
+// Either DestinationCidrBlock, DestinationPrefixListId or DestinationIpv6CidrBlock.
+// Returns an empty string when none of the destination fields are set.
 func GetRouteDestination(route types.Route) string {
 	var result string
 	switch {
@@ -174,7 +175,7 @@ func GetRouteDestination(route types.Route) string {
 		result = *route.DestinationCidrBlock
 	case route.DestinationPrefixListId != nil:
 		result = *route.DestinationPrefixListId
-	default:
+	case route.DestinationIpv6CidrBlock != nil:
 		result = *route.DestinationIpv6CidrBlock
 	}
 	return result

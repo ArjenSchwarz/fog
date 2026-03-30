@@ -369,7 +369,10 @@ func FilterRoutesByLogicalId(logicalId string, template CfnTemplateBody, params 
 		if resource.Type == "AWS::EC2::Route" && template.ShouldHaveResource(resource) {
 			if resourceIdMatchesLogical(resource.Properties["RouteTableId"], logicalId, logicalToPhysical) {
 				convresource := RouteResourceToRoute(resource, params, logicalToPhysical)
-				result[GetRouteDestination(convresource)] = convresource
+				// Skip routes with no resolvable destination to avoid empty map keys
+				if dest := GetRouteDestination(convresource); dest != "" {
+					result[dest] = convresource
+				}
 			}
 		}
 	}

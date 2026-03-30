@@ -404,6 +404,9 @@ func checkRouteTableRoutes(routetableResources map[string]string, template lib.C
 		attachedRules := lib.FilterRoutesByLogicalId(logicalId, template, parameters, logicalToPhysical)
 		for _, route := range routetable.Routes {
 			ruleid := lib.GetRouteDestination(route)
+			if ruleid == "" {
+				continue
+			}
 			if route.DestinationPrefixListId != nil && (!settings.GetBool("verbose") || stringInSlice(*route.DestinationPrefixListId, awsPrefixesSlice)) {
 				// If the route is for a prefixlist, don't report it by default as they're not defined in CloudFormation. Also don't report any AWS managed prefixlists
 				continue
