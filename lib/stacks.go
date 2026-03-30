@@ -214,7 +214,7 @@ func GetStack(stackname *string, svc CloudFormationDescribeStacksAPI) (types.Sta
 }
 
 // GetCfnStacks retrieves stacks matching the given name pattern with their outputs and import information
-func GetCfnStacks(stackname *string, svc *cloudformation.Client) (map[string]CfnStack, error) {
+func GetCfnStacks(stackname *string, svc CFNExportsAPI) (map[string]CfnStack, error) {
 	result := make(map[string]CfnStack)
 	input := &cloudformation.DescribeStacksInput{}
 	if *stackname != "" && !strings.Contains(*stackname, "*") {
@@ -257,7 +257,7 @@ func GetCfnStacks(stackname *string, svc *cloudformation.Client) (map[string]Cfn
 			}
 		}
 		stackobject.Outputs = outputs
-		result[*stack.StackId] = stackobject
+		result[*stack.StackName] = stackobject
 	}
 	return result, nil
 }
