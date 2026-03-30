@@ -928,3 +928,64 @@ func TestCreateStderrOutput_TableFormat(t *testing.T) {
 		t.Errorf("failed to render table: %v", err)
 	}
 }
+
+// TestHandleFailedChangeset_InteractiveConfirmation is a regression test for
+// T-602: the interactive branch must capture the return value of
+// askForConfirmationFunc so that deleteChangeset is actually called when the
+// user confirms deletion.
+func TestHandleFailedChangeset_InteractiveConfirmation(t *testing.T) {
+	tests := map[string]struct {
+		nonInteractive bool
+		userConfirm    bool
+		expectDelete   bool
+	}{
+		"interactive mode - user confirms delete": {
+			nonInteractive: false,
+			userConfirm:    true,
+			expectDelete:   true,
+		},
+		"interactive mode - user declines delete": {
+			nonInteractive: false,
+			userConfirm:    false,
+			expectDelete:   false,
+		},
+		"non-interactive mode - auto deletes": {
+			nonInteractive: true,
+			userConfirm:    false, // should not matter
+			expectDelete:   true,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			deleteCalled := false
+
+			origAsk := askForConfirmationFunc
+			origDelete := deleteChangesetFunc
+			origFlags := deployFlags
+			defer func() {
+				askForConfirmationFunc = origAsk
+				deleteChangesetFunc = origDelete
+				deployFlags = origFlags
+			}()
+
+			askForConfirmationFunc = func(string) bool {
+				return tc.userConfirm
+			}
+			deleteChangesetFunc = func(info lib.DeployInfo, cfg config.AWSConfig) {
+				deleteCalled = true
+			}
+
+			deployFlags = DeployFlags{
+				NonInteractive: tc.nonInteractive,
+			}
+
+			deployment := &lib.DeployInfo{}
+			handleFailedChangeset(deployment, config.AWSConfig{})
+
+			if deleteCalled != tc.expectDelete {
+				t.Errorf("expected deleteChangeset called=%v, got %v", tc.expectDelete, deleteCalled)
+			}
+		})
+	}
+}
