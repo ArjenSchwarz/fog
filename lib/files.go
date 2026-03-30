@@ -150,7 +150,7 @@ func RunPrechecks(deployment *DeployInfo) (map[string]string, error) {
 		// (e.g. /bin/rm, ./rm) are caught by the denylist.
 		// NOTE: this denylist is intentionally minimal; an allowlist approach would
 		// provide stronger guarantees (see specs/bugfixes/block-unsafe-precheck-path/report.md).
-		baseName := filepath.Base(command)
+		baseName := strings.ToLower(filepath.Base(command))
 		if stringInSlice(baseName, []string{"rm", "del", "kill"}) {
 			return results, fmt.Errorf("unsafe command '%v' detected", command)
 		}

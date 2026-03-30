@@ -279,6 +279,9 @@ func TestRunPrechecksUnsafeCommandWithPath(t *testing.T) {
 		{"bare command rm", "rm --help"},
 		{"bare command del", "del --help"},
 		{"bare command kill", "kill --help"},
+		{"uppercase RM", "/bin/RM --help"},
+		{"uppercase KILL", "KILL --help"},
+		{"mixed case Del", "./Del --help"},
 	}
 
 	for _, tc := range cases {
