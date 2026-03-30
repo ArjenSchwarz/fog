@@ -630,7 +630,7 @@ func tagDifferences(property types.PropertyDifference, handledtags []string, tag
 	}
 	pathsplit := strings.Split(*property.PropertyPath, "/")
 	// Leading "/" means element [0] is always ""; the tag category sits at [1].
-	// e.g. "/Tags/0/Key" → ["", "Tags", "0", "Key"] (5 elements incl. empty prefix).
+	// e.g. "/Tags/0/Key" → ["", "Tags", "0", "Key"] (4 elements incl. empty prefix).
 	if len(pathsplit) < 2 {
 		return "", ""
 	}
