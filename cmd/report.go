@@ -305,45 +305,92 @@ func generateStackReport(stack lib.CfnStack, doc *output.Builder, awsConfig conf
 	return nil
 }
 
+// generateFrontMatter selects a single deterministic event for the report's
+// YAML frontmatter. It picks the newest event (by StartDate) across all
+// stacks, iterating stacks in sorted key order so the result is stable
+// between runs. When reportFlags.LatestOnly is set, only the latest event
+// per stack is considered — matching the filtering applied by the report body.
 func generateFrontMatter(stacks map[string]lib.CfnStack, awsConfig config.AWSConfig) (map[string]string, error) {
 	result := make(map[string]string)
-	for _, stack := range stacks {
+
+	// Sort stacks by key for deterministic iteration (matches report body)
+	stackKeys := make([]string, 0, len(stacks))
+	for key := range stacks {
+		stackKeys = append(stackKeys, key)
+	}
+	sort.Strings(stackKeys)
+
+	// Find the newest event across all stacks
+	var selectedStack lib.CfnStack
+	var selectedEvent lib.StackEvent
+	found := false
+
+	for _, key := range stackKeys {
+		stack := stacks[key]
 		events, err := stack.GetEvents(awsConfig.CloudformationClient())
 		if err != nil {
 			return nil, err
 		}
-		for _, event := range events {
-			result["account"] = awsConfig.AccountID
-			result["accountalias"] = awsConfig.GetAccountAliasID()
-			result["region"] = awsConfig.Region
-			result["stack"] = stack.Name
-			result["date"] = event.StartDate.In(settings.GetTimezoneLocation()).Format(time.RFC3339)
-			result["duration"] = event.GetDuration().Round(time.Second).String()
-			result["eventtype"] = event.Type
-			if event.Success {
-				result["success"] = "true"
-			} else {
-				result["success"] = "false"
-			}
-			// Create metadata summary for frontmatter
-			_, metadataData := createMetadataTable(stack, event, awsConfig)
-			if len(metadataData) > 0 {
-				// Build a simple HTML table representation for frontmatter
-				// This is a simplified version since we can't use HtmlTableOnly() in v2
-				summarytable := buildSimpleHTMLTable(metadataData[0])
-				result["summary"] = "'" + summarytable + "'"
+		if len(events) == 0 {
+			continue
+		}
+
+		// When LatestOnly is set, only consider the last event per stack.
+		// GetEvents returns events oldest-first; the last element is the newest.
+		candidates := events
+		if reportFlags.LatestOnly {
+			candidates = events[len(events)-1:]
+		}
+
+		for _, event := range candidates {
+			if !found || event.StartDate.After(selectedEvent.StartDate) {
+				selectedStack = stack
+				selectedEvent = event
+				found = true
 			}
 		}
 	}
+
+	if !found {
+		return result, nil
+	}
+
+	// Populate frontmatter from the single selected event
+	result["account"] = awsConfig.AccountID
+	result["accountalias"] = awsConfig.GetAccountAliasID()
+	result["region"] = awsConfig.Region
+	result["stack"] = selectedStack.Name
+	result["date"] = selectedEvent.StartDate.In(settings.GetTimezoneLocation()).Format(time.RFC3339)
+	result["duration"] = selectedEvent.GetDuration().Round(time.Second).String()
+	result["eventtype"] = selectedEvent.Type
+	if selectedEvent.Success {
+		result["success"] = "true"
+	} else {
+		result["success"] = "false"
+	}
+	// Create metadata summary for frontmatter
+	_, metadataData := createMetadataTable(selectedStack, selectedEvent, awsConfig)
+	if len(metadataData) > 0 {
+		summarytable := buildSimpleHTMLTable(metadataData[0])
+		result["summary"] = "'" + summarytable + "'"
+	}
+
 	return result, nil
 }
 
-// buildSimpleHTMLTable creates a simple HTML table from a data row
+// buildSimpleHTMLTable creates a simple HTML table from a data row.
+// Keys are sorted to ensure deterministic output.
 func buildSimpleHTMLTable(data map[string]any) string {
+	keys := make([]string, 0, len(data))
+	for k := range data {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
 	var sb strings.Builder
 	sb.WriteString("<table>")
-	for k, v := range data {
-		fmt.Fprintf(&sb, "<tr><th>%s</th><td>%v</td></tr>", k, v)
+	for _, k := range keys {
+		fmt.Fprintf(&sb, "<tr><th>%s</th><td>%v</td></tr>", k, data[k])
 	}
 	sb.WriteString("</table>")
 	return sb.String()
