@@ -222,7 +222,7 @@ func TestRunPrechecks(t *testing.T) {
 			precheckCommands:     []string{"nonexistent-cmd-t577 $TEMPLATEPATH"},
 			stopOnFailedPrecheck: false,
 			wantPrechecksPassed:  false,
-			wantAbort:            true,
+			wantAbort:            false,
 			wantLogStatus:        lib.DeploymentLogPreChecksFailed,
 			wantOutputContains:   "cannot be found",
 		},
