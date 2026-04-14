@@ -538,6 +538,45 @@ func TestDeployInfo_IsNewStack(t *testing.T) {
 			},
 			want: false,
 		},
+		// T-761: When StackArn is empty, GetFreshStack must fall back to
+		// StackName so that REVIEW_IN_PROGRESS stacks are correctly
+		// classified as new. With multiple stacks in the account, an
+		// empty StackArn causes an unscoped DescribeStacks call that
+		// returns all stacks, triggering a "found multiple stacks" error.
+		"REVIEW_IN_PROGRESS with empty StackArn - new": {
+			stackName: "review-no-arn",
+			stackArn:  "", // StackArn is empty before changeset creation
+			setup: func(client *testutil.MockCFNClient) {
+				stack := testutil.NewStackBuilder("review-no-arn").
+					WithStatus(types.StackStatusReviewInProgress).
+					Build()
+				client.Stacks["review-no-arn"] = stack
+				// A second stack in the account makes an unscoped
+				// DescribeStacks call return >1 results and fail.
+				other := testutil.NewStackBuilder("other-stack").
+					WithStatus(types.StackStatusCreateComplete).
+					Build()
+				client.Stacks["other-stack"] = other
+			},
+			want: true,
+		},
+		// T-761: An existing stack with empty StackArn should not be
+		// misclassified as new even when other stacks exist.
+		"CREATE_COMPLETE with empty StackArn - not new": {
+			stackName: "existing-no-arn",
+			stackArn:  "", // StackArn is empty before changeset creation
+			setup: func(client *testutil.MockCFNClient) {
+				stack := testutil.NewStackBuilder("existing-no-arn").
+					WithStatus(types.StackStatusCreateComplete).
+					Build()
+				client.Stacks["existing-no-arn"] = stack
+				other := testutil.NewStackBuilder("another-stack").
+					WithStatus(types.StackStatusUpdateComplete).
+					Build()
+				client.Stacks["another-stack"] = other
+			},
+			want: false,
+		},
 	}
 
 	for name, tc := range tests {
@@ -562,6 +601,32 @@ func TestDeployInfo_IsNewStack(t *testing.T) {
 			assert.Equal(t, tc.want, got)
 		})
 	}
+}
+
+// TestDeployInfo_GetFreshStack_FallsBackToStackName verifies that
+// GetFreshStack uses StackName when StackArn is empty (T-761).
+func TestDeployInfo_GetFreshStack_FallsBackToStackName(t *testing.T) {
+	t.Helper()
+
+	mockClient := testutil.NewMockCFNClient()
+	stack := testutil.NewStackBuilder("my-stack").
+		WithStatus(types.StackStatusReviewInProgress).
+		Build()
+	mockClient.Stacks["my-stack"] = stack
+	// Add a second stack to ensure an unscoped call would fail
+	other := testutil.NewStackBuilder("other-stack").
+		WithStatus(types.StackStatusCreateComplete).
+		Build()
+	mockClient.Stacks["other-stack"] = other
+
+	deployment := DeployInfo{
+		StackName: "my-stack",
+		StackArn:  "", // empty before changeset creation
+	}
+
+	got, err := deployment.GetFreshStack(context.Background(), mockClient)
+	require.NoError(t, err)
+	assert.Equal(t, types.StackStatusReviewInProgress, got.StackStatus)
 }
 
 // TestDeployInfo_CreateChangeSet tests the CreateChangeSet method

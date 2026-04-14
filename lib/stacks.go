@@ -502,9 +502,15 @@ func (deployment *DeployInfo) GetChangeset(ctx context.Context, svc CloudFormati
 	return results, nil
 }
 
-// GetFreshStack retrieves the latest stack information from AWS
+// GetFreshStack retrieves the latest stack information from AWS.
+// It prefers StackArn for lookups but falls back to StackName when
+// StackArn is empty (e.g. before a changeset has been created).
 func (deployment *DeployInfo) GetFreshStack(ctx context.Context, svc CloudFormationDescribeStacksAPI) (types.Stack, error) {
-	return GetStack(ctx, &deployment.StackArn, svc)
+	identifier := deployment.StackArn
+	if identifier == "" {
+		identifier = deployment.StackName
+	}
+	return GetStack(ctx, &identifier, svc)
 }
 
 // GetStack retrieves the stack information, using cached data if available
