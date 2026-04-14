@@ -117,7 +117,15 @@ func deployTemplate(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	if confirmAndDeployChangeset(changeset, &deployment, awsConfig) {
+	deployed, err := confirmAndDeployChangeset(changeset, &deployment, awsConfig)
+	if err != nil {
+		printMessage(formatError(err.Error()))
+		if deployment.IsNew {
+			deleteStackIfNewFunc(deployment, awsConfig)
+		}
+		os.Exit(1)
+	}
+	if deployed {
 		printDeploymentResults(&deployment, awsConfig, &deploymentLog)
 	}
 }
@@ -443,7 +451,7 @@ func deleteStackIfNew(deployment lib.DeployInfo, awsConfig config.AWSConfig) {
 	}
 }
 
-func deployChangeset(deployment lib.DeployInfo, awsConfig config.AWSConfig) {
+func deployChangeset(deployment lib.DeployInfo, awsConfig config.AWSConfig) error {
 	ctx := context.Background()
 	if !deployFlags.Quiet {
 		if deployFlags.NonInteractive {
@@ -454,8 +462,7 @@ func deployChangeset(deployment lib.DeployInfo, awsConfig config.AWSConfig) {
 	}
 	err := deployment.Changeset.DeployChangeset(ctx, awsConfig.CloudformationClient())
 	if err != nil {
-		printMessage(formatError("Could not execute changeset! See details below"))
-		fmt.Fprintln(os.Stderr, err)
+		return fmt.Errorf("could not execute changeset: %w", err)
 	}
 	latest := deployment.Changeset.CreationTime
 	time.Sleep(3 * time.Second)
@@ -470,6 +477,7 @@ func deployChangeset(deployment lib.DeployInfo, awsConfig config.AWSConfig) {
 	}
 	// One last time after the deployment finished in case of a timing mismatch
 	showEvents(deployment, latest, awsConfig, deployFlags.Quiet)
+	return nil
 }
 
 func showEvents(deployment lib.DeployInfo, latest time.Time, awsConfig config.AWSConfig, quiet bool) time.Time {
