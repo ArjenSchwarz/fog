@@ -1497,3 +1497,104 @@ Resources:
 		})
 	}
 }
+
+// TestResolveParameterValue_NilPointerKey verifies that resolveParameterValue
+// does not panic when a parameter entry has a nil ParameterKey.
+func TestResolveParameterValue_NilPointerKey(t *testing.T) {
+	params := []cfntypes.Parameter{
+		{ParameterKey: nil, ParameterValue: aws.String("value1")},
+		{ParameterKey: aws.String("GoodKey"), ParameterValue: aws.String("good-value")},
+	}
+
+	// Should skip the nil-key parameter and still resolve a valid one
+	got := resolveParameterValue("GoodKey", params)
+	if got != "good-value" {
+		t.Errorf("resolveParameterValue() = %q, want %q", got, "good-value")
+	}
+
+	// Should return empty for an unmatched ref without panicking
+	got = resolveParameterValue("Missing", params)
+	if got != "" {
+		t.Errorf("resolveParameterValue() = %q, want %q", got, "")
+	}
+}
+
+// TestResolveParameterValue_NilPointerValue verifies that resolveParameterValue
+// does not panic when ParameterValue is nil and ResolvedValue is also nil.
+func TestResolveParameterValue_NilPointerValue(t *testing.T) {
+	params := []cfntypes.Parameter{
+		{ParameterKey: aws.String("EmptyParam"), ParameterValue: nil, ResolvedValue: nil},
+	}
+	got := resolveParameterValue("EmptyParam", params)
+	if got != "" {
+		t.Errorf("resolveParameterValue() = %q, want %q", got, "")
+	}
+}
+
+// TestStringPointer_NilParameterKeyAndValue verifies that stringPointer
+// does not panic when parameter entries have nil ParameterKey or ParameterValue fields.
+func TestStringPointer_NilParameterKeyAndValue(t *testing.T) {
+	params := []cfntypes.Parameter{
+		{ParameterKey: nil, ParameterValue: aws.String("should-skip")},
+		{ParameterKey: aws.String("GateParam"), ParameterValue: nil, ResolvedValue: nil},
+		{ParameterKey: aws.String("ValidParam"), ParameterValue: aws.String("resolved-val")},
+	}
+	logicalToPhysical := map[string]string{}
+
+	tests := []struct {
+		name  string
+		props map[string]any
+		want  *string
+	}{
+		{
+			name: "Ref to param with nil key is skipped, valid param resolves",
+			props: map[string]any{
+				"GatewayId": map[string]any{"Ref": "ValidParam"},
+			},
+			want: aws.String("resolved-val"),
+		},
+		{
+			name: "Ref to param with nil ParameterValue returns empty",
+			props: map[string]any{
+				"GatewayId": map[string]any{"Ref": "GateParam"},
+			},
+			want: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := stringPointer(tt.props, params, logicalToPhysical, "GatewayId")
+			if tt.want == nil {
+				if got != nil {
+					t.Errorf("stringPointer() = %v, want nil", *got)
+				}
+			} else if got == nil || *got != *tt.want {
+				t.Errorf("stringPointer() = %v, want %v", got, *tt.want)
+			}
+		})
+	}
+}
+
+// TestRouteResourceToRoute_NilParameterFields verifies that RouteResourceToRoute
+// does not panic when parameters contain nil ParameterKey or ParameterValue.
+func TestRouteResourceToRoute_NilParameterFields(t *testing.T) {
+	params := []cfntypes.Parameter{
+		{ParameterKey: nil, ParameterValue: aws.String("should-skip")},
+		{ParameterKey: aws.String("GateParam"), ParameterValue: aws.String("igw-123")},
+	}
+	logical := map[string]string{}
+
+	resource := CfnTemplateResource{
+		Type: "AWS::EC2::Route",
+		Properties: map[string]any{
+			"DestinationCidrBlock": "10.0.0.0/8",
+			"GatewayId":            map[string]any{"Ref": "GateParam"},
+		},
+	}
+
+	got := RouteResourceToRoute(resource, params, logical)
+	if got.GatewayId == nil || *got.GatewayId != "igw-123" {
+		t.Errorf("RouteResourceToRoute().GatewayId = %v, want igw-123", got.GatewayId)
+	}
+}
