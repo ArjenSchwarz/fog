@@ -196,6 +196,21 @@ func TestCompareNaclEntries(t *testing.T) {
 	portdifffrom.PortRange = &types.PortRange{From: aws.Int32(42), To: aws.Int32(444)}
 	portdiffto := fullnacl
 	portdiffto.PortRange = &types.PortRange{From: aws.Int32(443), To: aws.Int32(42)}
+	// Regression tests for nil nested pointers (T-731)
+	icmpNilCode := fullnacl
+	icmpNilCode.IcmpTypeCode = &types.IcmpTypeCode{Code: nil, Type: aws.Int32(-1)}
+	icmpNilType := fullnacl
+	icmpNilType.IcmpTypeCode = &types.IcmpTypeCode{Code: aws.Int32(12), Type: nil}
+	icmpBothNilFields := fullnacl
+	icmpBothNilFields.IcmpTypeCode = &types.IcmpTypeCode{Code: nil, Type: nil}
+	icmpBothNilFieldsCopy := icmpBothNilFields
+	portNilFrom := fullnacl
+	portNilFrom.PortRange = &types.PortRange{From: nil, To: aws.Int32(444)}
+	portNilTo := fullnacl
+	portNilTo.PortRange = &types.PortRange{From: aws.Int32(443), To: nil}
+	portBothNilFields := fullnacl
+	portBothNilFields.PortRange = &types.PortRange{From: nil, To: nil}
+	portBothNilFieldsCopy := portBothNilFields
 	tests := []struct {
 		name string
 		args args
@@ -217,6 +232,15 @@ func TestCompareNaclEntries(t *testing.T) {
 		{"PortRange = nil mismatch fails", args{nacl1: fullnacl, nacl2: portnil}, false},
 		{"PortRange From different mismatch fails", args{nacl1: fullnacl, nacl2: portdifffrom}, false},
 		{"PortRange To different mismatch fails", args{nacl1: fullnacl, nacl2: portdiffto}, false},
+		// T-731: nil nested pointer guards
+		{"ICMP nil Code vs non-nil Code mismatch fails", args{nacl1: fullnacl, nacl2: icmpNilCode}, false},
+		{"ICMP nil Type vs non-nil Type mismatch fails", args{nacl1: fullnacl, nacl2: icmpNilType}, false},
+		{"ICMP both nil inner fields match each other", args{nacl1: icmpBothNilFields, nacl2: icmpBothNilFieldsCopy}, true},
+		{"ICMP both nil inner fields vs full mismatch fails", args{nacl1: fullnacl, nacl2: icmpBothNilFields}, false},
+		{"PortRange nil From vs non-nil From mismatch fails", args{nacl1: fullnacl, nacl2: portNilFrom}, false},
+		{"PortRange nil To vs non-nil To mismatch fails", args{nacl1: fullnacl, nacl2: portNilTo}, false},
+		{"PortRange both nil inner fields match each other", args{nacl1: portBothNilFields, nacl2: portBothNilFieldsCopy}, true},
+		{"PortRange both nil inner fields vs full mismatch fails", args{nacl1: fullnacl, nacl2: portBothNilFields}, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -498,6 +522,34 @@ func Test_stringPointerValueMatch(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := stringPointerValueMatch(tt.args.pointer1, tt.args.pointer2); got != tt.want {
 				t.Errorf("stringPointerValueMatch() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_int32PointerValueMatch(t *testing.T) {
+	type args struct {
+		pointer1 *int32
+		pointer2 *int32
+	}
+	value1 := int32(42)
+	othervalue1 := int32(42)
+	value2 := int32(99)
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{"Match when both are nil", args{}, true},
+		{"Match when values are the same", args{pointer1: &value1, pointer2: &othervalue1}, true},
+		{"No match when pointer 1 is nil", args{pointer2: &value1}, false},
+		{"No match when pointer 2 is nil", args{pointer1: &value1}, false},
+		{"No match when values are different", args{pointer1: &value1, pointer2: &value2}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := int32PointerValueMatch(tt.args.pointer1, tt.args.pointer2); got != tt.want {
+				t.Errorf("int32PointerValueMatch() = %v, want %v", got, tt.want)
 			}
 		})
 	}

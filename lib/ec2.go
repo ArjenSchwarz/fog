@@ -71,10 +71,10 @@ func CompareNaclEntries(nacl1 types.NetworkAclEntry, nacl2 types.NetworkAclEntry
 		return false
 	}
 	if nacl1.IcmpTypeCode != nil && nacl2.IcmpTypeCode != nil {
-		if *nacl1.IcmpTypeCode.Code != *nacl2.IcmpTypeCode.Code {
+		if !int32PointerValueMatch(nacl1.IcmpTypeCode.Code, nacl2.IcmpTypeCode.Code) {
 			return false
 		}
-		if *nacl1.IcmpTypeCode.Type != *nacl2.IcmpTypeCode.Type {
+		if !int32PointerValueMatch(nacl1.IcmpTypeCode.Type, nacl2.IcmpTypeCode.Type) {
 			return false
 		}
 	}
@@ -86,10 +86,10 @@ func CompareNaclEntries(nacl1 types.NetworkAclEntry, nacl2 types.NetworkAclEntry
 		return false
 	}
 	if nacl1.PortRange != nil && nacl2.PortRange != nil {
-		if *nacl1.PortRange.From != *nacl2.PortRange.From {
+		if !int32PointerValueMatch(nacl1.PortRange.From, nacl2.PortRange.From) {
 			return false
 		}
-		if *nacl1.PortRange.To != *nacl2.PortRange.To {
+		if !int32PointerValueMatch(nacl1.PortRange.To, nacl2.PortRange.To) {
 			return false
 		}
 	}
@@ -216,6 +216,20 @@ func GetRouteTarget(route types.Route) string {
 		target = *route.VpcPeeringConnectionId
 	}
 	return target
+}
+
+// int32PointerValueMatch checks if two int32 pointers have equal values;
+// if both are nil, they match;
+// if only 1 is nil, they don't match;
+// otherwise the values need to match
+func int32PointerValueMatch(pointer1 *int32, pointer2 *int32) bool {
+	if pointer1 == nil && pointer2 == nil {
+		return true
+	}
+	if pointer1 == nil || pointer2 == nil {
+		return false
+	}
+	return *pointer1 == *pointer2
 }
 
 // stringPointerValueMatch checks if two string pointers have equal values;
