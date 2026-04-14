@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -8,23 +9,24 @@ import (
 )
 
 // TestNaclEntryToString_NilEgress verifies that naclEntryToString does not
-// panic when the Egress field is nil.
+// panic when the Egress field is nil, and defaults to "ingress".
 func TestNaclEntryToString_NilEgress(t *testing.T) {
 	entry := ec2types.NetworkAclEntry{
 		RuleNumber: aws.Int32(100),
 		Protocol:   aws.String("6"),
 		RuleAction: ec2types.RuleActionAllow,
 		CidrBlock:  aws.String("10.0.0.0/8"),
-		// Egress intentionally nil
+		// Egress intentionally nil — should default to ingress
 	}
 	result := naclEntryToString(entry)
-	if result == "" {
-		t.Error("expected non-empty string for entry with nil Egress")
+	expected := "ingress #100 allow: 6, 10.0.0.0/8 Ports: All"
+	if result != expected {
+		t.Errorf("expected %q, got %q", expected, result)
 	}
 }
 
 // TestNaclEntryToString_NilRuleNumber verifies that naclEntryToString does not
-// panic when RuleNumber is nil.
+// panic when RuleNumber is nil, and shows "unknown" in place of the number.
 func TestNaclEntryToString_NilRuleNumber(t *testing.T) {
 	entry := ec2types.NetworkAclEntry{
 		Egress:     aws.Bool(false),
@@ -34,13 +36,13 @@ func TestNaclEntryToString_NilRuleNumber(t *testing.T) {
 		// RuleNumber intentionally nil
 	}
 	result := naclEntryToString(entry)
-	if result == "" {
-		t.Error("expected non-empty string for entry with nil RuleNumber")
+	if !strings.HasPrefix(result, "ingress #unknown") {
+		t.Errorf("expected prefix %q, got %q", "ingress #unknown", result)
 	}
 }
 
 // TestNaclEntryToString_NilProtocol verifies that naclEntryToString does not
-// panic when Protocol is nil.
+// panic when Protocol is nil, and renders an empty protocol.
 func TestNaclEntryToString_NilProtocol(t *testing.T) {
 	entry := ec2types.NetworkAclEntry{
 		Egress:     aws.Bool(true),
@@ -50,13 +52,15 @@ func TestNaclEntryToString_NilProtocol(t *testing.T) {
 		// Protocol intentionally nil
 	}
 	result := naclEntryToString(entry)
-	if result == "" {
-		t.Error("expected non-empty string for entry with nil Protocol")
+	expected := "egress #200 deny: , 0.0.0.0/0 Ports: All"
+	if result != expected {
+		t.Errorf("expected %q, got %q", expected, result)
 	}
 }
 
 // TestNaclEntryToString_NilPortRangeFields verifies that naclEntryToString
-// handles a PortRange struct whose From or To fields are nil.
+// handles a PortRange struct whose From and To fields are both nil,
+// rendering "?" placeholders instead of misleading zero values.
 func TestNaclEntryToString_NilPortRangeFields(t *testing.T) {
 	entry := ec2types.NetworkAclEntry{
 		Egress:     aws.Bool(false),
@@ -69,13 +73,33 @@ func TestNaclEntryToString_NilPortRangeFields(t *testing.T) {
 		},
 	}
 	result := naclEntryToString(entry)
-	if result == "" {
-		t.Error("expected non-empty string for entry with nil PortRange fields")
+	if !strings.Contains(result, "Ports: ?-?") {
+		t.Errorf("expected output to contain %q, got %q", "Ports: ?-?", result)
+	}
+}
+
+// TestNaclEntryToString_PartialPortRange verifies that when only one side of
+// PortRange is nil, the nil side renders as "?" rather than a misleading "0".
+func TestNaclEntryToString_PartialPortRange(t *testing.T) {
+	entry := ec2types.NetworkAclEntry{
+		Egress:     aws.Bool(false),
+		RuleNumber: aws.Int32(100),
+		Protocol:   aws.String("6"),
+		RuleAction: ec2types.RuleActionAllow,
+		CidrBlock:  aws.String("10.0.0.0/8"),
+		PortRange: &ec2types.PortRange{
+			From: aws.Int32(80),
+			// To intentionally nil
+		},
+	}
+	result := naclEntryToString(entry)
+	if !strings.Contains(result, "Ports: 80-?") {
+		t.Errorf("expected output to contain %q, got %q", "Ports: 80-?", result)
 	}
 }
 
 // TestNaclEntryToString_NilIcmpTypeCodeFields verifies that naclEntryToString
-// handles an IcmpTypeCode struct whose Type or Code fields are nil.
+// handles an IcmpTypeCode struct whose Type and Code fields are both nil.
 func TestNaclEntryToString_NilIcmpTypeCodeFields(t *testing.T) {
 	entry := ec2types.NetworkAclEntry{
 		Egress:       aws.Bool(false),
@@ -88,8 +112,29 @@ func TestNaclEntryToString_NilIcmpTypeCodeFields(t *testing.T) {
 		},
 	}
 	result := naclEntryToString(entry)
-	if result == "" {
-		t.Error("expected non-empty string for entry with nil IcmpTypeCode fields")
+	if !strings.Contains(result, "ICMP: unknown") {
+		t.Errorf("expected output to contain %q, got %q", "ICMP: unknown", result)
+	}
+}
+
+// TestNaclEntryToString_IcmpCodeNilTypeSet verifies that when IcmpTypeCode.Type
+// is set but Code is nil, the output shows "?" for the missing code rather than
+// a misleading "0".
+func TestNaclEntryToString_IcmpCodeNilTypeSet(t *testing.T) {
+	entry := ec2types.NetworkAclEntry{
+		Egress:     aws.Bool(false),
+		RuleNumber: aws.Int32(100),
+		Protocol:   aws.String("1"),
+		RuleAction: ec2types.RuleActionAllow,
+		CidrBlock:  aws.String("10.0.0.0/8"),
+		IcmpTypeCode: &ec2types.IcmpTypeCode{
+			Type: aws.Int32(5),
+			// Code intentionally nil
+		},
+	}
+	result := naclEntryToString(entry)
+	if !strings.Contains(result, "ICMP: 5-?") {
+		t.Errorf("expected output to contain %q, got %q", "ICMP: 5-?", result)
 	}
 }
 
@@ -98,8 +143,8 @@ func TestNaclEntryToString_NilIcmpTypeCodeFields(t *testing.T) {
 func TestNaclEntryToString_AllNilFields(t *testing.T) {
 	entry := ec2types.NetworkAclEntry{}
 	result := naclEntryToString(entry)
-	if result == "" {
-		t.Error("expected non-empty string for entry with all nil fields")
+	if !strings.HasPrefix(result, "ingress #unknown") {
+		t.Errorf("expected prefix %q, got %q", "ingress #unknown", result)
 	}
 }
 
@@ -125,26 +170,28 @@ func TestNaclEntryToString_FullyPopulated(t *testing.T) {
 }
 
 // TestCheckNaclEntryKey_NilEgress verifies that building a NACL entry key
-// does not panic when Egress is nil. We test this via naclEntryKey.
+// defaults to "I" (ingress) when Egress is nil.
 func TestCheckNaclEntryKey_NilEgress(t *testing.T) {
 	entry := ec2types.NetworkAclEntry{
 		RuleNumber: aws.Int32(100),
 	}
 	result := naclEntryKey(entry)
-	if result == "" {
-		t.Error("expected non-empty key for entry with nil Egress")
+	expected := "I100"
+	if result != expected {
+		t.Errorf("expected %q, got %q", expected, result)
 	}
 }
 
 // TestCheckNaclEntryKey_NilRuleNumber verifies that building a NACL entry key
-// does not panic when RuleNumber is nil.
+// defaults to "unknown" when RuleNumber is nil.
 func TestCheckNaclEntryKey_NilRuleNumber(t *testing.T) {
 	entry := ec2types.NetworkAclEntry{
 		Egress: aws.Bool(true),
 	}
 	result := naclEntryKey(entry)
-	if result == "" {
-		t.Error("expected non-empty key for entry with nil RuleNumber")
+	expected := "Eunknown"
+	if result != expected {
+		t.Errorf("expected %q, got %q", expected, result)
 	}
 }
 
@@ -153,7 +200,8 @@ func TestCheckNaclEntryKey_NilRuleNumber(t *testing.T) {
 func TestCheckNaclEntryKey_BothNil(t *testing.T) {
 	entry := ec2types.NetworkAclEntry{}
 	result := naclEntryKey(entry)
-	if result == "" {
-		t.Error("expected non-empty key for entry with all nil fields")
+	expected := "Iunknown"
+	if result != expected {
+		t.Errorf("expected %q, got %q", expected, result)
 	}
 }

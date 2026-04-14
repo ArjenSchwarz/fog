@@ -735,8 +735,9 @@ func tagDifferences(property types.PropertyDifference, handledtags []string, tag
 
 // naclEntryKey builds the map key used to match an EC2 NACL entry against the
 // CloudFormation template rules. The key has the form "I<ruleNumber>" for
-// ingress or "E<ruleNumber>" for egress. When either field is nil the
-// corresponding part falls back to a safe default so callers never panic.
+// ingress or "E<ruleNumber>" for egress. When Egress is nil, defaults to "I"
+// (ingress); when RuleNumber is nil, defaults to "unknown" — producing a
+// degenerate key like "Iunknown" that will not collide with valid CFN rules.
 func naclEntryKey(entry ec2types.NetworkAclEntry) string {
 	prefix := "I"
 	if entry.Egress != nil && *entry.Egress {
@@ -757,9 +758,12 @@ func naclEntryToString(entry ec2types.NetworkAclEntry) string {
 	ports := "Ports: All"
 	if entry.PortRange != nil {
 		switch {
-		case entry.PortRange.From == nil || entry.PortRange.To == nil:
-			// partial data — show what we have
-			ports = fmt.Sprintf("Ports: %v-%v", aws.ToInt32(entry.PortRange.From), aws.ToInt32(entry.PortRange.To))
+		case entry.PortRange.From == nil && entry.PortRange.To == nil:
+			ports = "Ports: ?-?"
+		case entry.PortRange.From == nil:
+			ports = fmt.Sprintf("Ports: ?-%v", *entry.PortRange.To)
+		case entry.PortRange.To == nil:
+			ports = fmt.Sprintf("Ports: %v-?", *entry.PortRange.From)
 		case *entry.PortRange.From == *entry.PortRange.To:
 			ports = fmt.Sprintf("Port: %v", *entry.PortRange.From)
 		default:
@@ -772,9 +776,10 @@ func naclEntryToString(entry ec2types.NetworkAclEntry) string {
 			ports = "ICMP: unknown"
 		case *entry.IcmpTypeCode.Type == -1:
 			ports = "ICMP: All"
+		case entry.IcmpTypeCode.Code == nil:
+			ports = fmt.Sprintf("ICMP: %v-?", *entry.IcmpTypeCode.Type)
 		default:
-			code := aws.ToInt32(entry.IcmpTypeCode.Code)
-			ports = fmt.Sprintf("ICMP: %v-%v", *entry.IcmpTypeCode.Type, code)
+			ports = fmt.Sprintf("ICMP: %v-%v", *entry.IcmpTypeCode.Type, *entry.IcmpTypeCode.Code)
 		}
 	}
 	var cidr string
