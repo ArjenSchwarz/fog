@@ -493,19 +493,20 @@ func showEvents(deployment lib.DeployInfo, latest time.Time, awsConfig config.AW
 	}
 	sort.Sort(ReverseEvents(events))
 	for _, event := range events {
-		if event.Timestamp.After(latest) {
-			latest = *event.Timestamp
-			message := fmt.Sprintf("%v: %v %v in status %v", event.Timestamp.In(settings.GetTimezoneLocation()).Format(time.RFC3339), *event.ResourceType, *event.LogicalResourceId, event.ResourceStatus)
-			switch event.ResourceStatus {
-			case types.ResourceStatusCreateFailed, types.ResourceStatusImportFailed, types.ResourceStatusDeleteFailed, types.ResourceStatusUpdateFailed, types.ResourceStatusImportRollbackComplete, types.ResourceStatus(types.StackStatusRollbackComplete), types.ResourceStatus(types.StackStatusUpdateRollbackComplete):
-				// For streaming logs, just apply color without extra spacing
-				fmt.Fprintln(os.Stderr, output.StyleWarning(message))
-			case types.ResourceStatusCreateComplete, types.ResourceStatusImportComplete, types.ResourceStatusUpdateComplete, types.ResourceStatusDeleteComplete:
-				// For streaming logs, just apply color without extra spacing
-				fmt.Fprintln(os.Stderr, output.StylePositive(message))
-			default:
-				fmt.Fprintln(os.Stderr, message)
-			}
+		msg, newLatest, isNew := renderEvent(event, latest)
+		if !isNew {
+			continue
+		}
+		latest = newLatest
+		switch event.ResourceStatus {
+		case types.ResourceStatusCreateFailed, types.ResourceStatusImportFailed, types.ResourceStatusDeleteFailed, types.ResourceStatusUpdateFailed, types.ResourceStatusImportRollbackComplete, types.ResourceStatus(types.StackStatusRollbackComplete), types.ResourceStatus(types.StackStatusUpdateRollbackComplete):
+			// For streaming logs, just apply color without extra spacing
+			fmt.Fprintln(os.Stderr, output.StyleWarning(msg))
+		case types.ResourceStatusCreateComplete, types.ResourceStatusImportComplete, types.ResourceStatusUpdateComplete, types.ResourceStatusDeleteComplete:
+			// For streaming logs, just apply color without extra spacing
+			fmt.Fprintln(os.Stderr, output.StylePositive(msg))
+		default:
+			fmt.Fprintln(os.Stderr, msg)
 		}
 	}
 	return latest
@@ -524,16 +525,9 @@ func showFailedEvents(deployment lib.DeployInfo, awsConfig config.AWSConfig, pre
 	sort.Sort(ReverseEvents(events))
 	result := make([]map[string]any, 0)
 	for _, event := range events {
-		if event.Timestamp.After(deployment.Changeset.CreationTime) {
-			switch event.ResourceStatus {
-			case types.ResourceStatusCreateFailed, types.ResourceStatusImportFailed, types.ResourceStatusDeleteFailed, types.ResourceStatusUpdateFailed:
-				content := make(map[string]any)
-				content["CfnName"] = *event.LogicalResourceId
-				content["Type"] = *event.ResourceType
-				content["Status"] = string(event.ResourceStatus)
-				content["Reason"] = *event.ResourceStatusReason
-				result = append(result, content)
-			}
+		row := renderFailedEvent(event, deployment.Changeset.CreationTime)
+		if row != nil {
+			result = append(result, row)
 		}
 	}
 
@@ -569,9 +563,85 @@ func showFailedEvents(deployment lib.DeployInfo, awsConfig config.AWSConfig, pre
 // ReverseEvents implements sort.Interface for reverse-chronological sorting of stack events
 type ReverseEvents []types.StackEvent
 
-func (a ReverseEvents) Len() int           { return len(a) }
-func (a ReverseEvents) Less(i, j int) bool { return a[i].Timestamp.Before(*a[j].Timestamp) }
-func (a ReverseEvents) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a ReverseEvents) Len() int { return len(a) }
+
+// Less sorts events chronologically (oldest first). Events with nil
+// Timestamps are treated as the zero time so they sort to the beginning.
+func (a ReverseEvents) Less(i, j int) bool {
+	ti := safeTimestamp(a[i].Timestamp)
+	tj := safeTimestamp(a[j].Timestamp)
+	return ti.Before(tj)
+}
+func (a ReverseEvents) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+
+// safeTimestamp returns the dereferenced time or the zero value when t is nil.
+func safeTimestamp(t *time.Time) time.Time {
+	if t == nil {
+		return time.Time{}
+	}
+	return *t
+}
+
+// safeString returns the dereferenced string or the fallback when s is nil.
+func safeString(s *string, fallback string) string {
+	if s == nil {
+		return fallback
+	}
+	return *s
+}
+
+// renderEvent formats a single StackEvent for streaming output. It returns
+// the event timestamp (or latest unchanged) and a boolean indicating whether
+// the event was newer than latest. All pointer fields are handled nil-safely.
+func renderEvent(event types.StackEvent, latest time.Time) (msg string, ts time.Time, isNew bool) {
+	// Events without a timestamp cannot be ordered — skip them
+	if event.Timestamp == nil {
+		return "", latest, false
+	}
+
+	if !event.Timestamp.After(latest) {
+		return "", latest, false
+	}
+
+	resourceType := safeString(event.ResourceType, "(unknown type)")
+	logicalID := safeString(event.LogicalResourceId, "(unknown id)")
+
+	msg = fmt.Sprintf("%v: %v %v in status %v",
+		event.Timestamp.In(settings.GetTimezoneLocation()).Format(time.RFC3339),
+		resourceType,
+		logicalID,
+		event.ResourceStatus,
+	)
+	return msg, *event.Timestamp, true
+}
+
+// renderFailedEvent builds a table row for a failed event. Returns nil if
+// the event should be skipped (e.g. timestamp is nil or before cutoff).
+// All pointer fields are handled nil-safely.
+func renderFailedEvent(event types.StackEvent, cutoff time.Time) map[string]any {
+	// Events without a timestamp cannot be compared against the cutoff — skip
+	if event.Timestamp == nil {
+		return nil
+	}
+	if !event.Timestamp.After(cutoff) {
+		return nil
+	}
+
+	switch event.ResourceStatus {
+	case types.ResourceStatusCreateFailed, types.ResourceStatusImportFailed,
+		types.ResourceStatusDeleteFailed, types.ResourceStatusUpdateFailed:
+		// continue
+	default:
+		return nil
+	}
+
+	return map[string]any{
+		"CfnName": safeString(event.LogicalResourceId, "(unknown id)"),
+		"Type":    safeString(event.ResourceType, "(unknown type)"),
+		"Status":  string(event.ResourceStatus),
+		"Reason":  safeString(event.ResourceStatusReason, "(no reason provided)"),
+	}
+}
 
 // createStderrOutput creates an output writer for stderr with TTY detection
 // This enables conditional formatting based on whether stderr is a TTY.
