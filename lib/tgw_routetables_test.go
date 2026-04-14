@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	cfntypes "github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/smithy-go"
@@ -290,5 +291,75 @@ func TestGetTransitGatewayRouteTableRoutes(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestExtractStringProperty_NilParameterKeyAndValue verifies that extractStringProperty
+// does not panic when parameter entries have nil ParameterKey or ParameterValue fields.
+func TestExtractStringProperty_NilParameterKeyAndValue(t *testing.T) {
+	params := []cfntypes.Parameter{
+		{ParameterKey: nil, ParameterValue: aws.String("should-skip")},
+		{ParameterKey: aws.String("CIDRParam"), ParameterValue: nil, ResolvedValue: nil},
+		{ParameterKey: aws.String("ValidParam"), ParameterValue: aws.String("10.0.0.0/8")},
+	}
+	logicalToPhysical := map[string]string{}
+
+	tests := []struct {
+		name  string
+		props map[string]any
+		key   string
+		want  *string
+	}{
+		{
+			name: "Ref to param with nil key is skipped, valid param resolves",
+			props: map[string]any{
+				"DestinationCidrBlock": map[string]any{"Ref": "ValidParam"},
+			},
+			key:  "DestinationCidrBlock",
+			want: aws.String("10.0.0.0/8"),
+		},
+		{
+			name: "Ref to param with nil ParameterValue returns nil",
+			props: map[string]any{
+				"DestinationCidrBlock": map[string]any{"Ref": "CIDRParam"},
+			},
+			key:  "DestinationCidrBlock",
+			want: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := extractStringProperty(tt.props, params, logicalToPhysical, tt.key)
+			if tt.want == nil {
+				if got != nil {
+					t.Errorf("extractStringProperty() = %v, want nil", *got)
+				}
+			} else if got == nil || *got != *tt.want {
+				t.Errorf("extractStringProperty() = %v, want %v", got, *tt.want)
+			}
+		})
+	}
+}
+
+// TestTGWRouteResourceToTGWRoute_NilParameterFields verifies that TGWRouteResourceToTGWRoute
+// does not panic when parameters contain nil ParameterKey or ParameterValue.
+func TestTGWRouteResourceToTGWRoute_NilParameterFields(t *testing.T) {
+	params := []cfntypes.Parameter{
+		{ParameterKey: nil, ParameterValue: aws.String("should-skip")},
+		{ParameterKey: aws.String("CIDRParam"), ParameterValue: aws.String("172.16.0.0/12")},
+	}
+	logicalToPhysical := map[string]string{}
+
+	resource := CfnTemplateResource{
+		Type: "AWS::EC2::TransitGatewayRoute",
+		Properties: map[string]any{
+			"DestinationCidrBlock": map[string]any{"Ref": "CIDRParam"},
+		},
+	}
+
+	got := TGWRouteResourceToTGWRoute(resource, params, logicalToPhysical)
+	if got.DestinationCidrBlock == nil || *got.DestinationCidrBlock != "172.16.0.0/12" {
+		t.Errorf("TGWRouteResourceToTGWRoute().DestinationCidrBlock = %v, want 172.16.0.0/12", got.DestinationCidrBlock)
 	}
 }
