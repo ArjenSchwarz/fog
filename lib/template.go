@@ -468,6 +468,9 @@ func extractCidrBlock(properties map[string]any, key string, params []cfntypes.P
 // resolveParameterValue resolves a parameter reference to its actual value
 func resolveParameterValue(refname string, params []cfntypes.Parameter) string {
 	for _, parameter := range params {
+		if parameter.ParameterKey == nil {
+			continue
+		}
 		if *parameter.ParameterKey == refname {
 			if parameter.ResolvedValue != nil {
 				return *parameter.ResolvedValue
@@ -603,10 +606,13 @@ func stringPointer(array map[string]any, params []cfntypes.Parameter, logicalToP
 				result = logicalToPhysical[refname]
 			} else {
 				for _, parameter := range params {
+					if parameter.ParameterKey == nil {
+						continue
+					}
 					if *parameter.ParameterKey == refname {
 						if parameter.ResolvedValue != nil {
 							result = *parameter.ResolvedValue
-						} else {
+						} else if parameter.ParameterValue != nil {
 							result = *parameter.ParameterValue
 						}
 					}

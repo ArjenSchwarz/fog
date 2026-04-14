@@ -256,10 +256,13 @@ func extractStringProperty(array map[string]any, params []cfntypes.Parameter, lo
 				result = logicalToPhysical[refname]
 			} else {
 				for _, parameter := range params {
+					if parameter.ParameterKey == nil {
+						continue
+					}
 					if *parameter.ParameterKey == refname {
 						if parameter.ResolvedValue != nil {
 							result = *parameter.ResolvedValue
-						} else {
+						} else if parameter.ParameterValue != nil {
 							result = *parameter.ParameterValue
 						}
 					}
