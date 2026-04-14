@@ -95,6 +95,7 @@ func deployTemplate(cmd *cobra.Command, args []string) {
 			fmt.Fprintf(os.Stderr, "Warning: Failed to write deployment log: %v\n", err)
 		}
 		osExitFunc(1)
+		return
 	}
 
 	changeset := createAndShowChangeset(&deployment, awsConfig, &deploymentLog, deployFlags.Quiet)

@@ -25,22 +25,18 @@ func TestDeployTemplate_PrecheckAbortWritesFailureLog(t *testing.T) {
 	tests := map[string]struct {
 		precheckCommands     []string
 		stopOnFailedPrecheck bool
-		description          string
 	}{
 		"failed precheck with stop flag writes failure log": {
 			precheckCommands:     []string{"sh -c 'exit 1'"},
 			stopOnFailedPrecheck: true,
-			description:          "When prechecks fail and stop-on-failed-prechecks is true, the deployment failure log must be written",
 		},
 		"execution error writes failure log": {
 			precheckCommands:     []string{"nonexistent-cmd-t684 $TEMPLATEPATH"},
 			stopOnFailedPrecheck: false,
-			description:          "When a precheck command cannot be found, the deployment failure log must be written",
 		},
 		"execution error with stop flag writes failure log": {
 			precheckCommands:     []string{"nonexistent-cmd-t684 $TEMPLATEPATH"},
 			stopOnFailedPrecheck: true,
-			description:          "When a precheck command cannot be found and stop flag is set, the deployment failure log must be written",
 		},
 	}
 
