@@ -321,17 +321,23 @@ func ParseTemplateString(template string, parameters *map[string]any) (CfnTempla
 	return parsedTemplate, nil
 }
 
-// resourceIdMatchesLogical checks whether a resource property value (which can be
-// a string like "REF: LogicalName" or a map like {"Fn::ImportValue": "ExportName"})
-// refers to the same physical resource as logicalId. For string values the logical
-// name is compared directly; for Fn::ImportValue maps the import name is resolved
-// through logicalToPhysical and compared against the physical ID of logicalId.
+// resourceIdMatchesLogical checks whether a resource property value refers to the
+// same physical resource as logicalId. It handles three property formats:
+//   - string "REF: LogicalName" — the logical name is compared directly
+//   - map {"Ref": "LogicalName"} — the logical name is compared directly
+//   - map {"Fn::ImportValue": "ExportName"} — the export is resolved through
+//     logicalToPhysical and compared against the physical ID of logicalId
 func resourceIdMatchesLogical(prop any, logicalId string, logicalToPhysical map[string]string) bool {
 	switch value := prop.(type) {
 	case string:
 		refId := strings.TrimPrefix(value, "REF: ")
 		return refId == logicalId
 	case map[string]any:
+		// Handle {"Ref": "LogicalId"} format (raw-map / non-stringified refs)
+		if refName, ok := value["Ref"].(string); ok {
+			return refName == logicalId
+		}
+		// Handle {"Fn::ImportValue": "ExportName"} format
 		if importName, ok := value["Fn::ImportValue"].(string); ok {
 			importPhysical, importOk := logicalToPhysical[importName]
 			logicalPhysical, logicalOk := logicalToPhysical[logicalId]
