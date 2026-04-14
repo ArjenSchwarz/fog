@@ -91,13 +91,10 @@ func deployTemplate(cmd *cobra.Command, args []string) {
 		printMessage(precheckOutput)
 	}
 	if abort {
-		os.Exit(1)
-	}
-
-	// Stop before changeset creation when prechecks failed and the stop flag is set
-	if deployment.PrechecksFailed && viper.GetBool("templates.stop-on-failed-prechecks") {
-		deploymentLog.Failed(nil)
-		os.Exit(1)
+		if err := deploymentLog.Failed(nil); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: Failed to write deployment log: %v\n", err)
+		}
+		osExitFunc(1)
 	}
 
 	changeset := createAndShowChangeset(&deployment, awsConfig, &deploymentLog, deployFlags.Quiet)
