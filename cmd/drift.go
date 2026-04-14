@@ -576,23 +576,44 @@ func getExpectedAndActualTags(expectedResources map[string]any, actualResources 
 	// if Tags exists in expectedResources, compare the list of tags with those in actualResources
 	tags := make(map[string]map[string]string)
 	// go through expectedResources["Tags"] and add each item in expectedTags
-	if expectedResources["Tags"] != nil {
-		for _, tag := range expectedResources["Tags"].([]any) {
-			tagMap := tag.(map[string]any)
-			tags[tagMap["Key"].(string)] = map[string]string{"Expected": tagMap["Value"].(string)}
+	if expectedTags, ok := expectedResources["Tags"].([]any); ok {
+		for _, tag := range expectedTags {
+			key, value, valid := extractTagKeyValue(tag)
+			if !valid {
+				continue
+			}
+			tags[key] = map[string]string{"Expected": value}
 		}
 	}
 	// go through actualResources["Tags"] and add each item in actualTags
-	if actualResources["Tags"] != nil {
-		for _, tag := range actualResources["Tags"].([]any) {
-			tagMap := tag.(map[string]any)
-			if tags[tagMap["Key"].(string)] == nil {
-				tags[tagMap["Key"].(string)] = map[string]string{"Expected": "", "Actual": tagMap["Value"].(string)}
+	if actualTags, ok := actualResources["Tags"].([]any); ok {
+		for _, tag := range actualTags {
+			key, value, valid := extractTagKeyValue(tag)
+			if !valid {
+				continue
 			}
-			tags[tagMap["Key"].(string)]["Actual"] = tagMap["Value"].(string)
+			if tags[key] == nil {
+				tags[key] = map[string]string{"Expected": "", "Actual": value}
+			}
+			tags[key]["Actual"] = value
 		}
 	}
 	return tags
+}
+
+// extractTagKeyValue safely extracts Key and Value strings from a tag entry.
+// Returns ("", "", false) if the entry is malformed.
+func extractTagKeyValue(tag any) (string, string, bool) {
+	tagMap, ok := tag.(map[string]any)
+	if !ok {
+		return "", "", false
+	}
+	key, keyOk := tagMap["Key"].(string)
+	value, valueOk := tagMap["Value"].(string)
+	if !keyOk || !valueOk {
+		return "", "", false
+	}
+	return key, value, true
 }
 
 func shouldTagBeHandled(tag string, drift types.StackResourceDrift) bool {

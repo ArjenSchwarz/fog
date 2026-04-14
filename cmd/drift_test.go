@@ -950,3 +950,147 @@ func TestTagDifferences_MalformedPaths(t *testing.T) {
 		}
 	})
 }
+
+// TestGetExpectedAndActualTags_MalformedPayloads verifies that
+// getExpectedAndActualTags does not panic on malformed tag structures.
+// Regression tests for T-695.
+func TestGetExpectedAndActualTags_MalformedPayloads(t *testing.T) {
+	tests := map[string]struct {
+		expected map[string]any
+		actual   map[string]any
+		wantLen  int
+	}{
+		"nil Tags in both": {
+			expected: map[string]any{},
+			actual:   map[string]any{},
+			wantLen:  0,
+		},
+		"well-formed tags": {
+			expected: map[string]any{
+				"Tags": []any{
+					map[string]any{"Key": "Env", "Value": "prod"},
+				},
+			},
+			actual: map[string]any{
+				"Tags": []any{
+					map[string]any{"Key": "Env", "Value": "staging"},
+				},
+			},
+			wantLen: 1,
+		},
+		"Tags is a map instead of a slice": {
+			expected: map[string]any{
+				"Tags": map[string]any{"Key": "k"},
+			},
+			actual:  map[string]any{},
+			wantLen: 0,
+		},
+		"Tags entry is a string instead of a map": {
+			expected: map[string]any{
+				"Tags": []any{"not-a-map"},
+			},
+			actual:  map[string]any{},
+			wantLen: 0,
+		},
+		"Tag Key is an int instead of a string": {
+			expected: map[string]any{
+				"Tags": []any{
+					map[string]any{"Key": 123, "Value": "v"},
+				},
+			},
+			actual:  map[string]any{},
+			wantLen: 0,
+		},
+		"Tag Value is an int instead of a string": {
+			expected: map[string]any{
+				"Tags": []any{
+					map[string]any{"Key": "k", "Value": 456},
+				},
+			},
+			actual:  map[string]any{},
+			wantLen: 0,
+		},
+		"Tag missing Key field": {
+			expected: map[string]any{
+				"Tags": []any{
+					map[string]any{"Value": "v"},
+				},
+			},
+			actual:  map[string]any{},
+			wantLen: 0,
+		},
+		"Tag missing Value field": {
+			expected: map[string]any{
+				"Tags": []any{
+					map[string]any{"Key": "k"},
+				},
+			},
+			actual:  map[string]any{},
+			wantLen: 0,
+		},
+		"actual Tags is a map instead of a slice": {
+			expected: map[string]any{},
+			actual: map[string]any{
+				"Tags": map[string]any{"Key": "k"},
+			},
+			wantLen: 0,
+		},
+		"actual Tags entry is a non-map": {
+			expected: map[string]any{},
+			actual: map[string]any{
+				"Tags": []any{42},
+			},
+			wantLen: 0,
+		},
+		"actual Tag Key is non-string": {
+			expected: map[string]any{},
+			actual: map[string]any{
+				"Tags": []any{
+					map[string]any{"Key": true, "Value": "v"},
+				},
+			},
+			wantLen: 0,
+		},
+		"actual Tag Value is non-string": {
+			expected: map[string]any{},
+			actual: map[string]any{
+				"Tags": []any{
+					map[string]any{"Key": "k", "Value": []any{}},
+				},
+			},
+			wantLen: 0,
+		},
+		"mixed valid and malformed expected tags": {
+			expected: map[string]any{
+				"Tags": []any{
+					map[string]any{"Key": "Good", "Value": "yes"},
+					"bad-entry",
+					map[string]any{"Key": 123, "Value": "no"},
+				},
+			},
+			actual:  map[string]any{},
+			wantLen: 1,
+		},
+		"mixed valid and malformed actual tags": {
+			expected: map[string]any{},
+			actual: map[string]any{
+				"Tags": []any{
+					map[string]any{"Key": "Good", "Value": "yes"},
+					42,
+					map[string]any{"Missing": "fields"},
+				},
+			},
+			wantLen: 1,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			// The primary goal is to not panic; correct length is secondary.
+			result := getExpectedAndActualTags(tc.expected, tc.actual)
+			if len(result) != tc.wantLen {
+				t.Errorf("got %d tags, want %d; result=%v", len(result), tc.wantLen, result)
+			}
+		})
+	}
+}
