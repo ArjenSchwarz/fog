@@ -158,8 +158,8 @@ func createAndShowChangeset(info *lib.DeployInfo, cfg config.AWSConfig, logObj *
 
 // confirmAndDeployChangeset asks for deployment confirmation and executes
 // the deployment if approved. It returns true when the stack was actually
-// deployed.
-func confirmAndDeployChangeset(changeset *lib.ChangesetInfo, info *lib.DeployInfo, cfg config.AWSConfig) bool {
+// deployed and an error if the deployment execution failed.
+func confirmAndDeployChangeset(changeset *lib.ChangesetInfo, info *lib.DeployInfo, cfg config.AWSConfig) (bool, error) {
 	var confirm bool
 	if deployFlags.NonInteractive {
 		confirm = true
@@ -167,11 +167,13 @@ func confirmAndDeployChangeset(changeset *lib.ChangesetInfo, info *lib.DeployInf
 		confirm = askForConfirmationFunc(string(texts.DeployChangesetMessageDeployConfirm))
 	}
 	if confirm {
-		deployChangesetFunc(*info, cfg)
-		return true
+		if err := deployChangesetFunc(*info, cfg); err != nil {
+			return false, err
+		}
+		return true, nil
 	}
 	deleteChangesetFunc(*info, cfg)
-	return false
+	return false, nil
 }
 
 // printDeploymentResults fetches the final stack state and prints the

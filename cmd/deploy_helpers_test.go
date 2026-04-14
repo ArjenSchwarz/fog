@@ -503,9 +503,11 @@ func TestConfirmAndDeployChangeset(t *testing.T) {
 	tests := map[string]struct {
 		nonInteractive bool
 		userConfirm    bool
+		deployErr      error
 		expectDeploy   bool
 		expectDelete   bool
 		expectReturn   bool
+		expectErr      bool
 	}{
 		"non-interactive auto-deploy": {
 			nonInteractive: true,
@@ -527,6 +529,14 @@ func TestConfirmAndDeployChangeset(t *testing.T) {
 			expectDeploy:   false,
 			expectDelete:   true,
 			expectReturn:   false,
+		},
+		"deploy fails with error": {
+			nonInteractive: true,
+			deployErr:      errors.New("ExecuteChangeSet failed: access denied"),
+			expectDeploy:   true,
+			expectDelete:   false,
+			expectReturn:   false,
+			expectErr:      true,
 		},
 	}
 
@@ -552,8 +562,9 @@ func TestConfirmAndDeployChangeset(t *testing.T) {
 			askForConfirmationFunc = func(string) bool {
 				return tc.userConfirm
 			}
-			deployChangesetFunc = func(info lib.DeployInfo, cfg config.AWSConfig) {
+			deployChangesetFunc = func(info lib.DeployInfo, cfg config.AWSConfig) error {
 				deployCalled = true
+				return tc.deployErr
 			}
 			deleteChangesetFunc = func(info lib.DeployInfo, cfg config.AWSConfig) {
 				deleteCalled = true
@@ -563,7 +574,11 @@ func TestConfirmAndDeployChangeset(t *testing.T) {
 				NonInteractive: tc.nonInteractive,
 			}
 
-			result := confirmAndDeployChangeset(&lib.ChangesetInfo{}, &lib.DeployInfo{}, config.AWSConfig{})
+			result, err := confirmAndDeployChangeset(&lib.ChangesetInfo{}, &lib.DeployInfo{}, config.AWSConfig{})
+
+			if (err != nil) != tc.expectErr {
+				t.Errorf("expected error=%v, got %v", tc.expectErr, err)
+			}
 
 			if result != tc.expectReturn {
 				t.Errorf("expected return value=%v, got %v", tc.expectReturn, result)
