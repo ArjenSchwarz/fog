@@ -729,6 +729,32 @@ func TestGetParametersMap(t *testing.T) {
 				"Key3": "Value3",
 			},
 		},
+		// Regression: nil ParameterKey should be skipped (T-717)
+		"nil key is skipped": {
+			params: []types.Parameter{
+				{ParameterKey: nil, ParameterValue: strPtr("OrphanValue")},
+				{ParameterKey: strPtr("Key1"), ParameterValue: strPtr("Value1")},
+			},
+			want: map[string]any{
+				"Key1": "Value1",
+			},
+		},
+		// Regression: nil ParameterValue should map to empty string (T-717)
+		"nil value maps to empty string": {
+			params: []types.Parameter{
+				{ParameterKey: strPtr("RedactedKey"), ParameterValue: nil},
+			},
+			want: map[string]any{
+				"RedactedKey": "",
+			},
+		},
+		// Regression: both key and value nil should be skipped (T-717)
+		"nil key and nil value is skipped": {
+			params: []types.Parameter{
+				{ParameterKey: nil, ParameterValue: nil},
+			},
+			want: map[string]any{},
+		},
 	}
 
 	for name, tc := range tests {
