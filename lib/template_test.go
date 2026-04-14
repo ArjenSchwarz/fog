@@ -1245,6 +1245,161 @@ func TestFilterRoutesByLogicalId_FnImportValue(t *testing.T) {
 	}
 }
 
+// TestFilterRoutesByLogicalId_RefMap verifies that routes using {"Ref": "LogicalId"}
+// map format for RouteTableId are correctly matched. This is a regression test for
+// T-741 where resourceIdMatchesLogical only handled "REF: " strings and
+// Fn::ImportValue maps, missing the Ref-map format entirely.
+func TestFilterRoutesByLogicalId_RefMap(t *testing.T) {
+	params := []cfntypes.Parameter{
+		{ParameterKey: aws.String("GW"), ParameterValue: aws.String("igw-ref123")},
+	}
+	logicalToPhysical := map[string]string{
+		"MyRouteTable": "rtb-abc123",
+	}
+
+	template := CfnTemplateBody{
+		Resources: map[string]CfnTemplateResource{
+			"RefRoute": {
+				Type: "AWS::EC2::Route",
+				Properties: map[string]any{
+					"RouteTableId":         map[string]any{"Ref": "MyRouteTable"},
+					"DestinationCidrBlock": "0.0.0.0/0",
+					"GatewayId":            map[string]any{"Ref": "GW"},
+				},
+			},
+			"StringRoute": {
+				Type: "AWS::EC2::Route",
+				Properties: map[string]any{
+					"RouteTableId":         "REF: MyRouteTable",
+					"DestinationCidrBlock": "10.0.0.0/8",
+					"GatewayId":            "local",
+				},
+			},
+			"OtherRefRoute": {
+				Type: "AWS::EC2::Route",
+				Properties: map[string]any{
+					"RouteTableId":         map[string]any{"Ref": "OtherRouteTable"},
+					"DestinationCidrBlock": "192.168.0.0/16",
+					"GatewayId":            "local",
+				},
+			},
+		},
+		Conditions: map[string]bool{},
+	}
+
+	results := FilterRoutesByLogicalId("MyRouteTable", template, params, logicalToPhysical)
+
+	// Both the Ref-map route and the string-based route should match
+	if len(results) != 2 {
+		t.Errorf("Expected 2 routes, got %d", len(results))
+	}
+
+	// Ref-map route should be found
+	if route, ok := results["0.0.0.0/0"]; ok {
+		if *route.GatewayId != "igw-ref123" {
+			t.Errorf("Expected gateway igw-ref123, got %s", *route.GatewayId)
+		}
+	} else {
+		t.Errorf("Expected Ref-map default route not found")
+	}
+
+	// String-based route should also be found
+	if _, ok := results["10.0.0.0/8"]; !ok {
+		t.Errorf("Expected string-based route not found")
+	}
+
+	// OtherRouteTable route should NOT be included
+	if _, ok := results["192.168.0.0/16"]; ok {
+		t.Errorf("Expected OtherRouteTable route not to be included")
+	}
+}
+
+// TestResourceIdMatchesLogical_RefMap verifies that resourceIdMatchesLogical
+// handles the {"Ref": "LogicalId"} map format. Regression test for T-741.
+func TestResourceIdMatchesLogical_RefMap(t *testing.T) {
+	logicalToPhysical := map[string]string{
+		"MyResource": "phys-123",
+	}
+
+	tests := []struct {
+		name      string
+		prop      any
+		logicalId string
+		want      bool
+	}{
+		{
+			name:      "Ref map matches logical ID",
+			prop:      map[string]any{"Ref": "MyResource"},
+			logicalId: "MyResource",
+			want:      true,
+		},
+		{
+			name:      "Ref map does not match different logical ID",
+			prop:      map[string]any{"Ref": "OtherResource"},
+			logicalId: "MyResource",
+			want:      false,
+		},
+		{
+			name:      "string REF still works",
+			prop:      "REF: MyResource",
+			logicalId: "MyResource",
+			want:      true,
+		},
+		{
+			name:      "Fn::ImportValue still works",
+			prop:      map[string]any{"Fn::ImportValue": "MyResource"},
+			logicalId: "MyResource",
+			want:      true,
+		},
+		{
+			name:      "nil prop returns false",
+			prop:      nil,
+			logicalId: "MyResource",
+			want:      false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := resourceIdMatchesLogical(tt.prop, tt.logicalId, logicalToPhysical)
+			if got != tt.want {
+				t.Errorf("resourceIdMatchesLogical(%v, %q) = %v, want %v", tt.prop, tt.logicalId, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestFilterNaclEntriesByLogicalId_RefMap verifies that NACL entries using
+// {"Ref": "LogicalId"} map format for NetworkAclId are correctly matched.
+// This ensures the fix for T-741 also covers NACL filtering.
+func TestFilterNaclEntriesByLogicalId_RefMap(t *testing.T) {
+	params := []cfntypes.Parameter{}
+	logicalToPhysical := map[string]string{}
+
+	template := CfnTemplateBody{
+		Resources: map[string]CfnTemplateResource{
+			"NaclEntry1": {
+				Type: "AWS::EC2::NetworkAclEntry",
+				Properties: map[string]any{
+					"NetworkAclId": map[string]any{"Ref": "MyNacl"},
+					"RuleNumber":   float64(100),
+					"Protocol":     "-1",
+					"RuleAction":   "allow",
+					"Egress":       false,
+					"CidrBlock":    "10.0.0.0/8",
+				},
+			},
+		},
+		Conditions: map[string]bool{},
+	}
+
+	results := FilterNaclEntriesByLogicalId("MyNacl", template, params, logicalToPhysical)
+
+	if len(results) != 1 {
+		t.Errorf("Expected 1 NACL entry, got %d", len(results))
+	}
+}
+
 // TestFilterTGWRoutesByLogicalId_FnImportValue verifies that TGW routes using
 // Fn::ImportValue for TransitGatewayRouteTableId are correctly filtered instead of panicking.
 func TestFilterTGWRoutesByLogicalId_FnImportValue(t *testing.T) {
