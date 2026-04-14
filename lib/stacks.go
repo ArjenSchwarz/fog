@@ -861,11 +861,20 @@ func (deployment *DeployInfo) GetExecutionTimes(ctx context.Context, svc CloudFo
 	return result, nil
 }
 
-// GetParametersMap converts a slice of parameters into a map of key-value pairs
+// GetParametersMap converts a slice of parameters into a map of key-value pairs.
+// Entries with a nil ParameterKey are skipped. A nil ParameterValue is stored as
+// an empty string so callers never encounter a nil dereference.
 func GetParametersMap(params []types.Parameter) *map[string]any {
 	result := make(map[string]any)
 	for _, param := range params {
-		result[*param.ParameterKey] = *param.ParameterValue
+		if param.ParameterKey == nil {
+			continue
+		}
+		value := ""
+		if param.ParameterValue != nil {
+			value = *param.ParameterValue
+		}
+		result[*param.ParameterKey] = value
 	}
 	return &result
 }
