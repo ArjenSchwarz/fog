@@ -281,6 +281,74 @@ func TestRunPrechecks(t *testing.T) {
 	}
 }
 
+// TestRunPrechecks_T711_ExecutionErrorHonorsStopFlag is a regression test for
+// T-711: runPrechecks must return abort=false when an execution error occurs
+// (e.g. missing command) and stop-on-failed-prechecks is disabled.
+// Before the fix, the error path always returned abort=true regardless of the
+// stop flag, causing deployments to abort even when the user explicitly chose
+// to continue on precheck failures.
+func TestRunPrechecks_T711_ExecutionErrorHonorsStopFlag(t *testing.T) {
+	tests := map[string]struct {
+		precheckCommands     []string
+		stopOnFailedPrecheck bool
+		wantAbort            bool
+		wantOutputContains   string
+	}{
+		"missing command with stop flag disabled should not abort": {
+			precheckCommands:     []string{"nonexistent-cmd-t711 $TEMPLATEPATH"},
+			stopOnFailedPrecheck: false,
+			wantAbort:            false,
+			wantOutputContains:   "cannot be found",
+		},
+		"missing command with stop flag enabled should abort": {
+			precheckCommands:     []string{"nonexistent-cmd-t711 $TEMPLATEPATH"},
+			stopOnFailedPrecheck: true,
+			wantAbort:            true,
+			wantOutputContains:   "cannot be found",
+		},
+		"unsafe command with stop flag disabled should not abort": {
+			precheckCommands:     []string{"rm -rf /"},
+			stopOnFailedPrecheck: false,
+			wantAbort:            false,
+			wantOutputContains:   "unsafe command",
+		},
+		"unsafe command with stop flag enabled should abort": {
+			precheckCommands:     []string{"rm -rf /"},
+			stopOnFailedPrecheck: true,
+			wantAbort:            true,
+			wantOutputContains:   "unsafe command",
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			viper.Set("templates.prechecks", tc.precheckCommands)
+			viper.Set("templates.stop-on-failed-prechecks", tc.stopOnFailedPrecheck)
+
+			info := lib.DeployInfo{TemplateRelativePath: "test"}
+			logObj := lib.DeploymentLog{}
+
+			out, abort := runPrechecks(&info, &logObj)
+
+			if abort != tc.wantAbort {
+				t.Errorf("expected abort=%v, got %v (stop flag=%v)", tc.wantAbort, abort, tc.stopOnFailedPrecheck)
+			}
+
+			if !info.PrechecksFailed {
+				t.Error("expected PrechecksFailed=true for execution error")
+			}
+
+			if logObj.PreChecks != lib.DeploymentLogPreChecksFailed {
+				t.Errorf("expected log status %q, got %q", lib.DeploymentLogPreChecksFailed, logObj.PreChecks)
+			}
+
+			if tc.wantOutputContains != "" && !strings.Contains(strings.ToLower(out), strings.ToLower(tc.wantOutputContains)) {
+				t.Errorf("expected output to contain %q, got %q", tc.wantOutputContains, out)
+			}
+		})
+	}
+}
+
 // TestPrepareDeployment tests the prepareDeployment helper function
 func TestPrepareDeployment(t *testing.T) {
 	// Don't run in parallel due to global state (viper, deployFlags, outputsettings)
