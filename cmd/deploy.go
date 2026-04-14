@@ -144,7 +144,7 @@ func showDeploymentInfo(deployment lib.DeployInfo, awsConfig config.AWSConfig, q
 	if deployment.IsNew {
 		fmt.Fprintf(os.Stderr, "%v new stack '%v' to region %v of account %v\n\n", method, bold(deployFlags.StackName), awsConfig.Region, account)
 	} else {
-		fmt.Fprintf(os.Stderr, "%v stack '%v' in region %v of account %v\n\n", method, bold(deployFlags.StackName), awsConfig.Region, awsConfig.AccountID)
+		fmt.Fprintf(os.Stderr, "%v stack '%v' in region %v of account %v\n\n", method, bold(deployFlags.StackName), awsConfig.Region, account)
 	}
 	printBasicStackInfo(deployment, true, awsConfig)
 }

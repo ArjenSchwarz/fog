@@ -72,7 +72,7 @@ func TestShowDeploymentInfo_GoldenFiles(t *testing.T) {
 					method, tc.deployment.StackName, tc.awsConfig.Region, account))
 			} else {
 				buf.WriteString(fmt.Sprintf("%v stack '%v' in region %v of account %v\n",
-					method, tc.deployment.StackName, tc.awsConfig.Region, tc.awsConfig.AccountID))
+					method, tc.deployment.StackName, tc.awsConfig.Region, account))
 			}
 
 			// Assert against golden file (strip ANSI codes to test data correctness, not formatting)
