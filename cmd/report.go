@@ -191,11 +191,8 @@ func generateReport() error {
 	}
 
 	// Generate report for each stack
-	for _, stackkey := range stackskeys {
-		fmt.Println(stackkey)
-		if err := generateStackReport(ctx, stacks[stackkey], doc, awsConfig); err != nil {
-			return err
-		}
+	if err := buildStackReports(ctx, stacks, stackskeys, doc, awsConfig); err != nil {
+		return err
 	}
 
 	// Get output options with S3/file configuration if needed
@@ -220,6 +217,17 @@ func generateReport() error {
 		}
 	}
 
+	return nil
+}
+
+// buildStackReports iterates over the sorted stack keys and adds each
+// stack's report sections to the document builder.
+func buildStackReports(ctx context.Context, stacks map[string]lib.CfnStack, stackKeys []string, doc *output.Builder, awsConfig config.AWSConfig) error {
+	for _, stackKey := range stackKeys {
+		if err := generateStackReport(ctx, stacks[stackKey], doc, awsConfig); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
