@@ -271,7 +271,10 @@ func TestDeploymentWorkflow_EndToEnd(t *testing.T) {
 				}
 
 				// Confirm and deploy
-				deployed := confirmAndDeployChangeset(cs, &info, awsCfg)
+				deployed, err := confirmAndDeployChangeset(cs, &info, awsCfg)
+				if err != nil {
+					t.Fatalf("unexpected error during deploy: %v", err)
+				}
 
 				if tc.expectStackCreated && !deployed {
 					t.Error("expected stack to be deployed but it wasn't")
