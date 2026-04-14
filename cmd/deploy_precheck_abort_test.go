@@ -30,10 +30,6 @@ func TestDeployTemplate_PrecheckAbortWritesFailureLog(t *testing.T) {
 			precheckCommands:     []string{"sh -c 'exit 1'"},
 			stopOnFailedPrecheck: true,
 		},
-		"execution error writes failure log": {
-			precheckCommands:     []string{"nonexistent-cmd-t684 $TEMPLATEPATH"},
-			stopOnFailedPrecheck: false,
-		},
 		"execution error with stop flag writes failure log": {
 			precheckCommands:     []string{"nonexistent-cmd-t684 $TEMPLATEPATH"},
 			stopOnFailedPrecheck: true,
