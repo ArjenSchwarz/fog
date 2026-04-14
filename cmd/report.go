@@ -143,10 +143,7 @@ func generateReport() error {
 
 	// Determine if we need Mermaid output based on format
 	outputFormat := settings.GetLCString("output")
-	hasMermaid := outputFormat == outputFormatMarkdown || outputFormat == outputFormatHTML
-	if hasMermaid {
-		reportFlags.HasMermaid = true
-	}
+	reportFlags.HasMermaid = outputFormat == outputFormatMarkdown || outputFormat == outputFormatHTML
 
 	stacks, err := lib.GetCfnStacks(ctx, &reportFlags.StackName, awsConfig.CloudformationClient())
 	if err != nil {
