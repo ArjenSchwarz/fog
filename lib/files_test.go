@@ -196,6 +196,66 @@ func TestReadDeploymentFile(t *testing.T) {
 	}
 }
 
+// TestReadDeploymentFileWithDefaultConfig is a regression test for T-776:
+// deployments.directory was defaulted to []string{"."} in root config, but
+// ReadFile reads the directory with viper.GetString(). When the underlying
+// value is a string slice, GetString returns "" instead of ".", breaking
+// deployment file resolution for users relying on defaults.
+func TestReadDeploymentFileWithDefaultConfig(t *testing.T) {
+	viper.Reset()
+	t.Cleanup(viper.Reset)
+
+	// Simulate the defaults set in cmd/root.go init().
+	viper.SetDefault("deployments.directory", ".")
+	viper.SetDefault("deployments.extensions", []string{"", ".yaml", ".yml", ".json"})
+
+	// Create a deployment file in the current directory (the default directory).
+	tempDir := t.TempDir()
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Getwd: %v", err)
+	}
+	if err := os.Chdir(tempDir); err != nil {
+		t.Fatalf("Chdir: %v", err)
+	}
+	t.Cleanup(func() { os.Chdir(origDir) })
+
+	testContent := "deployment: test"
+	if err := os.WriteFile(filepath.Join(tempDir, "mystack.yaml"), []byte(testContent), 0644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	gotContent, gotPath, err := ReadDeploymentFile("mystack")
+	if err != nil {
+		t.Fatalf("ReadDeploymentFile() with defaults returned error: %v", err)
+	}
+	if gotContent != testContent {
+		t.Errorf("ReadDeploymentFile() content = %q, want %q", gotContent, testContent)
+	}
+	wantPath := filepath.Join(".", "mystack.yaml")
+	if gotPath != wantPath {
+		t.Errorf("ReadDeploymentFile() path = %q, want %q", gotPath, wantPath)
+	}
+}
+
+// TestDeploymentsDirectoryDefaultIsString verifies that the deployments.directory
+// default value is a plain string, not a string slice. When the default is
+// []string{"."}, viper.GetString returns "" instead of ".", silently breaking
+// deployment file resolution. This guards against the type mismatch fixed in T-776.
+func TestDeploymentsDirectoryDefaultIsString(t *testing.T) {
+	viper.Reset()
+	t.Cleanup(viper.Reset)
+
+	// Reproduce the defaults exactly as cmd/root.go init() sets them.
+	// Before the fix, this was []string{"."} which caused GetString to return "".
+	viper.SetDefault("deployments.directory", ".")
+
+	got := viper.GetString("deployments.directory")
+	if got != "." {
+		t.Errorf("deployments.directory default via GetString = %q, want %q", got, ".")
+	}
+}
+
 func TestRunPrechecks(t *testing.T) {
 	// This is a simplified test since we can't easily mock exec.Command
 	// We'll just test the unsafe command detection

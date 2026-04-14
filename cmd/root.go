@@ -175,8 +175,7 @@ func init() {
 	viper.SetDefault("parameters.extensions", []string{"", ".json"})
 	viper.SetDefault("parameters.directory", "parameters")
 	viper.SetDefault("deployments.extensions", []string{"", ".yaml", ".yml", ".json"})
-	viper.SetDefault("deployments.directory", []string{"."})
-	viper.SetDefault("parameters.directory", "parameters")
+	viper.SetDefault("deployments.directory", ".")
 	viper.SetDefault("rootdir", ".")
 
 	viper.SetDefault("changeset.name-format", "fog-$TIMESTAMP")
