@@ -389,12 +389,7 @@ func checkRouteTableRoutes(ctx context.Context, routetableResources map[string]s
 	if err != nil {
 		failWithError(err)
 	}
-	awsPrefixesSlice := make([]string, 0)
-	for _, prefixlist := range managedPrefixLists {
-		if *prefixlist.OwnerId == "AWS" {
-			awsPrefixesSlice = append(awsPrefixesSlice, *prefixlist.PrefixListId)
-		}
-	}
+	awsPrefixesSlice := awsManagedPrefixListIDs(managedPrefixLists)
 	// Specific check for NACLs
 	for logicalId, physicalId := range routetableResources {
 		rulechanges := []string{}
@@ -457,6 +452,22 @@ func checkRouteTableRoutes(ctx context.Context, routetableResources map[string]s
 			}
 		}
 	}
+}
+
+// awsManagedPrefixListIDs returns the PrefixListId values for entries
+// owned by "AWS". Entries with nil OwnerId or nil/empty PrefixListId are
+// silently skipped so that partial SDK responses don't cause a panic.
+func awsManagedPrefixListIDs(lists []ec2types.ManagedPrefixList) []string {
+	result := make([]string, 0, len(lists))
+	for _, pl := range lists {
+		if pl.OwnerId == nil || pl.PrefixListId == nil {
+			continue
+		}
+		if *pl.OwnerId == "AWS" && *pl.PrefixListId != "" {
+			result = append(result, *pl.PrefixListId)
+		}
+	}
+	return result
 }
 
 // checkTransitGatewayRouteTableRoutes verifies Transit Gateway routes and reports any differences
