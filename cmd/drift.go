@@ -336,11 +336,7 @@ func checkNaclEntries(ctx context.Context, naclResources map[string]string, temp
 		}
 		attachedRules := lib.FilterNaclEntriesByLogicalId(logicalId, template, parameters, logicalToPhysical)
 		for _, entry := range nacl.Entries {
-			rulenumberstring := "I"
-			if *entry.Egress {
-				rulenumberstring = "E"
-			}
-			rulenumberstring += strconv.Itoa(int(*entry.RuleNumber))
+			rulenumberstring := naclEntryKey(entry)
 			cfnentry, ok := attachedRules[rulenumberstring]
 			// If the key exists
 			if ok {
@@ -737,23 +733,52 @@ func tagDifferences(property types.PropertyDifference, handledtags []string, tag
 	}
 }
 
+// naclEntryKey builds the map key used to match an EC2 NACL entry against the
+// CloudFormation template rules. The key has the form "I<ruleNumber>" for
+// ingress or "E<ruleNumber>" for egress. When Egress is nil, defaults to "I"
+// (ingress); when RuleNumber is nil, defaults to "unknown" — producing a
+// degenerate key like "Iunknown" that will not collide with valid CFN rules.
+func naclEntryKey(entry ec2types.NetworkAclEntry) string {
+	prefix := "I"
+	if entry.Egress != nil && *entry.Egress {
+		prefix = "E"
+	}
+	ruleNum := "unknown"
+	if entry.RuleNumber != nil {
+		ruleNum = strconv.Itoa(int(*entry.RuleNumber))
+	}
+	return prefix + ruleNum
+}
+
 func naclEntryToString(entry ec2types.NetworkAclEntry) string {
 	direction := "ingress"
-	if *entry.Egress {
+	if entry.Egress != nil && *entry.Egress {
 		direction = "egress"
 	}
 	ports := "Ports: All"
 	if entry.PortRange != nil {
-		if *entry.PortRange.From == *entry.PortRange.To {
+		switch {
+		case entry.PortRange.From == nil && entry.PortRange.To == nil:
+			ports = "Ports: ?-?"
+		case entry.PortRange.From == nil:
+			ports = fmt.Sprintf("Ports: ?-%v", *entry.PortRange.To)
+		case entry.PortRange.To == nil:
+			ports = fmt.Sprintf("Ports: %v-?", *entry.PortRange.From)
+		case *entry.PortRange.From == *entry.PortRange.To:
 			ports = fmt.Sprintf("Port: %v", *entry.PortRange.From)
-		} else {
+		default:
 			ports = fmt.Sprintf("Ports: %v-%v", *entry.PortRange.From, *entry.PortRange.To)
 		}
 	}
 	if entry.IcmpTypeCode != nil {
-		if *entry.IcmpTypeCode.Type == -1 {
+		switch {
+		case entry.IcmpTypeCode.Type == nil:
+			ports = "ICMP: unknown"
+		case *entry.IcmpTypeCode.Type == -1:
 			ports = "ICMP: All"
-		} else {
+		case entry.IcmpTypeCode.Code == nil:
+			ports = fmt.Sprintf("ICMP: %v-?", *entry.IcmpTypeCode.Type)
+		default:
 			ports = fmt.Sprintf("ICMP: %v-%v", *entry.IcmpTypeCode.Type, *entry.IcmpTypeCode.Code)
 		}
 	}
@@ -764,7 +789,12 @@ func naclEntryToString(entry ec2types.NetworkAclEntry) string {
 	if entry.Ipv6CidrBlock != nil {
 		cidr = *entry.Ipv6CidrBlock
 	}
-	return fmt.Sprintf("%s #%v %v: %s, %s %s", direction, *entry.RuleNumber, entry.RuleAction, *entry.Protocol, cidr, ports)
+	ruleNum := "unknown"
+	if entry.RuleNumber != nil {
+		ruleNum = strconv.Itoa(int(*entry.RuleNumber))
+	}
+	protocol := aws.ToString(entry.Protocol)
+	return fmt.Sprintf("%s #%v %v: %s, %s %s", direction, ruleNum, entry.RuleAction, protocol, cidr, ports)
 }
 
 func routeToString(route ec2types.Route) string {
