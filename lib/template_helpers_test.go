@@ -10,8 +10,15 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 )
 
-// TestExtractRuleNumber tests the safe extraction of rule numbers from NACL properties
+// TestExtractRuleNumber tests the safe extraction of rule numbers from NACL properties.
+// Covers literal numbers, numeric strings, and parameter references — the last
+// is a regression guard for T-834 where {"Ref": "Param"} resolved to 0.
 func TestExtractRuleNumber(t *testing.T) {
+	params := []cfntypes.Parameter{
+		{ParameterKey: aws.String("IngressRuleNumber"), ParameterValue: aws.String("150")},
+		{ParameterKey: aws.String("ResolvedRuleNumber"), ResolvedValue: aws.String("175"), ParameterValue: aws.String("0")},
+	}
+
 	tests := []struct {
 		name       string
 		properties map[string]any
@@ -28,7 +35,7 @@ func TestExtractRuleNumber(t *testing.T) {
 			want:       0,
 		},
 		{
-			name:       "invalid type",
+			name:       "invalid string",
 			properties: map[string]any{"RuleNumber": "not a number"},
 			want:       0,
 		},
@@ -37,11 +44,36 @@ func TestExtractRuleNumber(t *testing.T) {
 			properties: map[string]any{"RuleNumber": float64(-1)},
 			want:       -1,
 		},
+		{
+			name:       "numeric string",
+			properties: map[string]any{"RuleNumber": "250"},
+			want:       250,
+		},
+		{
+			name:       "parameter reference resolves via ParameterValue",
+			properties: map[string]any{"RuleNumber": map[string]any{"Ref": "IngressRuleNumber"}},
+			want:       150,
+		},
+		{
+			name:       "parameter reference prefers ResolvedValue over ParameterValue",
+			properties: map[string]any{"RuleNumber": map[string]any{"Ref": "ResolvedRuleNumber"}},
+			want:       175,
+		},
+		{
+			name:       "parameter reference to unknown parameter",
+			properties: map[string]any{"RuleNumber": map[string]any{"Ref": "Unknown"}},
+			want:       0,
+		},
+		{
+			name:       "map without Ref key",
+			properties: map[string]any{"RuleNumber": map[string]any{"Fn::Sub": "something"}},
+			want:       0,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := extractRuleNumber(tt.properties)
+			got := extractRuleNumber(tt.properties, params)
 			if got != tt.want {
 				t.Errorf("extractRuleNumber() = %v, want %v", got, tt.want)
 			}
