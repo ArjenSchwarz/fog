@@ -303,9 +303,13 @@ func (deployment DeployInfo) IsOngoing(ctx context.Context, svc CloudFormationDe
 	return !stringInSlice(string(stack.StackStatus), availableStatuses)
 }
 
-// IsNewStack verifies if a stack is new. This can mean either that it doesn't exist yet or is in review in progress state
-func (deployment DeployInfo) IsNewStack(ctx context.Context, svc CloudFormationDescribeStacksAPI) bool {
-	stackExists := StackExists(ctx, &deployment, svc)
+// IsNewStack verifies if a stack is new. This can mean either that it doesn't exist yet or is in review in progress state.
+// Uses a pointer receiver so the RawStack cached by StackExists is preserved on the
+// caller's DeployInfo. Without this, downstream callers (e.g. outputNoChangesResult)
+// would see a nil RawStack for existing stacks and render blank status/last-updated
+// values on a no-change changeset (T-832).
+func (deployment *DeployInfo) IsNewStack(ctx context.Context, svc CloudFormationDescribeStacksAPI) bool {
+	stackExists := StackExists(ctx, deployment, svc)
 	if !stackExists {
 		return true
 	}
