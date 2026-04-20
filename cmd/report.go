@@ -259,8 +259,10 @@ func getReportOutputOptions(awsConfig config.AWSConfig, frontMatter map[string]s
 // getDefaultExtension returns the default file extension for a format
 func getDefaultExtension(format string) string {
 	switch format {
-	case outputFormatMarkdown, outputFormatHTML:
+	case outputFormatMarkdown:
 		return ".md"
+	case outputFormatHTML:
+		return ".html"
 	case "json":
 		return ".json"
 	case "csv":
