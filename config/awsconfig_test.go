@@ -3,6 +3,7 @@ package config
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -34,16 +35,17 @@ func (m *mockConfig) withRegion(region string) *mockConfig {
 }
 
 func (m *mockConfig) GetLCString(setting string) string {
+	// Matches Config.GetLCString behaviour: lowercases the stored value.
+	return strings.ToLower(m.GetString(setting))
+}
+
+func (m *mockConfig) GetString(setting string) string {
 	if val, ok := m.values[setting]; ok {
 		if str, ok := val.(string); ok {
 			return str
 		}
 	}
 	return ""
-}
-
-func (m *mockConfig) GetString(setting string) string {
-	return m.GetLCString(setting)
 }
 
 func (m *mockConfig) GetStringSlice(setting string) []string {
@@ -77,6 +79,58 @@ func TestDefaultAwsConfig(t *testing.T) {
 	// Note: This test requires actual AWS SDK initialization which would need credentials
 	// These tests are marked as integration tests and will be skipped without INTEGRATION=1
 	t.Skip("Skipping AWS config test - requires AWS SDK mocking infrastructure")
+}
+
+// TestSharedConfigProfile_PreservesCase is a regression test for T-880.
+//
+// AWS shared config profile names are case-sensitive (e.g. "ProdAdmin" and
+// "prodadmin" refer to different profiles). Previously sharedConfigProfile
+// used Config.GetLCString, which lowercased the configured value and caused
+// mixed-case profile names to be looked up incorrectly and fail to load or
+// match a different profile.
+//
+// Expected behaviour: the profile name is returned unchanged.
+// Previous (buggy) behaviour: the profile name was lowercased.
+func TestSharedConfigProfile_PreservesCase(t *testing.T) {
+	tests := map[string]struct {
+		profile string
+		want    string
+	}{
+		"mixed case profile": {
+			profile: "ProdAdmin",
+			want:    "ProdAdmin",
+		},
+		"upper case profile": {
+			profile: "PRODUCTION",
+			want:    "PRODUCTION",
+		},
+		"lower case profile": {
+			profile: "dev",
+			want:    "dev",
+		},
+		"profile with digits and hyphens": {
+			profile: "Account-123_Admin",
+			want:    "Account-123_Admin",
+		},
+		"empty profile": {
+			profile: "",
+			want:    "",
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			m := newMockConfig()
+			if tc.profile != "" {
+				m.withProfile(tc.profile)
+			}
+
+			got := sharedConfigProfile(m)
+			assert.Equal(t, tc.want, got)
+		})
+	}
 }
 
 func TestAWSConfig_GetAccountAliasID(t *testing.T) {

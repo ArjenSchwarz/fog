@@ -27,12 +27,30 @@ type AWSConfig struct {
 	UserID       string
 }
 
+// profileReader is the minimal Config surface sharedConfigProfile needs.
+// It exists so the helper can be exercised in tests without depending on the
+// global viper-backed Config.
+type profileReader interface {
+	GetString(setting string) string
+}
+
+// sharedConfigProfile returns the AWS shared config profile name from config,
+// preserving the original case.
+//
+// AWS profile names (in ~/.aws/config and ~/.aws/credentials) are
+// case-sensitive, so the raw GetString value is used instead of the
+// lowercased GetLCString value. See T-880.
+func sharedConfigProfile(config profileReader) string {
+	return config.GetString("profile")
+}
+
 // DefaultAwsConfig loads default AWS Config
 func DefaultAwsConfig(ctx context.Context, config Config) (AWSConfig, error) {
 	awsConfig := AWSConfig{}
-	if config.GetLCString("profile") != "" {
-		awsConfig.ProfileName = config.GetLCString("profile")
-		cfg, err := external.LoadDefaultConfig(ctx, external.WithSharedConfigProfile(config.GetLCString("profile")))
+	profile := sharedConfigProfile(&config)
+	if profile != "" {
+		awsConfig.ProfileName = profile
+		cfg, err := external.LoadDefaultConfig(ctx, external.WithSharedConfigProfile(profile))
 		if err != nil {
 			return awsConfig, err
 		}
