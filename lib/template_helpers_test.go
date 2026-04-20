@@ -35,7 +35,7 @@ func TestExtractRuleNumber(t *testing.T) {
 			want:       0,
 		},
 		{
-			name:       "invalid string",
+			name:       "non-numeric string",
 			properties: map[string]any{"RuleNumber": "not a number"},
 			want:       0,
 		},

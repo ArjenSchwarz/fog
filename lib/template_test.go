@@ -1401,9 +1401,12 @@ func TestFilterNaclEntriesByLogicalId_RefMap(t *testing.T) {
 }
 
 // TestFilterNaclEntriesByLogicalId_ParameterizedRuleNumber is a regression
-// test for T-834. When RuleNumber is a {"Ref": "ParamName"} reference, the
-// parameter value must be resolved so entries keep their real rule numbers.
-// Previously, all parameterized entries collapsed onto the same "I0" or "E0"
+// test for T-834. Parameterized rule numbers must resolve to their real
+// values so entries keep distinct drift-check keys. In the drift path,
+// ParseTemplateString is invoked with parameter overrides, which typically
+// inlines Ref values as numeric strings; the {"Ref": "Param"} map form can
+// also survive when parameters are not supplied. Both shapes must work.
+// Previously, parameterized entries collapsed onto the same "I0" or "E0"
 // key, causing drift detection to report spurious modifications.
 func TestFilterNaclEntriesByLogicalId_ParameterizedRuleNumber(t *testing.T) {
 	params := []cfntypes.Parameter{
@@ -1413,17 +1416,21 @@ func TestFilterNaclEntriesByLogicalId_ParameterizedRuleNumber(t *testing.T) {
 
 	template := CfnTemplateBody{
 		Resources: map[string]CfnTemplateResource{
+			// Inlined numeric string — the common drift-path shape after
+			// ParseTemplateString applies parameter overrides.
 			"IngressRule": {
 				Type: "AWS::EC2::NetworkAclEntry",
 				Properties: map[string]any{
 					"NetworkAclId": "REF: TestNacl",
 					"Protocol":     6.0,
-					"RuleNumber":   map[string]any{"Ref": "IngressRuleNumber"},
+					"RuleNumber":   "150",
 					"CidrBlock":    "10.0.0.0/24",
 					"RuleAction":   "allow",
 					"Egress":       false,
 				},
 			},
+			// Unresolved {"Ref": "Param"} map — covers paths where the Ref
+			// map survives into extraction and must be resolved via params.
 			"EgressRule": {
 				Type: "AWS::EC2::NetworkAclEntry",
 				Properties: map[string]any{
