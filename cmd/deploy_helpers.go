@@ -25,6 +25,7 @@ var getCfnClient = func(cfg config.AWSConfig) lib.CloudFormationDescribeStacksAP
 }
 
 var createChangesetFunc = createChangeset
+var fetchChangesetFunc = fetchChangeset
 var showChangesetFunc = showChangeset
 var deleteChangesetFunc = deleteChangeset
 var deployChangesetFunc = deployChangeset
@@ -87,9 +88,13 @@ func prepareDeployment() (lib.DeployInfo, config.AWSConfig, error) {
 			return lib.DeployInfo{}, config.AWSConfig{}, err
 		}
 	}
-	setDeployTemplate(&deployment, awsCfg)
-	setDeployTags(&deployment)
-	setDeployParameters(&deployment)
+	// When deploying an existing changeset, the template/tags/parameters are
+	// already captured on the changeset itself so we skip loading them here.
+	if !deployFlags.DeployChangeset {
+		setDeployTemplate(&deployment, awsCfg)
+		setDeployTags(&deployment)
+		setDeployParameters(&deployment)
+	}
 
 	return deployment, awsCfg, nil
 }
@@ -154,6 +159,28 @@ func createAndShowChangeset(info *lib.DeployInfo, cfg config.AWSConfig, logObj *
 	info.Changeset = changeset // Maintain existing field for backwards compatibility
 
 	// Show changeset overview to stderr only when not in quiet mode
+	if !quiet {
+		showChangesetFunc(*changeset, *info, cfg)
+	}
+
+	return changeset
+}
+
+// runDeployChangesetFlow retrieves an existing changeset (named by
+// --changeset), attaches it to the deployment and displays it. It is the
+// counterpart to createAndShowChangeset for the --deploy-changeset flow.
+// If fetchChangesetFunc returns nil (e.g. a test stub or an error path that
+// returned instead of exiting), the caller receives nil and should abort.
+func runDeployChangesetFlow(info *lib.DeployInfo, cfg config.AWSConfig, logObj *lib.DeploymentLog, quiet bool) *lib.ChangesetInfo {
+	changeset := fetchChangesetFunc(info, cfg)
+	if changeset == nil {
+		return nil
+	}
+	logObj.AddChangeSet(changeset)
+
+	info.CapturedChangeset = changeset
+	info.Changeset = changeset
+
 	if !quiet {
 		showChangesetFunc(*changeset, *info, cfg)
 	}

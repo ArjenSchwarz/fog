@@ -64,6 +64,7 @@ const (
 	DeployChangesetMessageConsole           DeployChangesetMessage = "If you want to look at the change set in the Console, please go to"
 	DeployChangesetMessageCreationFailed    DeployChangesetMessage = "Something went wrong when trying to create the change set"
 	DeployChangesetMessageRetrieveFailed    DeployChangesetMessage = "Something went wrong when trying to retrieve change set %v"
+	DeployChangesetMessageNotFound          DeployChangesetMessage = "Change set %v was not found; verify the change set and stack names"
 	DeployChangesetMessageDeleteConfirm     DeployChangesetMessage = "Do you want to delete this change set?"
 	DeployChangesetMessageDeleteFailed      DeployChangesetMessage = "Something went wrong while trying to delete the change set"
 	DeployChangesetMessageDeployConfirm     DeployChangesetMessage = "Do you want to deploy this change set?"
