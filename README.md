@@ -448,9 +448,21 @@ INTEGRATION=1 go test ./...
 
 #### Linting
 
+The project's `.golangci.yml` uses the golangci-lint v2 schema. Install v2
+(the v2 module path — the plain `cmd/golangci-lint@latest` installs v1) with:
+
 ```bash
-# Run golangci-lint
+go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
+```
+
+Then run:
+
+```bash
+# Run golangci-lint (make lint also runs a version preflight)
 golangci-lint run
+
+# Or via the Makefile, which validates the installed version first
+make lint
 
 # Format code
 go fmt ./...

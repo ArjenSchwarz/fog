@@ -45,9 +45,9 @@ INTEGRATION=1 go test ./... -cover
 - `./fog [command]` - Run the compiled binary
 
 ### Linting
-- The project uses `golangci-lint` in CI/CD
-- Install locally with: `go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest`
-- Run with: `golangci-lint run`
+- The project uses `golangci-lint` v2 in CI/CD (the repo's `.golangci.yml` uses the v2 schema)
+- Install locally with: `go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest`
+- Run with: `golangci-lint run` (or `make lint`, which runs a version preflight via `scripts/check-golangci-lint.sh`)
 
 ## Architecture Overview
 

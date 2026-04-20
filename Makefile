@@ -77,8 +77,9 @@ fmt:
 vet:
 	go vet ./...
 
-# Run linter (requires golangci-lint)
+# Run linter (requires golangci-lint v2; .golangci.yml uses the v2 schema)
 lint:
+	@./scripts/check-golangci-lint.sh
 	golangci-lint run
 
 # Run modernize to update code to modern Go patterns (requires modernize)

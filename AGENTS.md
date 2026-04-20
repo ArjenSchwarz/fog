@@ -17,7 +17,7 @@ Before opening a pull request run the following commands:
 
 1. `gofmt`
 2. `go test ./... -v`
-3. `golangci-lint run`
+3. `golangci-lint run` (requires golangci-lint v2 — install with `go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest`; `make lint` runs a preflight that enforces this)
 4. Optionally `go build -o fog` to confirm the project builds.
 
 ## Code Style
