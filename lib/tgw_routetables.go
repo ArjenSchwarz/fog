@@ -36,8 +36,10 @@ func GetTransitGatewayRouteTableRoutes(
 	routeTableId string,
 	svc EC2SearchTransitGatewayRoutesAPI,
 ) ([]types.TransitGatewayRoute, error) {
-	// Add timeout to context for API call(s)
-	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	// Add a timeout budget for the API call(s). A single query can take up to
+	// 30s; the narrowing path may issue up to three sequential calls (one
+	// initial, two narrowed by type), so the budget is scaled accordingly.
+	ctx, cancel := context.WithTimeout(ctx, 90*time.Second)
 	defer cancel()
 
 	stateFilter := types.Filter{
@@ -56,8 +58,9 @@ func GetTransitGatewayRouteTableRoutes(
 
 	// The single-filter response was truncated. Split by route type to cover
 	// the full result set. The union of "static" and "propagated" equals the
-	// entire set of routes in the table.
-	combined := make([]types.TransitGatewayRoute, 0, len(result.Routes))
+	// entire set of routes in the table. The initial (truncated) result is
+	// discarded because the narrowed calls return complete, independent sets.
+	var combined []types.TransitGatewayRoute
 	for _, routeType := range []string{"static", "propagated"} {
 		typeFilter := types.Filter{
 			Name:   aws.String("type"),
@@ -92,7 +95,7 @@ func searchTGWRoutes(
 	result, err := svc.SearchTransitGatewayRoutes(ctx, &input)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
-			return nil, fmt.Errorf("API call timed out after 30 seconds: %w", err)
+			return nil, fmt.Errorf("API call timed out: %w", err)
 		}
 
 		var apiErr smithy.APIError

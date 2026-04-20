@@ -359,6 +359,13 @@ func TestGetTransitGatewayRouteTableRoutes_AdditionalRoutesAvailable(t *testing.
 		t.Fatalf("GetTransitGatewayRouteTableRoutes() unexpected error: %v", err)
 	}
 
+	// Lock in the expected call sequence: 1 initial + 2 narrowed (static,
+	// propagated). Guards against future changes that silently alter the
+	// fallback strategy.
+	if callCount != 3 {
+		t.Errorf("expected 3 API calls (1 initial + 2 narrowed), got %d", callCount)
+	}
+
 	if len(got) != 2 {
 		t.Fatalf("expected 2 routes after narrowing, got %d (callCount=%d)", len(got), callCount)
 	}
@@ -369,6 +376,42 @@ func TestGetTransitGatewayRouteTableRoutes_AdditionalRoutesAvailable(t *testing.
 	}
 	if !destinations["10.0.0.0/16"] || !destinations["10.1.0.0/16"] {
 		t.Errorf("expected both static and propagated routes, got destinations %v", destinations)
+	}
+}
+
+// TestGetTransitGatewayRouteTableRoutes_NarrowedCallError is a regression test
+// for T-881. When a narrowed-by-type retry fails with an API error (for
+// example UnauthorizedOperation on a subset of routes), the error must be
+// propagated to the caller rather than swallowed.
+func TestGetTransitGatewayRouteTableRoutes_NarrowedCallError(t *testing.T) {
+	staticRoute := types.TransitGatewayRoute{
+		DestinationCidrBlock: aws.String("10.0.0.0/16"),
+		State:                types.TransitGatewayRouteStateActive,
+		Type:                 types.TransitGatewayRouteTypeStatic,
+	}
+
+	svc := mockEC2SearchTransitGatewayRoutesAPI(func(ctx context.Context, params *ec2.SearchTransitGatewayRoutesInput, optFns ...func(*ec2.Options)) (*ec2.SearchTransitGatewayRoutesOutput, error) {
+		hasType := false
+		for _, f := range params.Filters {
+			if f.Name != nil && *f.Name == "type" {
+				hasType = true
+				break
+			}
+		}
+		if !hasType {
+			// Initial call signals truncation to trigger the narrowing path.
+			return &ec2.SearchTransitGatewayRoutesOutput{
+				Routes:                    []types.TransitGatewayRoute{staticRoute},
+				AdditionalRoutesAvailable: aws.Bool(true),
+			}, nil
+		}
+		// Any narrowed call fails with an API error.
+		return nil, &smithy.GenericAPIError{Code: "UnauthorizedOperation", Message: "insufficient permissions"}
+	})
+
+	_, err := GetTransitGatewayRouteTableRoutes(context.Background(), "tgw-rtb-narrowerr", svc)
+	if err == nil {
+		t.Fatal("expected error from narrowed call to be propagated, got nil")
 	}
 }
 
