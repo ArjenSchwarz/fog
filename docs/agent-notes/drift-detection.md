@@ -22,6 +22,7 @@ Drift detection lives in `cmd/drift.go` with helpers in `cmd/helpers.go`.
 - `settings` is a global `*config.Config` instance backed by viper — tests that use it cannot run in parallel
 - The `allresources` map from `ListAllResources` uses different key formats depending on resource type (e.g., SSO permission sets use `"instanceArn|permissionSetArn"` composite keys)
 - `driftFlags` is also global state that affects test isolation
+- NACL property extractors in `lib/template.go` (e.g. `extractRuleNumber`, `extractCidrBlock`) must handle the shapes they may receive at extraction time. In the drift path, `ParseTemplateString` is invoked with stack parameter overrides (from `GetParametersMap`), which typically inlines `Ref` parameter values directly into `properties` — so a parameterized `RuleNumber` usually arrives as a numeric string (e.g. `"150"`) rather than a `{"Ref": "ParamName"}` map. Extractors must still handle both: literal scalars (`float64`/`string`, including numeric strings) and, when a `Ref` map survives, resolve it via `resolveParameterValue(refname, params)`. Skipping any supported shape silently produces a zero value and collides drift-check keys (T-834 was `extractRuleNumber` returning 0 for parameterized rule numbers, causing all entries to collapse onto `I0`/`E0`).
 
 ## Tests
 

@@ -397,7 +397,7 @@ func FilterRoutesByLogicalId(logicalId string, template CfnTemplateBody, params 
 // NaclResourceToNaclEntry converts a CloudFormation NACL resource to an EC2 NetworkAclEntry
 func NaclResourceToNaclEntry(resource CfnTemplateResource, params []cfntypes.Parameter) types.NetworkAclEntry {
 	protocol := extractProtocol(resource.Properties)
-	rulenr := extractRuleNumber(resource.Properties)
+	rulenr := extractRuleNumber(resource.Properties, params)
 	cidrblock := extractCidrBlock(resource.Properties, "CidrBlock", params)
 	ipv6cidrblock := ""
 	if cidrblock == "" {
@@ -429,10 +429,30 @@ func NaclResourceToNaclEntry(resource CfnTemplateResource, params []cfntypes.Par
 	return result
 }
 
-// extractRuleNumber safely extracts the rule number from NACL properties
-func extractRuleNumber(properties map[string]any) int32 {
-	if ruleNum, ok := properties["RuleNumber"].(float64); ok {
-		return int32(ruleNum)
+// extractRuleNumber safely extracts the rule number from NACL properties.
+// It handles literal numbers (float64 after JSON/YAML parsing), numeric strings,
+// and {"Ref": "ParamName"} parameter references. Parameter references are
+// resolved against params; any form that cannot be resolved to a number
+// returns 0 so callers can still produce a deterministic map key.
+// Fn::Sub and other intrinsics can't be statically resolved here, so they
+// still fall back to 0; two such entries would collide on I0/E0, but that is
+// no worse than the pre-T-834 behaviour for parameterized rule numbers.
+func extractRuleNumber(properties map[string]any, params []cfntypes.Parameter) int32 {
+	switch value := properties["RuleNumber"].(type) {
+	case float64:
+		return int32(value)
+	case string:
+		if n, err := strconv.Atoi(value); err == nil {
+			return int32(n)
+		}
+	case map[string]any:
+		if refname, ok := value["Ref"].(string); ok {
+			if resolved := resolveParameterValue(refname, params); resolved != "" {
+				if n, err := strconv.Atoi(resolved); err == nil {
+					return int32(n)
+				}
+			}
+		}
 	}
 	return 0
 }
