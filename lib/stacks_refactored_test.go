@@ -603,6 +603,53 @@ func TestDeployInfo_IsNewStack(t *testing.T) {
 	}
 }
 
+// TestDeployInfo_IsNewStack_CachesRawStack verifies that IsNewStack preserves
+// the RawStack cached by StackExists onto the caller's DeployInfo (T-832).
+// Previously IsNewStack had a value receiver, so the cache set by
+// StackExists was written to a discarded local copy and the caller was
+// left with a nil RawStack. Downstream consumers such as
+// outputNoChangesResult then rendered blank stack status and
+// "Last Updated: N/A" for existing stacks.
+func TestDeployInfo_IsNewStack_CachesRawStack(t *testing.T) {
+	t.Helper()
+
+	t.Run("caches RawStack for existing stack", func(t *testing.T) {
+		t.Parallel()
+
+		mockClient := testutil.NewMockCFNClient()
+		stack := testutil.NewStackBuilder("existing-stack").
+			WithStatus(types.StackStatusCreateComplete).
+			Build()
+		mockClient.Stacks["existing-stack"] = stack
+
+		deployment := &DeployInfo{
+			StackName: "existing-stack",
+		}
+
+		got := deployment.IsNewStack(context.Background(), mockClient)
+
+		assert.False(t, got, "existing CREATE_COMPLETE stack should not be classified as new")
+		require.NotNil(t, deployment.RawStack, "RawStack should be cached on the caller's DeployInfo after IsNewStack")
+		assert.Equal(t, types.StackStatusCreateComplete, deployment.RawStack.StackStatus)
+	})
+
+	t.Run("leaves RawStack nil for non-existent stack", func(t *testing.T) {
+		t.Parallel()
+
+		mockClient := testutil.NewMockCFNClient()
+		mockClient.WithError(errors.New("Stack does not exist"))
+
+		deployment := &DeployInfo{
+			StackName: "missing-stack",
+		}
+
+		got := deployment.IsNewStack(context.Background(), mockClient)
+
+		assert.True(t, got, "missing stack should be classified as new")
+		assert.Nil(t, deployment.RawStack, "RawStack should remain nil when stack does not exist")
+	})
+}
+
 // TestDeployInfo_GetFreshStack_FallsBackToStackName verifies that
 // GetFreshStack uses StackName when StackArn is empty (T-761).
 func TestDeployInfo_GetFreshStack_FallsBackToStackName(t *testing.T) {
