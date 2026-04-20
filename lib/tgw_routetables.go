@@ -44,7 +44,7 @@ func GetTransitGatewayRouteTableRoutes(
 
 	stateFilter := types.Filter{
 		Name:   aws.String("state"),
-		Values: []string{"active", "blackhole"},
+		Values: []string{string(types.TransitGatewayRouteStateActive), string(types.TransitGatewayRouteStateBlackhole)},
 	}
 
 	result, err := searchTGWRoutes(ctx, svc, routeTableId, []types.Filter{stateFilter})
@@ -57,21 +57,24 @@ func GetTransitGatewayRouteTableRoutes(
 	}
 
 	// The single-filter response was truncated. Split by route type to cover
-	// the full result set. The union of "static" and "propagated" equals the
-	// entire set of routes in the table. The initial (truncated) result is
+	// the full result set. The union of static and propagated route types equals
+	// the entire set of routes in the table. The initial (truncated) result is
 	// discarded because the narrowed calls return complete, independent sets.
 	var combined []types.TransitGatewayRoute
-	for _, routeType := range []string{"static", "propagated"} {
+	for _, routeType := range []types.TransitGatewayRouteType{
+		types.TransitGatewayRouteTypeStatic,
+		types.TransitGatewayRouteTypePropagated,
+	} {
 		typeFilter := types.Filter{
 			Name:   aws.String("type"),
-			Values: []string{routeType},
+			Values: []string{string(routeType)},
 		}
 		narrowed, err := searchTGWRoutes(ctx, svc, routeTableId, []types.Filter{stateFilter, typeFilter})
 		if err != nil {
 			return nil, err
 		}
 		if additionalRoutesAvailable(narrowed) {
-			return nil, fmt.Errorf("route table %s type=%s: %w", routeTableId, routeType, ErrTGWRoutesTruncated)
+			return nil, fmt.Errorf("route table %s type=%s: %w", routeTableId, string(routeType), ErrTGWRoutesTruncated)
 		}
 		combined = append(combined, narrowed.Routes...)
 	}
