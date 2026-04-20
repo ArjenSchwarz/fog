@@ -712,13 +712,15 @@ func handleResourceEvent(event types.StackEvent, stackEvent StackEvent,
 	return resources, finishedEvents, failedEvents
 }
 
-// generateResourceEventName creates a unique name for a resource event
+// generateResourceEventName creates a unique name for a resource event.
+// Uses aws.ToString so nil ResourceType or LogicalResourceId pointers resolve
+// to empty strings rather than panicking.
 func generateResourceEventName(event types.StackEvent, stackEvent StackEvent,
 	finishedEvents, failedEvents []string) string {
 
 	name := fmt.Sprintf("%s-%s-%s",
-		slug.Make(*event.ResourceType),
-		*event.LogicalResourceId,
+		slug.Make(aws.ToString(event.ResourceType)),
+		aws.ToString(event.LogicalResourceId),
 		stackEvent.StartDate.Format(time.RFC3339))
 
 	if stringInSlice(name, finishedEvents) {
@@ -891,8 +893,19 @@ type ReverseEvents []types.StackEvent
 // Len returns the length of the slice
 func (a ReverseEvents) Len() int { return len(a) }
 
-// Less compares two events by timestamp
-func (a ReverseEvents) Less(i, j int) bool { return a[i].Timestamp.Before(*a[j].Timestamp) }
+// Less compares two events by timestamp. Events with nil Timestamps are
+// treated as the zero time so they sort to the beginning rather than panicking.
+func (a ReverseEvents) Less(i, j int) bool {
+	return safeEventTimestamp(a[i].Timestamp).Before(safeEventTimestamp(a[j].Timestamp))
+}
+
+// safeEventTimestamp returns the dereferenced time or the zero value when t is nil.
+func safeEventTimestamp(t *time.Time) time.Time {
+	if t == nil {
+		return time.Time{}
+	}
+	return *t
+}
 
 // Swap swaps two elements in the slice
 func (a ReverseEvents) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
