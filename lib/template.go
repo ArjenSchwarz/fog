@@ -336,9 +336,7 @@ func resourceIdMatchesLogical(prop any, logicalId string, logicalToPhysical map[
 		if refId == logicalId {
 			return true
 		}
-		// Handle plain physical ID string (e.g. "rtb-12345" or "acl-12345")
-		// by comparing against the physical ID of logicalId, mirroring
-		// tgwRouteMatchesRouteTable in lib/tgw_routetables.go.
+		// Plain physical ID string — compare against the mapped physical ID of logicalId.
 		if physicalId, ok := logicalToPhysical[logicalId]; ok && physicalId != "" {
 			return refId == physicalId
 		}

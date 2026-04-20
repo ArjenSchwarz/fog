@@ -1600,12 +1600,8 @@ func TestRouteResourceToRoute_NilParameterFields(t *testing.T) {
 }
 
 // TestFilterRoutesByLogicalId_HardcodedPhysicalId verifies that routes whose
-// RouteTableId property is supplied as a literal physical ID string (e.g.
-// "rtb-12345") are matched against the logical ID via the logicalToPhysical
-// map. Regression test for T-866: without the fix, the string branch of
-// resourceIdMatchesLogical only compares the trimmed value against the logical
-// ID and misses plain physical IDs entirely, so the route is omitted from the
-// template-side map and drift detection reports a managed route as unmanaged.
+// RouteTableId property is a literal physical ID string are matched against
+// the logical ID via the logicalToPhysical map.
 func TestFilterRoutesByLogicalId_HardcodedPhysicalId(t *testing.T) {
 	params := []cfntypes.Parameter{}
 	logicalToPhysical := map[string]string{
@@ -1648,9 +1644,8 @@ func TestFilterRoutesByLogicalId_HardcodedPhysicalId(t *testing.T) {
 }
 
 // TestFilterNaclEntriesByLogicalId_HardcodedPhysicalId verifies that NACL
-// entries whose NetworkAclId property is supplied as a literal physical ID
-// string (e.g. "acl-12345") are matched against the logical ID via the
-// logicalToPhysical map. Regression test for T-866.
+// entries whose NetworkAclId property is a literal physical ID string are
+// matched against the logical ID via the logicalToPhysical map.
 func TestFilterNaclEntriesByLogicalId_HardcodedPhysicalId(t *testing.T) {
 	params := []cfntypes.Parameter{}
 	logicalToPhysical := map[string]string{
@@ -1701,7 +1696,6 @@ func TestFilterNaclEntriesByLogicalId_HardcodedPhysicalId(t *testing.T) {
 // TestResourceIdMatchesLogical_HardcodedPhysicalId verifies that
 // resourceIdMatchesLogical matches a plain physical ID string against the
 // physical ID of the logical resource via the logicalToPhysical map.
-// Regression test for T-866.
 func TestResourceIdMatchesLogical_HardcodedPhysicalId(t *testing.T) {
 	logicalToPhysical := map[string]string{
 		"MyResource": "phys-12345",
@@ -1716,6 +1710,12 @@ func TestResourceIdMatchesLogical_HardcodedPhysicalId(t *testing.T) {
 		{
 			name:      "plain physical ID string matches via logicalToPhysical",
 			prop:      "phys-12345",
+			logicalId: "MyResource",
+			want:      true,
+		},
+		{
+			name:      "REF:-prefixed physical ID still matches after trimming",
+			prop:      "REF: phys-12345",
 			logicalId: "MyResource",
 			want:      true,
 		},
