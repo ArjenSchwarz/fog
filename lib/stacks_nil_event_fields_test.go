@@ -2,6 +2,7 @@ package lib
 
 import (
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -72,19 +73,24 @@ func TestGenerateResourceEventName_NilFields(t *testing.T) {
 	baseTime := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
 
 	tests := map[string]struct {
-		event types.StackEvent
+		event           types.StackEvent
+		wantContainsRT  string
+		wantContainsLID string
 	}{
 		"nil ResourceType": {
 			event: types.StackEvent{
 				ResourceType:      nil,
 				LogicalResourceId: aws.String("MyBucket"),
 			},
+			wantContainsLID: "MyBucket",
 		},
 		"nil LogicalResourceId": {
 			event: types.StackEvent{
 				ResourceType:      aws.String("AWS::S3::Bucket"),
 				LogicalResourceId: nil,
 			},
+			// ResourceType runs through slug.Make (lowercased, "::" -> "-").
+			wantContainsRT: "aws-s3-bucket",
 		},
 		"both nil": {
 			event: types.StackEvent{
@@ -105,8 +111,18 @@ func TestGenerateResourceEventName_NilFields(t *testing.T) {
 				}
 			}()
 			got := generateResourceEventName(tc.event, stackEvent, nil, nil)
-			if got == "" {
-				t.Errorf("generateResourceEventName returned empty string; want a sensible fallback name")
+			// The fallback format is "<ResourceType>-<LogicalResourceId>-<StartDate RFC3339>".
+			// Missing pointer fields become empty strings, so the timestamp suffix
+			// must always be present to make the name unique per event group.
+			wantSuffix := baseTime.Format(time.RFC3339)
+			if !strings.HasSuffix(got, wantSuffix) {
+				t.Errorf("generateResourceEventName = %q; want suffix %q", got, wantSuffix)
+			}
+			if tc.wantContainsRT != "" && !strings.Contains(got, tc.wantContainsRT) {
+				t.Errorf("generateResourceEventName = %q; want to contain ResourceType %q", got, tc.wantContainsRT)
+			}
+			if tc.wantContainsLID != "" && !strings.Contains(got, tc.wantContainsLID) {
+				t.Errorf("generateResourceEventName = %q; want to contain LogicalResourceId %q", got, tc.wantContainsLID)
 			}
 		})
 	}
@@ -120,6 +136,7 @@ func TestProcessStackEvents_NilFields(t *testing.T) {
 	t.Parallel()
 
 	t1 := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
+	t2 := time.Date(2024, 1, 1, 12, 5, 0, 0, time.UTC)
 
 	events := []types.StackEvent{
 		{
@@ -136,6 +153,14 @@ func TestProcessStackEvents_NilFields(t *testing.T) {
 			ResourceStatus:    types.ResourceStatusCreateInProgress,
 			Timestamp:         nil,
 		},
+		{
+			// stack-level completion event to finalize the group so we can
+			// assert the group was produced without dropping events.
+			LogicalResourceId: aws.String("my-stack"),
+			ResourceType:      aws.String("AWS::CloudFormation::Stack"),
+			ResourceStatus:    types.ResourceStatusCreateComplete,
+			Timestamp:         &t2,
+		},
 	}
 
 	defer func() {
@@ -143,5 +168,12 @@ func TestProcessStackEvents_NilFields(t *testing.T) {
 			t.Fatalf("processStackEvents panicked on nil field: %v", r)
 		}
 	}()
-	_ = processStackEvents(events, "my-stack")
+	result := processStackEvents(events, "my-stack")
+	// The sequence contains a start + completion pair, so the result must
+	// contain at least one finalized event group. Without this check the test
+	// would only guard against a panic, not against the function silently
+	// dropping all events.
+	if len(result) == 0 {
+		t.Errorf("processStackEvents returned empty result; want at least one finalized event group")
+	}
 }
