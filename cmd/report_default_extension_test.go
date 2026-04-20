@@ -18,7 +18,10 @@ func TestGetDefaultExtension(t *testing.T) {
 		"html returns .html":          {format: "html", want: ".html"},
 		"json returns .json":          {format: "json", want: ".json"},
 		"csv returns .csv":            {format: "csv", want: ".csv"},
-		"unknown format returns .txt": {format: "table", want: ".txt"},
+		"yaml returns .yaml":          {format: "yaml", want: ".yaml"},
+		"dot returns .dot":            {format: "dot", want: ".dot"},
+		"table returns .txt":          {format: "table", want: ".txt"},
+		"unknown format returns .txt": {format: "unknown", want: ".txt"},
 		"empty format returns .txt":   {format: "", want: ".txt"},
 	}
 

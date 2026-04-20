@@ -256,7 +256,9 @@ func getReportOutputOptions(awsConfig config.AWSConfig, frontMatter map[string]s
 	return opts
 }
 
-// getDefaultExtension returns the default file extension for a format
+// getDefaultExtension returns the default file extension for a format.
+// Formats listed here mirror the ones accepted by --output (see cmd/root.go)
+// and mapped in config.getFormatForOutput.
 func getDefaultExtension(format string) string {
 	switch format {
 	case outputFormatMarkdown:
@@ -267,6 +269,12 @@ func getDefaultExtension(format string) string {
 		return ".json"
 	case "csv":
 		return ".csv"
+	case "yaml":
+		return ".yaml"
+	case "dot":
+		return ".dot"
+	case "table":
+		return ".txt"
 	default:
 		return ".txt"
 	}
