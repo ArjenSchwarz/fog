@@ -98,21 +98,27 @@ func deployTemplate(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	changeset := createAndShowChangeset(&deployment, awsConfig, &deploymentLog, deployFlags.Quiet)
+	var changeset *lib.ChangesetInfo
+	if deployFlags.DeployChangeset {
+		// Deploy an existing, previously-created changeset by name.
+		changeset = runDeployChangesetFlow(&deployment, awsConfig, &deploymentLog, deployFlags.Quiet)
+	} else {
+		changeset = createAndShowChangeset(&deployment, awsConfig, &deploymentLog, deployFlags.Quiet)
 
-	// Handle dry-run mode
-	if deployment.IsDryRun {
-		outputDryRunResult(&deployment, awsConfig)
-		// Delete changeset after output for dry-run
-		deleteChangeset(deployment, awsConfig)
-		return
-	}
+		// Handle dry-run mode
+		if deployment.IsDryRun {
+			outputDryRunResult(&deployment, awsConfig)
+			// Delete changeset after output for dry-run
+			deleteChangeset(deployment, awsConfig)
+			return
+		}
 
-	// Handle create-changeset mode
-	if deployFlags.CreateChangeset {
-		outputDryRunResult(&deployment, awsConfig)
-		// Do NOT delete changeset for --create-changeset mode
-		return
+		// Handle create-changeset mode
+		if deployFlags.CreateChangeset {
+			outputDryRunResult(&deployment, awsConfig)
+			// Do NOT delete changeset for --create-changeset mode
+			return
+		}
 	}
 
 	deployed, err := confirmAndDeployChangeset(changeset, &deployment, awsConfig)
@@ -340,6 +346,26 @@ func loadParametersFromFiles(parameterFiles string) []types.Parameter {
 		parameters = append(parameters, parsedparameters...)
 	}
 	return parameters
+}
+
+// fetchChangeset retrieves an existing changeset (named by --changeset) and
+// attaches it to the deployment so it can be executed without creating a new
+// one. Used by the --deploy-changeset flow.
+func fetchChangeset(deployment *lib.DeployInfo, awsConfig config.AWSConfig) *lib.ChangesetInfo {
+	ctx := context.Background()
+	rawchangeset, err := deployment.GetChangeset(ctx, awsConfig.CloudformationClient())
+	if err != nil {
+		message := fmt.Sprintf(string(texts.DeployChangesetMessageRetrieveFailed), deployment.ChangesetName)
+		printMessage(formatError(message))
+		log.Fatalln(err)
+	}
+	if len(rawchangeset) == 0 {
+		message := fmt.Sprintf(string(texts.DeployChangesetMessageRetrieveFailed), deployment.ChangesetName)
+		printMessage(formatError(message))
+		os.Exit(1)
+	}
+	changeset := deployment.AddChangeset(rawchangeset)
+	return &changeset
 }
 
 func createChangeset(deployment *lib.DeployInfo, awsConfig config.AWSConfig) *lib.ChangesetInfo {

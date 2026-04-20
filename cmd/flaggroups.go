@@ -23,6 +23,7 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -52,6 +53,34 @@ func (f *DeployFlags) Validate() error {
 
 	if f.DeploymentFile != "" && (f.Template != "" || f.Parameters != "" || f.Tags != "") {
 		return fmt.Errorf("you can't provide a deployment file and other parameters at the same time")
+	}
+
+	if f.DeployChangeset {
+		if f.ChangesetName == "" {
+			return fmt.Errorf("--deploy-changeset requires --changeset to identify the existing change set")
+		}
+		var conflicting []string
+		if f.Dryrun {
+			conflicting = append(conflicting, "--dry-run")
+		}
+		if f.CreateChangeset {
+			conflicting = append(conflicting, "--create-changeset")
+		}
+		if f.Template != "" {
+			conflicting = append(conflicting, "--template")
+		}
+		if f.Parameters != "" {
+			conflicting = append(conflicting, "--parameters")
+		}
+		if f.Tags != "" {
+			conflicting = append(conflicting, "--tags")
+		}
+		if f.DeploymentFile != "" {
+			conflicting = append(conflicting, "--deployment-file")
+		}
+		if len(conflicting) > 0 {
+			return fmt.Errorf("--deploy-changeset cannot be combined with %s", strings.Join(conflicting, ", "))
+		}
 	}
 
 	return nil
