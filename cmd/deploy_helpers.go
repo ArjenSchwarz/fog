@@ -169,8 +169,13 @@ func createAndShowChangeset(info *lib.DeployInfo, cfg config.AWSConfig, logObj *
 // runDeployChangesetFlow retrieves an existing changeset (named by
 // --changeset), attaches it to the deployment and displays it. It is the
 // counterpart to createAndShowChangeset for the --deploy-changeset flow.
+// If fetchChangesetFunc returns nil (e.g. a test stub or an error path that
+// returned instead of exiting), the caller receives nil and should abort.
 func runDeployChangesetFlow(info *lib.DeployInfo, cfg config.AWSConfig, logObj *lib.DeploymentLog, quiet bool) *lib.ChangesetInfo {
 	changeset := fetchChangesetFunc(info, cfg)
+	if changeset == nil {
+		return nil
+	}
 	logObj.AddChangeSet(changeset)
 
 	info.CapturedChangeset = changeset

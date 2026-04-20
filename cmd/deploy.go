@@ -86,16 +86,22 @@ func deployTemplate(cmd *cobra.Command, args []string) {
 
 	deploymentLog := lib.NewDeploymentLog(awsConfig, deployment)
 
-	precheckOutput, abort := runPrechecks(&deployment, &deploymentLog)
-	if precheckOutput != "" {
-		printMessage(precheckOutput)
-	}
-	if abort {
-		if err := deploymentLog.Failed(nil); err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: Failed to write deployment log: %v\n", err)
+	// Prechecks rely on the local template path ($TEMPLATEPATH substitution).
+	// In --deploy-changeset mode no template is loaded, so skip prechecks to
+	// avoid running them with an empty path which would produce unreliable
+	// results.
+	if !deployFlags.DeployChangeset {
+		precheckOutput, abort := runPrechecks(&deployment, &deploymentLog)
+		if precheckOutput != "" {
+			printMessage(precheckOutput)
 		}
-		osExitFunc(1)
-		return
+		if abort {
+			if err := deploymentLog.Failed(nil); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: Failed to write deployment log: %v\n", err)
+			}
+			osExitFunc(1)
+			return
+		}
 	}
 
 	var changeset *lib.ChangesetInfo
@@ -350,19 +356,24 @@ func loadParametersFromFiles(parameterFiles string) []types.Parameter {
 
 // fetchChangeset retrieves an existing changeset (named by --changeset) and
 // attaches it to the deployment so it can be executed without creating a new
-// one. Used by the --deploy-changeset flow.
+// one. Used by the --deploy-changeset flow. Errors are reported via
+// printMessage and exit through osExitFunc so tests can intercept them; nil is
+// returned on failure so callers can bail out cleanly in tests.
 func fetchChangeset(deployment *lib.DeployInfo, awsConfig config.AWSConfig) *lib.ChangesetInfo {
 	ctx := context.Background()
 	rawchangeset, err := deployment.GetChangeset(ctx, awsConfig.CloudformationClient())
 	if err != nil {
 		message := fmt.Sprintf(string(texts.DeployChangesetMessageRetrieveFailed), deployment.ChangesetName)
 		printMessage(formatError(message))
-		log.Fatalln(err)
+		printMessage(formatError(err.Error()))
+		osExitFunc(1)
+		return nil
 	}
 	if len(rawchangeset) == 0 {
-		message := fmt.Sprintf(string(texts.DeployChangesetMessageRetrieveFailed), deployment.ChangesetName)
+		message := fmt.Sprintf(string(texts.DeployChangesetMessageNotFound), deployment.ChangesetName)
 		printMessage(formatError(message))
-		os.Exit(1)
+		osExitFunc(1)
+		return nil
 	}
 	changeset := deployment.AddChangeset(rawchangeset)
 	return &changeset

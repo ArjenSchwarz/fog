@@ -118,11 +118,12 @@ func TestDeployFlags_Validate_DeployChangeset(t *testing.T) {
 	}
 }
 
-// TestDeployTemplate_DeployChangeset_SkipsCreation is a regression test for
-// T-865. When --deploy-changeset is set, deployTemplate must NOT call
-// createChangesetFunc (which creates a new changeset) and must instead
-// retrieve and execute the existing changeset named by --changeset.
-func TestDeployTemplate_DeployChangeset_SkipsCreation(t *testing.T) {
+// TestRunDeployChangesetFlow_DeployChangeset_SkipsCreation is a regression
+// test for T-865. When --deploy-changeset is set, the deploy-changeset
+// execution flow must NOT call createChangesetFunc (which creates a new
+// changeset) and must instead retrieve and execute the existing changeset
+// named by --changeset.
+func TestRunDeployChangesetFlow_DeployChangeset_SkipsCreation(t *testing.T) {
 	createCalled := false
 	fetchCalled := false
 	deployCalled := false
@@ -202,5 +203,37 @@ func TestDeployTemplate_DeployChangeset_SkipsCreation(t *testing.T) {
 	}
 	if !deployCalled {
 		t.Error("expected deployChangesetFunc to be called")
+	}
+}
+
+// TestRunDeployChangesetFlow_NilFetchReturn verifies that when
+// fetchChangesetFunc returns nil (e.g. an error path that returned after
+// calling osExitFunc, or a test stub), runDeployChangesetFlow returns nil
+// gracefully instead of panicking on a nil dereference.
+func TestRunDeployChangesetFlow_NilFetchReturn(t *testing.T) {
+	origFetch := fetchChangesetFunc
+	origShow := showChangesetFunc
+	defer func() {
+		fetchChangesetFunc = origFetch
+		showChangesetFunc = origShow
+	}()
+
+	fetchChangesetFunc = func(info *lib.DeployInfo, cfg config.AWSConfig) *lib.ChangesetInfo {
+		return nil
+	}
+	showCalled := false
+	showChangesetFunc = func(cs lib.ChangesetInfo, info lib.DeployInfo, cfg config.AWSConfig, optionalBuilder ...*output.Builder) {
+		showCalled = true
+	}
+
+	info := lib.DeployInfo{StackName: "my-stack", ChangesetName: "missing"}
+	logObj := lib.DeploymentLog{}
+
+	changeset := runDeployChangesetFlow(&info, config.AWSConfig{}, &logObj, false)
+	if changeset != nil {
+		t.Errorf("expected nil return when fetchChangesetFunc returns nil, got %+v", changeset)
+	}
+	if showCalled {
+		t.Error("showChangesetFunc must not be called when fetchChangesetFunc returns nil")
 	}
 }
