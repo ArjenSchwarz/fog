@@ -294,6 +294,108 @@ func TestGetTransitGatewayRouteTableRoutes(t *testing.T) {
 	}
 }
 
+// TestGetTransitGatewayRouteTableRoutes_AdditionalRoutesAvailable is a regression test
+// for T-881. When SearchTransitGatewayRoutes returns AdditionalRoutesAvailable=true with
+// the default (state-only) filter, the function must narrow the query by route type
+// (static and propagated) to retrieve the remaining routes. The two type-filtered calls
+// together cover the full result set.
+func TestGetTransitGatewayRouteTableRoutes_AdditionalRoutesAvailable(t *testing.T) {
+	staticRoute := types.TransitGatewayRoute{
+		DestinationCidrBlock: aws.String("10.0.0.0/16"),
+		State:                types.TransitGatewayRouteStateActive,
+		Type:                 types.TransitGatewayRouteTypeStatic,
+		TransitGatewayAttachments: []types.TransitGatewayRouteAttachment{
+			{TransitGatewayAttachmentId: aws.String("tgw-attach-11111111")},
+		},
+	}
+	propagatedRoute := types.TransitGatewayRoute{
+		DestinationCidrBlock: aws.String("10.1.0.0/16"),
+		State:                types.TransitGatewayRouteStateActive,
+		Type:                 types.TransitGatewayRouteTypePropagated,
+		TransitGatewayAttachments: []types.TransitGatewayRouteAttachment{
+			{TransitGatewayAttachmentId: aws.String("tgw-attach-22222222")},
+		},
+	}
+
+	hasTypeFilter := func(params *ec2.SearchTransitGatewayRoutesInput, value string) bool {
+		for _, f := range params.Filters {
+			if f.Name == nil || *f.Name != "type" {
+				continue
+			}
+			for _, v := range f.Values {
+				if v == value {
+					return true
+				}
+			}
+		}
+		return false
+	}
+
+	callCount := 0
+	svc := mockEC2SearchTransitGatewayRoutesAPI(func(ctx context.Context, params *ec2.SearchTransitGatewayRoutesInput, optFns ...func(*ec2.Options)) (*ec2.SearchTransitGatewayRoutesOutput, error) {
+		callCount++
+		switch {
+		case hasTypeFilter(params, "static"):
+			return &ec2.SearchTransitGatewayRoutesOutput{
+				Routes:                    []types.TransitGatewayRoute{staticRoute},
+				AdditionalRoutesAvailable: aws.Bool(false),
+			}, nil
+		case hasTypeFilter(params, "propagated"):
+			return &ec2.SearchTransitGatewayRoutesOutput{
+				Routes:                    []types.TransitGatewayRoute{propagatedRoute},
+				AdditionalRoutesAvailable: aws.Bool(false),
+			}, nil
+		default:
+			// Initial call with no type filter — signal truncation.
+			return &ec2.SearchTransitGatewayRoutesOutput{
+				Routes:                    []types.TransitGatewayRoute{staticRoute},
+				AdditionalRoutesAvailable: aws.Bool(true),
+			}, nil
+		}
+	})
+
+	got, err := GetTransitGatewayRouteTableRoutes(context.Background(), "tgw-rtb-many", svc)
+	if err != nil {
+		t.Fatalf("GetTransitGatewayRouteTableRoutes() unexpected error: %v", err)
+	}
+
+	if len(got) != 2 {
+		t.Fatalf("expected 2 routes after narrowing, got %d (callCount=%d)", len(got), callCount)
+	}
+
+	destinations := map[string]bool{}
+	for _, r := range got {
+		destinations[GetTGWRouteDestination(r)] = true
+	}
+	if !destinations["10.0.0.0/16"] || !destinations["10.1.0.0/16"] {
+		t.Errorf("expected both static and propagated routes, got destinations %v", destinations)
+	}
+}
+
+// TestGetTransitGatewayRouteTableRoutes_AdditionalRoutesAfterNarrowing is a regression
+// test for T-881. When even the narrowed-by-type queries still report
+// AdditionalRoutesAvailable=true, the function must return an explicit error rather than
+// silently returning partial route data.
+func TestGetTransitGatewayRouteTableRoutes_AdditionalRoutesAfterNarrowing(t *testing.T) {
+	svc := mockEC2SearchTransitGatewayRoutesAPI(func(ctx context.Context, params *ec2.SearchTransitGatewayRoutesInput, optFns ...func(*ec2.Options)) (*ec2.SearchTransitGatewayRoutesOutput, error) {
+		// Every call — initial and narrowed — reports more routes available.
+		return &ec2.SearchTransitGatewayRoutesOutput{
+			Routes: []types.TransitGatewayRoute{
+				{DestinationCidrBlock: aws.String("10.0.0.0/16"), State: types.TransitGatewayRouteStateActive, Type: types.TransitGatewayRouteTypeStatic},
+			},
+			AdditionalRoutesAvailable: aws.Bool(true),
+		}, nil
+	})
+
+	_, err := GetTransitGatewayRouteTableRoutes(context.Background(), "tgw-rtb-overflow", svc)
+	if err == nil {
+		t.Fatal("expected an error when AdditionalRoutesAvailable remains true after narrowing, got nil")
+	}
+	if !errors.Is(err, ErrTGWRoutesTruncated) {
+		t.Errorf("expected error to wrap ErrTGWRoutesTruncated, got %v", err)
+	}
+}
+
 // TestExtractStringProperty_NilParameterKeyAndValue verifies that extractStringProperty
 // does not panic when parameter entries have nil ParameterKey or ParameterValue fields.
 func TestExtractStringProperty_NilParameterKeyAndValue(t *testing.T) {

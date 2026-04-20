@@ -14,34 +14,87 @@ import (
 	"github.com/aws/smithy-go"
 )
 
-// GetTransitGatewayRouteTableRoutes returns all routes for a Transit Gateway route table
+// ErrTGWRoutesTruncated is returned when SearchTransitGatewayRoutes reports
+// AdditionalRoutesAvailable=true even after narrowing the query by route type.
+// The EC2 API caps responses at 1000 routes and does not support a continuation
+// token, so when both the static and propagated splits still overflow there is
+// no further partitioning available and the result set cannot be retrieved in
+// full.
+var ErrTGWRoutesTruncated = errors.New("transit gateway route results truncated: more than 1000 routes for a single type filter")
+
+// GetTransitGatewayRouteTableRoutes returns all routes for a Transit Gateway route table.
+//
+// SearchTransitGatewayRoutes caps its response at 1000 routes and indicates
+// truncation via AdditionalRoutesAvailable rather than a continuation token.
+// When the initial state-filtered call reports additional routes available, we
+// narrow the query by route type (static and propagated) to retrieve the full
+// result set as the union of both type-filtered calls. If either narrowed call
+// still reports additional routes available, we return an error wrapping
+// ErrTGWRoutesTruncated rather than silently returning partial data.
 func GetTransitGatewayRouteTableRoutes(
 	ctx context.Context,
 	routeTableId string,
 	svc EC2SearchTransitGatewayRoutesAPI,
 ) ([]types.TransitGatewayRoute, error) {
-	// Add timeout to context for API call
+	// Add timeout to context for API call(s)
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
+	stateFilter := types.Filter{
+		Name:   aws.String("state"),
+		Values: []string{"active", "blackhole"},
+	}
+
+	result, err := searchTGWRoutes(ctx, svc, routeTableId, []types.Filter{stateFilter})
+	if err != nil {
+		return nil, err
+	}
+
+	if !additionalRoutesAvailable(result) {
+		return result.Routes, nil
+	}
+
+	// The single-filter response was truncated. Split by route type to cover
+	// the full result set. The union of "static" and "propagated" equals the
+	// entire set of routes in the table.
+	combined := make([]types.TransitGatewayRoute, 0, len(result.Routes))
+	for _, routeType := range []string{"static", "propagated"} {
+		typeFilter := types.Filter{
+			Name:   aws.String("type"),
+			Values: []string{routeType},
+		}
+		narrowed, err := searchTGWRoutes(ctx, svc, routeTableId, []types.Filter{stateFilter, typeFilter})
+		if err != nil {
+			return nil, err
+		}
+		if additionalRoutesAvailable(narrowed) {
+			return nil, fmt.Errorf("route table %s type=%s: %w", routeTableId, routeType, ErrTGWRoutesTruncated)
+		}
+		combined = append(combined, narrowed.Routes...)
+	}
+	return combined, nil
+}
+
+// searchTGWRoutes issues a single SearchTransitGatewayRoutes call and maps
+// AWS errors to friendlier wrapped errors. It is factored out so the narrowing
+// retry can reuse the same error-handling logic.
+func searchTGWRoutes(
+	ctx context.Context,
+	svc EC2SearchTransitGatewayRoutesAPI,
+	routeTableId string,
+	filters []types.Filter,
+) (*ec2.SearchTransitGatewayRoutesOutput, error) {
 	input := ec2.SearchTransitGatewayRoutesInput{
 		TransitGatewayRouteTableId: aws.String(routeTableId),
-		Filters: []types.Filter{
-			{
-				Name:   aws.String("state"),
-				Values: []string{"active", "blackhole"},
-			},
-		},
+		Filters:                    filters,
 	}
 
 	result, err := svc.SearchTransitGatewayRoutes(ctx, &input)
 	if err != nil {
-		// Handle context timeout
 		if errors.Is(err, context.DeadlineExceeded) {
 			return nil, fmt.Errorf("API call timed out after 30 seconds: %w", err)
 		}
 
-		// Use type assertion for AWS API errors
 		var apiErr smithy.APIError
 		if errors.As(err, &apiErr) {
 			switch apiErr.ErrorCode() {
@@ -55,7 +108,13 @@ func GetTransitGatewayRouteTableRoutes(
 		return nil, err
 	}
 
-	return result.Routes, nil
+	return result, nil
+}
+
+// additionalRoutesAvailable reports whether the API signalled that more routes
+// than fit in the response were available for the query.
+func additionalRoutesAvailable(result *ec2.SearchTransitGatewayRoutesOutput) bool {
+	return result != nil && result.AdditionalRoutesAvailable != nil && *result.AdditionalRoutesAvailable
 }
 
 // GetTGWRouteDestination returns the destination identifier from a Transit Gateway route
