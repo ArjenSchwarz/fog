@@ -271,8 +271,10 @@ func StackExists(ctx context.Context, deployment *DeployInfo, svc CloudFormation
 	return err == nil
 }
 
-// IsReadyForUpdate checks if the stack is in a state that allows updates
-func (deployment DeployInfo) IsReadyForUpdate(ctx context.Context, svc CloudFormationDescribeStacksAPI) (bool, string) {
+// IsReadyForUpdate checks if the stack is in a state that allows updates.
+// Uses a pointer receiver for consistency with the other stateful DeployInfo
+// methods (GetStack caches RawStack on the receiver).
+func (deployment *DeployInfo) IsReadyForUpdate(ctx context.Context, svc CloudFormationDescribeStacksAPI) (bool, string) {
 	stack, err := deployment.GetStack(ctx, svc)
 	if err != nil {
 		return false, ""
@@ -287,8 +289,10 @@ func (deployment DeployInfo) IsReadyForUpdate(ctx context.Context, svc CloudForm
 	return stringInSlice(string(stack.StackStatus), availableStatuses), string(stack.StackStatus)
 }
 
-// IsOngoing checks if there is an ongoing operation on the stack
-func (deployment DeployInfo) IsOngoing(ctx context.Context, svc CloudFormationDescribeStacksAPI) bool {
+// IsOngoing checks if there is an ongoing operation on the stack.
+// Uses a pointer receiver for consistency with the other stateful DeployInfo
+// methods and to avoid the value-receiver trap fixed in IsNewStack.
+func (deployment *DeployInfo) IsOngoing(ctx context.Context, svc CloudFormationDescribeStacksAPI) bool {
 	stack, err := deployment.GetFreshStack(ctx, svc)
 	if err != nil {
 		return false
@@ -304,10 +308,7 @@ func (deployment DeployInfo) IsOngoing(ctx context.Context, svc CloudFormationDe
 }
 
 // IsNewStack verifies if a stack is new. This can mean either that it doesn't exist yet or is in review in progress state.
-// Uses a pointer receiver so the RawStack cached by StackExists is preserved on the
-// caller's DeployInfo. Without this, downstream callers (e.g. outputNoChangesResult)
-// would see a nil RawStack for existing stacks and render blank status/last-updated
-// values on a no-change changeset (T-832).
+// Pointer receiver: StackExists caches RawStack onto the receiver; a value receiver would discard the cache on return (T-832).
 func (deployment *DeployInfo) IsNewStack(ctx context.Context, svc CloudFormationDescribeStacksAPI) bool {
 	stackExists := StackExists(ctx, deployment, svc)
 	if !stackExists {
