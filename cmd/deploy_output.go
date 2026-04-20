@@ -188,6 +188,11 @@ func extractFailedResources(deployment *lib.DeployInfo, client lib.CloudFormatio
 
 	// Only look at events after changeset creation
 	for _, event := range events {
+		// Events without a timestamp cannot be compared against the changeset
+		// creation time — skip them rather than panic on a nil pointer.
+		if event.Timestamp == nil {
+			continue
+		}
 		if event.Timestamp.After(deployment.CapturedChangeset.CreationTime) {
 			// Check if this is a failed status
 			switch event.ResourceStatus {

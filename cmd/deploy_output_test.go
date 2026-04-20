@@ -415,6 +415,60 @@ func TestExtractFailedResources(t *testing.T) {
 			}},
 			want: []FailedResource{},
 		},
+		// T-817: AWS SDK StackEvent.Timestamp is a pointer and can be nil.
+		// Events with nil timestamps cannot be ordered against the changeset
+		// creation time, so they must be skipped rather than dereferenced.
+		// Expected: nil-timestamp events are ignored; events with valid
+		// timestamps after the changeset creation time are still returned.
+		// Actual (before fix): panic from nil pointer dereference on
+		// event.Timestamp.After(...).
+		"skips events with nil timestamp": {
+			deployment: deploymentWithChangeset,
+			client: &mockStackEventsClient{events: []types.StackEvent{
+				{
+					Timestamp:            nil,
+					LogicalResourceId:    aws.String("NilTimestamp"),
+					ResourceType:         aws.String("AWS::S3::Bucket"),
+					ResourceStatus:       types.ResourceStatusCreateFailed,
+					ResourceStatusReason: aws.String("should be skipped"),
+				},
+				{
+					Timestamp:            aws.Time(failureTime),
+					LogicalResourceId:    aws.String("FailedResource"),
+					ResourceType:         aws.String("AWS::DynamoDB::Table"),
+					ResourceStatus:       types.ResourceStatusUpdateFailed,
+					ResourceStatusReason: aws.String("rolled back"),
+				},
+			}},
+			want: []FailedResource{{
+				LogicalID:      "FailedResource",
+				ResourceStatus: string(types.ResourceStatusUpdateFailed),
+				StatusReason:   "rolled back",
+				ResourceType:   "AWS::DynamoDB::Table",
+			}},
+		},
+		// T-817: Only nil-timestamp events should not panic and should
+		// produce an empty result.
+		"all events with nil timestamp yields empty slice": {
+			deployment: deploymentWithChangeset,
+			client: &mockStackEventsClient{events: []types.StackEvent{
+				{
+					Timestamp:            nil,
+					LogicalResourceId:    aws.String("NilOne"),
+					ResourceType:         aws.String("AWS::S3::Bucket"),
+					ResourceStatus:       types.ResourceStatusCreateFailed,
+					ResourceStatusReason: aws.String("no timestamp"),
+				},
+				{
+					Timestamp:            nil,
+					LogicalResourceId:    aws.String("NilTwo"),
+					ResourceType:         aws.String("AWS::Lambda::Function"),
+					ResourceStatus:       types.ResourceStatusUpdateFailed,
+					ResourceStatusReason: aws.String("also no timestamp"),
+				},
+			}},
+			want: []FailedResource{},
+		},
 	}
 
 	for name, tc := range tests {
