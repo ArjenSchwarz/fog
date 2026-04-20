@@ -6,7 +6,7 @@
 # fast with an actionable message otherwise, so contributors don't have to
 # interpret the raw "config v2 / binary v1" error from the linter itself.
 
-set -u
+set -eu
 
 REQUIRED_MAJOR=2
 INSTALL_CMD='go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest'
@@ -16,7 +16,7 @@ if ! command -v golangci-lint >/dev/null 2>&1; then
 error: golangci-lint is not installed or not on PATH.
 
 This repository requires golangci-lint v${REQUIRED_MAJOR} (its .golangci.yml
-uses the v2 schema). Install it with:
+uses the v${REQUIRED_MAJOR} schema). Install it with:
 
     ${INSTALL_CMD}
 EOF

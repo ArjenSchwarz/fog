@@ -4,6 +4,9 @@
 
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -72,7 +75,7 @@ echo
 # 6. Run golangci-lint if available (requires v2 — see scripts/check-golangci-lint.sh)
 echo "Step 6: Running golangci-lint..."
 if command -v golangci-lint &> /dev/null; then
-    if ! ./scripts/check-golangci-lint.sh; then
+    if ! "$REPO_ROOT/scripts/check-golangci-lint.sh"; then
         exit 1
     fi
     golangci-lint run

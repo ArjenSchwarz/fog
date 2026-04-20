@@ -4,8 +4,7 @@
 # `version: "2"`, so a v1 binary cannot lint the project).
 #
 # The test stubs `golangci-lint` on PATH with fake binaries reporting different
-# versions and invokes the shared preflight script (scripts/check-golangci-lint.sh)
-# plus the `make lint` target.
+# versions and invokes the shared preflight script (scripts/check-golangci-lint.sh).
 #
 # Expected behaviour after the fix:
 #   - v1 binary  -> preflight exits non-zero with a message mentioning "v2"
@@ -19,8 +18,8 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 CHECK_SCRIPT="$REPO_ROOT/scripts/check-golangci-lint.sh"
 
 FAIL=0
-TMPDIR="$(mktemp -d)"
-trap 'rm -rf "$TMPDIR"' EXIT
+TEST_TMPDIR="$(mktemp -d)"
+trap 'rm -rf "$TEST_TMPDIR"' EXIT
 
 assert() {
     local description="$1"
@@ -80,7 +79,7 @@ if [ ! -x "$CHECK_SCRIPT" ]; then
 fi
 
 # Case 1: v1 binary on PATH -> must fail with a v2 requirement message.
-V1_DIR="$TMPDIR/v1"
+V1_DIR="$TEST_TMPDIR/v1"
 make_fake_binary "$V1_DIR" "golangci-lint has version v1.64.8 built with go1.22.0 from unknown"
 set +e
 OUT_V1="$(PATH="$V1_DIR:/usr/bin:/bin" "$CHECK_SCRIPT" 2>&1)"
@@ -90,7 +89,7 @@ assert "v1 binary causes preflight to fail" "1" "$([ $RC_V1 -ne 0 ] && echo 1 ||
 assert_contains "v1 failure mentions v2 requirement" "v2" "$OUT_V1"
 
 # Case 2: v2 binary on PATH -> preflight succeeds.
-V2_DIR="$TMPDIR/v2"
+V2_DIR="$TEST_TMPDIR/v2"
 make_fake_binary "$V2_DIR" "golangci-lint has version 2.1.6 built with go1.22.0 from abc123"
 set +e
 OUT_V2="$(PATH="$V2_DIR:/usr/bin:/bin" "$CHECK_SCRIPT" 2>&1)"
@@ -99,7 +98,7 @@ set -e
 assert "v2 binary is accepted" "0" "$RC_V2"
 
 # Case 3: no binary on PATH -> fail with install hint.
-EMPTY_DIR="$TMPDIR/empty"
+EMPTY_DIR="$TEST_TMPDIR/empty"
 mkdir -p "$EMPTY_DIR"
 set +e
 OUT_MISSING="$(PATH="$EMPTY_DIR:/usr/bin:/bin" "$CHECK_SCRIPT" 2>&1)"
