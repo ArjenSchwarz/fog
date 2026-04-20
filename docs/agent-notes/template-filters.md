@@ -2,11 +2,15 @@
 
 ## Key Abstraction: resourceIdMatchesLogical
 
-`resourceIdMatchesLogical` in `lib/template.go` is a shared helper used by all three filter functions (`FilterNaclEntriesByLogicalId`, `FilterRoutesByLogicalId`, `FilterTGWRoutesByLogicalId`) to match a resource property value against a logical resource ID.
+`resourceIdMatchesLogical` in `lib/template.go` is a shared helper used by `FilterNaclEntriesByLogicalId` and `FilterRoutesByLogicalId` to match a resource property value against a logical resource ID. `FilterTGWRoutesByLogicalId` uses a separate matcher, `tgwRouteMatchesRouteTable` in `lib/tgw_routetables.go`, which covers the same property formats for TGW route tables.
 
-It handles two forms of property values:
+It handles four forms of property values:
 - **String** (`"REF: LogicalName"`): strips the `REF: ` prefix and compares directly against the logical ID.
+- **String** (plain physical ID such as `"rtb-12345"` or `"acl-12345"`): after stripping any `REF: ` prefix, compares the value against `logicalToPhysical[logicalId]`. This covers CloudFormation templates that hardcode parent resource IDs rather than using intrinsic functions.
+- **Map** (`{"Ref": "LogicalName"}`): compares the ref name directly against the logical ID.
 - **Map** (`{"Fn::ImportValue": "ExportName"}`): resolves both the import name and the logical ID through `logicalToPhysical`, then compares their physical IDs.
+
+Regression tests for the plain-physical-ID case are in `lib/template_test.go` (`TestResourceIdMatchesLogical_HardcodedPhysicalId`, `TestFilterRoutesByLogicalId_HardcodedPhysicalId`, `TestFilterNaclEntriesByLogicalId_HardcodedPhysicalId`).
 
 ## logicalToPhysical Map
 

@@ -1598,3 +1598,147 @@ func TestRouteResourceToRoute_NilParameterFields(t *testing.T) {
 		t.Errorf("RouteResourceToRoute().GatewayId = %v, want igw-123", got.GatewayId)
 	}
 }
+
+// TestFilterRoutesByLogicalId_HardcodedPhysicalId verifies that routes whose
+// RouteTableId property is a literal physical ID string are matched against
+// the logical ID via the logicalToPhysical map.
+func TestFilterRoutesByLogicalId_HardcodedPhysicalId(t *testing.T) {
+	params := []cfntypes.Parameter{}
+	logicalToPhysical := map[string]string{
+		"MyRouteTable": "rtb-physical123",
+	}
+
+	template := CfnTemplateBody{
+		Resources: map[string]CfnTemplateResource{
+			"PhysicalIdRoute": {
+				Type: "AWS::EC2::Route",
+				Properties: map[string]any{
+					"RouteTableId":         "rtb-physical123",
+					"DestinationCidrBlock": "10.50.0.0/16",
+					"GatewayId":            "igw-abc123",
+				},
+			},
+			"UnrelatedRoute": {
+				Type: "AWS::EC2::Route",
+				Properties: map[string]any{
+					"RouteTableId":         "rtb-other999",
+					"DestinationCidrBlock": "10.99.0.0/16",
+					"GatewayId":            "igw-other",
+				},
+			},
+		},
+		Conditions: map[string]bool{},
+	}
+
+	results := FilterRoutesByLogicalId("MyRouteTable", template, params, logicalToPhysical)
+
+	if len(results) != 1 {
+		t.Fatalf("Expected 1 route, got %d", len(results))
+	}
+	if _, ok := results["10.50.0.0/16"]; !ok {
+		t.Error("Expected hardcoded physical ID route (10.50.0.0/16) not found")
+	}
+	if _, ok := results["10.99.0.0/16"]; ok {
+		t.Error("Unrelated physical ID route (10.99.0.0/16) should not be included")
+	}
+}
+
+// TestFilterNaclEntriesByLogicalId_HardcodedPhysicalId verifies that NACL
+// entries whose NetworkAclId property is a literal physical ID string are
+// matched against the logical ID via the logicalToPhysical map.
+func TestFilterNaclEntriesByLogicalId_HardcodedPhysicalId(t *testing.T) {
+	params := []cfntypes.Parameter{}
+	logicalToPhysical := map[string]string{
+		"MyNacl": "acl-physical123",
+	}
+
+	template := CfnTemplateBody{
+		Resources: map[string]CfnTemplateResource{
+			"PhysicalIdEntry": {
+				Type: "AWS::EC2::NetworkAclEntry",
+				Properties: map[string]any{
+					"NetworkAclId": "acl-physical123",
+					"RuleNumber":   float64(100),
+					"Protocol":     "-1",
+					"RuleAction":   "allow",
+					"Egress":       false,
+					"CidrBlock":    "10.0.0.0/8",
+				},
+			},
+			"UnrelatedEntry": {
+				Type: "AWS::EC2::NetworkAclEntry",
+				Properties: map[string]any{
+					"NetworkAclId": "acl-other999",
+					"RuleNumber":   float64(200),
+					"Protocol":     "-1",
+					"RuleAction":   "allow",
+					"Egress":       false,
+					"CidrBlock":    "10.1.0.0/16",
+				},
+			},
+		},
+		Conditions: map[string]bool{},
+	}
+
+	results := FilterNaclEntriesByLogicalId("MyNacl", template, params, logicalToPhysical)
+
+	if len(results) != 1 {
+		t.Fatalf("Expected 1 NACL entry, got %d", len(results))
+	}
+	if _, ok := results["I100"]; !ok {
+		t.Error("Expected hardcoded physical ID NACL entry (I100) not found")
+	}
+	if _, ok := results["I200"]; ok {
+		t.Error("Unrelated physical ID NACL entry (I200) should not be included")
+	}
+}
+
+// TestResourceIdMatchesLogical_HardcodedPhysicalId verifies that
+// resourceIdMatchesLogical matches a plain physical ID string against the
+// physical ID of the logical resource via the logicalToPhysical map.
+func TestResourceIdMatchesLogical_HardcodedPhysicalId(t *testing.T) {
+	logicalToPhysical := map[string]string{
+		"MyResource": "phys-12345",
+	}
+
+	tests := []struct {
+		name      string
+		prop      any
+		logicalId string
+		want      bool
+	}{
+		{
+			name:      "plain physical ID string matches via logicalToPhysical",
+			prop:      "phys-12345",
+			logicalId: "MyResource",
+			want:      true,
+		},
+		{
+			name:      "REF:-prefixed physical ID still matches after trimming",
+			prop:      "REF: phys-12345",
+			logicalId: "MyResource",
+			want:      true,
+		},
+		{
+			name:      "plain physical ID that does not match logical ID's physical ID",
+			prop:      "phys-other",
+			logicalId: "MyResource",
+			want:      false,
+		},
+		{
+			name:      "plain physical ID when logical ID has no physical mapping",
+			prop:      "phys-12345",
+			logicalId: "UnmappedResource",
+			want:      false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := resourceIdMatchesLogical(tt.prop, tt.logicalId, logicalToPhysical)
+			if got != tt.want {
+				t.Errorf("resourceIdMatchesLogical(%v, %q) = %v, want %v", tt.prop, tt.logicalId, got, tt.want)
+			}
+		})
+	}
+}
