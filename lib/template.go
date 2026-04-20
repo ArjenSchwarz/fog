@@ -425,6 +425,9 @@ func NaclResourceToNaclEntry(resource CfnTemplateResource, params []cfntypes.Par
 // and {"Ref": "ParamName"} parameter references. Parameter references are
 // resolved against params; any form that cannot be resolved to a number
 // returns 0 so callers can still produce a deterministic map key.
+// Fn::Sub and other intrinsics can't be statically resolved here, so they
+// still fall back to 0; two such entries would collide on I0/E0, but that is
+// no worse than the pre-T-834 behaviour for parameterized rule numbers.
 func extractRuleNumber(properties map[string]any, params []cfntypes.Parameter) int32 {
 	switch value := properties["RuleNumber"].(type) {
 	case float64:
