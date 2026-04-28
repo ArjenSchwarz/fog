@@ -855,6 +855,9 @@ func TestPrintDeploymentResults_HandlesFinalStackLookupFailure(t *testing.T) {
 	if !strings.Contains(result.DeploymentError, "lookup failed") {
 		t.Fatalf("expected deployment error to include lookup failure, got %q", result.DeploymentError)
 	}
+	if !strings.Contains(result.StatusDescription, "lookup failed") {
+		t.Fatalf("expected status description to include lookup failure, got %q", result.StatusDescription)
+	}
 	if result.HasFinalStack {
 		t.Fatal("expected final stack state to remain unset when lookup fails")
 	}

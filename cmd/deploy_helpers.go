@@ -35,6 +35,8 @@ var deleteStackIfNewFunc = deleteStackIfNew
 // osExitFunc allows tests to intercept os.Exit calls in command handlers.
 var osExitFunc = os.Exit
 
+const postDeployLookupFailedStatus = "POST_DEPLOY_LOOKUP_FAILED"
+
 var getFreshStackFunc = func(info *lib.DeployInfo, svc lib.CloudFormationDescribeStacksAPI) (types.Stack, error) {
 	return info.GetFreshStack(context.Background(), svc)
 }
@@ -219,10 +221,12 @@ func printDeploymentResults(info *lib.DeployInfo, cfg config.AWSConfig, logObj *
 		info.DeploymentError = fmt.Errorf("failed to retrieve final stack state: %w", err)
 		logObj.StatusDescription = info.DeploymentError.Error()
 
+		// This is a synthetic status because CloudFormation did not return a
+		// definitive post-deploy stack status for us to record.
 		failures := []map[string]any{{
 			"CfnName": info.StackName,
 			"Type":    "AWS::CloudFormation::Stack",
-			"Status":  "POST_DEPLOY_LOOKUP_FAILED",
+			"Status":  postDeployLookupFailedStatus,
 			"Reason":  err.Error(),
 		}}
 
@@ -231,8 +235,9 @@ func printDeploymentResults(info *lib.DeployInfo, cfg config.AWSConfig, logObj *
 			fmt.Fprintf(os.Stderr, "Warning: Failed to write deployment log: %v\n", err)
 		}
 
-		eventsClient, _ := svc.(lib.CloudFormationDescribeStackEventsAPI)
-		if err := outputFailureResult(info, eventsClient); err != nil {
+		// Do not auto-delete new stacks on this path: without a successful final
+		// lookup we cannot safely determine whether cleanup is appropriate.
+		if err := outputFailureResult(info, cfg.CloudformationClient()); err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: Failed to generate output: %v\n", err)
 		}
 		return
