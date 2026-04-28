@@ -318,7 +318,7 @@ func AssertNil(t *testing.T, value any, name string) {
 	}
 }
 
-func stringValueOrNil(value *string) any {
+func stringValueOrNil(value *string) string {
 	if value == nil {
 		return "<nil>"
 	}

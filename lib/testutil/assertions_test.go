@@ -48,10 +48,8 @@ func TestAssertStackTag_NilValue(t *testing.T) {
 }
 
 func TestAssertionFailureHelper(t *testing.T) {
-	t.Helper()
-
 	if os.Getenv("FOG_ASSERTION_HELPER") != "1" {
-		t.Skip("helper process only")
+		return
 	}
 
 	switch os.Getenv("FOG_ASSERTION_SCENARIO") {
