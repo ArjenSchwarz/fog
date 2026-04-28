@@ -13,6 +13,8 @@ import (
 // stderr so structured stdout pipelines only receive command results.
 func TestFailWithError_WritesToStderr(t *testing.T) {
 	if os.Getenv("GO_WANT_FAIL_WITH_ERROR_HELPER") == "1" {
+		// The subprocess uses the default debug=false setting, so failWithError
+		// exits and lets the parent process assert stderr/stdout behavior.
 		failWithError(errors.New("boom"))
 		return
 	}
