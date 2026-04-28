@@ -59,7 +59,7 @@ func GetResources(ctx context.Context, stackname *string, svc interface {
 		stackLabel := aws.ToString(stack.StackName)
 		resources, err := svc.DescribeStackResources(
 			ctx,
-			&cloudformation.DescribeStackResourcesInput{StackName: aws.String(stackLabel)})
+			&cloudformation.DescribeStackResourcesInput{StackName: stack.StackName})
 		if err != nil {
 			var ae smithy.APIError
 			if errors.As(err, &ae) {
@@ -68,7 +68,7 @@ func GetResources(ctx context.Context, stackname *string, svc interface {
 					time.Sleep(5 * time.Second)
 					resources, err = svc.DescribeStackResources(
 						ctx,
-						&cloudformation.DescribeStackResourcesInput{StackName: aws.String(stackLabel)})
+						&cloudformation.DescribeStackResourcesInput{StackName: stack.StackName})
 					// If it still fails after retry, return the error
 					if err != nil {
 						return nil, fmt.Errorf("failed to describe stack resources for %s after throttling retry: %w", stackLabel, err)

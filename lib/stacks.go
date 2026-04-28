@@ -235,6 +235,9 @@ func GetCfnStacks(ctx context.Context, stackname *string, svc CFNExportsAPI) (ma
 		if stackLabel == "" {
 			return nil, fmt.Errorf("invalid CloudFormation stack in DescribeStacks response: missing stack name")
 		}
+		if aws.ToString(stack.StackId) == "" {
+			return nil, fmt.Errorf("invalid CloudFormation stack %q in DescribeStacks response: missing stack id", stackLabel)
+		}
 		if strings.Contains(*stackname, "*") {
 			if !GlobToRegex(*stackname).MatchString(stackLabel) {
 				continue
@@ -244,14 +247,10 @@ func GetCfnStacks(ctx context.Context, stackname *string, svc CFNExportsAPI) (ma
 	}
 	for _, stack := range tocheckstacks {
 		stackNameValue := aws.ToString(stack.StackName)
-		stackIDValue := aws.ToString(stack.StackId)
-		if stackIDValue == "" {
-			return nil, fmt.Errorf("invalid CloudFormation stack %q in DescribeStacks response: missing stack id", stackNameValue)
-		}
 		stackobject := CfnStack{
 			RawInfo: stack,
 			Name:    stackNameValue,
-			Id:      stackIDValue,
+			Id:      aws.ToString(stack.StackId),
 		}
 		if stack.Description != nil {
 			stackobject.Description = *stack.Description

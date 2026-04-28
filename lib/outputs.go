@@ -114,6 +114,9 @@ func getOutputsForStack(stack types.Stack, stackfilter string, exportfilter stri
 		}
 	}
 	for _, output := range stack.Outputs {
+		if output.OutputKey == nil || output.OutputValue == nil {
+			continue
+		}
 		exportName := aws.ToString(output.ExportName)
 		if exportsOnly && exportName == "" {
 			continue
@@ -122,9 +125,6 @@ func getOutputsForStack(stack types.Stack, stackfilter string, exportfilter stri
 			if !GlobToRegex(exportfilter).MatchString(exportName) {
 				continue
 			}
-		}
-		if output.OutputKey == nil || output.OutputValue == nil {
-			continue
 		}
 		parsedOutput := CfnOutput{
 			StackName:   stackName,
