@@ -9,11 +9,22 @@ import (
 	"testing"
 )
 
-func envWithout(key string) []string {
-	prefix := key + "="
+func envWithout(keys ...string) []string {
+	prefixes := make([]string, 0, len(keys))
+	for _, key := range keys {
+		prefixes = append(prefixes, key+"=")
+	}
+
 	filtered := make([]string, 0, len(os.Environ()))
 	for _, env := range os.Environ() {
-		if strings.HasPrefix(env, prefix) {
+		skip := false
+		for _, prefix := range prefixes {
+			if strings.HasPrefix(env, prefix) {
+				skip = true
+				break
+			}
+		}
+		if skip {
 			continue
 		}
 		filtered = append(filtered, env)
@@ -24,15 +35,23 @@ func envWithout(key string) []string {
 // TestFailWithError_WritesToStderr verifies failWithError keeps diagnostics on
 // stderr so structured stdout pipelines only receive command results.
 func TestFailWithError_WritesToStderr(t *testing.T) {
-	if os.Getenv("GO_WANT_FAIL_WITH_ERROR_HELPER") == "1" {
+	if os.Getenv("GO_WANT_HELPER_PROCESS") == "1" && os.Getenv("GO_WANT_FAIL_WITH_ERROR_HELPER") == "1" {
 		// The subprocess uses the default debug=false setting, so failWithError
 		// exits and lets the parent process assert stderr/stdout behavior.
 		failWithError(errors.New("boom"))
 		return
 	}
 
+	t.Setenv("GO_WANT_HELPER_PROCESS", "")
+	t.Setenv("GO_WANT_FAIL_WITH_ERROR_HELPER", "")
+
 	cmd := exec.Command(os.Args[0], "-test.run=^TestFailWithError_WritesToStderr$")
-	cmd.Env = append(envWithout("DEBUG"), "GO_WANT_FAIL_WITH_ERROR_HELPER=1", "DEBUG=false")
+	cmd.Env = append(
+		envWithout("DEBUG", "GO_WANT_HELPER_PROCESS", "GO_WANT_FAIL_WITH_ERROR_HELPER"),
+		"GO_WANT_HELPER_PROCESS=1",
+		"GO_WANT_FAIL_WITH_ERROR_HELPER=1",
+		"DEBUG=false",
+	)
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
