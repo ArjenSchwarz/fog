@@ -155,11 +155,7 @@ func TestCheckIfResourcesAreManaged_EmptyInputs(t *testing.T) {
 func TestDetectUnmanagedResourcesReturnsListAllResourcesError(t *testing.T) {
 	expectedErr := errors.New("list all resources failed")
 
-	listResources := func(context.Context, string, lib.CloudControlListResourcesAPI, interface {
-		lib.SSOAdminListInstancesAPI
-		lib.SSOAdminListPermissionSetsAPI
-		lib.SSOAdminListAccountAssignmentsAPI
-	}, lib.OrganizationsListAccountsAPI) (map[string]string, error) {
+	listResources := func(context.Context, string, lib.CloudControlListResourcesAPI, lib.SSOAdminClient, lib.OrganizationsListAccountsAPI) (map[string]string, error) {
 		return nil, expectedErr
 	}
 

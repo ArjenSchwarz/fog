@@ -44,11 +44,7 @@ import (
 
 var driftFlags DriftFlags
 
-type listAllResourcesFunc func(ctx context.Context, typeName string, cloudControlClient lib.CloudControlListResourcesAPI, ssoClient interface {
-	lib.SSOAdminListInstancesAPI
-	lib.SSOAdminListPermissionSetsAPI
-	lib.SSOAdminListAccountAssignmentsAPI
-}, organizationsClient lib.OrganizationsListAccountsAPI) (map[string]string, error)
+type listAllResourcesFunc func(ctx context.Context, typeName string, cloudControlClient lib.CloudControlListResourcesAPI, ssoClient lib.SSOAdminClient, organizationsClient lib.OrganizationsListAccountsAPI) (map[string]string, error)
 
 // driftCmd represents the drift command
 var driftCmd = &cobra.Command{
