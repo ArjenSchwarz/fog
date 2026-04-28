@@ -139,6 +139,144 @@ func splitShellArgs(s string) ([]string, error) {
 	return args, nil
 }
 
+var blockedPrecheckCommands = []string{"rm", "del", "kill"}
+
+func normalizePrecheckCommandName(command string) string {
+	return strings.ToLower(filepath.Base(command))
+}
+
+func findUnsafeWrappedPrecheck(args []string) (string, error) {
+	for len(args) > 0 {
+		command := args[0]
+		commandName := normalizePrecheckCommandName(command)
+		if stringInSlice(commandName, blockedPrecheckCommands) {
+			return command, nil
+		}
+
+		var (
+			nextArgs []string
+			err      error
+		)
+		switch commandName {
+		case "env":
+			nextArgs, err = unwrapEnvCommand(args[1:])
+		case "sh", "bash", "zsh", "dash", "ksh", "ash":
+			nextArgs, err = unwrapShellCommand(args[1:])
+		case "cmd", "cmd.exe":
+			nextArgs, err = unwrapCmdCommand(args[1:])
+		case "powershell", "powershell.exe", "pwsh", "pwsh.exe":
+			nextArgs, err = unwrapPowerShellCommand(args[1:])
+		default:
+			return "", nil
+		}
+		if err != nil {
+			return "", err
+		}
+		if len(nextArgs) == 0 {
+			return "", nil
+		}
+		args = nextArgs
+	}
+
+	return "", nil
+}
+
+func unwrapEnvCommand(args []string) ([]string, error) {
+	for i := 0; i < len(args); {
+		arg := args[i]
+		switch {
+		case arg == "--":
+			if i+1 >= len(args) {
+				return nil, nil
+			}
+			return args[i+1:], nil
+		case arg == "-S" || arg == "--split-string":
+			if i+1 >= len(args) {
+				return nil, fmt.Errorf("env wrapper missing command after %q", arg)
+			}
+			return splitShellArgs(args[i+1])
+		case arg == "-u" || arg == "--unset" || arg == "-C" || arg == "--chdir":
+			i += 2
+		case strings.HasPrefix(arg, "--unset=") || strings.HasPrefix(arg, "--chdir="):
+			i++
+		case arg == "-i" || arg == "--ignore-environment" || arg == "-0" || arg == "--null" || arg == "-v" || arg == "--debug":
+			i++
+		case strings.Contains(arg, "=") && !strings.HasPrefix(arg, "="):
+			i++
+		default:
+			return args[i:], nil
+		}
+	}
+
+	return nil, nil
+}
+
+func unwrapShellCommand(args []string) ([]string, error) {
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		switch {
+		case arg == "-c":
+			if i+1 >= len(args) {
+				return nil, nil
+			}
+			return splitShellArgs(args[i+1])
+		case strings.HasPrefix(arg, "-") && !strings.HasPrefix(arg, "--") && strings.Contains(strings.TrimPrefix(arg, "-"), "c"):
+			if i+1 >= len(args) {
+				return nil, nil
+			}
+			return splitShellArgs(args[i+1])
+		case arg == "-o" || arg == "-O" || arg == "--rcfile" || arg == "--init-file":
+			i++
+		case strings.HasPrefix(arg, "--rcfile=") || strings.HasPrefix(arg, "--init-file="):
+			continue
+		case arg == "--":
+			return nil, nil
+		case strings.HasPrefix(arg, "-"):
+			continue
+		default:
+			return nil, nil
+		}
+	}
+
+	return nil, nil
+}
+
+func unwrapCmdCommand(args []string) ([]string, error) {
+	for i, arg := range args {
+		if !strings.EqualFold(arg, "/c") && !strings.EqualFold(arg, "/k") {
+			continue
+		}
+		if i+1 >= len(args) {
+			return nil, nil
+		}
+		rest := args[i+1:]
+		if len(rest) == 1 {
+			return splitShellArgs(rest[0])
+		}
+		return rest, nil
+	}
+
+	return nil, nil
+}
+
+func unwrapPowerShellCommand(args []string) ([]string, error) {
+	for i, arg := range args {
+		if !strings.EqualFold(arg, "-command") && !strings.EqualFold(arg, "-c") {
+			continue
+		}
+		if i+1 >= len(args) {
+			return nil, nil
+		}
+		rest := args[i+1:]
+		if len(rest) == 1 {
+			return splitShellArgs(rest[0])
+		}
+		return rest, nil
+	}
+
+	return nil, nil
+}
+
 // RunPrechecks executes configured template validation commands and returns results for each check.
 func RunPrechecks(deployment *DeployInfo) (map[string]string, error) {
 	results := make(map[string]string)
@@ -152,13 +290,10 @@ func RunPrechecks(deployment *DeployInfo) (map[string]string, error) {
 			return results, fmt.Errorf("precheck command is empty or only whitespace: %q", precheck)
 		}
 		command, args := separated[0], separated[1:]
-		// Normalise the executable name so that path-prefixed invocations
-		// (e.g. /bin/rm, ./rm) are caught by the denylist.
-		// NOTE: this denylist is intentionally minimal; an allowlist approach would
-		// provide stronger guarantees (see specs/bugfixes/block-unsafe-precheck-path/report.md).
-		baseName := strings.ToLower(filepath.Base(command))
-		if stringInSlice(baseName, []string{"rm", "del", "kill"}) {
-			return results, fmt.Errorf("unsafe command '%v' detected", command)
+		if unsafeCommand, err := findUnsafeWrappedPrecheck(separated); err != nil {
+			return results, err
+		} else if unsafeCommand != "" {
+			return results, fmt.Errorf("unsafe command '%v' detected", unsafeCommand)
 		}
 		binary, lookErr := exec.LookPath(command)
 		if lookErr != nil {

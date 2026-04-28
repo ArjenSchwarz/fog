@@ -357,6 +357,47 @@ func TestRunPrechecksUnsafeCommandWithPath(t *testing.T) {
 	}
 }
 
+func TestRunPrechecksUnsafeWrappedCommand(t *testing.T) {
+	// Regression test for T-1071: RunPrechecks must reject unsafe commands
+	// even when a wrapper executable forwards to them.
+	t.Cleanup(viper.Reset)
+
+	deployment := &DeployInfo{
+		TemplateRelativePath: "test/path.yaml",
+	}
+
+	cases := []struct {
+		name    string
+		command string
+	}{
+		{"env wrapper", "env rm --help"},
+		{"env with assignment", "env SAFE=1 rm --help"},
+		{"env split string", `env -S 'rm --help'`},
+		{"env wrapping shell", `env sh -c 'rm -rf test/path.yaml'`},
+		{"shell -c wrapper", `sh -c 'rm -rf test/path.yaml'`},
+		{"bash -lc wrapper", `bash -lc 'kill -9 1234'`},
+		{"bash option before -c", `bash -o pipefail -c 'rm -rf test/path.yaml'`},
+		{"cmd wrapper", `cmd /c del important.txt`},
+		{"powershell wrapper", `pwsh -Command "kill 1234"`},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			viper.Set("templates.prechecks", []string{tc.command})
+			results, err := RunPrechecks(deployment)
+			if err == nil {
+				t.Fatalf("RunPrechecks(%q) should detect unsafe wrapped command, got results: %v", tc.command, results)
+			}
+			if !strings.Contains(err.Error(), "unsafe command") {
+				t.Fatalf("RunPrechecks(%q) error should mention 'unsafe command', got: %v", tc.command, err)
+			}
+			if len(results) > 0 {
+				t.Fatalf("RunPrechecks(%q) should not return results for unsafe wrapped command, got: %v", tc.command, results)
+			}
+		})
+	}
+}
+
 func TestRunPrechecksEmptyCommand(t *testing.T) {
 	t.Cleanup(viper.Reset)
 
