@@ -17,7 +17,7 @@ func TestFailWithError_WritesToStderr(t *testing.T) {
 		return
 	}
 
-	cmd := exec.Command(os.Args[0], "-test.run=TestFailWithError_WritesToStderr")
+	cmd := exec.Command(os.Args[0], "-test.run=^TestFailWithError_WritesToStderr$")
 	cmd.Env = append(os.Environ(), "GO_WANT_FAIL_WITH_ERROR_HELPER=1")
 
 	var stdout bytes.Buffer
@@ -37,10 +37,11 @@ func TestFailWithError_WritesToStderr(t *testing.T) {
 	if got := stdout.String(); got != "" {
 		t.Fatalf("expected no stdout output, got %q", got)
 	}
-	if got := stderr.String(); got == "" {
+	got := stderr.String()
+	if got == "" {
 		t.Fatal("expected error output on stderr, got nothing")
 	}
-	if got := stderr.String(); !bytes.Contains([]byte(got), []byte("Error: boom")) {
+	if !bytes.Contains([]byte(got), []byte("Error: boom")) {
 		t.Fatalf("expected stderr to contain error message, got %q", got)
 	}
 }
