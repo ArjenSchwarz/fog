@@ -207,6 +207,8 @@ func unwrapEnvCommand(args []string) ([]string, error) {
 				return nil, fmt.Errorf("env wrapper missing command after %q", arg)
 			}
 			return splitShellArgs(args[i+1])
+		case strings.HasPrefix(arg, "--split-string="):
+			return splitShellArgs(strings.TrimPrefix(arg, "--split-string="))
 		case arg == "-u" || arg == "--unset" || arg == "-C" || arg == "--chdir" || arg == "-a" || arg == "--argv0":
 			i += 2
 		case strings.HasPrefix(arg, "--unset=") || strings.HasPrefix(arg, "--chdir=") || strings.HasPrefix(arg, "--argv0="):
@@ -273,7 +275,7 @@ func unwrapShellShortOptions(arg string, args []string, index *int) ([]string, e
 			if pos+1 < len(shortOpts) {
 				return nil, nil
 			}
-			*index++
+			(*index)++
 			return nil, nil
 		}
 	}
@@ -323,11 +325,7 @@ func unwrapCmdCommand(args []string) ([]string, error) {
 		if i+1 >= len(args) {
 			return nil, nil
 		}
-		rest := args[i+1:]
-		if len(rest) == 1 {
-			return splitShellArgs(rest[0])
-		}
-		return rest, nil
+		return parseWrappedCommandString(strings.Join(args[i+1:], " "), "cmd")
 	}
 
 	return nil, nil
@@ -387,11 +385,7 @@ func unwrapPowerShellCommand(args []string) ([]string, error) {
 			if i+1 >= len(args) {
 				return nil, nil
 			}
-			rest := args[i+1:]
-			if len(rest) == 1 {
-				return parseWrappedCommandString(rest[0], "PowerShell")
-			}
-			return rest, nil
+			return parseWrappedCommandString(strings.Join(args[i+1:], " "), "PowerShell")
 		}
 	}
 

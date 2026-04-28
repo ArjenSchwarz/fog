@@ -390,6 +390,7 @@ func TestRunPrechecksUnsafeWrappedCommand(t *testing.T) {
 		{"env wrapper", "env rm --help", "unsafe command"},
 		{"env with assignment", "env SAFE=1 rm --help", "unsafe command"},
 		{"env split string", `env -S 'rm --help'`, "unsafe command"},
+		{"env split string equals", `env --split-string='rm --help'`, "unsafe command"},
 		{"env argv0 flag", "env -a safe-name rm --help", "unsafe command"},
 		{"env argv0 long flag", "env --argv0=safe-name rm --help", "unsafe command"},
 		{"env -S nested shell", `env -S 'sh -c "rm -rf test/path.yaml"'`, "unsafe command"},
@@ -402,8 +403,12 @@ func TestRunPrechecksUnsafeWrappedCommand(t *testing.T) {
 		{"bash inline -o before -c", `bash -onoclobber -c 'rm -rf test/path.yaml'`, "unsafe command"},
 		{"deeply nested wrappers", `sh -c 'bash -c "env rm --help"'`, "unsafe command"},
 		{"cmd wrapper", `cmd /c del important.txt`, "unsafe command"},
+		{"cmd keep wrapper", `cmd /k del important.txt`, "unsafe command"},
+		{"cmd flag before c", `cmd /q /c del important.txt`, "unsafe command"},
+		{"cmd operator without whitespace is rejected", `cmd /c echo ok&del important.txt`, "cannot be safely unwrapped"},
 		{"powershell wrapper", `pwsh -Command "kill 1234"`, "unsafe command"},
 		{"powershell command prefix", `pwsh -Com "rm -rf ."`, "unsafe command"},
+		{"powershell multi arg sequence is rejected", `pwsh -Command echo ok; rm -rf .`, "cannot be safely unwrapped"},
 		{"powershell encoded command", "pwsh -enc " + encodePowerShellCommand(t, "rm -rf ."), "unsafe command"},
 		{"powershell file wrapper", `pwsh -File dangerous.ps1`, "cannot be safely unwrapped"},
 		{"powershell file alias", `pwsh -f dangerous.ps1`, "cannot be safely unwrapped"},
@@ -436,6 +441,7 @@ func TestFindUnsafeWrappedPrecheckSafeWrapper(t *testing.T) {
 		{"env wrapper", `env SAFE=1 test hello = hello`},
 		{"shell wrapper", `sh -c "echo hello"`},
 		{"powershell command", `pwsh -Command "echo hello"`},
+		{"powershell multi arg command", `pwsh -Command Write-Output hello`},
 	}
 
 	for _, tc := range cases {
