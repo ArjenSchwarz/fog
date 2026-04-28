@@ -248,6 +248,35 @@ func TestGetResourcesSkipsStacksWithoutNameDuringWildcardFiltering(t *testing.T)
 	assert.Equal(t, 1, mock.describeStackResourcesCalls)
 }
 
+// TestGetResourcesSkipsStacksWithoutNameWhenListingAllStacks verifies that
+// malformed DescribeStacks entries with nil StackName do not panic when listing
+// all stacks and are ignored.
+func TestGetResourcesSkipsStacksWithoutNameWhenListingAllStacks(t *testing.T) {
+	stackName := ""
+	mock := &paginatingMockClient{
+		pages: map[string]cloudformation.DescribeStacksOutput{
+			"": {
+				Stacks:    []types.Stack{{StackName: aws.String("stack-page1")}},
+				NextToken: aws.String("token2"),
+			},
+			"token2": {
+				Stacks: []types.Stack{{}},
+			},
+		},
+		describeStackResourcesOutputs: []cloudformation.DescribeStackResourcesOutput{
+			{StackResources: []types.StackResource{
+				{LogicalResourceId: aws.String("R1"), PhysicalResourceId: aws.String("p1"), ResourceType: aws.String("AWS::S3::Bucket"), ResourceStatus: types.ResourceStatusCreateComplete},
+			}},
+		},
+	}
+
+	got, err := GetResources(context.Background(), &stackName, mock)
+	require.NoError(t, err)
+	require.Len(t, got, 1)
+	assert.Equal(t, "stack-page1", got[0].StackName)
+	assert.Equal(t, 1, mock.describeStackResourcesCalls)
+}
+
 // TestGetResourcesSkipsMissingPhysicalResourceID verifies that resources without a usable physical ID are ignored.
 func TestGetResourcesSkipsMissingPhysicalResourceID(t *testing.T) {
 	stackName := "nil-physical-id-stack"
