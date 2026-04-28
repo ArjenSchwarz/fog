@@ -14,7 +14,6 @@ type mockSpecialCasesClient struct {
 	describeStackResourcesOutput cloudformation.DescribeStackResourcesOutput
 	describeStackResourcesErr    error
 	listExportsOutput            cloudformation.ListExportsOutput
-	listExportsErr               error
 	// listExportsPages supports multi-page responses keyed by NextToken ("" = first page).
 	listExportsPages map[string]cloudformation.ListExportsOutput
 }
@@ -24,9 +23,6 @@ func (m *mockSpecialCasesClient) DescribeStackResources(ctx context.Context, par
 }
 
 func (m *mockSpecialCasesClient) ListExports(ctx context.Context, params *cloudformation.ListExportsInput, optFns ...func(*cloudformation.Options)) (*cloudformation.ListExportsOutput, error) {
-	if m.listExportsErr != nil {
-		return nil, m.listExportsErr
-	}
 	if m.listExportsPages != nil {
 		token := ""
 		if params.NextToken != nil {

@@ -43,7 +43,12 @@ import (
 )
 
 var driftFlags DriftFlags
-var listAllResourcesFunc = lib.ListAllResources
+
+type listAllResourcesFunc func(ctx context.Context, typeName string, cloudControlClient lib.CloudControlListResourcesAPI, ssoClient interface {
+	lib.SSOAdminListInstancesAPI
+	lib.SSOAdminListPermissionSetsAPI
+	lib.SSOAdminListAccountAssignmentsAPI
+}, organizationsClient lib.OrganizationsListAccountsAPI) (map[string]string, error)
 
 // driftCmd represents the drift command
 var driftCmd = &cobra.Command{
@@ -201,7 +206,7 @@ func detectDrift(cmd *cobra.Command, args []string) {
 	checkNaclEntries(ctx, naclResources, template, stack.Parameters, logicalToPhysical, &rows, awsConfig)
 	checkRouteTableRoutes(ctx, routetableResources, template, stack.Parameters, logicalToPhysical, &rows, awsConfig)
 	checkTransitGatewayRouteTableRoutes(ctx, tgwRouteTableResources, template, stack.Parameters, logicalToPhysical, &rows, awsConfig)
-	if err := detectUnmanagedResources(ctx, settings.GetStringSlice("drift.detect-unmanaged-resources"), logicalToPhysical, &rows, awsConfig); err != nil {
+	if err := detectUnmanagedResources(ctx, settings.GetStringSlice("drift.detect-unmanaged-resources"), logicalToPhysical, &rows, awsConfig, lib.ListAllResources); err != nil {
 		failWithError(err)
 	}
 
@@ -296,13 +301,13 @@ func separateSpecialCases(ctx context.Context, defaultDrift []types.StackResourc
 	return naclResources, routetableResources, tgwRouteTableResources, logicalToPhysical, nil
 }
 
-func detectUnmanagedResources(ctx context.Context, resourceTypes []string, logicalToPhysical map[string]string, rows *[]map[string]any, awsConfig config.AWSConfig) error {
+func detectUnmanagedResources(ctx context.Context, resourceTypes []string, logicalToPhysical map[string]string, rows *[]map[string]any, awsConfig config.AWSConfig, listResources listAllResourcesFunc) error {
 	for _, resourceType := range resourceTypes {
-		allresources, err := listAllResourcesFunc(ctx, resourceType, awsConfig.CloudControlClient(), awsConfig.SSOAdminClient(), awsConfig.OrganizationsClient())
+		allResources, err := listResources(ctx, resourceType, awsConfig.CloudControlClient(), awsConfig.SSOAdminClient(), awsConfig.OrganizationsClient())
 		if err != nil {
 			return fmt.Errorf("failed to list unmanaged resources for %s: %w", resourceType, err)
 		}
-		checkIfResourcesAreManaged(allresources, logicalToPhysical, rows)
+		checkIfResourcesAreManaged(allResources, logicalToPhysical, rows)
 	}
 	return nil
 }

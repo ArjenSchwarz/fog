@@ -155,20 +155,16 @@ func TestCheckIfResourcesAreManaged_EmptyInputs(t *testing.T) {
 func TestDetectUnmanagedResourcesReturnsListAllResourcesError(t *testing.T) {
 	expectedErr := errors.New("list all resources failed")
 
-	originalListAllResources := listAllResourcesFunc
-	listAllResourcesFunc = func(context.Context, string, lib.CloudControlListResourcesAPI, interface {
+	listResources := func(context.Context, string, lib.CloudControlListResourcesAPI, interface {
 		lib.SSOAdminListInstancesAPI
 		lib.SSOAdminListPermissionSetsAPI
 		lib.SSOAdminListAccountAssignmentsAPI
 	}, lib.OrganizationsListAccountsAPI) (map[string]string, error) {
 		return nil, expectedErr
 	}
-	t.Cleanup(func() {
-		listAllResourcesFunc = originalListAllResources
-	})
 
 	var rows []map[string]any
-	err := detectUnmanagedResources(context.Background(), []string{"AWS::S3::Bucket"}, map[string]string{}, &rows, config.AWSConfig{})
+	err := detectUnmanagedResources(context.Background(), []string{"AWS::S3::Bucket"}, map[string]string{}, &rows, config.AWSConfig{}, listResources)
 	if !errors.Is(err, expectedErr) {
 		t.Fatalf("expected error %v, got %v", expectedErr, err)
 	}
