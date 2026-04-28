@@ -36,11 +36,14 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/ArjenSchwarz/fog/cmd"
 	"github.com/aws/aws-lambda-go/lambda"
 )
+
+var generateReportFromLambda = cmd.GenerateReportFromLambda
 
 // EventBridgeMessage represents an AWS EventBridge message for CloudFormation stack events.
 //
@@ -106,7 +109,11 @@ func HandleRequest(message EventBridgeMessage) error {
 	if format == "" {
 		return fmt.Errorf("required environment variable ReportOutputFormat is not set")
 	}
+	stackID := strings.TrimSpace(message.Detail.StackId)
+	if stackID == "" {
+		return fmt.Errorf("required EventBridge detail.stack-id is not set")
+	}
 	filename := os.Getenv("ReportNamePattern")
 	timezone := os.Getenv("ReportTimezone")
-	return cmd.GenerateReportFromLambda(message.Detail.StackId, s3bucket, filename, format, timezone)
+	return generateReportFromLambda(stackID, s3bucket, filename, format, timezone)
 }
