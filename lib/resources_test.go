@@ -227,7 +227,7 @@ func TestGetResourcesSkipsStacksWithoutNameDuringWildcardFiltering(t *testing.T)
 	mock := &paginatingMockClient{
 		pages: map[string]cloudformation.DescribeStacksOutput{
 			"": {
-				Stacks: []types.Stack{{StackName: aws.String("stack-page1")}},
+				Stacks:    []types.Stack{{StackName: aws.String("stack-page1")}},
 				NextToken: aws.String("token2"),
 			},
 			"token2": {

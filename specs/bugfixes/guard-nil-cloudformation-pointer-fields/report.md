@@ -1,7 +1,7 @@
 # Bugfix Report: Guard nil CloudFormation pointer fields
 
 **Date:** 2026-04-28
-**Status:** Investigating
+**Status:** Fixed
 
 ## Description of the Issue
 
@@ -52,9 +52,24 @@ did not cover nil pointer fields inside paginated responses.
 ## Resolution for the Issue
 
 **Changes made:**
-- _Pending implementation._
+- `lib/stacks.go:232-269` - validate stack names and stack IDs before building
+  `CfnStack` results, returning contextual errors for malformed stack records.
+- `lib/outputs.go:105-139` - use nil-safe stack/export name handling and skip
+  outputs missing required key/value fields instead of panicking.
+- `lib/resources.go:44-97` - skip stacks without usable names during filtering
+  and use safe stack labels for resource lookups and error messages.
+- `lib/getcfnstacks_test.go` - added paginated regression coverage for nil
+  `StackName` and nil `StackId`.
+- `lib/outputs_test.go` - added paginated regression coverage for nil
+  `StackName`, nil `OutputKey`, and nil `OutputValue`.
+- `lib/resources_test.go` - added wildcard-filter regression coverage for nil
+  `StackName`.
 
-**Approach rationale:** _Pending implementation._
+**Approach rationale:** `GetCfnStacks` now returns explicit errors because stack
+name and stack ID are required to build correct `CfnStack` results and support
+downstream event lookups. `GetExports` and `GetResources` skip malformed items
+because those listings can still return useful results from the remaining valid
+entries.
 
 **Alternatives considered:**
 - Return errors for every malformed stack/output entry - likely too disruptive
@@ -80,24 +95,24 @@ are skipped (`GetExports`, `GetResources`).
 
 | File | Change |
 |------|--------|
-| `lib/stacks.go` | Pending nil-guard fix for stack listing |
-| `lib/outputs.go` | Pending nil-guard fix for export parsing |
-| `lib/resources.go` | Pending nil-guard fix for resource filtering |
-| `lib/getcfnstacks_test.go` | Added failing regression coverage |
-| `lib/outputs_test.go` | Added failing regression coverage |
-| `lib/resources_test.go` | Added failing regression coverage |
+| `lib/stacks.go` | Added contextual validation for missing stack name and stack ID |
+| `lib/outputs.go` | Guarded stack/output pointers and skip malformed export entries |
+| `lib/resources.go` | Guarded wildcard filtering and stack resource lookups |
+| `lib/getcfnstacks_test.go` | Added regression coverage for missing stack identifiers |
+| `lib/outputs_test.go` | Added regression coverage for malformed export records |
+| `lib/resources_test.go` | Added regression coverage for nil stack names during wildcard filtering |
 
 ## Verification
 
 **Automated:**
 - [x] Regression test fails before fix
-- [ ] Regression test passes
-- [ ] Full test suite passes
-- [ ] Linters/validators pass
+- [x] Regression test passes
+- [x] Full test suite passes
+- [x] Linters/validators pass
 
 **Manual verification:**
-- Reviewed the panic traces from the new regression tests to confirm they point
-  at the direct pointer dereferences described in T-1026.
+- Reviewed the pre-fix panic traces and post-fix behavior to confirm malformed
+  paginated entries are now either skipped or converted into contextual errors.
 
 ## Prevention
 

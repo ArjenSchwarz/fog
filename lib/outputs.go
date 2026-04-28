@@ -104,25 +104,33 @@ func GetExports(ctx context.Context, stackname *string, exportname *string, svc 
 
 func getOutputsForStack(stack types.Stack, stackfilter string, exportfilter string, exportsOnly bool) []CfnOutput {
 	result := []CfnOutput{}
+	stackName := aws.ToString(stack.StackName)
+	if stackName == "" {
+		return result
+	}
 	if strings.Contains(stackfilter, "*") {
-		if !GlobToRegex(stackfilter).MatchString(*stack.StackName) {
+		if !GlobToRegex(stackfilter).MatchString(stackName) {
 			return result
 		}
 	}
 	for _, output := range stack.Outputs {
-		if exportsOnly && aws.ToString(output.ExportName) == "" {
+		exportName := aws.ToString(output.ExportName)
+		if exportsOnly && exportName == "" {
 			continue
 		}
 		if exportfilter != "" {
-			if !GlobToRegex(exportfilter).MatchString(*output.ExportName) {
+			if !GlobToRegex(exportfilter).MatchString(exportName) {
 				continue
 			}
 		}
+		if output.OutputKey == nil || output.OutputValue == nil {
+			continue
+		}
 		parsedOutput := CfnOutput{
-			StackName:   *stack.StackName,
+			StackName:   stackName,
 			OutputKey:   *output.OutputKey,
 			OutputValue: *output.OutputValue,
-			ExportName:  aws.ToString(output.ExportName),
+			ExportName:  exportName,
 		}
 		if output.Description != nil {
 			parsedOutput.Description = *output.Description

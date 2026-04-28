@@ -43,8 +43,12 @@ func GetResources(ctx context.Context, stackname *string, svc interface {
 	}
 	tocheckstacks := make([]types.Stack, 0)
 	for _, stack := range allstacks {
+		stackLabel := aws.ToString(stack.StackName)
+		if stackLabel == "" {
+			continue
+		}
 		if strings.Contains(*stackname, "*") {
-			if !GlobToRegex(*stackname).MatchString(*stack.StackName) {
+			if !GlobToRegex(*stackname).MatchString(stackLabel) {
 				continue
 			}
 		}
@@ -52,11 +56,11 @@ func GetResources(ctx context.Context, stackname *string, svc interface {
 	}
 	resourcelist := make([]CfnResource, 0)
 	for _, stack := range tocheckstacks {
+		stackLabel := aws.ToString(stack.StackName)
 		resources, err := svc.DescribeStackResources(
 			ctx,
-			&cloudformation.DescribeStackResourcesInput{StackName: stack.StackName})
+			&cloudformation.DescribeStackResourcesInput{StackName: aws.String(stackLabel)})
 		if err != nil {
-			stackLabel := aws.ToString(stack.StackName)
 			var ae smithy.APIError
 			if errors.As(err, &ae) {
 				// If the error is because of throttling, we'll wait 5 seconds before trying the same query again
@@ -64,7 +68,7 @@ func GetResources(ctx context.Context, stackname *string, svc interface {
 					time.Sleep(5 * time.Second)
 					resources, err = svc.DescribeStackResources(
 						ctx,
-						&cloudformation.DescribeStackResourcesInput{StackName: stack.StackName})
+						&cloudformation.DescribeStackResourcesInput{StackName: aws.String(stackLabel)})
 					// If it still fails after retry, return the error
 					if err != nil {
 						return nil, fmt.Errorf("failed to describe stack resources for %s after throttling retry: %w", stackLabel, err)
@@ -84,7 +88,7 @@ func GetResources(ctx context.Context, stackname *string, svc interface {
 				continue
 			}
 			resitem := CfnResource{
-				StackName:  aws.ToString(stack.StackName),
+				StackName:  stackLabel,
 				Type:       aws.ToString(resource.ResourceType),
 				ResourceID: physicalID,
 				LogicalID:  aws.ToString(resource.LogicalResourceId),

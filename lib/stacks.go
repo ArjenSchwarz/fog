@@ -231,18 +231,27 @@ func GetCfnStacks(ctx context.Context, stackname *string, svc CFNExportsAPI) (ma
 	}
 	tocheckstacks := make([]types.Stack, 0)
 	for _, stack := range allstacks {
+		stackLabel := aws.ToString(stack.StackName)
+		if stackLabel == "" {
+			return nil, fmt.Errorf("invalid CloudFormation stack in DescribeStacks response: missing stack name")
+		}
 		if strings.Contains(*stackname, "*") {
-			if !GlobToRegex(*stackname).MatchString(*stack.StackName) {
+			if !GlobToRegex(*stackname).MatchString(stackLabel) {
 				continue
 			}
 		}
 		tocheckstacks = append(tocheckstacks, stack)
 	}
 	for _, stack := range tocheckstacks {
+		stackNameValue := aws.ToString(stack.StackName)
+		stackIDValue := aws.ToString(stack.StackId)
+		if stackIDValue == "" {
+			return nil, fmt.Errorf("invalid CloudFormation stack %q in DescribeStacks response: missing stack id", stackNameValue)
+		}
 		stackobject := CfnStack{
 			RawInfo: stack,
-			Name:    *stack.StackName,
-			Id:      *stack.StackId,
+			Name:    stackNameValue,
+			Id:      stackIDValue,
 		}
 		if stack.Description != nil {
 			stackobject.Description = *stack.Description
@@ -250,14 +259,14 @@ func GetCfnStacks(ctx context.Context, stackname *string, svc CFNExportsAPI) (ma
 		outputs := getOutputsForStack(stack, "", "", false)
 		for i := range outputs {
 			if err := outputs[i].FillImports(ctx, svc); err != nil {
-				return nil, fmt.Errorf("stack %q: %w", *stack.StackName, err)
+				return nil, fmt.Errorf("stack %q: %w", stackNameValue, err)
 			}
 			if outputs[i].Imported {
 				stackobject.ImportedBy = append(stackobject.ImportedBy, outputs[i].ImportedBy...)
 			}
 		}
 		stackobject.Outputs = outputs
-		result[*stack.StackName] = stackobject
+		result[stackNameValue] = stackobject
 	}
 	return result, nil
 }
