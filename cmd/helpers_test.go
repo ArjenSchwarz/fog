@@ -5,12 +5,12 @@ import (
 	"errors"
 	"os"
 	"os/exec"
+	"strings"
 	"testing"
 )
 
-// TestFailWithError_WritesToStderr is a regression test for T-1014.
-// Errors routed through failWithError must stay off stdout so structured output
-// pipelines only receive command results on stdout.
+// TestFailWithError_WritesToStderr verifies failWithError keeps diagnostics on
+// stderr so structured stdout pipelines only receive command results.
 func TestFailWithError_WritesToStderr(t *testing.T) {
 	if os.Getenv("GO_WANT_FAIL_WITH_ERROR_HELPER") == "1" {
 		failWithError(errors.New("boom"))
@@ -41,7 +41,7 @@ func TestFailWithError_WritesToStderr(t *testing.T) {
 	if got == "" {
 		t.Fatal("expected error output on stderr, got nothing")
 	}
-	if !bytes.Contains([]byte(got), []byte("Error: boom")) {
+	if !strings.Contains(got, "Error: boom") {
 		t.Fatalf("expected stderr to contain error message, got %q", got)
 	}
 }
