@@ -207,9 +207,9 @@ func unwrapEnvCommand(args []string) ([]string, error) {
 				return nil, fmt.Errorf("env wrapper missing command after %q", arg)
 			}
 			return splitShellArgs(args[i+1])
-		case arg == "-u" || arg == "--unset" || arg == "-C" || arg == "--chdir":
+		case arg == "-u" || arg == "--unset" || arg == "-C" || arg == "--chdir" || arg == "-a" || arg == "--argv0":
 			i += 2
-		case strings.HasPrefix(arg, "--unset=") || strings.HasPrefix(arg, "--chdir="):
+		case strings.HasPrefix(arg, "--unset=") || strings.HasPrefix(arg, "--chdir=") || strings.HasPrefix(arg, "--argv0="):
 			i++
 		case arg == "-i" || arg == "--ignore-environment" || arg == "-0" || arg == "--null" || arg == "-v" || arg == "--debug":
 			i++
@@ -347,6 +347,11 @@ func isPowerShellEncodedCommandFlag(arg string) bool {
 	return lowerArg == "-enc" || matchesPowerShellFlagPrefix(lowerArg, "-encodedcommand", "-enc")
 }
 
+func isPowerShellFileFlag(arg string) bool {
+	lowerArg := strings.ToLower(arg)
+	return lowerArg == "-f" || matchesPowerShellFlagPrefix(lowerArg, "-file", "-fi")
+}
+
 func decodePowerShellEncodedCommand(encoded string) (string, error) {
 	decoded, err := base64.StdEncoding.DecodeString(encoded)
 	if err != nil {
@@ -376,6 +381,8 @@ func unwrapPowerShellCommand(args []string) ([]string, error) {
 				return nil, err
 			}
 			return parseWrappedCommandString(commandString, "PowerShell encoded")
+		case isPowerShellFileFlag(arg):
+			return nil, fmt.Errorf("PowerShell -File commands cannot be safely unwrapped for precheck")
 		case isPowerShellCommandFlag(arg):
 			if i+1 >= len(args) {
 				return nil, nil

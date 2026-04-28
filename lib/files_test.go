@@ -390,6 +390,8 @@ func TestRunPrechecksUnsafeWrappedCommand(t *testing.T) {
 		{"env wrapper", "env rm --help", "unsafe command"},
 		{"env with assignment", "env SAFE=1 rm --help", "unsafe command"},
 		{"env split string", `env -S 'rm --help'`, "unsafe command"},
+		{"env argv0 flag", "env -a safe-name rm --help", "unsafe command"},
+		{"env argv0 long flag", "env --argv0=safe-name rm --help", "unsafe command"},
 		{"env -S nested shell", `env -S 'sh -c "rm -rf test/path.yaml"'`, "unsafe command"},
 		{"env wrapping shell", `env sh -c 'rm -rf test/path.yaml'`, "unsafe command"},
 		{"shell -c wrapper", `sh -c 'rm -rf test/path.yaml'`, "unsafe command"},
@@ -402,6 +404,8 @@ func TestRunPrechecksUnsafeWrappedCommand(t *testing.T) {
 		{"powershell wrapper", `pwsh -Command "kill 1234"`, "unsafe command"},
 		{"powershell command prefix", `pwsh -Com "rm -rf ."`, "unsafe command"},
 		{"powershell encoded command", "pwsh -enc " + encodePowerShellCommand(t, "rm -rf ."), "unsafe command"},
+		{"powershell file wrapper", `pwsh -File dangerous.ps1`, "cannot be safely unwrapped"},
+		{"powershell file alias", `pwsh -f dangerous.ps1`, "cannot be safely unwrapped"},
 	}
 
 	for _, tc := range cases {
