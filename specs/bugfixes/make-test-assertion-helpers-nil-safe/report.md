@@ -1,7 +1,7 @@
 # Bugfix Report: Make test assertion helpers nil-safe
 
 **Date:** 2026-04-28
-**Status:** Investigating
+**Status:** Fixed
 
 ## Description of the Issue
 
@@ -35,8 +35,10 @@ The helpers mixed fatal assertion reporting with later pointer access without an
 ## Resolution for the Issue
 
 **Changes made:**
+- `lib/testutil/assertions.go` - added shared nil guards for stacks and changesets, returned immediately after fatal assertions, and routed mismatch output through nil-safe optional string formatting helpers
+- `lib/testutil/assertions_test.go` - added regression tests for nil stack/changeset guard helpers and nil optional AWS pointer formatting
 
-**Approach rationale:** 
+**Approach rationale:** Extracting the nil guards and mismatch formatting into small helper functions made the intended control flow explicit, satisfied static analysis, and gave the package direct regression coverage for the previously unsafe paths.
 
 **Alternatives considered:**
 - Change helper signatures to accept a broader testing interface - avoided to keep the exported API unchanged
@@ -44,25 +46,26 @@ The helpers mixed fatal assertion reporting with later pointer access without an
 ## Regression Test
 
 **Test file:** `lib/testutil/assertions_test.go`
-**Test name:** `TestAssertStackValueHelpers_DoNotPanicOnNilOptionalValues`
+**Test name:** `TestRequireStack_ReturnsFalseAfterFatalOnNil`, `TestRequireChangeset_ReturnsFalseAfterFatalOnNil`, `TestFormatOptionalString`, `TestFormatValueMismatch`
 
-**What it verifies:** Nil optional parameter, output, and tag values no longer panic during mismatch reporting, and nil stack / changeset guards stop helper execution correctly.
+**What it verifies:** Nil stack and changeset guards return immediately after recording a fatal assertion, and mismatch message formatting stays safe when AWS optional string pointers are nil.
 
-**Run command:** `go test ./lib/testutil -run 'TestRequireStack|TestRequireChangeset|TestFormatOptionalString|TestAssertStackValueHelpers|TestAssertChangesetHelpers|TestAssertStackStatus'`
+**Run command:** `go test ./lib/testutil -run 'TestRequireStack|TestRequireChangeset|TestFormatOptionalString|TestFormatValueMismatch'`
 
 ## Affected Files
 
 | File | Change |
 |------|--------|
-| `lib/testutil/assertions.go` | Will be updated to make nil handling explicit and safe |
-| `lib/testutil/assertions_test.go` | Adds regression coverage for nil inputs and nil optional pointer values |
+| `lib/testutil/assertions.go` | Makes nil preconditions explicit and formats optional AWS strings safely in mismatch paths |
+| `lib/testutil/assertions_test.go` | Adds regression coverage for nil guard helpers and nil-safe mismatch formatting |
+| `specs/bugfixes/make-test-assertion-helpers-nil-safe/report.md` | Documents investigation, root cause, fix, and verification |
 
 ## Verification
 
 **Automated:**
-- [ ] Regression test passes
-- [ ] Full test suite passes
-- [ ] Linters/validators pass
+- [x] Regression test passes
+- [x] Full test suite passes
+- [x] Linters/validators pass
 
 **Manual verification:**
 - Not applicable
