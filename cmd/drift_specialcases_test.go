@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -11,16 +12,21 @@ import (
 
 type mockSpecialCasesClient struct {
 	describeStackResourcesOutput cloudformation.DescribeStackResourcesOutput
+	describeStackResourcesErr    error
 	listExportsOutput            cloudformation.ListExportsOutput
+	listExportsErr               error
 	// listExportsPages supports multi-page responses keyed by NextToken ("" = first page).
 	listExportsPages map[string]cloudformation.ListExportsOutput
 }
 
 func (m *mockSpecialCasesClient) DescribeStackResources(ctx context.Context, params *cloudformation.DescribeStackResourcesInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStackResourcesOutput, error) {
-	return &m.describeStackResourcesOutput, nil
+	return &m.describeStackResourcesOutput, m.describeStackResourcesErr
 }
 
 func (m *mockSpecialCasesClient) ListExports(ctx context.Context, params *cloudformation.ListExportsInput, optFns ...func(*cloudformation.Options)) (*cloudformation.ListExportsOutput, error) {
+	if m.listExportsErr != nil {
+		return nil, m.listExportsErr
+	}
 	if m.listExportsPages != nil {
 		token := ""
 		if params.NextToken != nil {
@@ -75,7 +81,10 @@ func TestSeparateSpecialCasesSkipsNilPhysicalResourceID(t *testing.T) {
 		},
 	}
 
-	naclResources, routetableResources, tgwRouteTableResources, logicalToPhysical := separateSpecialCases(context.Background(), defaultDrift, &stackName, mock)
+	naclResources, routetableResources, tgwRouteTableResources, logicalToPhysical, err := separateSpecialCases(context.Background(), defaultDrift, &stackName, mock)
+	if err != nil {
+		t.Fatalf("separateSpecialCases() returned unexpected error: %v", err)
+	}
 
 	if got := logicalToPhysical["SubnetResource"]; got != "subnet-123" {
 		t.Fatalf("expected SubnetResource to map to subnet-123, got %q", got)
@@ -130,7 +139,10 @@ func TestSeparateSpecialCasesPaginatesListExports(t *testing.T) {
 		},
 	}
 
-	_, _, _, logicalToPhysical := separateSpecialCases(context.Background(), nil, &stackName, mock)
+	_, _, _, logicalToPhysical, err := separateSpecialCases(context.Background(), nil, &stackName, mock)
+	if err != nil {
+		t.Fatalf("separateSpecialCases() returned unexpected error: %v", err)
+	}
 
 	for _, tc := range []struct {
 		key  string
@@ -146,5 +158,19 @@ func TestSeparateSpecialCasesPaginatesListExports(t *testing.T) {
 		} else if got != tc.want {
 			t.Errorf("expected %s=%q, got %q", tc.key, tc.want, got)
 		}
+	}
+}
+
+func TestSeparateSpecialCasesReturnsDescribeStackResourcesError(t *testing.T) {
+	stackName := "test-stack"
+	expectedErr := errors.New("describe stack resources failed")
+
+	mock := &mockSpecialCasesClient{
+		describeStackResourcesErr: expectedErr,
+	}
+
+	_, _, _, _, err := separateSpecialCases(context.Background(), nil, &stackName, mock)
+	if !errors.Is(err, expectedErr) {
+		t.Fatalf("expected error %v, got %v", expectedErr, err)
 	}
 }

@@ -43,6 +43,7 @@ import (
 )
 
 var driftFlags DriftFlags
+var listAllResourcesFunc = lib.ListAllResources
 
 // driftCmd represents the drift command
 var driftCmd = &cobra.Command{
@@ -99,7 +100,10 @@ func detectDrift(cmd *cobra.Command, args []string) {
 	if err != nil {
 		failWithError(err)
 	}
-	naclResources, routetableResources, tgwRouteTableResources, logicalToPhysical := separateSpecialCases(ctx, defaultDrift, &driftFlags.StackName, svc)
+	naclResources, routetableResources, tgwRouteTableResources, logicalToPhysical, err := separateSpecialCases(ctx, defaultDrift, &driftFlags.StackName, svc)
+	if err != nil {
+		failWithError(err)
+	}
 	// Build rows incrementally
 	rows := make([]map[string]any, 0)
 
@@ -197,12 +201,8 @@ func detectDrift(cmd *cobra.Command, args []string) {
 	checkNaclEntries(ctx, naclResources, template, stack.Parameters, logicalToPhysical, &rows, awsConfig)
 	checkRouteTableRoutes(ctx, routetableResources, template, stack.Parameters, logicalToPhysical, &rows, awsConfig)
 	checkTransitGatewayRouteTableRoutes(ctx, tgwRouteTableResources, template, stack.Parameters, logicalToPhysical, &rows, awsConfig)
-	for _, resourcetype := range settings.GetStringSlice("drift.detect-unmanaged-resources") {
-		allresources, err := lib.ListAllResources(ctx, resourcetype, awsConfig.CloudControlClient(), awsConfig.SSOAdminClient(), awsConfig.OrganizationsClient())
-		if err != nil {
-			log.Fatal(err)
-		}
-		checkIfResourcesAreManaged(allresources, logicalToPhysical, &rows)
+	if err := detectUnmanagedResources(ctx, settings.GetStringSlice("drift.detect-unmanaged-resources"), logicalToPhysical, &rows, awsConfig); err != nil {
+		failWithError(err)
 	}
 
 	// Create and render the document
@@ -240,7 +240,7 @@ func driftHasRequiredFields(drift types.StackResourceDrift) bool {
 func separateSpecialCases(ctx context.Context, defaultDrift []types.StackResourceDrift, stackName *string, svc interface {
 	lib.CloudFormationDescribeStackResourcesAPI
 	lib.CloudFormationListExportsAPI
-}) (map[string]string, map[string]string, map[string]string, map[string]string) {
+}) (map[string]string, map[string]string, map[string]string, map[string]string, error) {
 	naclResources := make(map[string]string)
 	routetableResources := make(map[string]string)
 	tgwRouteTableResources := make(map[string]string)
@@ -252,7 +252,7 @@ func separateSpecialCases(ctx context.Context, defaultDrift []types.StackResourc
 		StackName: stackName,
 	})
 	if err != nil {
-		log.Fatal(err)
+		return naclResources, routetableResources, tgwRouteTableResources, logicalToPhysical, fmt.Errorf("failed to describe stack resources for drift special cases: %w", err)
 	}
 	for _, resource := range stackResourcesResp.StackResources {
 		if resource.LogicalResourceId == nil || resource.PhysicalResourceId == nil {
@@ -293,7 +293,18 @@ func separateSpecialCases(ctx context.Context, defaultDrift []types.StackResourc
 			tgwRouteTableResources[*drift.LogicalResourceId] = *drift.PhysicalResourceId
 		}
 	}
-	return naclResources, routetableResources, tgwRouteTableResources, logicalToPhysical
+	return naclResources, routetableResources, tgwRouteTableResources, logicalToPhysical, nil
+}
+
+func detectUnmanagedResources(ctx context.Context, resourceTypes []string, logicalToPhysical map[string]string, rows *[]map[string]any, awsConfig config.AWSConfig) error {
+	for _, resourceType := range resourceTypes {
+		allresources, err := listAllResourcesFunc(ctx, resourceType, awsConfig.CloudControlClient(), awsConfig.SSOAdminClient(), awsConfig.OrganizationsClient())
+		if err != nil {
+			return fmt.Errorf("failed to list unmanaged resources for %s: %w", resourceType, err)
+		}
+		checkIfResourcesAreManaged(allresources, logicalToPhysical, rows)
+	}
+	return nil
 }
 
 func checkIfResourcesAreManaged(allresources map[string]string, logicalToPhysical map[string]string, rows *[]map[string]any) {

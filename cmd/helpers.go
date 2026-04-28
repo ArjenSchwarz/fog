@@ -68,5 +68,5 @@ func failWithError(err error) {
 	if viper.GetBool("debug") {
 		panic(err)
 	}
-	os.Exit(1)
+	osExitFunc(1)
 }
