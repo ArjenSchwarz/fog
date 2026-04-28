@@ -9,6 +9,18 @@ import (
 	"testing"
 )
 
+func envWithout(key string) []string {
+	prefix := key + "="
+	filtered := make([]string, 0, len(os.Environ()))
+	for _, env := range os.Environ() {
+		if strings.HasPrefix(env, prefix) {
+			continue
+		}
+		filtered = append(filtered, env)
+	}
+	return filtered
+}
+
 // TestFailWithError_WritesToStderr verifies failWithError keeps diagnostics on
 // stderr so structured stdout pipelines only receive command results.
 func TestFailWithError_WritesToStderr(t *testing.T) {
@@ -20,7 +32,7 @@ func TestFailWithError_WritesToStderr(t *testing.T) {
 	}
 
 	cmd := exec.Command(os.Args[0], "-test.run=^TestFailWithError_WritesToStderr$")
-	cmd.Env = append(os.Environ(), "GO_WANT_FAIL_WITH_ERROR_HELPER=1")
+	cmd.Env = append(envWithout("DEBUG"), "GO_WANT_FAIL_WITH_ERROR_HELPER=1", "DEBUG=false")
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
