@@ -5,6 +5,9 @@ import (
 	"testing"
 
 	"github.com/ArjenSchwarz/fog/lib/testutil"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
+	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -91,4 +94,65 @@ func TestGetCfnStacks_SpecificStackFilter(t *testing.T) {
 
 	assert.Len(t, result, 1)
 	assert.Contains(t, result, "my-specific-stack")
+}
+
+func TestGetCfnStacks_ReturnsErrorForMissingStackNameInPaginatedResults(t *testing.T) {
+	client := testutil.NewMockCFNClient()
+	client.DescribeStacksFn = func(ctx context.Context, params *cloudformation.DescribeStacksInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStacksOutput, error) {
+		switch aws.ToString(params.NextToken) {
+		case "":
+			return &cloudformation.DescribeStacksOutput{
+				Stacks: []types.Stack{{
+					StackName: aws.String("valid-stack"),
+					StackId:   aws.String("stack-id-1"),
+				}},
+				NextToken: aws.String("token2"),
+			}, nil
+		case "token2":
+			return &cloudformation.DescribeStacksOutput{
+				Stacks: []types.Stack{{
+					StackId: aws.String("stack-id-2"),
+				}},
+			}, nil
+		default:
+			return &cloudformation.DescribeStacksOutput{}, nil
+		}
+	}
+
+	filter := ""
+	result, err := GetCfnStacks(context.Background(), &filter, client)
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "missing stack name")
+}
+
+func TestGetCfnStacks_ReturnsErrorForMissingStackIDInPaginatedResults(t *testing.T) {
+	client := testutil.NewMockCFNClient()
+	client.DescribeStacksFn = func(ctx context.Context, params *cloudformation.DescribeStacksInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStacksOutput, error) {
+		switch aws.ToString(params.NextToken) {
+		case "":
+			return &cloudformation.DescribeStacksOutput{
+				Stacks: []types.Stack{{
+					StackName: aws.String("valid-stack"),
+					StackId:   aws.String("stack-id-1"),
+				}},
+				NextToken: aws.String("token2"),
+			}, nil
+		case "token2":
+			return &cloudformation.DescribeStacksOutput{
+				Stacks: []types.Stack{{
+					StackName: aws.String("missing-id-stack"),
+				}},
+			}, nil
+		default:
+			return &cloudformation.DescribeStacksOutput{}, nil
+		}
+	}
+
+	filter := ""
+	result, err := GetCfnStacks(context.Background(), &filter, client)
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "missing stack id")
+	assert.Contains(t, err.Error(), "missing-id-stack")
 }

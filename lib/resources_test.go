@@ -16,6 +16,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
 	"github.com/aws/smithy-go"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // mockCloudFormationClient implements the CloudFormation interfaces for testing.
@@ -215,6 +217,35 @@ func TestGetResourcesPagination(t *testing.T) {
 	if mock.describeStackResourcesCalls != 3 {
 		t.Errorf("expected 3 DescribeStackResources calls (one per stack), got %d", mock.describeStackResourcesCalls)
 	}
+}
+
+// TestGetResourcesSkipsStacksWithoutNameDuringWildcardFiltering verifies that
+// malformed DescribeStacks entries with nil StackName do not panic wildcard
+// filtering and are ignored.
+func TestGetResourcesSkipsStacksWithoutNameDuringWildcardFiltering(t *testing.T) {
+	stackName := "stack-*"
+	mock := &paginatingMockClient{
+		pages: map[string]cloudformation.DescribeStacksOutput{
+			"": {
+				Stacks: []types.Stack{{StackName: aws.String("stack-page1")}},
+				NextToken: aws.String("token2"),
+			},
+			"token2": {
+				Stacks: []types.Stack{{}},
+			},
+		},
+		describeStackResourcesOutputs: []cloudformation.DescribeStackResourcesOutput{
+			{StackResources: []types.StackResource{
+				{LogicalResourceId: aws.String("R1"), PhysicalResourceId: aws.String("p1"), ResourceType: aws.String("AWS::S3::Bucket"), ResourceStatus: types.ResourceStatusCreateComplete},
+			}},
+		},
+	}
+
+	got, err := GetResources(context.Background(), &stackName, mock)
+	require.NoError(t, err)
+	require.Len(t, got, 1)
+	assert.Equal(t, "stack-page1", got[0].StackName)
+	assert.Equal(t, 1, mock.describeStackResourcesCalls)
 }
 
 // TestGetResourcesSkipsMissingPhysicalResourceID verifies that resources without a usable physical ID are ignored.
