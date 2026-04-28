@@ -35,10 +35,12 @@ The precheck safety guard inspects only the first parsed executable name. That w
 
 **Changes made:**
 - `lib/files.go` — Added recursive wrapped-command inspection so `RunPrechecks` denies blocked commands when they are delegated through `env`, POSIX shells (`sh`, `bash`, `zsh`, `dash`, `ksh`, `ash`), `cmd /c`, and PowerShell command wrappers.
-- `lib/files.go` — Taught shell-wrapper parsing to keep scanning past option/value pairs such as `bash -o pipefail -c ...` before evaluating the nested command string.
-- `lib/files_test.go` — Added regression coverage for `env`, `env -S`, nested `env sh -c`, shell `-c`/`-lc`, `cmd /c`, and PowerShell wrapper bypasses.
+- `lib/files.go` — Tightened shell option parsing so only real `-c` flag combinations are treated as command wrappers, while option/value pairs such as `bash -o pipefail -c ...` and `bash -onoclobber -c ...` continue to work.
+- `lib/files.go` — Normalized Windows-style executable suffixes (`.exe`, `.bat`, `.cmd`) and added PowerShell `-EncodedCommand` detection.
+- `lib/files.go` — Rejects shell/PowerShell command strings that contain control operators and therefore cannot be safely reduced to a single argv vector during precheck validation.
+- `lib/files_test.go` — Added regression coverage for `env`, `env -S`, nested wrappers, shell `-c`/`-lc`, `cmd /c`, PowerShell command/encoded-command wrappers, Windows executable suffixes, and safe wrapper cases.
 
-**Approach rationale:** The fix keeps the current deny-list design but applies it to the command that will actually execute, not just the outer wrapper binary. Recursive unwrapping is a small, local change that closes the reported bypass without redesigning the whole precheck feature.
+**Approach rationale:** The fix keeps the current deny-list design but applies it to the command that will actually execute, not just the outer wrapper binary. Recursive unwrapping is still a small, local change, but it now errs on the side of safety when wrapper command strings become too shell-like to inspect reliably.
 
 **Alternatives considered:**
 - Allowlist precheck executables entirely — stronger but broader in scope than this bugfix
@@ -48,7 +50,7 @@ The precheck safety guard inspects only the first parsed executable name. That w
 **Test file:** `lib/files_test.go`
 **Test name:** `TestRunPrechecksUnsafeWrappedCommand`
 
-**What it verifies:** That unsafe commands are rejected even when invoked through wrapper executables such as `env`, `sh -c`, or `bash -lc`.
+**What it verifies:** That unsafe commands are rejected even when invoked through wrapper executables such as `env`, `sh -c`, `bash -lc`, `cmd /c`, PowerShell command strings, or PowerShell encoded commands, while safe wrapped commands remain allowed.
 
 **Run command:** `go test ./lib -run TestRunPrechecksUnsafeWrappedCommand -v`
 

@@ -3,6 +3,7 @@ package lib
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"unicode/utf16"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -139,10 +141,20 @@ func splitShellArgs(s string) ([]string, error) {
 	return args, nil
 }
 
+// blockedPrecheckCommands are never allowed to run as prechecks, even when a
+// wrapper binary delegates execution to them. Wrapper inspection is
+// intentionally conservative: command strings are only unwrapped when they can
+// be reduced to a single argv vector without shell-style control operators.
 var blockedPrecheckCommands = []string{"rm", "del", "kill"}
 
 func normalizePrecheckCommandName(command string) string {
-	return strings.ToLower(filepath.Base(command))
+	name := strings.ToLower(filepath.Base(command))
+	switch filepath.Ext(name) {
+	case ".exe", ".bat", ".cmd":
+		return strings.TrimSuffix(name, filepath.Ext(name))
+	default:
+		return name
+	}
 }
 
 func findUnsafeWrappedPrecheck(args []string) (string, error) {
@@ -162,9 +174,9 @@ func findUnsafeWrappedPrecheck(args []string) (string, error) {
 			nextArgs, err = unwrapEnvCommand(args[1:])
 		case "sh", "bash", "zsh", "dash", "ksh", "ash":
 			nextArgs, err = unwrapShellCommand(args[1:])
-		case "cmd", "cmd.exe":
+		case "cmd":
 			nextArgs, err = unwrapCmdCommand(args[1:])
-		case "powershell", "powershell.exe", "pwsh", "pwsh.exe":
+		case "powershell", "pwsh":
 			nextArgs, err = unwrapPowerShellCommand(args[1:])
 		default:
 			return "", nil
@@ -211,6 +223,64 @@ func unwrapEnvCommand(args []string) ([]string, error) {
 	return nil, nil
 }
 
+func parseWrappedCommandString(commandString string, wrapper string) ([]string, error) {
+	if hasUnquotedCommandOperators(commandString) {
+		return nil, fmt.Errorf("%s command strings cannot be safely unwrapped for precheck", wrapper)
+	}
+	return splitShellArgs(commandString)
+}
+
+func hasUnquotedCommandOperators(commandString string) bool {
+	inSingle := false
+	inDouble := false
+	escaped := false
+
+	for i := 0; i < len(commandString); i++ {
+		c := commandString[i]
+		switch {
+		case escaped:
+			escaped = false
+		case c == '\\' && !inSingle:
+			escaped = true
+		case c == '\'' && !inDouble:
+			inSingle = !inSingle
+		case c == '"' && !inSingle:
+			inDouble = !inDouble
+		case !inSingle && !inDouble:
+			switch c {
+			case ';', '|', '&', '\n', '\r', '<', '>', '(', ')':
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+func unwrapShellShortOptions(arg string, args []string, index *int) ([]string, error) {
+	shortOpts := strings.TrimPrefix(arg, "-")
+	for pos := 0; pos < len(shortOpts); pos++ {
+		switch shortOpts[pos] {
+		case 'c':
+			if pos != len(shortOpts)-1 {
+				return nil, nil
+			}
+			if *index+1 >= len(args) {
+				return nil, nil
+			}
+			return parseWrappedCommandString(args[*index+1], "shell -c")
+		case 'o', 'O':
+			if pos+1 < len(shortOpts) {
+				return nil, nil
+			}
+			*index++
+			return nil, nil
+		}
+	}
+
+	return nil, nil
+}
+
 func unwrapShellCommand(args []string) ([]string, error) {
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
@@ -219,19 +289,23 @@ func unwrapShellCommand(args []string) ([]string, error) {
 			if i+1 >= len(args) {
 				return nil, nil
 			}
-			return splitShellArgs(args[i+1])
-		case strings.HasPrefix(arg, "-") && !strings.HasPrefix(arg, "--") && strings.Contains(strings.TrimPrefix(arg, "-"), "c"):
-			if i+1 >= len(args) {
-				return nil, nil
-			}
-			return splitShellArgs(args[i+1])
+			return parseWrappedCommandString(args[i+1], "shell -c")
 		case arg == "-o" || arg == "-O" || arg == "--rcfile" || arg == "--init-file":
 			i++
 		case strings.HasPrefix(arg, "--rcfile=") || strings.HasPrefix(arg, "--init-file="):
 			continue
 		case arg == "--":
 			return nil, nil
+		case strings.HasPrefix(arg, "--"):
+			continue
 		case strings.HasPrefix(arg, "-"):
+			nextArgs, err := unwrapShellShortOptions(arg, args, &i)
+			if err != nil {
+				return nil, err
+			}
+			if len(nextArgs) > 0 {
+				return nextArgs, nil
+			}
 			continue
 		default:
 			return nil, nil
@@ -259,19 +333,59 @@ func unwrapCmdCommand(args []string) ([]string, error) {
 	return nil, nil
 }
 
+func matchesPowerShellFlagPrefix(arg string, fullFlag string, minPrefix string) bool {
+	return len(arg) >= len(minPrefix) && len(arg) <= len(fullFlag) && strings.HasPrefix(fullFlag, arg)
+}
+
+func isPowerShellCommandFlag(arg string) bool {
+	lowerArg := strings.ToLower(arg)
+	return lowerArg == "-c" || matchesPowerShellFlagPrefix(lowerArg, "-command", "-com")
+}
+
+func isPowerShellEncodedCommandFlag(arg string) bool {
+	lowerArg := strings.ToLower(arg)
+	return lowerArg == "-enc" || matchesPowerShellFlagPrefix(lowerArg, "-encodedcommand", "-enc")
+}
+
+func decodePowerShellEncodedCommand(encoded string) (string, error) {
+	decoded, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		return "", fmt.Errorf("invalid PowerShell encoded command: %w", err)
+	}
+	if len(decoded)%2 != 0 {
+		return "", fmt.Errorf("invalid PowerShell encoded command length")
+	}
+
+	utf16Words := make([]uint16, 0, len(decoded)/2)
+	for i := 0; i < len(decoded); i += 2 {
+		utf16Words = append(utf16Words, uint16(decoded[i])|uint16(decoded[i+1])<<8)
+	}
+
+	return string(utf16.Decode(utf16Words)), nil
+}
+
 func unwrapPowerShellCommand(args []string) ([]string, error) {
 	for i, arg := range args {
-		if !strings.EqualFold(arg, "-command") && !strings.EqualFold(arg, "-c") {
-			continue
+		switch {
+		case isPowerShellEncodedCommandFlag(arg):
+			if i+1 >= len(args) {
+				return nil, nil
+			}
+			commandString, err := decodePowerShellEncodedCommand(args[i+1])
+			if err != nil {
+				return nil, err
+			}
+			return parseWrappedCommandString(commandString, "PowerShell encoded")
+		case isPowerShellCommandFlag(arg):
+			if i+1 >= len(args) {
+				return nil, nil
+			}
+			rest := args[i+1:]
+			if len(rest) == 1 {
+				return parseWrappedCommandString(rest[0], "PowerShell")
+			}
+			return rest, nil
 		}
-		if i+1 >= len(args) {
-			return nil, nil
-		}
-		rest := args[i+1:]
-		if len(rest) == 1 {
-			return splitShellArgs(rest[0])
-		}
-		return rest, nil
 	}
 
 	return nil, nil
