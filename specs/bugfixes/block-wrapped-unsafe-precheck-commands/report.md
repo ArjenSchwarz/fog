@@ -40,7 +40,7 @@ The precheck safety guard inspects only the first parsed executable name. That w
 - `lib/files.go` — Rejects shell/PowerShell command strings that contain control operators and therefore cannot be safely reduced to a single argv vector during precheck validation.
 - `lib/files_test.go` — Added regression coverage for `env`, `env -S`, nested wrappers, shell `-c`/`-lc`, `cmd /c`, PowerShell command/encoded-command wrappers, Windows executable suffixes, and safe wrapper cases.
 
-**Approach rationale:** The fix keeps the current deny-list design but applies it to the command that will actually execute, not just the outer wrapper binary. Recursive unwrapping is still a small, local change, but it now errs on the side of safety when wrapper command strings become too shell-like to inspect reliably.
+**Approach rationale:** The fix keeps the current deny-list design but applies it to the command that will actually execute, not just the outer wrapper binary. Recursive unwrapping is still a small, local change, but it now errs on the side of safety when wrapper command strings become too shell-like to inspect reliably. The wrapper coverage is intentionally best-effort rather than exhaustive, so an allowlist remains the stronger long-term hardening option.
 
 **Alternatives considered:**
 - Allowlist precheck executables entirely — stronger but broader in scope than this bugfix
@@ -76,6 +76,7 @@ The precheck safety guard inspects only the first parsed executable name. That w
 **Recommendations to avoid similar bugs:**
 - Treat wrapper executables as delegated execution and inspect the nested command they will run
 - Add regression tests whenever precheck validation logic changes
+- Document wrapper-inspection limits whenever the deny-list expands so maintainers do not assume it is exhaustive
 - Consider an allowlist for precheck executables as a future hardening step
 
 ## Related
