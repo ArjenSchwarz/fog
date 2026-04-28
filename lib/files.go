@@ -248,7 +248,7 @@ func hasUnquotedCommandOperators(commandString string) bool {
 			inDouble = !inDouble
 		case !inSingle && !inDouble:
 			switch c {
-			case ';', '|', '&', '\n', '\r', '<', '>', '(', ')':
+			case ';', '|', '&', '\n', '\r', '<', '>', '(', ')', '`':
 				return true
 			}
 		}

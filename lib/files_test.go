@@ -396,6 +396,7 @@ func TestRunPrechecksUnsafeWrappedCommand(t *testing.T) {
 		{"env wrapping shell", `env sh -c 'rm -rf test/path.yaml'`, "unsafe command"},
 		{"shell -c wrapper", `sh -c 'rm -rf test/path.yaml'`, "unsafe command"},
 		{"shell sequence is rejected", `sh -c 'echo ok; rm -rf test/path.yaml'`, "cannot be safely unwrapped"},
+		{"shell backtick substitution is rejected", "sh -c '`rm -rf test/path.yaml`'", "cannot be safely unwrapped"},
 		{"bash -lc wrapper", `bash -lc 'kill -9 1234'`, "unsafe command"},
 		{"bash option before -c", `bash -o pipefail -c 'rm -rf test/path.yaml'`, "unsafe command"},
 		{"bash inline -o before -c", `bash -onoclobber -c 'rm -rf test/path.yaml'`, "unsafe command"},
