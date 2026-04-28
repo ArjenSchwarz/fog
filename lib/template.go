@@ -487,10 +487,10 @@ func extractProtocol(properties map[string]any, params []cfntypes.Parameter) str
 		if refname, ok := value["Ref"].(string); ok {
 			return resolveParameterValue(refname, params)
 		}
+		return ""
 	default:
 		return ""
 	}
-	return ""
 }
 
 // extractCidrBlock extracts a CIDR block from properties, resolving parameter references
