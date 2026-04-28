@@ -253,7 +253,7 @@ func separateSpecialCases(ctx context.Context, defaultDrift []types.StackResourc
 		StackName: stackName,
 	})
 	if err != nil {
-		return naclResources, routetableResources, tgwRouteTableResources, logicalToPhysical, fmt.Errorf("failed to describe stack resources for drift special cases: %w", err)
+		return nil, nil, nil, nil, fmt.Errorf("failed to describe stack resources for drift special cases: %w", err)
 	}
 	for _, resource := range stackResourcesResp.StackResources {
 		if resource.LogicalResourceId == nil || resource.PhysicalResourceId == nil {
@@ -298,6 +298,8 @@ func separateSpecialCases(ctx context.Context, defaultDrift []types.StackResourc
 }
 
 func detectUnmanagedResources(ctx context.Context, resourceTypes []string, logicalToPhysical map[string]string, rows *[]map[string]any, awsConfig config.AWSConfig, listResources listAllResourcesFunc) error {
+	// Stop on the first lookup error so the command doesn't mix incomplete
+	// unmanaged-resource data with successful results from other resource types.
 	for _, resourceType := range resourceTypes {
 		allResources, err := listResources(ctx, resourceType, awsConfig.CloudControlClient(), awsConfig.SSOAdminClient(), awsConfig.OrganizationsClient())
 		if err != nil {
