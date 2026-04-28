@@ -64,7 +64,7 @@ func addToField(field *map[string]any, key string, value int) {
 }
 
 func failWithError(err error) {
-	fmt.Print(output.StyleNegative(fmt.Sprintf("Error: %v", err)))
+	fmt.Fprint(os.Stderr, output.StyleNegative(fmt.Sprintf("Error: %v", err)))
 	if viper.GetBool("debug") {
 		panic(err)
 	}

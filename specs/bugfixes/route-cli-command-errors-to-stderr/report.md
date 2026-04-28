@@ -34,6 +34,15 @@ The investigation focused on the shared command failure path and the existing st
 
 ## Resolution for the Issue
 
+**Changes made:**
+- `cmd/helpers.go:66` - Changed `failWithError` to write formatted error output to `os.Stderr` before exiting.
+- `cmd/helpers_test.go:1` - Added a regression test that executes the fatal helper in a subprocess and asserts stderr-only diagnostics.
+
+**Approach rationale:** The bug came from a single shared helper using the wrong stream, so the safest fix was to correct that helper directly and lock the behavior in with a regression test.
+
+**Alternatives considered:**
+- Refactor commands to return errors instead of exiting from `failWithError` - not chosen because it would touch many call sites for a bug caused by one incorrect writer.
+
 ## Regression Test
 
 **Test file:** `cmd/helpers_test.go`
@@ -53,12 +62,13 @@ The investigation focused on the shared command failure path and the existing st
 ## Verification
 
 **Automated:**
-- [ ] Regression test passes
-- [ ] Full test suite passes
-- [ ] Linters/validators pass
+- [x] Regression test passes
+- [x] Full test suite passes
+- [x] Linters/validators pass
 
 **Manual verification:**
-- Reviewed the shared error helper and confirmed the bug reproduces through any command that calls it.
+- Confirmed the regression test failed before the fix because the error text was emitted on stdout.
+- Reviewed the shared helper after the change to verify the error path now targets stderr directly.
 
 ## Prevention
 
