@@ -54,6 +54,7 @@ func AssertStackStatus(t *testing.T, stack *types.Stack, expectedStatus types.St
 
 	if stack == nil {
 		t.Fatal("Stack is nil")
+		return
 	}
 
 	if stack.StackStatus != expectedStatus {
@@ -92,6 +93,7 @@ func AssertStackParameter(t *testing.T, stack *types.Stack, key, expectedValue s
 
 	if stack == nil {
 		t.Fatal("Stack is nil")
+		return
 	}
 
 	for _, param := range stack.Parameters {
@@ -101,7 +103,7 @@ func AssertStackParameter(t *testing.T, stack *types.Stack, key, expectedValue s
 			}
 			t.Errorf("Parameter %s value mismatch\nGot: %v\nExpected: %s",
 				key,
-				*param.ParameterValue,
+				stringValueOrNil(param.ParameterValue),
 				expectedValue)
 			return
 		}
@@ -116,6 +118,7 @@ func AssertStackOutput(t *testing.T, stack *types.Stack, key, expectedValue stri
 
 	if stack == nil {
 		t.Fatal("Stack is nil")
+		return
 	}
 
 	for _, output := range stack.Outputs {
@@ -125,7 +128,7 @@ func AssertStackOutput(t *testing.T, stack *types.Stack, key, expectedValue stri
 			}
 			t.Errorf("Output %s value mismatch\nGot: %v\nExpected: %s",
 				key,
-				*output.OutputValue,
+				stringValueOrNil(output.OutputValue),
 				expectedValue)
 			return
 		}
@@ -140,6 +143,7 @@ func AssertStackTag(t *testing.T, stack *types.Stack, key, expectedValue string)
 
 	if stack == nil {
 		t.Fatal("Stack is nil")
+		return
 	}
 
 	for _, tag := range stack.Tags {
@@ -149,7 +153,7 @@ func AssertStackTag(t *testing.T, stack *types.Stack, key, expectedValue string)
 			}
 			t.Errorf("Tag %s value mismatch\nGot: %v\nExpected: %s",
 				key,
-				*tag.Value,
+				stringValueOrNil(tag.Value),
 				expectedValue)
 			return
 		}
@@ -164,6 +168,7 @@ func AssertChangesetStatus(t *testing.T, changeset *cloudformation.DescribeChang
 
 	if changeset == nil {
 		t.Fatal("Changeset is nil")
+		return
 	}
 
 	if changeset.Status != expectedStatus {
@@ -177,6 +182,7 @@ func AssertChangesetHasChanges(t *testing.T, changeset *cloudformation.DescribeC
 
 	if changeset == nil {
 		t.Fatal("Changeset is nil")
+		return
 	}
 
 	if len(changeset.Changes) == 0 {
@@ -190,6 +196,7 @@ func AssertChangesetNoChanges(t *testing.T, changeset *cloudformation.DescribeCh
 
 	if changeset == nil {
 		t.Fatal("Changeset is nil")
+		return
 	}
 
 	if len(changeset.Changes) > 0 {
@@ -309,6 +316,14 @@ func AssertNil(t *testing.T, value any, name string) {
 	if value != nil {
 		t.Errorf("%s should be nil but got: %v", name, value)
 	}
+}
+
+func stringValueOrNil(value *string) any {
+	if value == nil {
+		return "<nil>"
+	}
+
+	return *value
 }
 
 // Common cmp options for comparing AWS types
