@@ -2,7 +2,11 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"os"
+	"os/exec"
 	"strings"
 	"testing"
 
@@ -764,6 +768,98 @@ func TestPrintDeploymentResults(t *testing.T) {
 				t.Errorf("expected deleteStackIfNew called=%v, got %v", tc.expectDeleteNewCall, deleteNewCalled)
 			}
 		})
+	}
+}
+
+func TestPrintDeploymentResults_HandlesFinalStackLookupFailure(t *testing.T) {
+	const resultMarker = "__PRINT_DEPLOYMENT_RESULTS_RESULT__="
+	const subprocessEnv = "FOG_TEST_PRINT_DEPLOYMENT_RESULTS_LOOKUP_FAILURE"
+
+	if os.Getenv(subprocessEnv) == "1" {
+		origGetStack := getFreshStackFunc
+		origGetClient := getCfnClient
+		defer func() {
+			getFreshStackFunc = origGetStack
+			getCfnClient = origGetClient
+		}()
+
+		getFreshStackFunc = func(info *lib.DeployInfo, svc lib.CloudFormationDescribeStacksAPI) (types.Stack, error) {
+			return types.Stack{}, errors.New("lookup failed")
+		}
+		getCfnClient = func(cfg config.AWSConfig) lib.CloudFormationDescribeStacksAPI {
+			return testutil.NewMockCFNClient()
+		}
+
+		viper.Reset()
+		viper.Set("logging.enabled", false)
+
+		info := lib.DeployInfo{StackName: "test-stack"}
+		logObj := lib.DeploymentLog{}
+
+		printDeploymentResults(&info, config.AWSConfig{}, &logObj)
+
+		payload, err := json.Marshal(struct {
+			Status            string `json:"status"`
+			DeploymentError   string `json:"deploymentError"`
+			HasFinalStack     bool   `json:"hasFinalStack"`
+			RecordedFailures  int    `json:"recordedFailures"`
+			StatusDescription string `json:"statusDescription"`
+		}{
+			Status:            string(logObj.Status),
+			HasFinalStack:     info.FinalStackState != nil,
+			RecordedFailures:  len(logObj.Failures),
+			StatusDescription: logObj.StatusDescription,
+			DeploymentError: func() string {
+				if info.DeploymentError == nil {
+					return ""
+				}
+				return info.DeploymentError.Error()
+			}(),
+		})
+		if err != nil {
+			t.Fatalf("failed to marshal subprocess result: %v", err)
+		}
+
+		fmt.Fprintf(os.Stdout, "\n%s%s\n", resultMarker, payload)
+		return
+	}
+
+	cmd := exec.Command(os.Args[0], "-test.run=^TestPrintDeploymentResults_HandlesFinalStackLookupFailure$")
+	cmd.Env = append(os.Environ(), subprocessEnv+"=1")
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("expected subprocess to complete without fatal exit, got %v\noutput:\n%s", err, output)
+	}
+
+	idx := strings.LastIndex(string(output), resultMarker)
+	if idx == -1 {
+		t.Fatalf("expected subprocess result marker in output:\n%s", output)
+	}
+	resultLine := strings.SplitN(string(output[idx+len(resultMarker):]), "\n", 2)[0]
+
+	var result struct {
+		Status            string `json:"status"`
+		DeploymentError   string `json:"deploymentError"`
+		HasFinalStack     bool   `json:"hasFinalStack"`
+		RecordedFailures  int    `json:"recordedFailures"`
+		StatusDescription string `json:"statusDescription"`
+	}
+	if err := json.Unmarshal([]byte(resultLine), &result); err != nil {
+		t.Fatalf("failed to parse subprocess result: %v\noutput:\n%s", err, output[idx:])
+	}
+
+	if result.Status != string(lib.DeploymentLogStatusFailed) {
+		t.Fatalf("expected failed deployment log status, got %q", result.Status)
+	}
+	if !strings.Contains(result.DeploymentError, "lookup failed") {
+		t.Fatalf("expected deployment error to include lookup failure, got %q", result.DeploymentError)
+	}
+	if result.HasFinalStack {
+		t.Fatal("expected final stack state to remain unset when lookup fails")
+	}
+	if result.RecordedFailures == 0 {
+		t.Fatal("expected deployment log to record a failure entry")
 	}
 }
 

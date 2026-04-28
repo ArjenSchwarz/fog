@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 	"time"
@@ -217,8 +216,26 @@ func printDeploymentResults(info *lib.DeployInfo, cfg config.AWSConfig, logObj *
 	svc := getCfnClient(cfg)
 	resultStack, err := getFreshStackFunc(info, svc)
 	if err != nil {
+		info.DeploymentError = fmt.Errorf("failed to retrieve final stack state: %w", err)
+		logObj.StatusDescription = info.DeploymentError.Error()
+
+		failures := []map[string]any{{
+			"CfnName": info.StackName,
+			"Type":    "AWS::CloudFormation::Stack",
+			"Status":  "POST_DEPLOY_LOOKUP_FAILED",
+			"Reason":  err.Error(),
+		}}
+
 		printMessage(formatError(string(texts.DeployStackMessageRetrievePostFailed)))
-		log.Fatalln(err.Error())
+		if err := logObj.Failed(failures); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: Failed to write deployment log: %v\n", err)
+		}
+
+		eventsClient, _ := svc.(lib.CloudFormationDescribeStackEventsAPI)
+		if err := outputFailureResult(info, eventsClient); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: Failed to generate output: %v\n", err)
+		}
+		return
 	}
 
 	// Capture final stack state for output generation
