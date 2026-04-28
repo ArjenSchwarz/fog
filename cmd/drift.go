@@ -300,8 +300,12 @@ func separateSpecialCases(ctx context.Context, defaultDrift []types.StackResourc
 func detectUnmanagedResources(ctx context.Context, resourceTypes []string, logicalToPhysical map[string]string, rows *[]map[string]any, awsConfig config.AWSConfig, listResources listAllResourcesFunc) error {
 	// Stop on the first lookup error so the command doesn't mix incomplete
 	// unmanaged-resource data with successful results from other resource types.
+	cloudControlClient := awsConfig.CloudControlClient()
+	ssoClient := awsConfig.SSOAdminClient()
+	organizationsClient := awsConfig.OrganizationsClient()
+
 	for _, resourceType := range resourceTypes {
-		allResources, err := listResources(ctx, resourceType, awsConfig.CloudControlClient(), awsConfig.SSOAdminClient(), awsConfig.OrganizationsClient())
+		allResources, err := listResources(ctx, resourceType, cloudControlClient, ssoClient, organizationsClient)
 		if err != nil {
 			return fmt.Errorf("failed to list unmanaged resources for %s: %w", resourceType, err)
 		}
