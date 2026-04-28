@@ -5,13 +5,13 @@
 
 ## Description of the Issue
 
-The Lambda entrypoint accepted EventBridge payloads with an empty or missing `detail.stack-id`.
+The Lambda entrypoint accepted EventBridge payloads with an empty, missing, or whitespace-only `detail.stack-id`.
 When that happened, `HandleRequest` passed the empty value into report generation, allowing downstream
 code to treat the request like an account-wide `all-stacks` report instead of rejecting the invalid event.
 
 **Reproduction steps:**
 1. Configure the Lambda environment with `ReportS3Bucket` and `ReportOutputFormat`.
-2. Invoke `HandleRequest` with an EventBridge message whose `detail.stack-id` is empty or omitted.
+2. Invoke `HandleRequest` with an EventBridge message whose `detail.stack-id` is empty, omitted, or only whitespace.
 3. Observe that the handler forwards the empty stack identifier instead of failing fast.
 
 **Impact:** Invalid CloudFormation events can trigger the wrong report scope and produce an unintended account-wide report.
@@ -42,8 +42,8 @@ target without its own guard in this call path.
 **Changes made:**
 - `main.go:46` - Introduced an injectable `generateReportFromLambda` function reference so handler behaviour can be isolated in unit tests.
 - `main.go:103` - Added `detail.stack-id` validation with whitespace trimming and fail-fast error handling before report generation starts.
-- `main_test.go:51` - Added a regression test proving empty EventBridge stack identifiers return an error and never invoke report generation.
-- `main_test.go:82` - Added a success-path test confirming valid stack identifiers are trimmed and forwarded to report generation.
+- `main_test.go:51` - Added regression tests proving empty and whitespace-only EventBridge stack identifiers return errors and never invoke report generation.
+- `main_test.go:111` - Added a success-path test confirming valid stack identifiers are trimmed and forwarded to report generation.
 
 **Approach rationale:** Validate the event payload at the Lambda boundary, because that is the narrowest point where malformed EventBridge data can be rejected before any AWS-facing report logic runs. The small injection hook keeps the tests fast and deterministic without changing the production code path.
 
@@ -53,9 +53,9 @@ target without its own guard in this call path.
 ## Regression Test
 
 **Test file:** `main_test.go`
-**Test name:** `TestHandleRequestReturnsErrorOnMissingStackID`
+**Test name:** `TestHandleRequestReturnsErrorOnMissingStackID`, `TestHandleRequestReturnsErrorOnWhitespaceOnlyStackID`
 
-**What it verifies:** `HandleRequest` rejects an EventBridge payload with an empty `detail.stack-id` before report generation is invoked.
+**What it verifies:** `HandleRequest` rejects EventBridge payloads whose `detail.stack-id` is empty or blank after trimming before report generation is invoked.
 
 **Run command:** `go test ./... -v`
 

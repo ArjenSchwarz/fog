@@ -79,6 +79,38 @@ func TestHandleRequestReturnsErrorOnMissingStackID(t *testing.T) {
 	}
 }
 
+func TestHandleRequestReturnsErrorOnWhitespaceOnlyStackID(t *testing.T) {
+	t.Setenv("ReportS3Bucket", "my-bucket")
+	t.Setenv("ReportOutputFormat", "markdown")
+	t.Setenv("ReportNamePattern", "report-$STACKNAME.md")
+	t.Setenv("ReportTimezone", "UTC")
+
+	originalGenerateReportFromLambda := generateReportFromLambda
+	t.Cleanup(func() {
+		generateReportFromLambda = originalGenerateReportFromLambda
+	})
+
+	var called bool
+	generateReportFromLambda = func(stackname string, bucketname string, outputfilename string, outputformat string, timezone string) error {
+		called = true
+		return errors.New("report generation should not be called")
+	}
+
+	msg := EventBridgeMessage{}
+	msg.Detail.StackId = "   "
+
+	err := HandleRequest(msg)
+	if err == nil {
+		t.Fatal("HandleRequest should return an error when detail.stack-id is blank after trimming")
+	}
+	if !strings.Contains(err.Error(), "missing or blank") {
+		t.Errorf("error should mention missing or blank stack-id, got: %v", err)
+	}
+	if called {
+		t.Fatal("HandleRequest should fail before invoking report generation")
+	}
+}
+
 func TestHandleRequestPassesTrimmedStackIDToReportGeneration(t *testing.T) {
 	t.Setenv("ReportS3Bucket", "my-bucket")
 	t.Setenv("ReportOutputFormat", "markdown")

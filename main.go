@@ -43,6 +43,8 @@ import (
 	"github.com/aws/aws-lambda-go/lambda"
 )
 
+// generateReportFromLambda provides a test seam for HandleRequest.
+// Tests that replace this variable must not run in parallel.
 var generateReportFromLambda = cmd.GenerateReportFromLambda
 
 // EventBridgeMessage represents an AWS EventBridge message for CloudFormation stack events.
@@ -111,7 +113,7 @@ func HandleRequest(message EventBridgeMessage) error {
 	}
 	stackID := strings.TrimSpace(message.Detail.StackId)
 	if stackID == "" {
-		return fmt.Errorf("required EventBridge detail.stack-id is not set")
+		return fmt.Errorf("required EventBridge detail.stack-id is missing or blank")
 	}
 	filename := os.Getenv("ReportNamePattern")
 	timezone := os.Getenv("ReportTimezone")
