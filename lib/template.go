@@ -396,15 +396,15 @@ func FilterRoutesByLogicalId(logicalId string, template CfnTemplateBody, params 
 
 // NaclResourceToNaclEntry converts a CloudFormation NACL resource to an EC2 NetworkAclEntry
 func NaclResourceToNaclEntry(resource CfnTemplateResource, params []cfntypes.Parameter) types.NetworkAclEntry {
-	protocol := extractProtocol(resource.Properties)
+	protocol := extractProtocol(resource.Properties, params)
 	rulenr := extractRuleNumber(resource.Properties, params)
 	cidrblock := extractCidrBlock(resource.Properties, "CidrBlock", params)
 	ipv6cidrblock := ""
 	if cidrblock == "" {
 		ipv6cidrblock = extractCidrBlock(resource.Properties, "Ipv6CidrBlock", params)
 	}
-	ruleaction := extractRuleAction(resource.Properties)
-	egress := extractEgressFlag(resource.Properties)
+	ruleaction := extractRuleAction(resource.Properties, params)
+	egress := extractEgressFlag(resource.Properties, params)
 
 	result := types.NetworkAclEntry{
 		Egress:     &egress,
@@ -457,24 +457,40 @@ func extractRuleNumber(properties map[string]any, params []cfntypes.Parameter) i
 	return 0
 }
 
-// extractEgressFlag safely extracts the egress flag from NACL properties
-func extractEgressFlag(properties map[string]any) bool {
-	if egress, ok := properties["Egress"].(bool); ok {
-		return egress
+// extractEgressFlag safely extracts the egress flag from NACL properties,
+// resolving {"Ref": "ParamName"} values through stack parameters.
+func extractEgressFlag(properties map[string]any, params []cfntypes.Parameter) bool {
+	switch value := properties["Egress"].(type) {
+	case bool:
+		return value
+	case map[string]any:
+		if refname, ok := value["Ref"].(string); ok {
+			if resolved := resolveParameterValue(refname, params); resolved != "" {
+				if parsed, err := strconv.ParseBool(resolved); err == nil {
+					return parsed
+				}
+			}
+		}
 	}
 	return false
 }
 
-// extractProtocol extracts the protocol from NACL properties
-func extractProtocol(properties map[string]any) string {
+// extractProtocol extracts the protocol from NACL properties, resolving
+// {"Ref": "ParamName"} values through stack parameters.
+func extractProtocol(properties map[string]any, params []cfntypes.Parameter) string {
 	switch value := properties["Protocol"].(type) {
 	case string:
 		return value
 	case float64:
 		return strconv.Itoa(int(value))
+	case map[string]any:
+		if refname, ok := value["Ref"].(string); ok {
+			return resolveParameterValue(refname, params)
+		}
 	default:
 		return ""
 	}
+	return ""
 }
 
 // extractCidrBlock extracts a CIDR block from properties, resolving parameter references
@@ -512,11 +528,19 @@ func resolveParameterValue(refname string, params []cfntypes.Parameter) string {
 	return ""
 }
 
-// extractRuleAction extracts the rule action from NACL properties
-func extractRuleAction(properties map[string]any) types.RuleAction {
-	if ruleactionprop, ok := properties["RuleAction"].(string); ok {
-		if ruleactionprop == string(types.RuleActionDeny) {
+// extractRuleAction extracts the rule action from NACL properties, resolving
+// {"Ref": "ParamName"} values through stack parameters.
+func extractRuleAction(properties map[string]any, params []cfntypes.Parameter) types.RuleAction {
+	switch value := properties["RuleAction"].(type) {
+	case string:
+		if value == string(types.RuleActionDeny) {
 			return types.RuleActionDeny
+		}
+	case map[string]any:
+		if refname, ok := value["Ref"].(string); ok {
+			if resolveParameterValue(refname, params) == string(types.RuleActionDeny) {
+				return types.RuleActionDeny
+			}
 		}
 	}
 	return types.RuleActionAllow

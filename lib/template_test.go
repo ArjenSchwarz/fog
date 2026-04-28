@@ -73,6 +73,9 @@ func TestNaclResourceToNaclEntry(t *testing.T) {
 	params := []cfntypes.Parameter{
 		{ParameterKey: aws.String("CIDR"), ParameterValue: aws.String("10.0.0.0/24")},
 		{ParameterKey: aws.String("IPV6"), ParameterValue: aws.String("::/0")},
+		{ParameterKey: aws.String("ProtocolParam"), ParameterValue: aws.String("-1")},
+		{ParameterKey: aws.String("EgressParam"), ParameterValue: aws.String("true")},
+		{ParameterKey: aws.String("RuleActionParam"), ParameterValue: aws.String("deny")},
 	}
 
 	// IPv4 entry using numeric Protocol and nested maps for PortRange and ICMP
@@ -128,6 +131,33 @@ func TestNaclResourceToNaclEntry(t *testing.T) {
 	got2 := NaclResourceToNaclEntry(resource2, params)
 	if !reflect.DeepEqual(got2, expected2) {
 		t.Errorf("NaclResourceToNaclEntry() = %#v, want %#v", got2, expected2)
+	}
+
+	// Parameterized entry ensures Ref-based values are resolved before drift
+	// comparison so protocol, egress, and rule action do not silently fall back
+	// to zero values.
+	resource3 := CfnTemplateResource{
+		Type: "AWS::EC2::NetworkAclEntry",
+		Properties: map[string]any{
+			"Protocol":   map[string]any{"Ref": "ProtocolParam"},
+			"RuleNumber": 120.0,
+			"CidrBlock":  map[string]any{"Ref": "CIDR"},
+			"RuleAction": map[string]any{"Ref": "RuleActionParam"},
+			"Egress":     map[string]any{"Ref": "EgressParam"},
+		},
+	}
+
+	expected3 := types.NetworkAclEntry{
+		CidrBlock:  aws.String("10.0.0.0/24"),
+		Egress:     aws.Bool(true),
+		Protocol:   aws.String("-1"),
+		RuleAction: types.RuleActionDeny,
+		RuleNumber: aws.Int32(120),
+	}
+
+	got3 := NaclResourceToNaclEntry(resource3, params)
+	if !reflect.DeepEqual(got3, expected3) {
+		t.Errorf("NaclResourceToNaclEntry() = %#v, want %#v", got3, expected3)
 	}
 }
 

@@ -83,6 +83,12 @@ func TestExtractRuleNumber(t *testing.T) {
 
 // TestExtractEgressFlag tests the safe extraction of egress flags from NACL properties
 func TestExtractEgressFlag(t *testing.T) {
+	params := []cfntypes.Parameter{
+		{ParameterKey: aws.String("EgressParam"), ParameterValue: aws.String("true")},
+		{ParameterKey: aws.String("ResolvedEgressParam"), ResolvedValue: aws.String("false"), ParameterValue: aws.String("true")},
+		{ParameterKey: aws.String("InvalidEgressParam"), ParameterValue: aws.String("not-a-bool")},
+	}
+
 	tests := []struct {
 		name       string
 		properties map[string]any
@@ -108,11 +114,36 @@ func TestExtractEgressFlag(t *testing.T) {
 			properties: map[string]any{"Egress": "true"},
 			want:       false,
 		},
+		{
+			name:       "parameter reference resolves via ParameterValue",
+			properties: map[string]any{"Egress": map[string]any{"Ref": "EgressParam"}},
+			want:       true,
+		},
+		{
+			name:       "parameter reference prefers ResolvedValue over ParameterValue",
+			properties: map[string]any{"Egress": map[string]any{"Ref": "ResolvedEgressParam"}},
+			want:       false,
+		},
+		{
+			name:       "parameter reference with invalid bool value",
+			properties: map[string]any{"Egress": map[string]any{"Ref": "InvalidEgressParam"}},
+			want:       false,
+		},
+		{
+			name:       "parameter reference to unknown parameter",
+			properties: map[string]any{"Egress": map[string]any{"Ref": "Unknown"}},
+			want:       false,
+		},
+		{
+			name:       "map without Ref key",
+			properties: map[string]any{"Egress": map[string]any{"Fn::Sub": "something"}},
+			want:       false,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := extractEgressFlag(tt.properties)
+			got := extractEgressFlag(tt.properties, params)
 			if got != tt.want {
 				t.Errorf("extractEgressFlag() = %v, want %v", got, tt.want)
 			}
@@ -122,6 +153,11 @@ func TestExtractEgressFlag(t *testing.T) {
 
 // TestExtractProtocol tests protocol extraction from NACL properties
 func TestExtractProtocol(t *testing.T) {
+	params := []cfntypes.Parameter{
+		{ParameterKey: aws.String("ProtocolParam"), ParameterValue: aws.String("6")},
+		{ParameterKey: aws.String("ResolvedProtocolParam"), ResolvedValue: aws.String("-1"), ParameterValue: aws.String("17")},
+	}
+
 	tests := []struct {
 		name       string
 		properties map[string]any
@@ -152,11 +188,31 @@ func TestExtractProtocol(t *testing.T) {
 			properties: map[string]any{"Protocol": float64(-1)},
 			want:       "-1",
 		},
+		{
+			name:       "parameter reference resolves via ParameterValue",
+			properties: map[string]any{"Protocol": map[string]any{"Ref": "ProtocolParam"}},
+			want:       "6",
+		},
+		{
+			name:       "parameter reference prefers ResolvedValue over ParameterValue",
+			properties: map[string]any{"Protocol": map[string]any{"Ref": "ResolvedProtocolParam"}},
+			want:       "-1",
+		},
+		{
+			name:       "parameter reference to unknown parameter",
+			properties: map[string]any{"Protocol": map[string]any{"Ref": "Unknown"}},
+			want:       "",
+		},
+		{
+			name:       "map without Ref key",
+			properties: map[string]any{"Protocol": map[string]any{"Fn::Sub": "something"}},
+			want:       "",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := extractProtocol(tt.properties)
+			got := extractProtocol(tt.properties, params)
 			if got != tt.want {
 				t.Errorf("extractProtocol() = %v, want %v", got, tt.want)
 			}
@@ -269,6 +325,11 @@ func TestExtractCidrBlock(t *testing.T) {
 
 // TestExtractRuleAction tests rule action extraction
 func TestExtractRuleAction(t *testing.T) {
+	params := []cfntypes.Parameter{
+		{ParameterKey: aws.String("RuleActionParam"), ParameterValue: aws.String("deny")},
+		{ParameterKey: aws.String("ResolvedRuleActionParam"), ResolvedValue: aws.String("deny"), ParameterValue: aws.String("allow")},
+	}
+
 	tests := []struct {
 		name       string
 		properties map[string]any
@@ -294,11 +355,31 @@ func TestExtractRuleAction(t *testing.T) {
 			properties: map[string]any{"RuleAction": 123},
 			want:       types.RuleActionAllow,
 		},
+		{
+			name:       "parameter reference resolves via ParameterValue",
+			properties: map[string]any{"RuleAction": map[string]any{"Ref": "RuleActionParam"}},
+			want:       types.RuleActionDeny,
+		},
+		{
+			name:       "parameter reference prefers ResolvedValue over ParameterValue",
+			properties: map[string]any{"RuleAction": map[string]any{"Ref": "ResolvedRuleActionParam"}},
+			want:       types.RuleActionDeny,
+		},
+		{
+			name:       "parameter reference to unknown parameter defaults to allow",
+			properties: map[string]any{"RuleAction": map[string]any{"Ref": "Unknown"}},
+			want:       types.RuleActionAllow,
+		},
+		{
+			name:       "map without Ref key defaults to allow",
+			properties: map[string]any{"RuleAction": map[string]any{"Fn::Sub": "something"}},
+			want:       types.RuleActionAllow,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := extractRuleAction(tt.properties)
+			got := extractRuleAction(tt.properties, params)
 			if got != tt.want {
 				t.Errorf("extractRuleAction() = %v, want %v", got, tt.want)
 			}
