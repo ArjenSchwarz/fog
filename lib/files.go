@@ -368,12 +368,12 @@ func matchesPowerShellFlagPrefix(arg string, fullFlag string, minPrefix string) 
 
 func isPowerShellCommandFlag(arg string) bool {
 	lowerArg := strings.ToLower(arg)
-	return lowerArg == "-c" || matchesPowerShellFlagPrefix(lowerArg, "-command", "-com")
+	return lowerArg == "-c" || matchesPowerShellFlagPrefix(lowerArg, "-command", "-co")
 }
 
 func isPowerShellEncodedCommandFlag(arg string) bool {
 	lowerArg := strings.ToLower(arg)
-	return lowerArg == "-enc" || matchesPowerShellFlagPrefix(lowerArg, "-encodedcommand", "-enc")
+	return matchesPowerShellFlagPrefix(lowerArg, "-encodedcommand", "-enc")
 }
 
 func isPowerShellFileFlag(arg string) bool {
@@ -430,20 +430,20 @@ func RunPrechecks(deployment *DeployInfo) (map[string]string, error) {
 		precheck := strings.ReplaceAll(precheck, "$TEMPLATEPATH", deployment.TemplateRelativePath)
 		separated, err := splitShellArgs(precheck)
 		if err != nil {
-			return results, err
+			return results, fmt.Errorf("precheck %q: %w", precheck, err)
 		}
 		if len(separated) == 0 {
-			return results, fmt.Errorf("precheck command is empty or only whitespace: %q", precheck)
+			return results, fmt.Errorf("precheck %q is empty or only whitespace", precheck)
 		}
 		command, args := separated[0], separated[1:]
 		if unsafeCommand, err := findUnsafeWrappedPrecheck(separated); err != nil {
-			return results, err
+			return results, fmt.Errorf("precheck %q: %w", precheck, err)
 		} else if unsafeCommand != "" {
-			return results, fmt.Errorf("unsafe command '%v' detected", unsafeCommand)
+			return results, fmt.Errorf("precheck %q: unsafe command %q detected", precheck, unsafeCommand)
 		}
 		binary, lookErr := exec.LookPath(command)
 		if lookErr != nil {
-			return results, fmt.Errorf("command '%v' cannot be found", command)
+			return results, fmt.Errorf("precheck %q: command %q cannot be found", precheck, command)
 		}
 		cmd := exec.Command(binary, args...)
 		var out bytes.Buffer

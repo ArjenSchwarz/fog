@@ -365,12 +365,12 @@ func encodePowerShellCommand(t *testing.T, command string) string {
 	t.Helper()
 
 	utf16Words := utf16.Encode([]rune(command))
-	bytes := make([]byte, 0, len(utf16Words)*2)
+	buf := make([]byte, 0, len(utf16Words)*2)
 	for _, word := range utf16Words {
-		bytes = append(bytes, byte(word), byte(word>>8))
+		buf = append(buf, byte(word), byte(word>>8))
 	}
 
-	return base64.StdEncoding.EncodeToString(bytes)
+	return base64.StdEncoding.EncodeToString(buf)
 }
 
 func TestRunPrechecksUnsafeWrappedCommand(t *testing.T) {
@@ -409,6 +409,7 @@ func TestRunPrechecksUnsafeWrappedCommand(t *testing.T) {
 		{"cmd operator without whitespace is rejected", `cmd /c echo ok&del important.txt`, "cannot be safely unwrapped"},
 		{"cmd backslash operator is rejected", `cmd /c "echo ok\\&del important.txt"`, "cannot be safely unwrapped"},
 		{"powershell wrapper", `pwsh -Command "kill 1234"`, "unsafe command"},
+		{"powershell short command prefix", `pwsh -co "rm -rf ."`, "unsafe command"},
 		{"powershell command prefix", `pwsh -Com "rm -rf ."`, "unsafe command"},
 		{"powershell backslash operator is rejected", `pwsh -Command "echo ok\\; rm -rf ."`, "cannot be safely unwrapped"},
 		{"powershell multi arg sequence is rejected", `pwsh -Command echo ok; rm -rf .`, "cannot be safely unwrapped"},
