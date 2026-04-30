@@ -10,6 +10,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
 	"github.com/aws/smithy-go"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // Mock client implementing the interfaces
@@ -325,6 +327,77 @@ func TestGetExportsPagination(t *testing.T) {
 	if _, ok := byName["Export2"]; !ok {
 		t.Error("missing Export2 from second page")
 	}
+}
+
+func TestGetExports_SkipsStacksWithoutStackNameInPaginatedResults(t *testing.T) {
+	stackName := ""
+	mock := paginatingMockCFNClient{
+		pages: map[string]cloudformation.DescribeStacksOutput{
+			"": {
+				Stacks: []types.Stack{{
+					StackName: strPtrOut("stack-page1"),
+					Outputs: []types.Output{
+						{OutputKey: strPtrOut("K1"), OutputValue: strPtrOut("V1"), ExportName: strPtrOut("Export1")},
+					},
+				}},
+				NextToken: strPtrOut("token2"),
+			},
+			"token2": {
+				Stacks: []types.Stack{{
+					Outputs: []types.Output{
+						{OutputKey: strPtrOut("K2"), OutputValue: strPtrOut("V2"), ExportName: strPtrOut("Export2")},
+					},
+				}},
+			},
+		},
+		ImportsByExport: map[string][]string{},
+	}
+
+	results, err := GetExports(context.Background(), &stackName, strPtrOut(""), mock)
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+	assert.Equal(t, "Export1", results[0].ExportName)
+}
+
+func TestGetExports_SkipsOutputsMissingKeyOrValueInPaginatedResults(t *testing.T) {
+	stackName := ""
+	mock := paginatingMockCFNClient{
+		pages: map[string]cloudformation.DescribeStacksOutput{
+			"": {
+				Stacks: []types.Stack{{
+					StackName: strPtrOut("stack-page1"),
+					Outputs: []types.Output{
+						{OutputKey: strPtrOut("K1"), OutputValue: strPtrOut("V1"), ExportName: strPtrOut("Export1")},
+					},
+				}},
+				NextToken: strPtrOut("token2"),
+			},
+			"token2": {
+				Stacks: []types.Stack{{
+					StackName: strPtrOut("stack-page2"),
+					Outputs: []types.Output{
+						{OutputValue: strPtrOut("V2"), ExportName: strPtrOut("Export2")},
+						{OutputKey: strPtrOut("K3"), ExportName: strPtrOut("Export3")},
+						{OutputKey: strPtrOut("K4"), OutputValue: strPtrOut("V4"), ExportName: strPtrOut("Export4")},
+					},
+				}},
+			},
+		},
+		ImportsByExport: map[string][]string{},
+	}
+
+	results, err := GetExports(context.Background(), &stackName, strPtrOut(""), mock)
+	require.NoError(t, err)
+	require.Len(t, results, 2)
+
+	byName := map[string]CfnOutput{}
+	for _, result := range results {
+		byName[result.ExportName] = result
+	}
+	assert.Contains(t, byName, "Export1")
+	assert.Contains(t, byName, "Export4")
+	assert.NotContains(t, byName, "Export2")
+	assert.NotContains(t, byName, "Export3")
 }
 
 // TestFillImports_NotImportedError verifies that the specific "is not imported

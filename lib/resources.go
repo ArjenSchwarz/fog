@@ -43,8 +43,12 @@ func GetResources(ctx context.Context, stackname *string, svc interface {
 	}
 	tocheckstacks := make([]types.Stack, 0)
 	for _, stack := range allstacks {
+		stackLabel := aws.ToString(stack.StackName)
+		if stackLabel == "" {
+			continue
+		}
 		if strings.Contains(*stackname, "*") {
-			if !GlobToRegex(*stackname).MatchString(*stack.StackName) {
+			if !GlobToRegex(*stackname).MatchString(stackLabel) {
 				continue
 			}
 		}
@@ -52,11 +56,11 @@ func GetResources(ctx context.Context, stackname *string, svc interface {
 	}
 	resourcelist := make([]CfnResource, 0)
 	for _, stack := range tocheckstacks {
+		stackLabel := aws.ToString(stack.StackName)
 		resources, err := svc.DescribeStackResources(
 			ctx,
 			&cloudformation.DescribeStackResourcesInput{StackName: stack.StackName})
 		if err != nil {
-			stackLabel := aws.ToString(stack.StackName)
 			var ae smithy.APIError
 			if errors.As(err, &ae) {
 				// If the error is because of throttling, we'll wait 5 seconds before trying the same query again
@@ -84,7 +88,7 @@ func GetResources(ctx context.Context, stackname *string, svc interface {
 				continue
 			}
 			resitem := CfnResource{
-				StackName:  aws.ToString(stack.StackName),
+				StackName:  stackLabel,
 				Type:       aws.ToString(resource.ResourceType),
 				ResourceID: physicalID,
 				LogicalID:  aws.ToString(resource.LogicalResourceId),
