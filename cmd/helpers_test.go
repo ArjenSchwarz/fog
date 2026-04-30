@@ -1,0 +1,80 @@
+package cmd
+
+import (
+	"bytes"
+	"errors"
+	"os"
+	"os/exec"
+	"strings"
+	"testing"
+)
+
+func envWithout(keys ...string) []string {
+	prefixes := make([]string, 0, len(keys))
+	for _, key := range keys {
+		prefixes = append(prefixes, key+"=")
+	}
+
+	filtered := make([]string, 0, len(os.Environ()))
+	for _, env := range os.Environ() {
+		skip := false
+		for _, prefix := range prefixes {
+			if strings.HasPrefix(env, prefix) {
+				skip = true
+				break
+			}
+		}
+		if skip {
+			continue
+		}
+		filtered = append(filtered, env)
+	}
+	return filtered
+}
+
+// TestFailWithError_WritesToStderr verifies failWithError keeps diagnostics on
+// stderr so structured stdout pipelines only receive command results.
+func TestFailWithError_WritesToStderr(t *testing.T) {
+	if os.Getenv("GO_WANT_HELPER_PROCESS") == "1" && os.Getenv("GO_WANT_FAIL_WITH_ERROR_HELPER") == "1" {
+		// The subprocess uses the default debug=false setting, so failWithError
+		// exits and lets the parent process assert stderr/stdout behavior.
+		failWithError(errors.New("boom"))
+		return
+	}
+
+	t.Setenv("GO_WANT_HELPER_PROCESS", "")
+	t.Setenv("GO_WANT_FAIL_WITH_ERROR_HELPER", "")
+
+	cmd := exec.Command(os.Args[0], "-test.run=^TestFailWithError_WritesToStderr$")
+	cmd.Env = append(
+		envWithout("DEBUG", "GO_WANT_HELPER_PROCESS", "GO_WANT_FAIL_WITH_ERROR_HELPER"),
+		"GO_WANT_HELPER_PROCESS=1",
+		"GO_WANT_FAIL_WITH_ERROR_HELPER=1",
+		"DEBUG=false",
+	)
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	var exitErr *exec.ExitError
+	if !errors.As(err, &exitErr) {
+		t.Fatalf("expected subprocess to exit with an error, got %v", err)
+	}
+	if exitErr.ExitCode() != 1 {
+		t.Fatalf("expected exit code 1, got %d", exitErr.ExitCode())
+	}
+
+	if got := stdout.String(); got != "" {
+		t.Fatalf("expected no stdout output, got %q", got)
+	}
+	got := stderr.String()
+	if got == "" {
+		t.Fatal("expected error output on stderr, got nothing")
+	}
+	if !strings.Contains(got, "Error: boom") {
+		t.Fatalf("expected stderr to contain error message, got %q", got)
+	}
+}
