@@ -32,9 +32,6 @@ var askForConfirmationFunc = askForConfirmation
 var showFailedEventsFunc = showFailedEvents
 var deleteStackIfNewFunc = deleteStackIfNew
 
-// osExitFunc allows tests to intercept os.Exit calls in command handlers.
-var osExitFunc = os.Exit
-
 const postDeployLookupFailedStatus = "POST_DEPLOY_LOOKUP_FAILED"
 
 var getFreshStackFunc = func(info *lib.DeployInfo, svc lib.CloudFormationDescribeStacksAPI) (types.Stack, error) {
