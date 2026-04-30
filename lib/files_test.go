@@ -1,12 +1,14 @@
 package lib
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
+	"unicode/utf16"
 
 	"github.com/spf13/viper"
 )
@@ -332,9 +334,11 @@ func TestRunPrechecksUnsafeCommandWithPath(t *testing.T) {
 		command string
 	}{
 		{"absolute path rm", "/bin/rm --help"},
+		{"absolute path rm.exe", "/bin/rm.exe --help"},
 		{"absolute path del", "/usr/bin/del --help"},
 		{"absolute path kill", "/bin/kill --help"},
 		{"relative path rm", "./rm --help"},
+		{"relative path kill.cmd", "./kill.cmd --help"},
 		{"relative path with dir", "../bin/rm --help"},
 		{"bare command rm", "rm --help"},
 		{"bare command del", "del --help"},
@@ -352,6 +356,111 @@ func TestRunPrechecksUnsafeCommandWithPath(t *testing.T) {
 				t.Errorf("RunPrechecks(%q) should detect unsafe command, got results: %v", tc.command, results)
 			} else if !strings.Contains(err.Error(), "unsafe command") {
 				t.Errorf("RunPrechecks(%q) error should mention 'unsafe command', got: %v", tc.command, err)
+			}
+		})
+	}
+}
+
+func encodePowerShellCommand(t *testing.T, command string) string {
+	t.Helper()
+
+	utf16Words := utf16.Encode([]rune(command))
+	buf := make([]byte, 0, len(utf16Words)*2)
+	for _, word := range utf16Words {
+		buf = append(buf, byte(word), byte(word>>8))
+	}
+
+	return base64.StdEncoding.EncodeToString(buf)
+}
+
+func TestRunPrechecksUnsafeWrappedCommand(t *testing.T) {
+	// Regression test for T-1071: RunPrechecks must reject unsafe commands
+	// even when a wrapper executable forwards to them.
+	t.Cleanup(viper.Reset)
+
+	deployment := &DeployInfo{
+		TemplateRelativePath: "test/path.yaml",
+	}
+
+	cases := []struct {
+		name            string
+		command         string
+		wantErrContains string
+	}{
+		{"env wrapper", "env rm --help", "unsafe command"},
+		{"env with assignment", "env SAFE=1 rm --help", "unsafe command"},
+		{"env split string", `env -S 'rm --help'`, "unsafe command"},
+		{"env split string equals", `env --split-string='rm --help'`, "unsafe command"},
+		{"env split string sequence is rejected", `env -S 'echo ok; rm -rf test/path.yaml'`, "cannot be safely unwrapped"},
+		{"env argv0 flag", "env -a safe-name rm --help", "unsafe command"},
+		{"env argv0 long flag", "env --argv0=safe-name rm --help", "unsafe command"},
+		{"env -S nested shell", `env -S 'sh -c "rm -rf test/path.yaml"'`, "unsafe command"},
+		{"env wrapping shell", `env sh -c 'rm -rf test/path.yaml'`, "unsafe command"},
+		{"shell -c wrapper", `sh -c 'rm -rf test/path.yaml'`, "unsafe command"},
+		{"shell sequence is rejected", `sh -c 'echo ok; rm -rf test/path.yaml'`, "cannot be safely unwrapped"},
+		{"shell backtick substitution is rejected", "sh -c '`rm -rf test/path.yaml`'", "cannot be safely unwrapped"},
+		{"bash -lc wrapper", `bash -lc 'kill -9 1234'`, "unsafe command"},
+		{"bash option before -c", `bash -o pipefail -c 'rm -rf test/path.yaml'`, "unsafe command"},
+		{"bash inline -o before -c", `bash -onoclobber -c 'rm -rf test/path.yaml'`, "unsafe command"},
+		{"deeply nested wrappers", `sh -c 'bash -c "env rm --help"'`, "unsafe command"},
+		{"cmd wrapper", `cmd /c del important.txt`, "unsafe command"},
+		{"cmd keep wrapper", `cmd /k del important.txt`, "unsafe command"},
+		{"cmd flag before c", `cmd /q /c del important.txt`, "unsafe command"},
+		{"cmd operator without whitespace is rejected", `cmd /c echo ok&del important.txt`, "cannot be safely unwrapped"},
+		{"cmd backslash operator is rejected", `cmd /c "echo ok\\&del important.txt"`, "cannot be safely unwrapped"},
+		{"powershell wrapper", `pwsh -Command "kill 1234"`, "unsafe command"},
+		{"powershell short command prefix", `pwsh -co "rm -rf ."`, "unsafe command"},
+		{"powershell command prefix", `pwsh -Com "rm -rf ."`, "unsafe command"},
+		{"powershell backslash operator is rejected", `pwsh -Command "echo ok\\; rm -rf ."`, "cannot be safely unwrapped"},
+		{"powershell multi arg sequence is rejected", `pwsh -Command echo ok; rm -rf .`, "cannot be safely unwrapped"},
+		{"powershell encoded command", "pwsh -enc " + encodePowerShellCommand(t, "rm -rf ."), "unsafe command"},
+		{"powershell file wrapper", `pwsh -File dangerous.ps1`, "cannot be safely unwrapped"},
+		{"powershell file alias", `pwsh -f dangerous.ps1`, "cannot be safely unwrapped"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			viper.Set("templates.prechecks", []string{tc.command})
+			results, err := RunPrechecks(deployment)
+			if err == nil {
+				t.Fatalf("RunPrechecks(%q) should detect unsafe wrapped command, got results: %v", tc.command, results)
+			}
+			if !strings.Contains(err.Error(), tc.wantErrContains) {
+				t.Fatalf("RunPrechecks(%q) error should mention %q, got: %v", tc.command, tc.wantErrContains, err)
+			}
+			if len(results) > 0 {
+				t.Fatalf("RunPrechecks(%q) should not return results for unsafe wrapped command, got: %v", tc.command, results)
+			}
+		})
+	}
+}
+
+func TestFindUnsafeWrappedPrecheckSafeWrapper(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name    string
+		command string
+	}{
+		{"env wrapper", `env SAFE=1 test hello = hello`},
+		{"shell wrapper", `sh -c "echo hello"`},
+		{"cmd wrapper", `cmd /c echo hello`},
+		{"powershell command", `pwsh -Command "echo hello"`},
+		{"powershell multi arg command", `pwsh -Command Write-Output hello`},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			args, err := splitShellArgs(tc.command)
+			if err != nil {
+				t.Fatalf("splitShellArgs(%q): %v", tc.command, err)
+			}
+			unsafeCommand, err := findUnsafeWrappedPrecheck(args)
+			if err != nil {
+				t.Fatalf("findUnsafeWrappedPrecheck(%q) unexpected error: %v", tc.command, err)
+			}
+			if unsafeCommand != "" {
+				t.Fatalf("findUnsafeWrappedPrecheck(%q) = %q, want no unsafe command", tc.command, unsafeCommand)
 			}
 		})
 	}

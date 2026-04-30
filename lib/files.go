@@ -3,6 +3,7 @@ package lib
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"unicode/utf16"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -139,6 +141,288 @@ func splitShellArgs(s string) ([]string, error) {
 	return args, nil
 }
 
+// blockedPrecheckCommands are never allowed to run as prechecks, even when a
+// wrapper binary delegates execution to them. Wrapper inspection is
+// intentionally conservative: command strings are only unwrapped when they can
+// be reduced to a single argv vector without wrapper-specific control
+// operators. This is still a best-effort deny-list; an allowlist would provide
+// stronger guarantees than trying to model every possible passthrough wrapper.
+var blockedPrecheckCommands = []string{"rm", "del", "kill"}
+
+type wrappedCommandDialect int
+
+const (
+	wrappedCommandShell wrappedCommandDialect = iota
+	wrappedCommandCmd
+	wrappedCommandPowerShell
+)
+
+func normalizePrecheckCommandName(command string) string {
+	name := strings.ToLower(filepath.Base(command))
+	switch filepath.Ext(name) {
+	case ".exe", ".bat", ".cmd":
+		return strings.TrimSuffix(name, filepath.Ext(name))
+	default:
+		return name
+	}
+}
+
+func findUnsafeWrappedPrecheck(args []string) (string, error) {
+	for len(args) > 0 {
+		command := args[0]
+		commandName := normalizePrecheckCommandName(command)
+		if stringInSlice(commandName, blockedPrecheckCommands) {
+			return command, nil
+		}
+
+		var (
+			nextArgs []string
+			err      error
+		)
+		switch commandName {
+		case "env":
+			nextArgs, err = unwrapEnvCommand(args[1:])
+		case "sh", "bash", "zsh", "dash", "ksh", "ash":
+			nextArgs, err = unwrapShellCommand(args[1:])
+		case "cmd":
+			nextArgs, err = unwrapCmdCommand(args[1:])
+		case "powershell", "pwsh":
+			nextArgs, err = unwrapPowerShellCommand(args[1:])
+		default:
+			return "", nil
+		}
+		if err != nil {
+			return "", err
+		}
+		if len(nextArgs) == 0 {
+			return "", nil
+		}
+		args = nextArgs
+	}
+
+	return "", nil
+}
+
+func unwrapEnvCommand(args []string) ([]string, error) {
+	for i := 0; i < len(args); {
+		arg := args[i]
+		switch {
+		case arg == "--":
+			if i+1 >= len(args) {
+				return nil, nil
+			}
+			return args[i+1:], nil
+		case arg == "-S" || arg == "--split-string":
+			if i+1 >= len(args) {
+				return nil, fmt.Errorf("env wrapper missing command after %q", arg)
+			}
+			return parseWrappedCommandString(args[i+1], "env -S", wrappedCommandShell)
+		case strings.HasPrefix(arg, "--split-string="):
+			return parseWrappedCommandString(strings.TrimPrefix(arg, "--split-string="), "env -S", wrappedCommandShell)
+		case arg == "-u" || arg == "--unset" || arg == "-C" || arg == "--chdir" || arg == "-a" || arg == "--argv0":
+			i += 2
+		case strings.HasPrefix(arg, "--unset=") || strings.HasPrefix(arg, "--chdir=") || strings.HasPrefix(arg, "--argv0="):
+			i++
+		case arg == "-i" || arg == "--ignore-environment" || arg == "-0" || arg == "--null" || arg == "-v" || arg == "--debug":
+			i++
+		case strings.Contains(arg, "=") && !strings.HasPrefix(arg, "="):
+			i++
+		default:
+			return args[i:], nil
+		}
+	}
+
+	return nil, nil
+}
+
+func parseWrappedCommandString(commandString string, wrapper string, dialect wrappedCommandDialect) ([]string, error) {
+	if hasUnquotedCommandOperators(commandString, dialect) {
+		return nil, fmt.Errorf("%s command strings cannot be safely unwrapped for precheck", wrapper)
+	}
+	return splitShellArgs(commandString)
+}
+
+func hasUnquotedCommandOperators(commandString string, dialect wrappedCommandDialect) bool {
+	inSingle := false
+	inDouble := false
+	escaped := false
+
+	for i := 0; i < len(commandString); i++ {
+		c := commandString[i]
+		switch {
+		case escaped:
+			escaped = false
+		case isWrappedCommandEscape(c, dialect, inSingle):
+			escaped = true
+		case c == '\'' && dialect != wrappedCommandCmd && !inDouble:
+			inSingle = !inSingle
+		case c == '"' && !inSingle:
+			inDouble = !inDouble
+		case !inSingle && !inDouble && isWrappedCommandOperator(c, dialect):
+			return true
+		}
+	}
+
+	return false
+}
+
+func isWrappedCommandEscape(c byte, dialect wrappedCommandDialect, inSingle bool) bool {
+	switch dialect {
+	case wrappedCommandShell:
+		return c == '\\' && !inSingle
+	case wrappedCommandCmd:
+		return c == '^'
+	case wrappedCommandPowerShell:
+		return c == '`' && !inSingle
+	default:
+		return false
+	}
+}
+
+func isWrappedCommandOperator(c byte, dialect wrappedCommandDialect) bool {
+	switch dialect {
+	case wrappedCommandCmd:
+		return c == '|' || c == '&' || c == '\n' || c == '\r' || c == '<' || c == '>' || c == '(' || c == ')'
+	case wrappedCommandPowerShell:
+		return c == ';' || c == '|' || c == '&' || c == '\n' || c == '\r' || c == '<' || c == '>' || c == '(' || c == ')'
+	default:
+		return c == ';' || c == '|' || c == '&' || c == '\n' || c == '\r' || c == '<' || c == '>' || c == '(' || c == ')' || c == '`'
+	}
+}
+
+func unwrapShellShortOptions(arg string, args []string, index *int) ([]string, error) {
+	shortOpts := strings.TrimPrefix(arg, "-")
+	for pos := 0; pos < len(shortOpts); pos++ {
+		switch shortOpts[pos] {
+		case 'c':
+			if pos != len(shortOpts)-1 {
+				return nil, nil
+			}
+			if *index+1 >= len(args) {
+				return nil, nil
+			}
+			return parseWrappedCommandString(args[*index+1], "shell -c", wrappedCommandShell)
+		case 'o', 'O':
+			if pos+1 < len(shortOpts) {
+				return nil, nil
+			}
+			(*index)++
+			return nil, nil
+		}
+	}
+
+	return nil, nil
+}
+
+func unwrapShellCommand(args []string) ([]string, error) {
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		switch {
+		case arg == "-c":
+			if i+1 >= len(args) {
+				return nil, nil
+			}
+			return parseWrappedCommandString(args[i+1], "shell -c", wrappedCommandShell)
+		case arg == "-o" || arg == "-O" || arg == "--rcfile" || arg == "--init-file":
+			i++
+		case strings.HasPrefix(arg, "--rcfile=") || strings.HasPrefix(arg, "--init-file="):
+			continue
+		case arg == "--":
+			return nil, nil
+		case strings.HasPrefix(arg, "--"):
+			continue
+		case strings.HasPrefix(arg, "-"):
+			nextArgs, err := unwrapShellShortOptions(arg, args, &i)
+			if err != nil {
+				return nil, err
+			}
+			if len(nextArgs) > 0 {
+				return nextArgs, nil
+			}
+			continue
+		default:
+			return nil, nil
+		}
+	}
+
+	return nil, nil
+}
+
+func unwrapCmdCommand(args []string) ([]string, error) {
+	for i, arg := range args {
+		if !strings.EqualFold(arg, "/c") && !strings.EqualFold(arg, "/k") {
+			continue
+		}
+		if i+1 >= len(args) {
+			return nil, nil
+		}
+		return parseWrappedCommandString(strings.Join(args[i+1:], " "), "cmd", wrappedCommandCmd)
+	}
+
+	return nil, nil
+}
+
+func matchesPowerShellFlagPrefix(arg string, fullFlag string, minPrefix string) bool {
+	return len(arg) >= len(minPrefix) && len(arg) <= len(fullFlag) && strings.HasPrefix(fullFlag, arg)
+}
+
+func isPowerShellCommandFlag(arg string) bool {
+	lowerArg := strings.ToLower(arg)
+	return lowerArg == "-c" || matchesPowerShellFlagPrefix(lowerArg, "-command", "-co")
+}
+
+func isPowerShellEncodedCommandFlag(arg string) bool {
+	lowerArg := strings.ToLower(arg)
+	return matchesPowerShellFlagPrefix(lowerArg, "-encodedcommand", "-enc")
+}
+
+func isPowerShellFileFlag(arg string) bool {
+	lowerArg := strings.ToLower(arg)
+	return lowerArg == "-f" || matchesPowerShellFlagPrefix(lowerArg, "-file", "-fi")
+}
+
+func decodePowerShellEncodedCommand(encoded string) (string, error) {
+	decoded, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		return "", fmt.Errorf("invalid PowerShell encoded command: %w", err)
+	}
+	if len(decoded)%2 != 0 {
+		return "", fmt.Errorf("invalid PowerShell encoded command length")
+	}
+
+	utf16Words := make([]uint16, 0, len(decoded)/2)
+	for i := 0; i < len(decoded); i += 2 {
+		utf16Words = append(utf16Words, uint16(decoded[i])|uint16(decoded[i+1])<<8)
+	}
+
+	return string(utf16.Decode(utf16Words)), nil
+}
+
+func unwrapPowerShellCommand(args []string) ([]string, error) {
+	for i, arg := range args {
+		switch {
+		case isPowerShellEncodedCommandFlag(arg):
+			if i+1 >= len(args) {
+				return nil, nil
+			}
+			commandString, err := decodePowerShellEncodedCommand(args[i+1])
+			if err != nil {
+				return nil, err
+			}
+			return parseWrappedCommandString(commandString, "PowerShell encoded", wrappedCommandPowerShell)
+		case isPowerShellFileFlag(arg):
+			return nil, fmt.Errorf("PowerShell -File commands cannot be safely unwrapped for precheck")
+		case isPowerShellCommandFlag(arg):
+			if i+1 >= len(args) {
+				return nil, nil
+			}
+			return parseWrappedCommandString(strings.Join(args[i+1:], " "), "PowerShell", wrappedCommandPowerShell)
+		}
+	}
+
+	return nil, nil
+}
+
 // RunPrechecks executes configured template validation commands and returns results for each check.
 func RunPrechecks(deployment *DeployInfo) (map[string]string, error) {
 	results := make(map[string]string)
@@ -146,23 +430,20 @@ func RunPrechecks(deployment *DeployInfo) (map[string]string, error) {
 		precheck := strings.ReplaceAll(precheck, "$TEMPLATEPATH", deployment.TemplateRelativePath)
 		separated, err := splitShellArgs(precheck)
 		if err != nil {
-			return results, err
+			return results, fmt.Errorf("precheck %q: %w", precheck, err)
 		}
 		if len(separated) == 0 {
-			return results, fmt.Errorf("precheck command is empty or only whitespace: %q", precheck)
+			return results, fmt.Errorf("precheck %q is empty or only whitespace", precheck)
 		}
 		command, args := separated[0], separated[1:]
-		// Normalise the executable name so that path-prefixed invocations
-		// (e.g. /bin/rm, ./rm) are caught by the denylist.
-		// NOTE: this denylist is intentionally minimal; an allowlist approach would
-		// provide stronger guarantees (see specs/bugfixes/block-unsafe-precheck-path/report.md).
-		baseName := strings.ToLower(filepath.Base(command))
-		if stringInSlice(baseName, []string{"rm", "del", "kill"}) {
-			return results, fmt.Errorf("unsafe command '%v' detected", command)
+		if unsafeCommand, err := findUnsafeWrappedPrecheck(separated); err != nil {
+			return results, fmt.Errorf("precheck %q: %w", precheck, err)
+		} else if unsafeCommand != "" {
+			return results, fmt.Errorf("precheck %q: unsafe command %q detected", precheck, unsafeCommand)
 		}
 		binary, lookErr := exec.LookPath(command)
 		if lookErr != nil {
-			return results, fmt.Errorf("command '%v' cannot be found", command)
+			return results, fmt.Errorf("precheck %q: command %q cannot be found", precheck, command)
 		}
 		cmd := exec.Command(binary, args...)
 		var out bytes.Buffer
