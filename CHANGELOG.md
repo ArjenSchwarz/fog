@@ -2,6 +2,7 @@ Unreleased
 ==========
 
 ### Fixed
+- Fixed drift detection for parameterized Network ACL entries so `Protocol`, `Egress`, and `RuleAction` `Ref` values resolve correctly instead of falling back to empty/default values
 - Fixed glob-style filters in stack, export, resource, and dependency commands treating regex metacharacters (`.`, `+`, `[`, `?`, etc.) as regex operators instead of literal characters, causing false matches on names containing those characters
 - Fixed `writeLogToFile` silently discarding `file.Close()` errors due to unnamed return value in deferred close handler
 
