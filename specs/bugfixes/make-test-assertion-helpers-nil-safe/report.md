@@ -46,11 +46,11 @@ The helpers mixed fatal assertion reporting with later pointer access without an
 ## Regression Test
 
 **Test file:** `lib/testutil/assertions_test.go`
-**Test name:** `TestRequireStack_ReturnsFalseAfterFatalOnNil`, `TestRequireChangeset_ReturnsFalseAfterFatalOnNil`, `TestFormatOptionalString`, `TestFormatValueMismatch`
+**Test name:** `TestRequireStack_ReturnsFalseAfterFatalOnNil`, `TestRequireChangeset_ReturnsFalseAfterFatalOnNil`, `TestFormatOptionalString`, `TestFormatValueMismatch`, `TestAssertStackHelpers_NilValueMismatchDoesNotPanic`
 
-**What it verifies:** Nil stack and changeset guards return immediately after recording a fatal assertion, and mismatch message formatting stays safe when AWS optional string pointers are nil.
+**What it verifies:** Nil stack and changeset guards return immediately after recording a fatal assertion, mismatch message formatting stays safe when AWS optional string pointers are nil, and stack assertion helpers do not panic when a matching key has a nil optional value pointer during mismatch reporting.
 
-**Run command:** `go test ./lib/testutil -run 'TestRequireStack|TestRequireChangeset|TestFormatOptionalString|TestFormatValueMismatch'`
+**Run command:** `go test ./lib/testutil -run 'TestRequireStack|TestRequireChangeset|TestFormatOptionalString|TestFormatValueMismatch|TestAssertStackHelpers_NilValueMismatchDoesNotPanic'`
 
 ## Affected Files
 
