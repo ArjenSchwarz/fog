@@ -106,11 +106,7 @@ func GetResource(ctx context.Context, client *cloudcontrol.Client, typeName stri
 // ListAllResources lists all resources of a given type using Cloud Control API or service-specific APIs.
 // For SSO types it delegates to service-specific functions. For all other types it uses the
 // Cloud Control ListResources API with pagination.
-func ListAllResources(ctx context.Context, typeName string, client CloudControlListResourcesAPI, ssoClient interface {
-	SSOAdminListInstancesAPI
-	SSOAdminListPermissionSetsAPI
-	SSOAdminListAccountAssignmentsAPI
-}, organizationsClient OrganizationsListAccountsAPI) (map[string]string, error) {
+func ListAllResources(ctx context.Context, typeName string, client CloudControlListResourcesAPI, ssoClient SSOAdminClient, organizationsClient OrganizationsListAccountsAPI) (map[string]string, error) {
 	if typeName == "AWS::SSO::PermissionSet" {
 		return GetPermissionSetArns(ctx, ssoClient)
 	}

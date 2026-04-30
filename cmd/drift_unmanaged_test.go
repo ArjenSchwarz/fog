@@ -1,8 +1,12 @@
 package cmd
 
 import (
+	"context"
+	"errors"
 	"testing"
 
+	"github.com/ArjenSchwarz/fog/config"
+	"github.com/ArjenSchwarz/fog/lib"
 	"github.com/spf13/viper"
 )
 
@@ -145,5 +149,22 @@ func TestCheckIfResourcesAreManaged_EmptyInputs(t *testing.T) {
 	checkIfResourcesAreManaged(allresources, map[string]string{}, &rows)
 	if len(rows) != 1 {
 		t.Fatalf("expected 1 unmanaged row with empty logicalToPhysical, got %d", len(rows))
+	}
+}
+
+func TestDetectUnmanagedResourcesReturnsListAllResourcesError(t *testing.T) {
+	expectedErr := errors.New("list all resources failed")
+
+	listResources := func(context.Context, string, lib.CloudControlListResourcesAPI, lib.SSOAdminClient, lib.OrganizationsListAccountsAPI) (map[string]string, error) {
+		return nil, expectedErr
+	}
+
+	var rows []map[string]any
+	err := detectUnmanagedResources(context.Background(), []string{"AWS::S3::Bucket"}, map[string]string{}, &rows, config.AWSConfig{}, listResources)
+	if !errors.Is(err, expectedErr) {
+		t.Fatalf("expected error %v, got %v", expectedErr, err)
+	}
+	if len(rows) != 0 {
+		t.Fatalf("expected no rows when list fails, got %d", len(rows))
 	}
 }

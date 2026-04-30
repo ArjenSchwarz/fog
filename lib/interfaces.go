@@ -46,6 +46,13 @@ type SSOAdminListAccountAssignmentsAPI interface {
 	ListAccountAssignments(ctx context.Context, params *ssoadmin.ListAccountAssignmentsInput, optFns ...func(*ssoadmin.Options)) (*ssoadmin.ListAccountAssignmentsOutput, error)
 }
 
+// SSOAdminClient groups the SSO Admin operations needed for drift resource discovery.
+type SSOAdminClient interface {
+	SSOAdminListInstancesAPI
+	SSOAdminListPermissionSetsAPI
+	SSOAdminListAccountAssignmentsAPI
+}
+
 // OrganizationsListAccountsAPI defines the Organizations ListAccounts operation.
 type OrganizationsListAccountsAPI interface {
 	ListAccounts(ctx context.Context, params *organizations.ListAccountsInput, optFns ...func(*organizations.Options)) (*organizations.ListAccountsOutput, error)
