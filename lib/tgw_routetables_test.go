@@ -508,3 +508,69 @@ func TestTGWRouteResourceToTGWRoute_NilParameterFields(t *testing.T) {
 		t.Errorf("TGWRouteResourceToTGWRoute().DestinationCidrBlock = %v, want 172.16.0.0/12", got.DestinationCidrBlock)
 	}
 }
+
+// tgwRouteForCompare builds a TGW route fixture with a destination, state and optional attachment ID.
+func tgwRouteForCompare(dest string, state types.TransitGatewayRouteState, attachmentID string) types.TransitGatewayRoute {
+	route := types.TransitGatewayRoute{
+		DestinationCidrBlock: aws.String(dest),
+		State:                state,
+	}
+	if attachmentID != "" {
+		route.TransitGatewayAttachments = []types.TransitGatewayRouteAttachment{
+			{TransitGatewayAttachmentId: aws.String(attachmentID)},
+		}
+	}
+	return route
+}
+
+// TestCompareTGWRoutes_BlackholeIgnoreUsesAttachment verifies that drift.ignore-blackholes
+// matches against the route's TransitGatewayAttachmentId (the documented target semantics),
+// not its destination CIDR. The active side carries the attachment ID since blackhole
+// routes have no attachments.
+func TestCompareTGWRoutes_BlackholeIgnoreUsesAttachment(t *testing.T) {
+	const (
+		cidr         = "10.0.0.0/16"
+		attachmentID = "tgw-attach-0123456789abcdef"
+	)
+	awsBlackhole := tgwRouteForCompare(cidr, types.TransitGatewayRouteStateBlackhole, "")
+	tmplActive := tgwRouteForCompare(cidr, types.TransitGatewayRouteStateActive, attachmentID)
+
+	tests := map[string]struct {
+		route1 types.TransitGatewayRoute
+		route2 types.TransitGatewayRoute
+		ignore []string
+		want   bool
+	}{
+		"Ignored attachment suppresses active-vs-blackhole mismatch": {
+			route1: awsBlackhole,
+			route2: tmplActive,
+			ignore: []string{attachmentID},
+			want:   true,
+		},
+		"Ignored attachment suppresses mismatch regardless of argument order": {
+			route1: tmplActive,
+			route2: awsBlackhole,
+			ignore: []string{attachmentID},
+			want:   true,
+		},
+		"Non-ignored attachment still reports drift": {
+			route1: awsBlackhole,
+			route2: tmplActive,
+			ignore: []string{"tgw-attach-ffffffffffffffff"},
+			want:   false,
+		},
+		"Destination in ignore list does not suppress mismatch": {
+			route1: awsBlackhole,
+			route2: tmplActive,
+			ignore: []string{cidr},
+			want:   false,
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			if got := CompareTGWRoutes(tt.route1, tt.route2, tt.ignore); got != tt.want {
+				t.Errorf("CompareTGWRoutes() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
