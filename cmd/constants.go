@@ -40,6 +40,7 @@ const (
 	colRegion      = "Region"
 	colStartTime   = "Start time"
 	colImported    = "Imported"
+	colImportedBy  = "Imported By"
 	colSuccess     = "Success"
 )
 

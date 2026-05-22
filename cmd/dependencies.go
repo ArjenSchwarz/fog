@@ -24,6 +24,8 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"slices"
+	"sort"
 	"strings"
 
 	"github.com/ArjenSchwarz/fog/config"
@@ -76,30 +78,18 @@ func showDependencies(cmd *cobra.Command, args []string) {
 	title := fmt.Sprintf("%v in account %v for region %v", subtitle, awsConfig.AccountID, awsConfig.Region)
 
 	// Build stack data for v2 output
-	data := make([]map[string]any, 0)
 	stackfilter := []string{}
 	if dependenciesFlags.StackName != "" {
 		stackfilter = unique(getFilteredStacks(dependenciesFlags.StackName, &stacks))
 	}
-	for stackname, stack := range stacks {
-		if dependenciesFlags.StackName != "" && !stringInSlice(stackname, stackfilter) {
-			continue
-		}
-		row := map[string]any{
-			colStack:       stack.Name,
-			colDescription: stack.Description,
-			// Pass array directly - v2 handles array rendering automatically
-			"Imported By": unique(stack.ImportedBy),
-		}
-		data = append(data, row)
-	}
+	data := buildDependencyRows(stacks, stackfilter, dependenciesFlags.StackName != "")
 
 	// Create document using v2 Builder pattern with data pipeline sorting
 	doc := output.New().
 		Table(
 			title,
 			data,
-			output.WithKeys(colStack, colDescription, "Imported By"),
+			output.WithKeys(colStack, colDescription, colImportedBy),
 		).
 		Build()
 
@@ -107,6 +97,35 @@ func showDependencies(cmd *cobra.Command, args []string) {
 	if err := renderDocument(context.Background(), doc); err != nil {
 		failWithError(err)
 	}
+}
+
+// buildDependencyRows assembles the table rows for the dependencies command in a
+// deterministic order. Stacks are sorted by name and each row's "Imported By"
+// list is sorted so table and dot output remain stable across runs.
+func buildDependencyRows(stacks map[string]lib.CfnStack, stackfilter []string, applyFilter bool) []map[string]any {
+	stacknames := make([]string, 0, len(stacks))
+	for stackname := range stacks {
+		stacknames = append(stacknames, stackname)
+	}
+	sort.Strings(stacknames)
+
+	data := make([]map[string]any, 0, len(stacknames))
+	for _, stackname := range stacknames {
+		if applyFilter && !stringInSlice(stackname, stackfilter) {
+			continue
+		}
+		stack := stacks[stackname]
+		importedBy := unique(stack.ImportedBy)
+		slices.Sort(importedBy)
+		row := map[string]any{
+			colStack:       stack.Name,
+			colDescription: stack.Description,
+			// Pass array directly - v2 handles array rendering automatically
+			colImportedBy: importedBy,
+		}
+		data = append(data, row)
+	}
+	return data
 }
 
 func getFilteredStacks(stackfilter string, stacks *map[string]lib.CfnStack) []string {
