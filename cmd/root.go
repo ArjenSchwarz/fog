@@ -84,6 +84,7 @@ THE SOFTWARE.
 package cmd
 
 import (
+	"errors"
 	"os"
 
 	"github.com/ArjenSchwarz/fog/config"
@@ -187,13 +188,22 @@ func init() {
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
+	cobra.CheckErr(loadConfigFile(cfgFile))
+}
+
+// loadConfigFile configures viper sources and reads the config file. An explicit
+// --config path (cfgFile != "") must exist and be readable, so its read errors
+// are returned. For the implicit default lookup a missing file is tolerated.
+func loadConfigFile(cfgFile string) error {
 	if cfgFile != "" {
 		// Use config file from the flag.
 		viper.SetConfigFile(cfgFile)
 	} else {
 		// Find home directory.
 		home, err := os.UserHomeDir()
-		cobra.CheckErr(err)
+		if err != nil {
+			return err
+		}
 		// Default to local config file
 		viper.AddConfigPath(".")
 		// Search config in home directory with name ".fog" (without extension).
@@ -203,7 +213,13 @@ func initConfig() {
 
 	viper.AutomaticEnv() // read in environment variables that match
 
-	// If a config file is found, read it in.
-	// Silently ignore error if config file not found
-	_ = viper.ReadInConfig()
+	if err := viper.ReadInConfig(); err != nil {
+		var notFound viper.ConfigFileNotFoundError
+		// Tolerate a missing file only for the implicit default lookup.
+		if cfgFile == "" && errors.As(err, &notFound) {
+			return nil
+		}
+		return err
+	}
+	return nil
 }
