@@ -278,12 +278,10 @@ func CompareTGWRoutes(route1 types.TransitGatewayRoute, route2 types.TransitGate
 
 	// Compare state
 	if route1.State != route2.State {
-		// Check if this is a blackhole route that should be ignored
-		dest := GetTGWRouteDestination(route1)
-		for _, ignore := range blackholeIgnore {
-			if dest == ignore && (route1.State == types.TransitGatewayRouteStateBlackhole || route2.State == types.TransitGatewayRouteStateBlackhole) {
-				return true
-			}
+		// Ignore the mismatch when one side is a blackhole and the active side's
+		// attachment ID is in the ignore list (documented target/attachment semantics).
+		if isIgnoredTGWBlackhole(route1, route2, blackholeIgnore) {
+			return true
 		}
 		return false
 	}
@@ -298,6 +296,22 @@ func CompareTGWRoutes(route1 types.TransitGatewayRoute, route2 types.TransitGate
 	}
 
 	return true
+}
+
+// isIgnoredTGWBlackhole returns true when exactly one route is a blackhole and the
+// active side's TransitGatewayAttachmentId appears in the ignore list. Blackhole
+// routes carry no attachment, so the target is read from the non-blackhole route.
+func isIgnoredTGWBlackhole(route1 types.TransitGatewayRoute, route2 types.TransitGatewayRoute, blackholeIgnore []string) bool {
+	r1Blackhole := route1.State == types.TransitGatewayRouteStateBlackhole
+	r2Blackhole := route2.State == types.TransitGatewayRouteStateBlackhole
+	if r1Blackhole == r2Blackhole {
+		return false
+	}
+	active := route1
+	if r1Blackhole {
+		active = route2
+	}
+	return stringInSlice(GetTGWRouteTarget(active), blackholeIgnore)
 }
 
 // extractStringProperty extracts a string pointer from CloudFormation properties with parameter and logical ID resolution
