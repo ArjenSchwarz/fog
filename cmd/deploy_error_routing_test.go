@@ -33,8 +33,16 @@ func runWithInterceptedExit(t *testing.T, f func()) (code int, called bool, stdo
 
 	oldStdout := os.Stdout
 	oldStderr := os.Stderr
-	rOut, wOut, _ := os.Pipe()
-	rErr, wErr, _ := os.Pipe()
+	rOut, wOut, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("failed to create stdout pipe: %v", err)
+	}
+	rErr, wErr, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("failed to create stderr pipe: %v", err)
+	}
+	defer rOut.Close()
+	defer rErr.Close()
 	os.Stdout = wOut
 	os.Stderr = wErr
 
@@ -53,8 +61,12 @@ func runWithInterceptedExit(t *testing.T, f func()) (code int, called bool, stdo
 	}()
 
 	var bufOut, bufErr bytes.Buffer
-	io.Copy(&bufOut, rOut)
-	io.Copy(&bufErr, rErr)
+	if _, err := io.Copy(&bufOut, rOut); err != nil {
+		t.Fatalf("failed to read captured stdout: %v", err)
+	}
+	if _, err := io.Copy(&bufErr, rErr); err != nil {
+		t.Fatalf("failed to read captured stderr: %v", err)
+	}
 	return code, called, bufOut.String(), bufErr.String()
 }
 

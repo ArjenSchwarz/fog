@@ -287,12 +287,14 @@ func loadTagsFromFiles(tagFiles string, deployment *lib.DeployInfo) []types.Tag 
 			message := fmt.Sprintf("%v '%v'", texts.FileTagsReadFailure, tagfile)
 			printMessage(formatError(message))
 			failWithError(err)
+			continue
 		}
 		parsedtags, err := lib.ParseTagString(tagContent)
 		if err != nil {
 			message := fmt.Sprintf("%v '%v'", texts.FileTagsParseFailure, tagfile)
 			printMessage(formatError(message))
 			failWithError(err)
+			continue
 		}
 		tags = append(tags, parsedtags...)
 	}
@@ -342,12 +344,14 @@ func loadParametersFromFiles(parameterFiles string) []types.Parameter {
 			message := fmt.Sprintf("%v '%v'", texts.FileParametersReadFailure, parameterfile)
 			printMessage(formatError(message))
 			failWithError(err)
+			continue
 		}
 		parsedparameters, err := lib.ParseParameterString(paramContent)
 		if err != nil {
 			message := fmt.Sprintf("%v '%v'", texts.FileParametersParseFailure, parameterfile)
 			printMessage(formatError(message))
 			failWithError(err)
+			continue
 		}
 		parameters = append(parameters, parsedparameters...)
 	}
@@ -417,9 +421,8 @@ func createChangeset(deployment *lib.DeployInfo, awsConfig config.AWSConfig) *li
 			osExitFunc(0)
 			return nil
 		}
-		// Otherwise, show the error and clean up
-		printMessage(formatError(string(texts.DeployChangesetMessageCreationFailed)))
-		fmt.Fprintln(os.Stderr, changeset.StatusReason)
+		// Otherwise, show the console link, clean up, and report the error once
+		// via failWithError (which embeds the creation-failed text and reason).
 		fmt.Fprintf(os.Stderr, "\n%v %v\n", texts.DeployChangesetMessageConsole, changeset.GenerateChangesetUrl(awsConfig))
 		handleFailedChangeset(deployment, awsConfig)
 		failWithError(fmt.Errorf("%s: %s", texts.DeployChangesetMessageCreationFailed, changeset.StatusReason))
