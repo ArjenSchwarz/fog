@@ -17,12 +17,12 @@ import (
 // flow without terminating the test process.
 const errRoutingExitPanic = "osExit called"
 
-// runWithInterceptedExit runs f with osExitFunc stubbed and os.Stdout/os.Stderr
+// runDeployWithInterceptedExit runs f with osExitFunc stubbed and os.Stdout/os.Stderr
 // captured. The stubbed exit panics to unwind execution; the panic is recovered
 // here so the captured streams are still returned. This proves error paths
 // route through failWithError (osExitFunc + stderr) rather than log.Fatalln,
 // which would terminate the test process and bypass the stub.
-func runWithInterceptedExit(t *testing.T, f func()) (code int, called bool, stdout, stderr string) {
+func runDeployWithInterceptedExit(t *testing.T, f func()) (code int, called bool, stdout, stderr string) {
 	t.Helper()
 	origExit := osExitFunc
 	osExitFunc = func(c int) {
@@ -78,7 +78,7 @@ func TestLoadParametersFromFiles_RoutesThroughSharedHandler(t *testing.T) {
 	defer func() { deployFlags = origFlags; viper.Reset() }()
 	viper.Set("debug", false)
 
-	code, called, stdout, stderr := runWithInterceptedExit(t, func() {
+	code, called, stdout, stderr := runDeployWithInterceptedExit(t, func() {
 		loadParametersFromFiles("does-not-exist-t1185")
 	})
 
@@ -103,7 +103,7 @@ func TestLoadTagsFromFiles_RoutesThroughSharedHandler(t *testing.T) {
 	defer func() { deployFlags = origFlags; viper.Reset() }()
 	viper.Set("debug", false)
 
-	code, called, stdout, stderr := runWithInterceptedExit(t, func() {
+	code, called, stdout, stderr := runDeployWithInterceptedExit(t, func() {
 		loadTagsFromFiles("does-not-exist-t1185", &lib.DeployInfo{})
 	})
 
@@ -130,7 +130,7 @@ func TestReadTemplateFromSource_RoutesThroughSharedHandler(t *testing.T) {
 	viper.Set("templates.directory", t.TempDir())
 	deployFlags = DeployFlags{Template: "does-not-exist-t1185"}
 
-	code, called, stdout, stderr := runWithInterceptedExit(t, func() {
+	code, called, stdout, stderr := runDeployWithInterceptedExit(t, func() {
 		readTemplateFromSource(&lib.DeployInfo{})
 	})
 
@@ -169,7 +169,7 @@ func TestDeployTemplate_PrepareErrorRoutesThroughSharedHandler(t *testing.T) {
 		return config.AWSConfig{}, nil
 	}
 
-	code, called, stdout, stderr := runWithInterceptedExit(t, func() {
+	code, called, stdout, stderr := runDeployWithInterceptedExit(t, func() {
 		deployTemplate(nil, nil)
 	})
 
