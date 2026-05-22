@@ -363,6 +363,156 @@ func TestMockIAMClient_ListAccountAliases(t *testing.T) {
 	}
 }
 
+// strptr is a small helper for building *string AWS SDK fields in tests.
+func strptr(s string) *string { return &s }
+
+// TestResolveCallerInfo is a regression test for T-1110.
+//
+// STS GetCallerIdentity returns *string fields for Account and UserId. The
+// previous setCallerInfo dereferenced *result.Account and *result.UserId
+// without nil checks, so a successful (nil-error) response that omitted either
+// field — as an SDK mock, middleware, or partial response can — panicked at
+// startup.
+//
+// Expected behaviour: a nil Account or UserId is reported as a contextual
+// error rather than panicking; a fully populated response returns the values.
+func TestResolveCallerInfo(t *testing.T) {
+	tests := map[string]struct {
+		client      STSGetCallerIdentityAPI
+		wantAccount string
+		wantUserID  string
+		wantErr     bool
+		errContains string
+	}{
+		"fully populated response": {
+			client: &mockSTSClient{
+				getCallerIdentityFn: func(ctx context.Context, params *sts.GetCallerIdentityInput, optFns ...func(*sts.Options)) (*sts.GetCallerIdentityOutput, error) {
+					return &sts.GetCallerIdentityOutput{
+						Account: strptr("123456789012"),
+						UserId:  strptr("AIDAEXAMPLE"),
+					}, nil
+				},
+			},
+			wantAccount: "123456789012",
+			wantUserID:  "AIDAEXAMPLE",
+		},
+		"nil account does not panic and returns error": {
+			client: &mockSTSClient{
+				getCallerIdentityFn: func(ctx context.Context, params *sts.GetCallerIdentityInput, optFns ...func(*sts.Options)) (*sts.GetCallerIdentityOutput, error) {
+					return &sts.GetCallerIdentityOutput{
+						UserId: strptr("AIDAEXAMPLE"),
+					}, nil
+				},
+			},
+			wantErr:     true,
+			errContains: "account",
+		},
+		"nil user id does not panic and returns error": {
+			client: &mockSTSClient{
+				getCallerIdentityFn: func(ctx context.Context, params *sts.GetCallerIdentityInput, optFns ...func(*sts.Options)) (*sts.GetCallerIdentityOutput, error) {
+					return &sts.GetCallerIdentityOutput{
+						Account: strptr("123456789012"),
+					}, nil
+				},
+			},
+			wantErr:     true,
+			errContains: "user",
+		},
+		"nil output does not panic and returns error": {
+			client: &mockSTSClient{
+				getCallerIdentityFn: func(ctx context.Context, params *sts.GetCallerIdentityInput, optFns ...func(*sts.Options)) (*sts.GetCallerIdentityOutput, error) {
+					return nil, nil
+				},
+			},
+			wantErr: true,
+		},
+		"propagates AWS error": {
+			client: &mockSTSClient{
+				getCallerIdentityFn: func(ctx context.Context, params *sts.GetCallerIdentityInput, optFns ...func(*sts.Options)) (*sts.GetCallerIdentityOutput, error) {
+					return nil, errors.New("access denied")
+				},
+			},
+			wantErr:     true,
+			errContains: "access denied",
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			accountID, userID, err := resolveCallerInfo(context.Background(), tc.client)
+			if tc.wantErr {
+				require.Error(t, err)
+				if tc.errContains != "" {
+					assert.Contains(t, err.Error(), tc.errContains)
+				}
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.wantAccount, accountID)
+			assert.Equal(t, tc.wantUserID, userID)
+		})
+	}
+}
+
+// TestResolveAccountAlias is a regression test for T-1110.
+//
+// setAlias evaluated len(result.AccountAliases) without first confirming
+// result was non-nil. A successful (nil-error) call that returned a nil
+// ListAccountAliasesOutput — as an SDK mock or partial response can — panicked.
+//
+// Expected behaviour: a nil output, empty alias list, or error all yield an
+// empty alias without panicking; a populated list returns the first alias.
+func TestResolveAccountAlias(t *testing.T) {
+	tests := map[string]struct {
+		client    IAMListAccountAliasesAPI
+		wantAlias string
+	}{
+		"populated alias list returns first alias": {
+			client: &mockIAMClient{
+				listAccountAliasesFn: func(ctx context.Context, params *iam.ListAccountAliasesInput, optFns ...func(*iam.Options)) (*iam.ListAccountAliasesOutput, error) {
+					return &iam.ListAccountAliasesOutput{AccountAliases: []string{"my-alias", "second"}}, nil
+				},
+			},
+			wantAlias: "my-alias",
+		},
+		"empty alias list returns empty": {
+			client: &mockIAMClient{
+				listAccountAliasesFn: func(ctx context.Context, params *iam.ListAccountAliasesInput, optFns ...func(*iam.Options)) (*iam.ListAccountAliasesOutput, error) {
+					return &iam.ListAccountAliasesOutput{AccountAliases: []string{}}, nil
+				},
+			},
+			wantAlias: "",
+		},
+		"nil output does not panic and returns empty": {
+			client: &mockIAMClient{
+				listAccountAliasesFn: func(ctx context.Context, params *iam.ListAccountAliasesInput, optFns ...func(*iam.Options)) (*iam.ListAccountAliasesOutput, error) {
+					return nil, nil
+				},
+			},
+			wantAlias: "",
+		},
+		"error returns empty without failing": {
+			client: &mockIAMClient{
+				listAccountAliasesFn: func(ctx context.Context, params *iam.ListAccountAliasesInput, optFns ...func(*iam.Options)) (*iam.ListAccountAliasesOutput, error) {
+					return nil, errors.New("access denied")
+				},
+			},
+			wantAlias: "",
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			got := resolveAccountAlias(context.Background(), tc.client)
+			assert.Equal(t, tc.wantAlias, got)
+		})
+	}
+}
+
 func TestMockConfig(t *testing.T) {
 	tests := map[string]struct {
 		setupMock func() *mockConfig

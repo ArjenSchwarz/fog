@@ -18,3 +18,15 @@ The helper `sharedConfigProfile(profileReader)` exists so the case-preserving be
 `DefaultAwsConfig` calls `external.LoadDefaultConfig` directly (not through the `AWSConfigLoader` interface defined in `config/interfaces.go`). It also calls `setCallerInfo` (STS) and `setAlias` (IAM) against the loaded config. As a result, `TestDefaultAwsConfig` is skipped — it would require a wholesale refactor to inject AWS clients.
 
 When you need to test something in the profile/region resolution path, factor the logic into a helper that takes a small interface (see `profileReader`) rather than refactoring the whole entry point.
+
+## STS / IAM Response Handling (T-1110)
+
+The result-handling logic for the STS and IAM calls is extracted into two helpers so it can be unit tested with the existing `mockSTSClient`/`mockIAMClient` in `config/interfaces_test.go`:
+
+- `resolveCallerInfo(ctx, STSGetCallerIdentityAPI) (accountID, userID string, err error)` — `setCallerInfo` delegates here.
+- `resolveAccountAlias(ctx, IAMListAccountAliasesAPI) string` — `setAlias` delegates here.
+
+AWS SDK v2 returns optional fields as pointers, so a nil error does **not** guarantee populated fields. Treat them as optional:
+
+- STS `GetCallerIdentity` can return a nil output or nil `Account`/`UserId` (e.g. SDK mock, middleware, partial response). `resolveCallerInfo` returns a contextual error in that case instead of dereferencing — previously `setCallerInfo` dereferenced `*result.Account`/`*result.UserId` unconditionally and panicked.
+- IAM `ListAccountAliases` can return a nil output on a successful call. `resolveAccountAlias` treats a nil output, empty list, or error all as "no alias" (empty string) — previously `setAlias` called `len(result.AccountAliases)` on a possibly-nil `result` and panicked.

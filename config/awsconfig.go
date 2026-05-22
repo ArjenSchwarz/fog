@@ -118,24 +118,48 @@ func (config *AWSConfig) OrganizationsClient() *organizations.Client {
 }
 
 func (config *AWSConfig) setCallerInfo(ctx context.Context) error {
-	c := config.StsClient()
-	result, err := c.GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})
+	accountID, userID, err := resolveCallerInfo(ctx, config.StsClient())
 	if err != nil {
 		return err
 	}
-	config.AccountID = *result.Account
-	config.UserID = *result.UserId
+	config.AccountID = accountID
+	config.UserID = userID
 	return nil
 }
 
-func (config *AWSConfig) setAlias(ctx context.Context) {
-	c := config.IAMClient()
-	result, err := c.ListAccountAliases(ctx, &iam.ListAccountAliasesInput{})
-	if err != nil || len(result.AccountAliases) == 0 {
-		// If the user doesn't have permission to see the aliases or the account has no aliases, continue without
-		return
+// resolveCallerInfo calls STS GetCallerIdentity and extracts the account and
+// user IDs. STS returns these as optional *string fields, so a successful
+// (nil-error) response can still omit them — for example via an SDK mock,
+// middleware, or partial response. Missing values are reported as an error
+// rather than dereferenced, which previously panicked at startup (T-1110).
+func resolveCallerInfo(ctx context.Context, client STSGetCallerIdentityAPI) (accountID string, userID string, err error) {
+	result, err := client.GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})
+	if err != nil {
+		return "", "", err
 	}
-	config.AccountAlias = result.AccountAliases[0]
+	if result == nil || result.Account == nil || result.UserId == nil {
+		return "", "", fmt.Errorf("STS GetCallerIdentity returned an incomplete identity: missing account or user ID")
+	}
+	return *result.Account, *result.UserId, nil
+}
+
+func (config *AWSConfig) setAlias(ctx context.Context) {
+	config.AccountAlias = resolveAccountAlias(ctx, config.IAMClient())
+}
+
+// resolveAccountAlias calls IAM ListAccountAliases and returns the first alias,
+// or an empty string when none is available. A nil/empty output, an empty
+// alias list, or an error (e.g. the caller lacks iam:ListAccountAliases
+// permission) all yield an empty alias without failing. Previously len() was
+// evaluated on a result that could be nil on a successful call, which panicked
+// (T-1110).
+func resolveAccountAlias(ctx context.Context, client IAMListAccountAliasesAPI) string {
+	result, err := client.ListAccountAliases(ctx, &iam.ListAccountAliasesInput{})
+	if err != nil || result == nil || len(result.AccountAliases) == 0 {
+		// If the user doesn't have permission to see the aliases or the account has no aliases, continue without
+		return ""
+	}
+	return result.AccountAliases[0]
 }
 
 // GetAccountAliasID returns the account alias with ID in parentheses if alias exists, otherwise just the ID
