@@ -364,7 +364,10 @@ func TestDeployInfo_GetExecutionTimes_NilFields(t *testing.T) {
 	assert.Equal(t, want, got)
 }
 
-// Regression for T-1087: nil Changeset must not panic.
+// TestDeployInfo_GetExecutionTimes_NilChangeset verifies GetExecutionTimes does
+// not panic when DeployInfo.Changeset (a pointer) is nil (regression for T-1087).
+// A nil Changeset is treated as a zero CreationTime, so timestamped events are
+// still recorded.
 func TestDeployInfo_GetExecutionTimes_NilChangeset(t *testing.T) {
 	t.Parallel()
 
@@ -379,7 +382,7 @@ func TestDeployInfo_GetExecutionTimes_NilChangeset(t *testing.T) {
 			LogicalResourceId: strPtr("Bucket"),
 			ResourceType:      strPtr("AWS::S3::Bucket"),
 			ResourceStatus:    types.ResourceStatusCreateComplete,
-			Timestamp:         ptrTime(now.Add(1 * time.Minute)),
+			Timestamp:         ptrTime(now),
 		},
 	}
 
@@ -394,7 +397,7 @@ func TestDeployInfo_GetExecutionTimes_NilChangeset(t *testing.T) {
 
 	want := map[string]map[string]time.Time{
 		"AWS  S3  Bucket (Bucket)": {
-			string(types.ResourceStatusCreateComplete): now.Add(1 * time.Minute),
+			string(types.ResourceStatusCreateComplete): now,
 		},
 	}
 	assert.Equal(t, want, got)
