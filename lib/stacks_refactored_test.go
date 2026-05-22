@@ -762,7 +762,7 @@ func TestDeployInfo_CreateChangeSet(t *testing.T) {
 				}
 			},
 			wantErr: true,
-			errMsg:  "test-stack",
+			errMsg:  "returned no changeset ID",
 		},
 		// Regression for T-1316: a non-nil output with a nil Id field must also
 		// return a descriptive error rather than dereferencing a nil pointer.
@@ -778,7 +778,7 @@ func TestDeployInfo_CreateChangeSet(t *testing.T) {
 				}
 			},
 			wantErr: true,
-			errMsg:  "test-stack",
+			errMsg:  "returned no changeset ID",
 		},
 		// Regression for T-1316: an empty (but non-nil) Id string is also
 		// unusable and must surface as a descriptive error.
@@ -794,7 +794,7 @@ func TestDeployInfo_CreateChangeSet(t *testing.T) {
 				}
 			},
 			wantErr: true,
-			errMsg:  "test-stack",
+			errMsg:  "returned no changeset ID",
 		},
 	}
 

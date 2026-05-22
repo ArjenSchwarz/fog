@@ -382,7 +382,7 @@ func (deployment *DeployInfo) CreateChangeSet(ctx context.Context, svc CloudForm
 	// against that here so the deploy flow gets a contextual error instead of
 	// panicking on a nil pointer dereference.
 	if resp == nil || resp.Id == nil || *resp.Id == "" {
-		return "", fmt.Errorf("CreateChangeSet for stack %q returned no changeset ID", deployment.StackName)
+		return "", fmt.Errorf("create change set for stack %q returned no changeset ID", deployment.StackName)
 	}
 	return *resp.Id, nil
 }
