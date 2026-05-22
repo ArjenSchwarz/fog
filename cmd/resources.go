@@ -121,7 +121,7 @@ func listResources(cmd *cobra.Command, args []string) {
 // ResourceID, StackName, and LogicalID as tiebreakers so resources of the same
 // type always appear in the same order.
 func sortResourcesDeterministically(resources []lib.CfnResource) {
-	slices.SortFunc(resources, func(a, b lib.CfnResource) int {
+	slices.SortStableFunc(resources, func(a, b lib.CfnResource) int {
 		return cmp.Or(
 			cmp.Compare(a.Type, b.Type),
 			cmp.Compare(a.ResourceID, b.ResourceID),
