@@ -377,6 +377,13 @@ func (deployment *DeployInfo) CreateChangeSet(ctx context.Context, svc CloudForm
 	if err != nil {
 		return "", err
 	}
+	// AWS SDK v2 response fields are pointers. Mocks, middleware, or partial
+	// responses can return a nil output or a missing Id with no error. Guard
+	// against that here so the deploy flow gets a contextual error instead of
+	// panicking on a nil pointer dereference.
+	if resp == nil || resp.Id == nil || *resp.Id == "" {
+		return "", fmt.Errorf("create change set for stack %q returned no changeset ID", deployment.StackName)
+	}
 	return *resp.Id, nil
 }
 
