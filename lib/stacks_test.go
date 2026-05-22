@@ -279,6 +279,91 @@ func TestDeployInfo_GetExecutionTimes(t *testing.T) {
 	}
 }
 
+// TestDeployInfo_GetExecutionTimes_NilFields verifies that GetExecutionTimes
+// does not panic when DescribeStackEvents returns partial/malformed events with
+// nil Timestamp, ResourceType, or LogicalResourceId pointers (regression test
+// for T-1087). Before the fix, the method dereferenced these pointers directly
+// (event.Timestamp.After(...), *event.ResourceType, *event.LogicalResourceId,
+// *event.Timestamp), causing a nil pointer dereference.
+//
+// Expected behaviour after the fix:
+//   - Events with a nil Timestamp are skipped (a nil timestamp cannot be
+//     compared against the changeset creation time).
+//   - Events with nil ResourceType/LogicalResourceId are safely labelled using
+//     empty strings rather than panicking.
+//   - Valid events are still returned correctly.
+func TestDeployInfo_GetExecutionTimes_NilFields(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now().UTC()
+	deployment := &DeployInfo{
+		Changeset: &ChangesetInfo{CreationTime: now},
+		StackName: "test-stack",
+	}
+
+	events := []types.StackEvent{
+		{
+			// nil Timestamp: must be skipped, not dereferenced.
+			LogicalResourceId: strPtr("NilTime"),
+			ResourceType:      strPtr("AWS::S3::Bucket"),
+			ResourceStatus:    types.ResourceStatusCreateInProgress,
+			Timestamp:         nil,
+		},
+		{
+			// nil ResourceType: must be safely labelled, not dereferenced.
+			LogicalResourceId: strPtr("NilType"),
+			ResourceType:      nil,
+			ResourceStatus:    types.ResourceStatusCreateInProgress,
+			Timestamp:         ptrTime(now.Add(1 * time.Minute)),
+		},
+		{
+			// nil LogicalResourceId: must be safely labelled, not dereferenced.
+			LogicalResourceId: nil,
+			ResourceType:      strPtr("AWS::IAM::Role"),
+			ResourceStatus:    types.ResourceStatusCreateInProgress,
+			Timestamp:         ptrTime(now.Add(2 * time.Minute)),
+		},
+		{
+			// all optional fields nil: must not panic.
+			LogicalResourceId: nil,
+			ResourceType:      nil,
+			ResourceStatus:    types.ResourceStatusCreateInProgress,
+			Timestamp:         nil,
+		},
+		{
+			// fully valid event: must still be returned.
+			LogicalResourceId: strPtr("Bucket"),
+			ResourceType:      strPtr("AWS::S3::Bucket"),
+			ResourceStatus:    types.ResourceStatusCreateComplete,
+			Timestamp:         ptrTime(now.Add(3 * time.Minute)),
+		},
+	}
+
+	mockSvc := newSinglePageMock(cloudformation.DescribeStackEventsOutput{StackEvents: events}, nil)
+
+	var got map[string]map[string]time.Time
+	require.NotPanics(t, func() {
+		var err error
+		got, err = deployment.GetExecutionTimes(context.Background(), mockSvc)
+		require.NoError(t, err)
+	})
+
+	want := map[string]map[string]time.Time{
+		// nil ResourceType -> "" via aws.ToString; ReplaceAll on "" is "".
+		" (NilType)": {
+			string(types.ResourceStatusCreateInProgress): now.Add(1 * time.Minute),
+		},
+		// nil LogicalResourceId -> "" via aws.ToString.
+		"AWS  IAM  Role ()": {
+			string(types.ResourceStatusCreateInProgress): now.Add(2 * time.Minute),
+		},
+		"AWS  S3  Bucket (Bucket)": {
+			string(types.ResourceStatusCreateComplete): now.Add(3 * time.Minute),
+		},
+	}
+	assert.Equal(t, want, got)
+}
+
 // Test_stringInSlice checks membership detection in a slice.
 func Test_stringInSlice(t *testing.T) {
 	t.Helper()
