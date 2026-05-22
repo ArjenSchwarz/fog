@@ -45,6 +45,18 @@ Always call `osExitFunc` (the package var in `cmd/helpers.go`), never `os.Exit` 
 
 `cmd/stream_separation_test.go` is the canonical home for stdout-empty/stderr regression tests. It provides `captureBothStreams`, `captureStderr`, and `runWithInterceptedExit` (stubs `osExitFunc` with a panic to unwind). To test a render-failure branch, inject through a package-level render var (e.g. `renderChangesetDocument` in `describe_changeset.go`) — an unknown output format does NOT error (it falls back to table).
 
+## Output option helpers (T-1190)
+
+`config.Config.GetOutputOptions()` and `GetFileOutputOptions()` return
+`([]output.OutputOption, error)`. When `output-file` is explicitly set and
+`output.NewFileWriter` fails, they return the error instead of logging a warning and
+continuing — otherwise commands with `--file` could report success while silently
+dropping the requested file. When no `output-file` is set they return early with a nil
+error (behaviour unchanged). Callers (`cmd/output_helpers.go` `renderDocument`,
+`cmd/report.go` `getReportOutputOptions` and the report render path) must propagate the
+error. To force a `NewFileWriter` failure in tests, point the path under a regular file so
+the internal `os.MkdirAll` fails with a non-directory error (portable, no root needed).
+
 ## Testing Error Paths
 
 Error-path tests should directly assert returned errors, not use subprocess re-execution patterns (`os.Args[0]`, `exec.Command`, `FOG_TEST_HELPER`). The subprocess pattern was used before functions returned errors and should not be used for new tests. Prefer in-process `osExitFunc` interception (see `runWithInterceptedExit`).

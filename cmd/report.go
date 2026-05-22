@@ -193,7 +193,10 @@ func generateReport() error {
 	}
 
 	// Get output options with S3/file configuration if needed
-	outputOptions := getReportOutputOptions(awsConfig, frontMatter)
+	outputOptions, err := getReportOutputOptions(awsConfig, frontMatter)
+	if err != nil {
+		return err
+	}
 
 	// Render the complete document to console (and file if formats match, or S3)
 	builtDoc := doc.Build()
@@ -203,7 +206,11 @@ func generateReport() error {
 	}
 
 	// Render to file separately if file format differs from console format
-	if fileOpts := settings.GetFileOutputOptions(); fileOpts != nil {
+	fileOpts, err := settings.GetFileOutputOptions()
+	if err != nil {
+		return err
+	}
+	if fileOpts != nil {
 		// Add frontmatter to file output if provided
 		if len(frontMatter) > 0 {
 			fileOpts = append(fileOpts, output.WithFrontMatter(frontMatter))
@@ -229,8 +236,11 @@ func buildStackReports(ctx context.Context, stacks map[string]lib.CfnStack, stac
 }
 
 // getReportOutputOptions creates output options with S3/file support
-func getReportOutputOptions(awsConfig config.AWSConfig, frontMatter map[string]string) []output.OutputOption {
-	opts := settings.GetOutputOptions()
+func getReportOutputOptions(awsConfig config.AWSConfig, frontMatter map[string]string) ([]output.OutputOption, error) {
+	opts, err := settings.GetOutputOptions()
+	if err != nil {
+		return nil, err
+	}
 
 	// Add frontmatter if provided (for markdown output)
 	if len(frontMatter) > 0 {
@@ -253,7 +263,7 @@ func getReportOutputOptions(awsConfig config.AWSConfig, frontMatter map[string]s
 		opts = append(opts, output.WithWriter(s3Writer))
 	}
 
-	return opts
+	return opts, nil
 }
 
 // getDefaultExtension returns the default file extension for a format.

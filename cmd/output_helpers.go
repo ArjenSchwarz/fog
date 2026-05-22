@@ -58,13 +58,21 @@ func printMessage(message string) {
 // When formats differ, separate Output instances are used for each destination.
 func renderDocument(ctx context.Context, doc *output.Document) error {
 	// Render to console (and file if formats match)
-	consoleOut := output.NewOutput(settings.GetOutputOptions()...)
+	consoleOpts, err := settings.GetOutputOptions()
+	if err != nil {
+		return err
+	}
+	consoleOut := output.NewOutput(consoleOpts...)
 	if err := consoleOut.Render(ctx, doc); err != nil {
 		return fmt.Errorf("failed to render console output: %w", err)
 	}
 
 	// Render to file separately if formats differ
-	if fileOpts := settings.GetFileOutputOptions(); fileOpts != nil {
+	fileOpts, err := settings.GetFileOutputOptions()
+	if err != nil {
+		return err
+	}
+	if fileOpts != nil {
 		fileOut := output.NewOutput(fileOpts...)
 		if err := fileOut.Render(ctx, doc); err != nil {
 			return fmt.Errorf("failed to render file output: %w", err)

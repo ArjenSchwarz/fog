@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"io"
 	"log"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -679,8 +681,9 @@ func TestConfig_GetOutputOptions(t *testing.T) {
 			})
 
 			config := &Config{}
-			got := config.GetOutputOptions()
+			got, err := config.GetOutputOptions()
 
+			require.NoError(t, err)
 			require.NotNil(t, got)
 			tc.check(t, got)
 		})
@@ -912,9 +915,53 @@ func TestConfig_GetFileOutputOptions(t *testing.T) {
 			})
 
 			config := &Config{}
-			got := config.GetFileOutputOptions()
+			got, err := config.GetFileOutputOptions()
 
+			require.NoError(t, err)
 			tc.check(t, got)
 		})
 	}
+}
+
+// blockedOutputPath returns an output-file path under a regular file, so the
+// MkdirAll inside NewFileWriter fails with a non-directory error.
+func blockedOutputPath(t *testing.T, name string) string {
+	t.Helper()
+	blocker := filepath.Join(t.TempDir(), "blocker")
+	if err := os.WriteFile(blocker, []byte("x"), 0600); err != nil {
+		t.Fatalf("Failed to create blocker file: %v", err)
+	}
+	return filepath.Join(blocker, "sub", name)
+}
+
+// TestConfig_GetOutputOptions_FileWriterError is a regression test for T-1190.
+// When --file is requested but the writer cannot be created and the file format
+// matches the console format, GetOutputOptions must return an error rather than
+// logging a warning and dropping the file output.
+func TestConfig_GetOutputOptions_FileWriterError(t *testing.T) {
+	viper.Reset()
+	t.Cleanup(viper.Reset)
+	viper.Set("output", "json")
+	viper.Set("output-file", blockedOutputPath(t, "output.json"))
+
+	config := &Config{}
+	opts, err := config.GetOutputOptions()
+	require.Error(t, err)
+	assert.Nil(t, opts)
+}
+
+// TestConfig_GetFileOutputOptions_FileWriterError is a regression test for T-1190.
+// When --file is requested with a differing file format but the writer cannot be
+// created, GetFileOutputOptions must return an error rather than returning nil.
+func TestConfig_GetFileOutputOptions_FileWriterError(t *testing.T) {
+	viper.Reset()
+	t.Cleanup(viper.Reset)
+	viper.Set("output", "table")
+	viper.Set("output-file", blockedOutputPath(t, "output.md"))
+	viper.Set("output-file-format", "markdown")
+
+	config := &Config{}
+	opts, err := config.GetFileOutputOptions()
+	require.Error(t, err)
+	assert.Nil(t, opts)
 }

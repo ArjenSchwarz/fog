@@ -378,6 +378,69 @@ func TestRenderDocument_FilePathCasePreserved_DifferentFormats(t *testing.T) {
 	}
 }
 
+// TestRenderDocument_FileWriterErrorSameFormat is a regression test for T-1190.
+// When --file is explicitly requested but the file writer cannot be created (here
+// the output path lives under a regular file, so MkdirAll fails), renderDocument
+// must return an error instead of silently succeeding with console-only output.
+// This exercises the same-format path (console and file formats match).
+func TestRenderDocument_FileWriterErrorSameFormat(t *testing.T) {
+	// NOTE: Cannot use t.Parallel() because viper uses global state
+	setupViperDefaults()
+
+	// Create a regular file, then point the output dir at a path beneath it so
+	// os.MkdirAll inside NewFileWriter fails with a non-directory error.
+	tmpDir := t.TempDir()
+	blocker := filepath.Join(tmpDir, "blocker")
+	if err := os.WriteFile(blocker, []byte("x"), 0600); err != nil {
+		t.Fatalf("Failed to create blocker file: %v", err)
+	}
+	outputFile := filepath.Join(blocker, "sub", "output.json")
+
+	viper.Set("output", "json")
+	viper.Set("output-file", outputFile)
+
+	data := []map[string]any{
+		{"Name": "test-item", "Value": "test-value"},
+	}
+	doc := output.New().
+		Table("Test Table", data, output.WithKeys("Name", "Value")).
+		Build()
+
+	if err := renderDocument(context.Background(), doc); err == nil {
+		t.Error("renderDocument should return an error when the file writer cannot be created (same-format path)")
+	}
+}
+
+// TestRenderDocument_FileWriterErrorDifferentFormat is a regression test for T-1190.
+// Same as above but for the separate-format path, where file output uses its own
+// Output instance via GetFileOutputOptions.
+func TestRenderDocument_FileWriterErrorDifferentFormat(t *testing.T) {
+	// NOTE: Cannot use t.Parallel() because viper uses global state
+	setupViperDefaults()
+
+	tmpDir := t.TempDir()
+	blocker := filepath.Join(tmpDir, "blocker")
+	if err := os.WriteFile(blocker, []byte("x"), 0600); err != nil {
+		t.Fatalf("Failed to create blocker file: %v", err)
+	}
+	outputFile := filepath.Join(blocker, "sub", "output.md")
+
+	viper.Set("output", "table")
+	viper.Set("output-file", outputFile)
+	viper.Set("output-file-format", "markdown")
+
+	data := []map[string]any{
+		{"Name": "test-item", "Value": "test-value"},
+	}
+	doc := output.New().
+		Table("Test Table", data, output.WithKeys("Name", "Value")).
+		Build()
+
+	if err := renderDocument(context.Background(), doc); err == nil {
+		t.Error("renderDocument should return an error when the file writer cannot be created (different-format path)")
+	}
+}
+
 func TestRenderDocument_NoFileWhenNotConfigured(t *testing.T) {
 	// NOTE: Cannot use t.Parallel() because viper uses global state
 	setupViperDefaults()
