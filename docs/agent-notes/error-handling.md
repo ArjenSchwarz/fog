@@ -33,8 +33,18 @@ if ae.ErrorCode() == "Throttling" && ae.ErrorMessage() == "Rate exceeded" {
 
 ## Command Layer (`cmd/`)
 
-Commands use `failWithError(err)` which formats the error and calls `os.Exit(1)` (or panics in debug mode).
+Commands use `failWithError(err)` which writes the error to **stderr**, panics in debug mode, then calls `osExitFunc(1)`.
+
+### Stream separation (T-1014, T-1238)
+
+User-facing errors and progress must go to stderr so structured stdout (e.g. `--output json`) stays parseable. Never use `fmt.Print*` to stdout for diagnostics. Use one of:
+- `failWithError(err)` — for fatal errors that should exit.
+- `printMessage(formatError(...))` — writes a styled error to stderr without exiting; pair with `osExitFunc(1)` when you need to bail (see `fetchChangeset` and `reportRetrieveChangesetFailure`).
+
+Always call `osExitFunc` (the package var in `cmd/helpers.go`), never `os.Exit` directly, so tests can intercept the exit.
+
+`cmd/stream_separation_test.go` is the canonical home for stdout-empty/stderr regression tests. It provides `captureBothStreams`, `captureStderr`, and `runWithInterceptedExit` (stubs `osExitFunc` with a panic to unwind). To test a render-failure branch, inject through a package-level render var (e.g. `renderChangesetDocument` in `describe_changeset.go`) — an unknown output format does NOT error (it falls back to table).
 
 ## Testing Error Paths
 
-Error-path tests should directly assert returned errors, not use subprocess re-execution patterns (`os.Args[0]`, `exec.Command`, `FOG_TEST_HELPER`). The subprocess pattern was used before functions returned errors and should not be used for new tests.
+Error-path tests should directly assert returned errors, not use subprocess re-execution patterns (`os.Args[0]`, `exec.Command`, `FOG_TEST_HELPER`). The subprocess pattern was used before functions returned errors and should not be used for new tests. Prefer in-process `osExitFunc` interception (see `runWithInterceptedExit`).

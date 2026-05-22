@@ -12,6 +12,7 @@ import (
 	"github.com/ArjenSchwarz/fog/lib"
 	output "github.com/ArjenSchwarz/go-output/v2"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -286,4 +287,119 @@ func createMockAWSConfig() config.AWSConfig {
 		AccountAlias: "test-account",
 		Region:       "us-east-1",
 	}
+}
+
+// runWithInterceptedExit runs f with osExitFunc replaced by a stub that panics
+// to unwind the stack instead of terminating the process, so error paths that
+// call osExitFunc can be asserted in-process.
+func runWithInterceptedExit(t *testing.T, f func()) (exitCalled bool, exitCode int) {
+	t.Helper()
+	origExit := osExitFunc
+	defer func() { osExitFunc = origExit }()
+	osExitFunc = func(code int) {
+		exitCalled = true
+		exitCode = code
+		panic("osExit called")
+	}
+	defer func() {
+		if r := recover(); r != nil && r != "osExit called" {
+			t.Fatalf("unexpected panic: %v", r)
+		}
+	}()
+	f()
+	return exitCalled, exitCode
+}
+
+// TestDescribeChangeset_MutuallyExclusiveFlags_StderrOnly verifies that the
+// mutually exclusive --changeset/--url validation reports the error on stderr
+// and exits through osExitFunc, keeping stdout empty (T-1238).
+func TestDescribeChangeset_MutuallyExclusiveFlags_StderrOnly(t *testing.T) {
+	origFlags := describeFlags
+	viper.Set("debug", false)
+	t.Cleanup(func() {
+		describeFlags = origFlags
+		viper.Reset()
+	})
+
+	describeFlags.ChangesetName = "my-changeset"
+	describeFlags.ChangesetUrl = "https://example.com/changeset"
+
+	var exitCalled bool
+	var exitCode int
+	stdout, stderr := captureBothStreams(func() {
+		exitCalled, exitCode = runWithInterceptedExit(t, func() {
+			describeChangeset(changesetCmd, nil)
+		})
+	})
+
+	assert.True(t, exitCalled, "expected osExitFunc to be called for mutually exclusive flags")
+	assert.Equal(t, 1, exitCode)
+	assert.Empty(t, stdout, "stdout must stay empty on the error path")
+	assert.NotEmpty(t, stderr, "error must be reported on stderr")
+}
+
+// TestReportRetrieveChangesetFailure_StderrOnly verifies the GetChangeset and
+// AddChangeset failure paths report on stderr and exit through osExitFunc
+// without writing to stdout (T-1238).
+func TestReportRetrieveChangesetFailure_StderrOnly(t *testing.T) {
+	viper.Set("debug", false)
+	t.Cleanup(func() { viper.Reset() })
+
+	var exitCalled bool
+	var exitCode int
+	stdout, stderr := captureBothStreams(func() {
+		exitCalled, exitCode = runWithInterceptedExit(t, func() {
+			reportRetrieveChangesetFailure("my-changeset", fmt.Errorf("boom"))
+		})
+	})
+
+	assert.True(t, exitCalled, "expected osExitFunc to be called on retrieval failure")
+	assert.Equal(t, 1, exitCode)
+	assert.Empty(t, stdout, "stdout must stay empty on the error path")
+	assert.NotEmpty(t, stderr, "error must be reported on stderr")
+}
+
+// TestBuildAndRenderChangeset_RenderFailure_StderrOnly verifies that a render
+// failure is routed through failWithError (stderr) and exits through osExitFunc
+// rather than printing to stdout (T-1238).
+func TestBuildAndRenderChangeset_RenderFailure_StderrOnly(t *testing.T) {
+	origRender := renderChangesetDocument
+	viper.Set("debug", false)
+	t.Cleanup(func() {
+		renderChangesetDocument = origRender
+		viper.Reset()
+	})
+
+	// Inject a render failure to exercise the error branch.
+	renderChangesetDocument = func(context.Context, *output.Document) error {
+		return fmt.Errorf("render boom")
+	}
+
+	changeset := lib.ChangesetInfo{
+		Name: "test-changeset",
+		Changes: []lib.ChangesetChanges{
+			{
+				Action:      "Add",
+				LogicalID:   "MyBucket",
+				Type:        "AWS::S3::Bucket",
+				ResourceID:  "my-bucket-123",
+				Replacement: "False",
+			},
+		},
+	}
+	deployment := lib.DeployInfo{StackName: "test-stack"}
+	awsConfig := config.AWSConfig{Region: "us-east-1"}
+
+	var exitCalled bool
+	var exitCode int
+	stdout, stderr := captureBothStreams(func() {
+		exitCalled, exitCode = runWithInterceptedExit(t, func() {
+			buildAndRenderChangeset(changeset, deployment, awsConfig)
+		})
+	})
+
+	assert.True(t, exitCalled, "expected osExitFunc to be called on render failure")
+	assert.Equal(t, 1, exitCode)
+	assert.Empty(t, stdout, "stdout must stay empty on the error path")
+	assert.NotEmpty(t, stderr, "render error must be reported on stderr")
 }
