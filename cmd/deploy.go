@@ -77,8 +77,8 @@ func init() {
 func deployTemplate(cmd *cobra.Command, args []string) {
 	deployment, awsConfig, err := prepareDeployment()
 	if err != nil {
-		printMessage(formatError(err.Error()))
-		os.Exit(1)
+		failWithError(err)
+		return
 	}
 
 	// Capture deployment start timestamp before any AWS operations
@@ -129,11 +129,11 @@ func deployTemplate(cmd *cobra.Command, args []string) {
 
 	deployed, err := confirmAndDeployChangeset(changeset, &deployment, awsConfig)
 	if err != nil {
-		printMessage(formatError(err.Error()))
 		if deployment.IsNew {
 			deleteStackIfNewFunc(deployment, awsConfig)
 		}
-		os.Exit(1)
+		failWithError(err)
+		return
 	}
 	if deployed {
 		printDeploymentResults(&deployment, awsConfig, &deploymentLog)
@@ -185,7 +185,7 @@ func readTemplateFromSource(deployment *lib.DeployInfo) (string, string) {
 
 	if err != nil {
 		printMessage(formatError(string(texts.FileTemplateReadFailure)))
-		log.Fatalln(err)
+		failWithError(err)
 	}
 
 	return template, path
@@ -197,7 +197,7 @@ func uploadTemplateToS3(template string, awsConfig config.AWSConfig) string {
 	objectname, err := lib.UploadTemplate(ctx, &deployFlags.Template, template, &deployFlags.Bucket, awsConfig.S3Client())
 	if err != nil {
 		printMessage(formatError("Failed to upload template to S3"))
-		log.Fatalln(err)
+		failWithError(err)
 	}
 	return fmt.Sprintf("https://%v.s3-%v.amazonaws.com/%v", deployFlags.Bucket, awsConfig.Region, objectname)
 }
@@ -286,13 +286,15 @@ func loadTagsFromFiles(tagFiles string, deployment *lib.DeployInfo) []types.Tag 
 		if err != nil {
 			message := fmt.Sprintf("%v '%v'", texts.FileTagsReadFailure, tagfile)
 			printMessage(formatError(message))
-			log.Fatalln(err)
+			failWithError(err)
+			continue
 		}
 		parsedtags, err := lib.ParseTagString(tagContent)
 		if err != nil {
 			message := fmt.Sprintf("%v '%v'", texts.FileTagsParseFailure, tagfile)
 			printMessage(formatError(message))
-			log.Fatalln(err)
+			failWithError(err)
+			continue
 		}
 		tags = append(tags, parsedtags...)
 	}
@@ -341,13 +343,15 @@ func loadParametersFromFiles(parameterFiles string) []types.Parameter {
 		if err != nil {
 			message := fmt.Sprintf("%v '%v'", texts.FileParametersReadFailure, parameterfile)
 			printMessage(formatError(message))
-			log.Fatalln(err)
+			failWithError(err)
+			continue
 		}
 		parsedparameters, err := lib.ParseParameterString(paramContent)
 		if err != nil {
 			message := fmt.Sprintf("%v '%v'", texts.FileParametersParseFailure, parameterfile)
 			printMessage(formatError(message))
-			log.Fatalln(err)
+			failWithError(err)
+			continue
 		}
 		parameters = append(parameters, parsedparameters...)
 	}
@@ -395,12 +399,12 @@ func createChangeset(deployment *lib.DeployInfo, awsConfig config.AWSConfig) *li
 	_, err := deployment.CreateChangeSet(ctx, awsConfig.CloudformationClient())
 	if err != nil {
 		printMessage(formatError(string(texts.DeployChangesetMessageCreationFailed)))
-		log.Fatalln(err)
+		failWithError(err)
 	}
 	changeset, err := deployment.WaitUntilChangesetDone(ctx, awsConfig.CloudformationClient())
 	if err != nil {
 		printMessage(formatError(string(texts.DeployChangesetMessageCreationFailed)))
-		log.Fatalln(err)
+		failWithError(err)
 	}
 	if changeset.Status != string(types.ChangeSetStatusCreateComplete) {
 		// When the creation fails because there are no changes, say so and complete successfully
@@ -414,14 +418,15 @@ func createChangeset(deployment *lib.DeployInfo, awsConfig config.AWSConfig) *li
 			if err := outputNoChangesResult(deployment); err != nil {
 				fmt.Fprintf(os.Stderr, "Warning: Failed to generate output: %v\n", err)
 			}
-			os.Exit(0)
+			osExitFunc(0)
+			return nil
 		}
-		// Otherwise, show the error and clean up
-		printMessage(formatError(string(texts.DeployChangesetMessageCreationFailed)))
-		fmt.Fprintln(os.Stderr, changeset.StatusReason)
+		// Otherwise, show the console link, clean up, and report the error once
+		// via failWithError (which embeds the creation-failed text and reason).
 		fmt.Fprintf(os.Stderr, "\n%v %v\n", texts.DeployChangesetMessageConsole, changeset.GenerateChangesetUrl(awsConfig))
 		handleFailedChangeset(deployment, awsConfig)
-		os.Exit(1)
+		failWithError(fmt.Errorf("%s: %s", texts.DeployChangesetMessageCreationFailed, changeset.StatusReason))
+		return nil
 	}
 	return changeset
 }
@@ -458,7 +463,8 @@ func deleteChangeset(deployment lib.DeployInfo, awsConfig config.AWSConfig) {
 	if deployment.IsNew {
 		stack, err := deployment.GetFreshStack(ctx, awsConfig.CloudformationClient())
 		if err != nil {
-			log.Fatalln(err)
+			failWithError(err)
+			return
 		}
 		if stack.StackStatus == types.StackStatusReviewInProgress {
 			deleteStackIfNew(deployment, awsConfig)
