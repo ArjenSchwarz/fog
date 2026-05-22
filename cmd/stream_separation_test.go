@@ -291,7 +291,7 @@ func createMockAWSConfig() config.AWSConfig {
 
 // runWithInterceptedExit runs f with osExitFunc replaced by a stub that panics
 // to unwind the stack instead of terminating the process, so error paths that
-// call os.Exit can be asserted in-process.
+// call osExitFunc can be asserted in-process.
 func runWithInterceptedExit(t *testing.T, f func()) (exitCalled bool, exitCode int) {
 	t.Helper()
 	origExit := osExitFunc

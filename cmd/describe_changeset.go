@@ -106,13 +106,12 @@ func describeChangeset(cmd *cobra.Command, args []string) {
 
 // reportRetrieveChangesetFailure reports a changeset retrieval failure on stderr
 // and exits through osExitFunc so tests can intercept the exit and structured
-// stdout stays uncontaminated. A nil err omits the error detail line.
+// stdout stays uncontaminated. Callers always pass a non-nil err (mirrors
+// fetchChangeset in deploy.go).
 func reportRetrieveChangesetFailure(changesetName string, err error) {
 	message := fmt.Sprintf(string(texts.DeployChangesetMessageRetrieveFailed), changesetName)
 	printMessage(formatError(message))
-	if err != nil {
-		printMessage(formatError(err.Error()))
-	}
+	printMessage(formatError(err.Error()))
 	osExitFunc(1)
 }
 
