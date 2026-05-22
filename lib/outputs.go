@@ -23,8 +23,10 @@ type CfnOutput struct {
 	ImportedBy  []string
 }
 
-// importResult carries the result of a concurrent ListImports call.
+// importResult carries the result of a concurrent ListImports call along with
+// the source index, so results can be placed back in DescribeStacks order.
 type importResult struct {
+	index  int
 	output CfnOutput
 	err    error
 }
@@ -54,8 +56,8 @@ func GetExports(ctx context.Context, stackname *string, exportname *string, svc 
 	}
 	c := make(chan importResult)
 	results := make([]CfnOutput, len(exports))
-	for _, export := range exports {
-		go func(export CfnOutput) {
+	for i, export := range exports {
+		go func(index int, export CfnOutput) {
 			resexport := CfnOutput{
 				StackName:   export.StackName,
 				OutputKey:   export.OutputKey,
@@ -77,21 +79,21 @@ func GetExports(ctx context.Context, stackname *string, exportname *string, svc 
 			if paginationErr != nil {
 				if isNotImportedError(paginationErr) {
 					resexport.Imported = false
-					c <- importResult{output: resexport}
+					c <- importResult{index: index, output: resexport}
 				} else {
-					c <- importResult{output: resexport, err: fmt.Errorf("ListImports for %q: %w", export.ExportName, paginationErr)}
+					c <- importResult{index: index, output: resexport, err: fmt.Errorf("ListImports for %q: %w", export.ExportName, paginationErr)}
 				}
 				return
 			}
 			resexport.Imported = true
 			resexport.ImportedBy = allImports
-			c <- importResult{output: resexport}
-		}(export)
+			c <- importResult{index: index, output: resexport}
+		}(i, export)
 	}
 	var errs []error
-	for i := range results {
+	for range results {
 		r := <-c
-		results[i] = r.output
+		results[r.index] = r.output
 		if r.err != nil {
 			errs = append(errs, r.err)
 		}
