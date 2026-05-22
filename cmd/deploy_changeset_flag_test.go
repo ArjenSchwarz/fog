@@ -1,11 +1,14 @@
 package cmd
 
 import (
+	"context"
+	"errors"
 	"strings"
 	"testing"
 
 	"github.com/ArjenSchwarz/fog/config"
 	"github.com/ArjenSchwarz/fog/lib"
+	"github.com/ArjenSchwarz/fog/lib/testutil"
 	output "github.com/ArjenSchwarz/go-output/v2"
 )
 
@@ -235,5 +238,79 @@ func TestRunDeployChangesetFlow_NilFetchReturn(t *testing.T) {
 	}
 	if showCalled {
 		t.Error("showChangesetFunc must not be called when fetchChangesetFunc returns nil")
+	}
+}
+
+// TestDeployTemplate_NilDeployChangesetFetchAborts is a regression test for
+// T-1252. When --deploy-changeset is set and fetchChangesetFunc returns nil
+// (e.g. the changeset is missing and fetchChangeset returned after osExitFunc),
+// deployTemplate must abort instead of continuing into deployment. Previously
+// the nil changeset fell through to confirmAndDeployChangeset, which would
+// invoke deployChangesetFunc and dereference the nil deployment.Changeset.
+func TestDeployTemplate_NilDeployChangesetFetchAborts(t *testing.T) {
+	origLoadAWSConfig := loadAWSConfig
+	origGetCfnClient := getCfnClient
+	origFetch := fetchChangesetFunc
+	origDeploy := deployChangesetFunc
+	origAsk := askForConfirmationFunc
+	origOsExit := osExitFunc
+	origFlags := deployFlags
+	defer func() {
+		loadAWSConfig = origLoadAWSConfig
+		getCfnClient = origGetCfnClient
+		fetchChangesetFunc = origFetch
+		deployChangesetFunc = origDeploy
+		askForConfirmationFunc = origAsk
+		osExitFunc = origOsExit
+		deployFlags = origFlags
+	}()
+
+	mockClient := testutil.NewMockCFNClient()
+	mockClient.WithError(errors.New("stack not found"))
+
+	loadAWSConfig = func(_ context.Context, _ config.Config) (config.AWSConfig, error) {
+		return config.AWSConfig{AccountID: "123456789012", Region: "us-east-1"}, nil
+	}
+	getCfnClient = func(_ config.AWSConfig) lib.CloudFormationDescribeStacksAPI {
+		return mockClient
+	}
+
+	// Simulate the missing-changeset path: fetchChangeset reports the error and
+	// exits via osExitFunc, but the stub returns nil so the flow can continue.
+	exitCalled := false
+	osExitFunc = func(int) { exitCalled = true }
+	fetchChangesetFunc = func(_ *lib.DeployInfo, _ config.AWSConfig) *lib.ChangesetInfo {
+		osExitFunc(1)
+		return nil
+	}
+
+	deployCalled := false
+	deployChangesetFunc = func(_ lib.DeployInfo, _ config.AWSConfig) error {
+		deployCalled = true
+		return nil
+	}
+	askForConfirmationFunc = func(string) bool { return true }
+
+	deployFlags = DeployFlags{
+		StackName:       "my-stack",
+		ChangesetName:   "missing-changeset",
+		DeployChangeset: true,
+		NonInteractive:  true,
+	}
+
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Fatalf("deployTemplate panicked on nil changeset: %v", r)
+			}
+		}()
+		deployTemplate(nil, nil)
+	}()
+
+	if !exitCalled {
+		t.Error("expected fetchChangeset to signal exit via osExitFunc")
+	}
+	if deployCalled {
+		t.Error("deployChangesetFunc must NOT be called when fetchChangesetFunc returns nil")
 	}
 }
