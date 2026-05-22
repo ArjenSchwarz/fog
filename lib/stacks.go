@@ -439,6 +439,9 @@ func (deployment *DeployInfo) WaitUntilChangesetDone(ctx context.Context, svc Cl
 	if err != nil {
 		return &changeset, err
 	}
+	if len(resp) == 0 {
+		return &changeset, fmt.Errorf("invalid DescribeChangeSet response: empty response")
+	}
 
 	for !stringInSlice(string(resp[0].Status), availableStatuses) {
 		time.Sleep(5 * time.Second)
@@ -446,16 +449,55 @@ func (deployment *DeployInfo) WaitUntilChangesetDone(ctx context.Context, svc Cl
 		if err != nil {
 			return &changeset, err
 		}
+		if len(resp) == 0 {
+			return &changeset, fmt.Errorf("invalid DescribeChangeSet response: empty response")
+		}
 	}
-	changeset = deployment.AddChangeset(resp)
-	return &changeset, err
+	changeset, err = deployment.AddChangeset(resp)
+	if err != nil {
+		return &changeset, err
+	}
+	return &changeset, nil
 }
 
-// AddChangeset processes the changeset response and adds it to the deployment
-func (deployment *DeployInfo) AddChangeset(resp []cloudformation.DescribeChangeSetOutput) ChangesetInfo {
+// AddChangeset processes the changeset response and adds it to the deployment.
+// It validates the response before dereferencing any pointers so that empty or
+// partial DescribeChangeSet responses are reported as errors instead of causing
+// a panic. Required identifying fields (StackId, StackName, ChangeSetId,
+// ChangeSetName, CreationTime) must be present; optional fields such as
+// StatusReason are skipped when missing.
+func (deployment *DeployInfo) AddChangeset(resp []cloudformation.DescribeChangeSetOutput) (ChangesetInfo, error) {
 	changeset := ChangesetInfo{}
+	if len(resp) == 0 {
+		return changeset, fmt.Errorf("invalid DescribeChangeSet response: empty response")
+	}
+
+	first := resp[0]
+	missing := []string{}
+	if first.StackId == nil {
+		missing = append(missing, "StackId")
+	}
+	if first.StackName == nil {
+		missing = append(missing, "StackName")
+	}
+	if first.ChangeSetId == nil {
+		missing = append(missing, "ChangeSetId")
+	}
+	if first.ChangeSetName == nil {
+		missing = append(missing, "ChangeSetName")
+	}
+	if first.CreationTime == nil {
+		missing = append(missing, "CreationTime")
+	}
+	if len(missing) > 0 {
+		return changeset, fmt.Errorf("invalid DescribeChangeSet response: missing required field(s): %s", strings.Join(missing, ", "))
+	}
+
 	for _, changesets := range resp {
 		for _, change := range changesets.Changes {
+			if change.ResourceChange == nil {
+				continue
+			}
 			changestruct := ChangesetChanges{
 				Action:      string(change.ResourceChange.Action),
 				Replacement: string(change.ResourceChange.Replacement),
@@ -470,20 +512,20 @@ func (deployment *DeployInfo) AddChangeset(resp []cloudformation.DescribeChangeS
 			changeset.AddChange(changestruct)
 		}
 	}
-	changeset.StackID = *resp[0].StackId
-	changeset.StackName = *resp[0].StackName
-	changeset.Status = string(resp[0].Status)
+	changeset.StackID = *first.StackId
+	changeset.StackName = *first.StackName
+	changeset.Status = string(first.Status)
 	statusreason := ""
-	if resp[0].StatusReason != nil {
-		statusreason = *resp[0].StatusReason
+	if first.StatusReason != nil {
+		statusreason = *first.StatusReason
 	}
 	changeset.StatusReason = statusreason
-	changeset.ID = *resp[0].ChangeSetId
-	changeset.Name = *resp[0].ChangeSetName
-	changeset.CreationTime = *resp[0].CreationTime
+	changeset.ID = *first.ChangeSetId
+	changeset.Name = *first.ChangeSetName
+	changeset.CreationTime = *first.CreationTime
 	deployment.StackArn = changeset.StackID
 	deployment.Changeset = &changeset
-	return changeset
+	return changeset, nil
 }
 
 // GetChangeset retrieves the changeset details for the deployment

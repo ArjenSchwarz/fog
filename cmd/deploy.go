@@ -375,7 +375,14 @@ func fetchChangeset(deployment *lib.DeployInfo, awsConfig config.AWSConfig) *lib
 		osExitFunc(1)
 		return nil
 	}
-	changeset := deployment.AddChangeset(rawchangeset)
+	changeset, err := deployment.AddChangeset(rawchangeset)
+	if err != nil {
+		message := fmt.Sprintf(string(texts.DeployChangesetMessageRetrieveFailed), deployment.ChangesetName)
+		printMessage(formatError(message))
+		printMessage(formatError(err.Error()))
+		osExitFunc(1)
+		return nil
+	}
 	return &changeset
 }
 

@@ -1090,3 +1090,127 @@ func TestDeployInfo_GetExecutionTimesRefactored(t *testing.T) {
 		})
 	}
 }
+
+// TestDeployInfo_AddChangeset_PartialResponses is a regression test for T-1111.
+// AddChangeset previously dereferenced resp[0] and several pointer fields
+// (StackId, StackName, ChangeSetId, ChangeSetName, CreationTime) without
+// checking the slice length or the fields for nil, which caused a panic on
+// empty or partial DescribeChangeSet responses. The expected behaviour is to
+// return an error for an empty slice or missing required fields instead of
+// panicking, while skipping missing optional fields (e.g. StatusReason).
+func TestDeployInfo_AddChangeset_PartialResponses(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now()
+
+	validResp := func() cloudformation.DescribeChangeSetOutput {
+		return cloudformation.DescribeChangeSetOutput{
+			ChangeSetId:   strPtr("arn:aws:cloudformation:us-west-2:123456789012:changeSet/test-changeset/abc123"),
+			ChangeSetName: strPtr("test-changeset"),
+			StackId:       strPtr("arn:aws:cloudformation:us-west-2:123456789012:stack/test-stack/def456"),
+			StackName:     strPtr("test-stack"),
+			Status:        types.ChangeSetStatusCreateComplete,
+			CreationTime:  &now,
+		}
+	}
+
+	tests := map[string]struct {
+		resp    []cloudformation.DescribeChangeSetOutput
+		wantErr bool
+		errMsg  string
+	}{
+		"empty response slice": {
+			resp:    []cloudformation.DescribeChangeSetOutput{},
+			wantErr: true,
+			errMsg:  "empty",
+		},
+		"nil response slice": {
+			resp:    nil,
+			wantErr: true,
+			errMsg:  "empty",
+		},
+		"missing StackId": {
+			resp: func() []cloudformation.DescribeChangeSetOutput {
+				r := validResp()
+				r.StackId = nil
+				return []cloudformation.DescribeChangeSetOutput{r}
+			}(),
+			wantErr: true,
+			errMsg:  "StackId",
+		},
+		"missing StackName": {
+			resp: func() []cloudformation.DescribeChangeSetOutput {
+				r := validResp()
+				r.StackName = nil
+				return []cloudformation.DescribeChangeSetOutput{r}
+			}(),
+			wantErr: true,
+			errMsg:  "StackName",
+		},
+		"missing ChangeSetId": {
+			resp: func() []cloudformation.DescribeChangeSetOutput {
+				r := validResp()
+				r.ChangeSetId = nil
+				return []cloudformation.DescribeChangeSetOutput{r}
+			}(),
+			wantErr: true,
+			errMsg:  "ChangeSetId",
+		},
+		"missing ChangeSetName": {
+			resp: func() []cloudformation.DescribeChangeSetOutput {
+				r := validResp()
+				r.ChangeSetName = nil
+				return []cloudformation.DescribeChangeSetOutput{r}
+			}(),
+			wantErr: true,
+			errMsg:  "ChangeSetName",
+		},
+		"missing CreationTime": {
+			resp: func() []cloudformation.DescribeChangeSetOutput {
+				r := validResp()
+				r.CreationTime = nil
+				return []cloudformation.DescribeChangeSetOutput{r}
+			}(),
+			wantErr: true,
+			errMsg:  "CreationTime",
+		},
+		"valid full response": {
+			resp:    []cloudformation.DescribeChangeSetOutput{validResp()},
+			wantErr: false,
+		},
+		"valid response without optional StatusReason": {
+			resp: func() []cloudformation.DescribeChangeSetOutput {
+				r := validResp()
+				r.StatusReason = nil
+				return []cloudformation.DescribeChangeSetOutput{r}
+			}(),
+			wantErr: false,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			deployment := &DeployInfo{StackName: "test-stack", ChangesetName: "test-changeset"}
+
+			// Must not panic on any input.
+			changeset, err := deployment.AddChangeset(tc.resp)
+
+			if tc.wantErr {
+				require.Error(t, err)
+				if tc.errMsg != "" {
+					assert.Contains(t, err.Error(), tc.errMsg)
+				}
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, "test-stack", changeset.StackName)
+			assert.Equal(t, "arn:aws:cloudformation:us-west-2:123456789012:stack/test-stack/def456", changeset.StackID)
+			assert.Equal(t, "test-changeset", changeset.Name)
+			assert.Equal(t, deployment.StackArn, changeset.StackID)
+			require.NotNil(t, deployment.Changeset)
+		})
+	}
+}
