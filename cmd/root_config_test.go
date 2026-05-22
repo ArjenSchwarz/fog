@@ -57,14 +57,35 @@ func TestLoadConfigFile_ValidConfigSucceeds(t *testing.T) {
 // --config is provided, a missing default config file is tolerated.
 func TestLoadConfigFile_ImplicitMissingTolerated(t *testing.T) {
 	withResetViper(t)
-	// Search in an empty directory so the default lookup finds nothing.
-	dir := t.TempDir()
-	viper.AddConfigPath(dir)
-	viper.SetConfigName("fog")
+	// loadConfigFile("") searches "." and $HOME, so point both at empty temp
+	// dirs to guarantee the implicit lookup genuinely finds no config.
+	chdirTemp(t)
+	t.Setenv("HOME", t.TempDir())
 
 	if err := loadConfigFile(""); err != nil {
 		t.Fatalf("expected missing implicit config to be tolerated, got %v", err)
 	}
+	if used := viper.ConfigFileUsed(); used != "" {
+		t.Fatalf("expected no config file to be loaded, got %q", used)
+	}
+}
+
+// chdirTemp switches the working directory to an empty temp dir for the test
+// and restores the original directory on cleanup.
+func chdirTemp(t *testing.T) {
+	t.Helper()
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get working directory: %v", err)
+	}
+	if err := os.Chdir(t.TempDir()); err != nil {
+		t.Fatalf("failed to change working directory: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := os.Chdir(orig); err != nil {
+			t.Fatalf("failed to restore working directory: %v", err)
+		}
+	})
 }
 
 // TestInitConfig_ExplicitMissingExitsNonZero exercises the full CLI path to
