@@ -172,9 +172,16 @@ func printLog(log lib.DeploymentLog, useStderr bool, prefixMessage ...string) {
 			).
 			Build()
 
-		// Render failed events to console and file (if configured)
-		if err := renderDocument(context.Background(), failedDoc); err != nil {
-			failWithError(err)
+		// Render failed events - use stderr for deploy context, stdout for history command
+		if useStderr {
+			out := createStderrOutput()
+			if err := out.Render(context.Background(), failedDoc); err != nil {
+				failWithError(err)
+			}
+		} else {
+			if err := renderDocument(context.Background(), failedDoc); err != nil {
+				failWithError(err)
+			}
 		}
 	}
 }

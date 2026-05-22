@@ -3,9 +3,12 @@ package cmd
 import (
 	"context"
 	"testing"
+	"time"
 
+	"github.com/ArjenSchwarz/fog/lib"
 	output "github.com/ArjenSchwarz/go-output/v2"
 	"github.com/spf13/viper"
+	"github.com/stretchr/testify/assert"
 )
 
 // TestHistory_V2BuilderPattern tests the v2 Builder pattern for history command
@@ -303,4 +306,72 @@ func TestHistory_V2MultipleTables(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to render output with multiple tables: %v", err)
 	}
+}
+
+// newFailedDeploymentLog builds a FAILED deployment log with a single failed event.
+func newFailedDeploymentLog() lib.DeploymentLog {
+	started := time.Date(2025, 10, 17, 10, 0, 0, 0, time.UTC)
+	return lib.DeploymentLog{
+		Account:        "123456789012",
+		Region:         "us-east-1",
+		Deployer:       "test-user",
+		DeploymentType: lib.DeploymentTypeCreateStack,
+		StackName:      "failed-stack",
+		Status:         lib.DeploymentLogStatusFailed,
+		PreChecks:      "PASSED",
+		StartedAt:      started,
+		UpdatedAt:      started.Add(time.Minute),
+		Failures: []map[string]any{
+			{
+				colCfnName: "MyResource",
+				"Type":     "AWS::EC2::Instance",
+				colStatus:  "CREATE_FAILED",
+				colReason:  "Resource creation failed",
+			},
+		},
+	}
+}
+
+// TestPrintLog_FailedEventsRespectStderr verifies that for a FAILED deployment log
+// the failed-events table follows the useStderr flag: stderr-only in deploy context,
+// stdout in the normal history command path.
+func TestPrintLog_FailedEventsRespectStderr(t *testing.T) {
+	// NOTE: Cannot use t.Parallel() because viper uses global state
+
+	setupViperDefaults()
+	t.Cleanup(viper.Reset) // restore global state for other cmd tests
+	viper.Set("output-file", "")
+
+	// Failed-event cell values are preserved verbatim by the table renderer,
+	// unlike the header text which gets uppercased.
+	const failedResource = "MyResource"
+	const failedReason = "Resource creation failed"
+
+	t.Run("useStderr true routes failed events to stderr", func(t *testing.T) {
+		stdout, stderr := captureBothStreams(func() {
+			printLog(newFailedDeploymentLog(), true)
+		})
+
+		// Failed-events section must stay on stderr in deploy context
+		assert.Contains(t, stderr, failedResource)
+		assert.Contains(t, stderr, failedReason)
+
+		// stdout must stay clean so only final structured output reaches it
+		assert.NotContains(t, stdout, failedResource)
+		assert.NotContains(t, stdout, failedReason)
+	})
+
+	t.Run("useStderr false routes failed events to stdout", func(t *testing.T) {
+		stdout, stderr := captureBothStreams(func() {
+			printLog(newFailedDeploymentLog(), false)
+		})
+
+		// Normal history command path renders to stdout via renderDocument
+		assert.Contains(t, stdout, failedResource)
+		assert.Contains(t, stdout, failedReason)
+
+		// stderr must stay clean so failed events don't leak to both streams
+		assert.NotContains(t, stderr, failedResource)
+		assert.NotContains(t, stderr, failedReason)
+	})
 }
