@@ -141,9 +141,9 @@ func generateReport() error {
 		return err
 	}
 
-	// Determine if we need Mermaid output based on format
+	// Determine if we need Mermaid output based on console and file formats
 	outputFormat := settings.GetLCString("output")
-	reportFlags.HasMermaid = outputFormat == outputFormatMarkdown || outputFormat == outputFormatHTML
+	reportFlags.HasMermaid = reportHasMermaidFormat()
 
 	stacks, err := lib.GetCfnStacks(ctx, &reportFlags.StackName, awsConfig.CloudformationClient())
 	if err != nil {
@@ -222,6 +222,30 @@ func generateReport() error {
 	}
 
 	return nil
+}
+
+// reportHasMermaidFormat reports whether any requested destination (console
+// output or the separate file output) uses a Mermaid-capable format. The file
+// format falls back to the console format when output-file-format is unset,
+// matching config.GetFileOutputOptions.
+func reportHasMermaidFormat() bool {
+	consoleFormat := settings.GetLCString("output")
+	if isMermaidFormat(consoleFormat) {
+		return true
+	}
+	if settings.GetString("output-file") == "" {
+		return false
+	}
+	fileFormat := settings.GetLCString("output-file-format")
+	if fileFormat == "" {
+		fileFormat = consoleFormat
+	}
+	return isMermaidFormat(fileFormat)
+}
+
+// isMermaidFormat reports whether a format renders Mermaid diagrams.
+func isMermaidFormat(format string) bool {
+	return format == outputFormatMarkdown || format == outputFormatHTML
 }
 
 // buildStackReports iterates over the sorted stack keys and adds each
