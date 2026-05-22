@@ -69,6 +69,7 @@
 package config
 
 import (
+	"fmt"
 	"log"
 	"path/filepath"
 	"strings"
@@ -193,7 +194,9 @@ func (config *Config) getFormatForOutput(formatName string) output.Format {
 // GetOutputOptions creates v2 functional options from config settings.
 // When console and file formats are the same, returns options for a single Output.
 // When formats differ, only returns console options - use GetFileOutputOptions for file.
-func (config *Config) GetOutputOptions() []output.OutputOption {
+// Returns an error when an explicitly requested file writer cannot be created so
+// callers can fail instead of silently dropping the requested file output.
+func (config *Config) GetOutputOptions() ([]output.OutputOption, error) {
 	opts := []output.OutputOption{}
 
 	// Console output format and writer
@@ -219,10 +222,9 @@ func (config *Config) GetOutputOptions() []output.OutputOption {
 			}
 			fileWriter, err := output.NewFileWriter(dir, pattern)
 			if err != nil {
-				log.Printf("Warning: Failed to create file writer for %s: %v", outputFile, err)
-			} else {
-				opts = append(opts, output.WithWriter(fileWriter))
+				return nil, fmt.Errorf("failed to create file writer for %s: %w", outputFile, err)
 			}
+			opts = append(opts, output.WithWriter(fileWriter))
 		}
 	}
 
@@ -234,16 +236,17 @@ func (config *Config) GetOutputOptions() []output.OutputOption {
 		opts = append(opts, output.WithTransformer(output.NewEnhancedColorTransformer()))
 	}
 
-	return opts
+	return opts, nil
 }
 
 // GetFileOutputOptions returns output options for file output when file format
-// differs from console format. Returns nil if no separate file output is needed.
-func (config *Config) GetFileOutputOptions() []output.OutputOption {
+// differs from console format. Returns nil options when no separate file output is
+// needed, and an error when an explicitly requested file writer cannot be created.
+func (config *Config) GetFileOutputOptions() ([]output.OutputOption, error) {
 	// Note: Use GetString (not GetLCString) to preserve file path case for case-sensitive filesystems
 	outputFile := config.GetString("output-file")
 	if outputFile == "" {
-		return nil
+		return nil, nil
 	}
 
 	consoleFormatName := config.GetLCString("output")
@@ -254,7 +257,7 @@ func (config *Config) GetFileOutputOptions() []output.OutputOption {
 
 	// Only return separate options if formats differ
 	if fileFormatName == consoleFormatName {
-		return nil
+		return nil, nil
 	}
 
 	opts := []output.OutputOption{}
@@ -267,8 +270,7 @@ func (config *Config) GetFileOutputOptions() []output.OutputOption {
 	}
 	fileWriter, err := output.NewFileWriter(dir, pattern)
 	if err != nil {
-		log.Printf("Warning: Failed to create file writer for %s: %v", outputFile, err)
-		return nil
+		return nil, fmt.Errorf("failed to create file writer for %s: %w", outputFile, err)
 	}
 	opts = append(opts, output.WithWriter(fileWriter))
 
@@ -277,5 +279,5 @@ func (config *Config) GetFileOutputOptions() []output.OutputOption {
 		opts = append(opts, output.WithTransformer(&output.EmojiTransformer{}))
 	}
 
-	return opts
+	return opts, nil
 }
