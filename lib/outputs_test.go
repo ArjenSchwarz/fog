@@ -690,6 +690,77 @@ func TestGetExportsListImportsPagination(t *testing.T) {
 	}
 }
 
+// orderedMockCFNClient forces ListImports calls to complete in a controlled,
+// reverse order so that channel-receive order differs from the source export
+// order. It is used to assert deterministic output ordering without relying on
+// timing. Each export blocks until the export that should finish before it has
+// signalled completion, so the last export always returns first.
+type orderedMockCFNClient struct {
+	DescribeStacksOutput cloudformation.DescribeStacksOutput
+	order                []string             // export names, in the source order
+	gates                map[string]chan bool // per-export release gate
+}
+
+func newOrderedMockCFNClient(out cloudformation.DescribeStacksOutput, order []string) orderedMockCFNClient {
+	gates := make(map[string]chan bool, len(order))
+	for _, name := range order {
+		gates[name] = make(chan bool, 1)
+	}
+	// Release the last export first; no export precedes it.
+	if len(order) > 0 {
+		gates[order[len(order)-1]] <- true
+	}
+	return orderedMockCFNClient{DescribeStacksOutput: out, order: order, gates: gates}
+}
+
+func (m orderedMockCFNClient) DescribeStacks(ctx context.Context, params *cloudformation.DescribeStacksInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStacksOutput, error) {
+	return &m.DescribeStacksOutput, nil
+}
+
+func (m orderedMockCFNClient) ListImports(ctx context.Context, params *cloudformation.ListImportsInput, optFns ...func(*cloudformation.Options)) (*cloudformation.ListImportsOutput, error) {
+	name := *params.ExportName
+	<-m.gates[name] // wait until released
+	// Release the export immediately before this one so completion runs in
+	// reverse source order.
+	for i, n := range m.order {
+		if n == name && i > 0 {
+			m.gates[m.order[i-1]] <- true
+			break
+		}
+	}
+	return nil, notImportedErr(name)
+}
+
+// TestGetExports_PreservesSourceOrder verifies that GetExports returns exports
+// in the original DescribeStacks/output order even when ListImports calls
+// complete out of order. Regression test for T-1180: exports output order is
+// nondeterministic.
+func TestGetExports_PreservesSourceOrder(t *testing.T) {
+	stackName := "test-stack"
+	order := []string{"ExportA", "ExportB", "ExportC", "ExportD"}
+	outputs := make([]types.Output, len(order))
+	for i, name := range order {
+		outputs[i] = types.Output{
+			OutputKey:   strPtrOut(fmt.Sprintf("Key%d", i)),
+			OutputValue: strPtrOut(fmt.Sprintf("Val%d", i)),
+			ExportName:  strPtrOut(name),
+		}
+	}
+	mock := newOrderedMockCFNClient(cloudformation.DescribeStacksOutput{
+		Stacks: []types.Stack{{StackName: strPtrOut(stackName), Outputs: outputs}},
+	}, order)
+
+	results, err := GetExports(context.Background(), &stackName, strPtrOut(""), mock)
+	require.NoError(t, err)
+	require.Len(t, results, len(order))
+
+	got := make([]string, len(results))
+	for i, r := range results {
+		got[i] = r.ExportName
+	}
+	assert.Equal(t, order, got, "exports must be returned in source order regardless of ListImports completion order")
+}
+
 // TestGetExports_PaginatorError verifies that GetExports returns an error
 // instead of terminating the process when the paginator encounters an error.
 // Regression test for T-464: GetExports exits process on paginator errors.

@@ -31,6 +31,8 @@ All other `ListImports` errors (throttling, permissions, service errors) are pro
 
 `GetExports` launches one goroutine per export for `ListImports` calls. Each goroutine creates its own paginator instance so there are no race conditions. Errors from individual goroutines are collected and joined via `errors.Join`. The function returns partial results alongside the error.
 
+Result ordering: each goroutine carries its source index in `importResult.index`, and the collection loop writes `results[r.index] = r.output`. This preserves the original DescribeStacks/output order even though `ListImports` calls complete in nondeterministic order (T-1180). Do not collect into a plain counter index — that reintroduces completion-order output.
+
 ## Testing Pattern
 
 - `MockCFNClient` returns all imports in a single response (simple mock)
