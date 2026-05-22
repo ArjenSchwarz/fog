@@ -108,6 +108,11 @@ func deployTemplate(cmd *cobra.Command, args []string) {
 	if deployFlags.DeployChangeset {
 		// Deploy an existing, previously-created changeset by name.
 		changeset = runDeployChangesetFlow(&deployment, awsConfig, &deploymentLog, deployFlags.Quiet)
+		// A nil changeset means fetchChangeset already reported the error and
+		// exited; abort instead of deploying a non-existent changeset.
+		if changeset == nil {
+			return
+		}
 	} else {
 		changeset = createAndShowChangeset(&deployment, awsConfig, &deploymentLog, deployFlags.Quiet)
 

@@ -190,6 +190,10 @@ func runDeployChangesetFlow(info *lib.DeployInfo, cfg config.AWSConfig, logObj *
 // the deployment if approved. It returns true when the stack was actually
 // deployed and an error if the deployment execution failed.
 func confirmAndDeployChangeset(changeset *lib.ChangesetInfo, info *lib.DeployInfo, cfg config.AWSConfig) (bool, error) {
+	// Defensive guard: a nil changeset has nothing to deploy.
+	if changeset == nil {
+		return false, fmt.Errorf("no changeset available to deploy for %v", info.ChangesetName)
+	}
 	var confirm bool
 	if deployFlags.NonInteractive {
 		confirm = true
