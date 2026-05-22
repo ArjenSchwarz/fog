@@ -557,7 +557,7 @@ func showFailedEvents(deployment lib.DeployInfo, awsConfig config.AWSConfig, pre
 		fmt.Fprintln(os.Stderr, err)
 		return nil
 	}
-	changesetkeys := []string{"CfnName", "Type", "Status", "Reason"}
+	changesetkeys := []string{colCfnName, sortKeyType, colStatus, colReason}
 	changesettitle := fmt.Sprintf("Failed events in deployment of changeset %v", deployment.Changeset.Name)
 	sort.Sort(ReverseEvents(events))
 	result := make([]map[string]any, 0)
@@ -673,10 +673,10 @@ func renderFailedEvent(event types.StackEvent, cutoff time.Time) map[string]any 
 	}
 
 	return map[string]any{
-		"CfnName": safeString(event.LogicalResourceId, "(unknown id)"),
-		"Type":    safeString(event.ResourceType, "(unknown type)"),
-		"Status":  string(event.ResourceStatus),
-		"Reason":  safeString(event.ResourceStatusReason, "(no reason provided)"),
+		colCfnName:  safeString(event.LogicalResourceId, "(unknown id)"),
+		sortKeyType: safeString(event.ResourceType, "(unknown type)"),
+		colStatus:   string(event.ResourceStatus),
+		colReason:   safeString(event.ResourceStatusReason, "(no reason provided)"),
 	}
 }
 

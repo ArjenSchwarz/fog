@@ -102,13 +102,13 @@ func printLog(log lib.DeploymentLog, useStderr bool, prefixMessage ...string) {
 	// Build deployment log table
 	logData := []map[string]any{
 		{
-			"Account":    log.Account,
-			"Region":     log.Region,
+			colAccount:   log.Account,
+			colRegion:    log.Region,
 			"Deployer":   log.Deployer,
-			"Type":       string(log.DeploymentType),
+			sortKeyType:  string(log.DeploymentType),
 			"Prechecks":  string(log.PreChecks),
 			"Started At": log.StartedAt.In(settings.GetTimezoneLocation()).Format(time.RFC3339),
-			"Duration":   log.UpdatedAt.Sub(log.StartedAt).Round(time.Second).String(),
+			colDuration:  log.UpdatedAt.Sub(log.StartedAt).Round(time.Second).String(),
 		},
 	}
 
@@ -127,7 +127,7 @@ func printLog(log lib.DeploymentLog, useStderr bool, prefixMessage ...string) {
 	builder = builder.Table(
 		"Details about the deployment",
 		logData,
-		output.WithKeys("Account", "Region", "Deployer", "Type", "Prechecks", "Started At", "Duration"),
+		output.WithKeys(colAccount, colRegion, "Deployer", sortKeyType, "Prechecks", "Started At", colDuration),
 	)
 
 	// Add changeset tables if there are changes
@@ -168,7 +168,7 @@ func printLog(log lib.DeploymentLog, useStderr bool, prefixMessage ...string) {
 			Table(
 				"Failed events in deployment of change set",
 				failedEventsData,
-				output.WithKeys("CfnName", "Type", "Status", "Reason"),
+				output.WithKeys(colCfnName, sortKeyType, colStatus, colReason),
 			).
 			Build()
 

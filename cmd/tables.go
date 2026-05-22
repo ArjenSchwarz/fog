@@ -43,38 +43,38 @@ func init() {
 }
 
 func demoTables(cmd *cobra.Command, args []string) {
-	keys := []string{"Export", "Description", "Stack", "Value", "Imported"}
+	keys := []string{colExport, colDescription, colStack, colValue, colImported}
 	title := "Export values demo"
 
 	// Build sample data
 	data := []map[string]any{
 		{
-			"Export":      "awesome-stack-dev-s3-arn",
-			"Value":       "arn:aws:s3:::fog-awesome-stack-dev",
-			"Description": "ARN of the S3 bucket",
-			"Stack":       "awesome-stack-dev",
-			"Imported":    true,
+			colExport:      "awesome-stack-dev-s3-arn",
+			colValue:       "arn:aws:s3:::fog-awesome-stack-dev",
+			colDescription: s3BucketArnDescription,
+			colStack:       "awesome-stack-dev",
+			colImported:    true,
 		},
 		{
-			"Export":      "awesome-stack-test-s3-arn",
-			"Value":       "arn:aws:s3:::fog-awesome-stack-test",
-			"Description": "ARN of the S3 bucket",
-			"Stack":       "awesome-stack-test",
-			"Imported":    true,
+			colExport:      "awesome-stack-test-s3-arn",
+			colValue:       "arn:aws:s3:::fog-awesome-stack-test",
+			colDescription: s3BucketArnDescription,
+			colStack:       "awesome-stack-test",
+			colImported:    true,
 		},
 		{
-			"Export":      "awesome-stack-prod-s3-arn",
-			"Value":       "arn:aws:s3:::fog-awesome-stack-prod",
-			"Description": "ARN of the S3 bucket",
-			"Stack":       "awesome-stack-prod",
-			"Imported":    true,
+			colExport:      "awesome-stack-prod-s3-arn",
+			colValue:       "arn:aws:s3:::fog-awesome-stack-prod",
+			colDescription: s3BucketArnDescription,
+			colStack:       "awesome-stack-prod",
+			colImported:    true,
 		},
 		{
-			"Export":      "demo-s3-bucket",
-			"Value":       "fog-demo-bucket",
-			"Description": "The S3 bucket used for demos but has an exceptionally long description so it can show a multi-line example",
-			"Stack":       "demo-resources",
-			"Imported":    false,
+			colExport:      "demo-s3-bucket",
+			colValue:       "fog-demo-bucket",
+			colDescription: "The S3 bucket used for demos but has an exceptionally long description so it can show a multi-line example",
+			colStack:       "demo-resources",
+			colImported:    false,
 		},
 	}
 

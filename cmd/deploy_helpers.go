@@ -221,10 +221,10 @@ func printDeploymentResults(info *lib.DeployInfo, cfg config.AWSConfig, logObj *
 		// This is a synthetic status because CloudFormation did not return a
 		// definitive post-deploy stack status for us to record.
 		failures := []map[string]any{{
-			"CfnName": info.StackName,
-			"Type":    "AWS::CloudFormation::Stack",
-			"Status":  postDeployLookupFailedStatus,
-			"Reason":  err.Error(),
+			colCfnName:  info.StackName,
+			sortKeyType: "AWS::CloudFormation::Stack",
+			colStatus:   postDeployLookupFailedStatus,
+			colReason:   err.Error(),
 		}}
 
 		printMessage(formatError(string(texts.DeployStackMessageRetrievePostFailed)))
