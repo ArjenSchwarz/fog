@@ -387,8 +387,15 @@ func TestExtractRuleAction(t *testing.T) {
 	}
 }
 
-// TestExtractPortRange tests port range extraction with validation
+// TestExtractPortRange tests port range extraction with validation.
+// The parameter-reference cases are a regression guard for T-1232 where
+// {"Ref": "Param"} port values resolved to 0.
 func TestExtractPortRange(t *testing.T) {
+	params := []cfntypes.Parameter{
+		{ParameterKey: aws.String("FromPort"), ParameterValue: aws.String("8080")},
+		{ParameterKey: aws.String("ToPort"), ResolvedValue: aws.String("8443"), ParameterValue: aws.String("0")},
+	}
+
 	tests := []struct {
 		name       string
 		properties map[string]any
@@ -421,6 +428,18 @@ func TestExtractPortRange(t *testing.T) {
 			wantTo:   22,
 		},
 		{
+			name: "parameter reference port values",
+			properties: map[string]any{
+				"PortRange": map[string]any{
+					"From": map[string]any{"Ref": "FromPort"},
+					"To":   map[string]any{"Ref": "ToPort"},
+				},
+			},
+			wantNil:  false,
+			wantFrom: 8080,
+			wantTo:   8443,
+		},
+		{
 			name:       "missing PortRange",
 			properties: map[string]any{},
 			wantNil:    true,
@@ -449,7 +468,7 @@ func TestExtractPortRange(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := extractPortRange(tt.properties)
+			got := extractPortRange(tt.properties, params)
 			if tt.wantNil {
 				if got != nil {
 					t.Errorf("extractPortRange() = %v, want nil", got)
@@ -469,8 +488,15 @@ func TestExtractPortRange(t *testing.T) {
 	}
 }
 
-// TestExtractIcmpTypeCode tests ICMP type code extraction
+// TestExtractIcmpTypeCode tests ICMP type code extraction.
+// The parameter-reference cases are a regression guard for T-1232 where
+// {"Ref": "Param"} ICMP values resolved to 0.
 func TestExtractIcmpTypeCode(t *testing.T) {
+	params := []cfntypes.Parameter{
+		{ParameterKey: aws.String("IcmpCode"), ParameterValue: aws.String("3")},
+		{ParameterKey: aws.String("IcmpType"), ResolvedValue: aws.String("11"), ParameterValue: aws.String("0")},
+	}
+
 	tests := []struct {
 		name       string
 		properties map[string]any
@@ -503,6 +529,18 @@ func TestExtractIcmpTypeCode(t *testing.T) {
 			wantType: 11,
 		},
 		{
+			name: "parameter reference values",
+			properties: map[string]any{
+				"Icmp": map[string]any{
+					"Code": map[string]any{"Ref": "IcmpCode"},
+					"Type": map[string]any{"Ref": "IcmpType"},
+				},
+			},
+			wantNil:  false,
+			wantCode: 3,
+			wantType: 11,
+		},
+		{
 			name:       "missing Icmp",
 			properties: map[string]any{},
 			wantNil:    true,
@@ -521,7 +559,7 @@ func TestExtractIcmpTypeCode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := extractIcmpTypeCode(tt.properties)
+			got := extractIcmpTypeCode(tt.properties, params)
 			if tt.wantNil {
 				if got != nil {
 					t.Errorf("extractIcmpTypeCode() = %v, want nil", got)
@@ -541,8 +579,14 @@ func TestExtractIcmpTypeCode(t *testing.T) {
 	}
 }
 
-// TestExtractInt32Value tests int32 value extraction with error logging
+// TestExtractInt32Value tests int32 value extraction with error logging.
+// The parameter-reference cases are a regression guard for T-1232.
 func TestExtractInt32Value(t *testing.T) {
+	params := []cfntypes.Parameter{
+		{ParameterKey: aws.String("NumericParam"), ParameterValue: aws.String("42")},
+		{ParameterKey: aws.String("ResolvedParam"), ResolvedValue: aws.String("99"), ParameterValue: aws.String("0")},
+	}
+
 	tests := []struct {
 		name          string
 		value         any
@@ -560,6 +604,24 @@ func TestExtractInt32Value(t *testing.T) {
 			value:         "123",
 			want:          123,
 			expectWarning: false,
+		},
+		{
+			name:          "parameter reference resolves via ParameterValue",
+			value:         map[string]any{"Ref": "NumericParam"},
+			want:          42,
+			expectWarning: false,
+		},
+		{
+			name:          "parameter reference prefers ResolvedValue",
+			value:         map[string]any{"Ref": "ResolvedParam"},
+			want:          99,
+			expectWarning: false,
+		},
+		{
+			name:          "parameter reference to unknown parameter",
+			value:         map[string]any{"Ref": "Unknown"},
+			want:          0,
+			expectWarning: true,
 		},
 		{
 			name:          "nil value",
@@ -600,7 +662,7 @@ func TestExtractInt32Value(t *testing.T) {
 			r, w, _ := os.Pipe()
 			os.Stderr = w
 
-			got := extractInt32Value(tt.value)
+			got := extractInt32Value(tt.value, params)
 
 			w.Close()
 			os.Stderr = oldStderr

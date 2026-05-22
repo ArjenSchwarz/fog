@@ -419,10 +419,10 @@ func NaclResourceToNaclEntry(resource CfnTemplateResource, params []cfntypes.Par
 	if ipv6cidrblock != "" {
 		result.Ipv6CidrBlock = &ipv6cidrblock
 	}
-	if portRange := extractPortRange(resource.Properties); portRange != nil {
+	if portRange := extractPortRange(resource.Properties, params); portRange != nil {
 		result.PortRange = portRange
 	}
-	if icmpTypeCode := extractIcmpTypeCode(resource.Properties); icmpTypeCode != nil {
+	if icmpTypeCode := extractIcmpTypeCode(resource.Properties, params); icmpTypeCode != nil {
 		result.IcmpTypeCode = icmpTypeCode
 	}
 
@@ -546,8 +546,9 @@ func extractRuleAction(properties map[string]any, params []cfntypes.Parameter) t
 	return types.RuleActionAllow
 }
 
-// extractPortRange extracts port range from NACL properties
-func extractPortRange(properties map[string]any) *types.PortRange {
+// extractPortRange extracts port range from NACL properties, resolving
+// {"Ref": "ParamName"} values through stack parameters.
+func extractPortRange(properties map[string]any, params []cfntypes.Parameter) *types.PortRange {
 	if properties["PortRange"] == nil {
 		return nil
 	}
@@ -557,8 +558,8 @@ func extractPortRange(properties map[string]any) *types.PortRange {
 		return nil
 	}
 
-	fromport := extractInt32Value(ports["From"])
-	toport := extractInt32Value(ports["To"])
+	fromport := extractInt32Value(ports["From"], params)
+	toport := extractInt32Value(ports["To"], params)
 
 	// Validate that we have meaningful port values
 	if fromport == 0 && toport == 0 && ports["From"] == nil && ports["To"] == nil {
@@ -571,8 +572,9 @@ func extractPortRange(properties map[string]any) *types.PortRange {
 	}
 }
 
-// extractIcmpTypeCode extracts ICMP type code from NACL properties
-func extractIcmpTypeCode(properties map[string]any) *types.IcmpTypeCode {
+// extractIcmpTypeCode extracts ICMP type code from NACL properties, resolving
+// {"Ref": "ParamName"} values through stack parameters.
+func extractIcmpTypeCode(properties map[string]any, params []cfntypes.Parameter) *types.IcmpTypeCode {
 	if properties["Icmp"] == nil {
 		return nil
 	}
@@ -582,8 +584,8 @@ func extractIcmpTypeCode(properties map[string]any) *types.IcmpTypeCode {
 		return nil
 	}
 
-	icmpcode := extractInt32Value(icmptypecodedata["Code"])
-	icmptype := extractInt32Value(icmptypecodedata["Type"])
+	icmpcode := extractInt32Value(icmptypecodedata["Code"], params)
+	icmptype := extractInt32Value(icmptypecodedata["Type"], params)
 
 	return &types.IcmpTypeCode{
 		Code: &icmpcode,
@@ -591,8 +593,9 @@ func extractIcmpTypeCode(properties map[string]any) *types.IcmpTypeCode {
 	}
 }
 
-// extractInt32Value extracts an int32 value from either a float64 or string
-func extractInt32Value(value any) int32 {
+// extractInt32Value extracts an int32 value from a float64, numeric string, or
+// {"Ref": "ParamName"} parameter reference resolved through stack parameters.
+func extractInt32Value(value any, params []cfntypes.Parameter) int32 {
 	if value == nil {
 		return 0
 	}
@@ -607,6 +610,15 @@ func extractInt32Value(value any) int32 {
 		// Log conversion failures for debugging, but return 0 as default
 		// This helps identify data quality issues in templates
 		fmt.Fprintf(os.Stderr, "Warning: failed to convert string '%s' to int32, using 0 as default\n", v)
+	case map[string]any:
+		if refname, ok := v["Ref"].(string); ok {
+			if resolved := resolveParameterValue(refname, params); resolved != "" {
+				if intVal, err := strconv.Atoi(resolved); err == nil {
+					return int32(intVal)
+				}
+			}
+		}
+		fmt.Fprintf(os.Stderr, "Warning: failed to resolve %v to int32, using 0 as default\n", v)
 	default:
 		// Log unexpected types for debugging
 		fmt.Fprintf(os.Stderr, "Warning: unexpected type %T for int32 conversion, using 0 as default\n", v)
