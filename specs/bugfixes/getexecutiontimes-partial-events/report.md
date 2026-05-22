@@ -11,6 +11,7 @@
 - `*event.ResourceType`
 - `*event.LogicalResourceId`
 - `*event.Timestamp`
+- `deployment.Changeset.CreationTime` (`Changeset` is a `*ChangesetInfo` pointer)
 
 Other event-rendering and reporting paths had already been hardened (skipping nil timestamps, using `aws.ToString` for optional SDK fields — see T-756/T-799), but `GetExecutionTimes` was left unguarded. A single partial or malformed event returned by `DescribeStackEvents` (or a mock exercising nil fields) caused a nil-pointer panic.
 
@@ -37,7 +38,7 @@ Other event-rendering and reporting paths had already been hardened (skipping ni
 ## Resolution for the Issue
 
 **Changes made:**
-- `lib/stacks.go` (`GetExecutionTimes`) — Skip events with a nil `Timestamp` (a nil timestamp cannot be compared against the changeset creation time and carries no execution time to record). Use `aws.ToString` for `ResourceType` and `LogicalResourceId` so nil pointers resolve to empty strings (a safe label) instead of panicking. `*event.Timestamp` is now only dereferenced after the nil guard.
+- `lib/stacks.go` (`GetExecutionTimes`) — Skip events with a nil `Timestamp` (a nil timestamp cannot be compared against the changeset creation time and carries no execution time to record). Use `aws.ToString` for `ResourceType` and `LogicalResourceId` so nil pointers resolve to empty strings (a safe label) instead of panicking. `*event.Timestamp` is now only dereferenced after the nil guard. Guard the `deployment.Changeset` pointer: a nil `Changeset` is treated as a zero `CreationTime` (any timestamped event is "after" it) instead of being dereferenced.
 
 **Approach rationale:** This mirrors the established conventions already used elsewhere in `lib/stacks.go` (`aws.ToString` for optional strings, explicit nil checks before dereferencing `Timestamp`, as in `createNewResourceEvent`). It is a minimal change confined to the buggy loop, keeps valid events fully intact, and safely labels partial events rather than dropping the rest of the batch.
 
@@ -58,8 +59,8 @@ Other event-rendering and reporting paths had already been hardened (skipping ni
 
 | File | Change |
 |------|--------|
-| `lib/stacks.go` | Guard `GetExecutionTimes` against nil `Timestamp`; use `aws.ToString` for `ResourceType`/`LogicalResourceId` |
-| `lib/stacks_test.go` | New regression test `TestDeployInfo_GetExecutionTimes_NilFields` |
+| `lib/stacks.go` | Guard `GetExecutionTimes` against nil `Timestamp` and nil `Changeset`; use `aws.ToString` for `ResourceType`/`LogicalResourceId` |
+| `lib/stacks_test.go` | New regression tests `TestDeployInfo_GetExecutionTimes_NilFields` and `TestDeployInfo_GetExecutionTimes_NilChangeset` |
 
 ## Verification
 

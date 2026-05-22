@@ -364,6 +364,45 @@ func TestDeployInfo_GetExecutionTimes_NilFields(t *testing.T) {
 	assert.Equal(t, want, got)
 }
 
+// TestDeployInfo_GetExecutionTimes_NilChangeset verifies GetExecutionTimes does
+// not panic when DeployInfo.Changeset (a pointer) is nil (regression for T-1087).
+// A nil Changeset is treated as a zero CreationTime, so timestamped events are
+// still recorded.
+func TestDeployInfo_GetExecutionTimes_NilChangeset(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now().UTC()
+	deployment := &DeployInfo{
+		Changeset: nil,
+		StackName: "test-stack",
+	}
+
+	events := []types.StackEvent{
+		{
+			LogicalResourceId: strPtr("Bucket"),
+			ResourceType:      strPtr("AWS::S3::Bucket"),
+			ResourceStatus:    types.ResourceStatusCreateComplete,
+			Timestamp:         ptrTime(now),
+		},
+	}
+
+	mockSvc := newSinglePageMock(cloudformation.DescribeStackEventsOutput{StackEvents: events}, nil)
+
+	var got map[string]map[string]time.Time
+	require.NotPanics(t, func() {
+		var err error
+		got, err = deployment.GetExecutionTimes(context.Background(), mockSvc)
+		require.NoError(t, err)
+	})
+
+	want := map[string]map[string]time.Time{
+		"AWS  S3  Bucket (Bucket)": {
+			string(types.ResourceStatusCreateComplete): now,
+		},
+	}
+	assert.Equal(t, want, got)
+}
+
 // Test_stringInSlice checks membership detection in a slice.
 func Test_stringInSlice(t *testing.T) {
 	t.Helper()

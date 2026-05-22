@@ -870,6 +870,12 @@ func (deployment *DeployInfo) GetExecutionTimes(ctx context.Context, svc CloudFo
 	if err != nil {
 		return result, err
 	}
+	// Changeset is a pointer and may be nil; fall back to a zero CreationTime
+	// (any timestamped event is "after" it) instead of dereferencing nil.
+	var changesetCreationTime time.Time
+	if deployment.Changeset != nil {
+		changesetCreationTime = deployment.Changeset.CreationTime
+	}
 	for _, event := range events {
 		// Skip partial/malformed events with no timestamp: a nil Timestamp
 		// cannot be compared against the changeset creation time, and there is
@@ -877,7 +883,7 @@ func (deployment *DeployInfo) GetExecutionTimes(ctx context.Context, svc CloudFo
 		if event.Timestamp == nil {
 			continue
 		}
-		if event.Timestamp.After(deployment.Changeset.CreationTime) {
+		if event.Timestamp.After(changesetCreationTime) {
 			// Use aws.ToString so nil ResourceType or LogicalResourceId pointers
 			// resolve to empty strings (a safe label) rather than panicking.
 			name := fmt.Sprintf("%s (%s)", strings.ReplaceAll(aws.ToString(event.ResourceType), ":", " "), aws.ToString(event.LogicalResourceId))
