@@ -30,6 +30,14 @@ tests can intercept its failure paths, and it distinguishes retrieval errors
 test stubs that don't actually exit don't cause a nil-dereference downstream.
 `runDeployChangesetFlow` nil-guards the fetch result for the same reason.
 
+`confirmAndDeployChangeset` takes a `preserveOnDecline bool` (T-1284). Both
+flows converge on this helper; the only production call site
+(`deployTemplate` in `cmd/deploy.go`) passes `deployFlags.DeployChangeset`. When
+true (`--deploy-changeset`), declining the prompt leaves the pre-existing
+changeset intact — `deleteChangesetFunc` is NOT called. When false (normal
+flow), a declined freshly-created changeset is still deleted. Do not infer the
+flow inside the helper; keep the decision at the call site.
+
 `prepareDeployment()` skips `setDeployTemplate`, `setDeployTags`,
 `setDeployParameters` when `--deploy-changeset` is set — the template and
 inputs are already captured inside the existing changeset.
@@ -58,9 +66,16 @@ inputs are already captured inside the existing changeset.
   `fetchChangesetFunc` returns nil the flow bails out without dereferencing
   the nil changeset.
 
+- `TestDeployTemplate_DeclineDeployChangesetPreservesChangeset` (T-1284) —
+  declining in `--deploy-changeset` mode must not call `deleteChangesetFunc`.
+  The `user declines deployment` vs `user declines deployment preserving
+  existing changeset` cases in `TestConfirmAndDeployChangeset`
+  (`cmd/deploy_helpers_test.go`) guard both branches of `preserveOnDecline`.
+
 Tests stub `fetchChangesetFunc` / `createChangesetFunc` / `showChangesetFunc`
 just like the existing `createAndShowChangeset` tests do. When adding new
 tests around this flow, restore all function-variable pointers in `defer` to
 avoid leaking state across test files.
 
 Original bug: T-865 (`--deploy-changeset flag is ignored by deploy command`).
+Related: T-1284 (`Declining --deploy-changeset deletes existing changeset`).

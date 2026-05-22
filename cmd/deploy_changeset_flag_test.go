@@ -197,7 +197,7 @@ func TestRunDeployChangesetFlow_DeployChangeset_SkipsCreation(t *testing.T) {
 		t.Errorf("expected deployment.CapturedChangeset to be populated with existing changeset, got %+v", info.CapturedChangeset)
 	}
 	// Ensure the caller can still confirm+deploy against the fetched changeset
-	deployed, err := confirmAndDeployChangeset(changeset, &info, config.AWSConfig{})
+	deployed, err := confirmAndDeployChangeset(changeset, &info, config.AWSConfig{}, true)
 	if err != nil {
 		t.Fatalf("confirmAndDeployChangeset returned error: %v", err)
 	}
@@ -312,5 +312,72 @@ func TestDeployTemplate_NilDeployChangesetFetchAborts(t *testing.T) {
 	}
 	if deployCalled {
 		t.Error("deployChangesetFunc must NOT be called when fetchChangesetFunc returns nil")
+	}
+}
+
+// TestDeployTemplate_DeclineDeployChangesetPreservesChangeset is a regression
+// test for T-1284. When --deploy-changeset is set and the user declines the
+// deployment confirmation, the existing (pre-created) changeset must be left
+// intact — deleteChangesetFunc must NOT be called. Previously the decline
+// branch always deleted the attached changeset.
+func TestDeployTemplate_DeclineDeployChangesetPreservesChangeset(t *testing.T) {
+	origLoadAWSConfig := loadAWSConfig
+	origGetCfnClient := getCfnClient
+	origFetch := fetchChangesetFunc
+	origShow := showChangesetFunc
+	origDeploy := deployChangesetFunc
+	origDelete := deleteChangesetFunc
+	origAsk := askForConfirmationFunc
+	origFlags := deployFlags
+	defer func() {
+		loadAWSConfig = origLoadAWSConfig
+		getCfnClient = origGetCfnClient
+		fetchChangesetFunc = origFetch
+		showChangesetFunc = origShow
+		deployChangesetFunc = origDeploy
+		deleteChangesetFunc = origDelete
+		askForConfirmationFunc = origAsk
+		deployFlags = origFlags
+	}()
+
+	mockClient := testutil.NewMockCFNClient()
+	loadAWSConfig = func(_ context.Context, _ config.Config) (config.AWSConfig, error) {
+		return config.AWSConfig{AccountID: "123456789012", Region: "us-east-1"}, nil
+	}
+	getCfnClient = func(_ config.AWSConfig) lib.CloudFormationDescribeStacksAPI {
+		return mockClient
+	}
+
+	fetchChangesetFunc = func(_ *lib.DeployInfo, _ config.AWSConfig) *lib.ChangesetInfo {
+		return &lib.ChangesetInfo{Name: "existing-changeset"}
+	}
+	showChangesetFunc = func(_ lib.ChangesetInfo, _ lib.DeployInfo, _ config.AWSConfig, _ ...*output.Builder) {
+	}
+
+	deployCalled := false
+	deployChangesetFunc = func(_ lib.DeployInfo, _ config.AWSConfig) error {
+		deployCalled = true
+		return nil
+	}
+	deleteCalled := false
+	deleteChangesetFunc = func(_ lib.DeployInfo, _ config.AWSConfig) {
+		deleteCalled = true
+	}
+	// User declines the deployment.
+	askForConfirmationFunc = func(string) bool { return false }
+
+	deployFlags = DeployFlags{
+		StackName:       "my-stack",
+		ChangesetName:   "existing-changeset",
+		DeployChangeset: true,
+	}
+
+	deployTemplate(nil, nil)
+
+	if deployCalled {
+		t.Error("deployChangesetFunc must NOT be called when the user declines")
+	}
+	if deleteCalled {
+		t.Error("deleteChangesetFunc must NOT be called for a pre-existing changeset on decline")
 	}
 }

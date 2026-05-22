@@ -2,6 +2,7 @@ Unreleased
 ==========
 
 ### Fixed
+- Fixed declining the confirmation prompt in `--deploy-changeset` mode deleting the existing changeset; a pre-existing changeset is now preserved on decline while a newly-created changeset in the normal flow is still cleaned up
 - Fixed drift detection for parameterized Network ACL entries so `Protocol`, `Egress`, and `RuleAction` `Ref` values resolve correctly instead of falling back to empty/default values
 - Fixed deploy result logging to record a failed deployment and emit failure output when the final post-deploy stack lookup fails instead of exiting before finalizing the deployment log
 - Fixed nil-unsafe test assertion helpers to return after fatal nil checks and report `<nil>` values for malformed stack parameters, outputs, and tags instead of panicking

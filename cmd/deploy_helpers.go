@@ -188,8 +188,11 @@ func runDeployChangesetFlow(info *lib.DeployInfo, cfg config.AWSConfig, logObj *
 
 // confirmAndDeployChangeset asks for deployment confirmation and executes
 // the deployment if approved. It returns true when the stack was actually
-// deployed and an error if the deployment execution failed.
-func confirmAndDeployChangeset(changeset *lib.ChangesetInfo, info *lib.DeployInfo, cfg config.AWSConfig) (bool, error) {
+// deployed and an error if the deployment execution failed. When
+// preserveOnDecline is true the changeset is left intact if the user declines
+// (used by --deploy-changeset, where the changeset pre-exists); otherwise a
+// declined, freshly-created changeset is deleted.
+func confirmAndDeployChangeset(changeset *lib.ChangesetInfo, info *lib.DeployInfo, cfg config.AWSConfig, preserveOnDecline bool) (bool, error) {
 	// Defensive guard: a nil changeset has nothing to deploy.
 	if changeset == nil {
 		return false, fmt.Errorf("no changeset available to deploy for %v", info.ChangesetName)
@@ -206,7 +209,10 @@ func confirmAndDeployChangeset(changeset *lib.ChangesetInfo, info *lib.DeployInf
 		}
 		return true, nil
 	}
-	deleteChangesetFunc(*info, cfg)
+	// Preserve a pre-existing changeset on decline; only clean up one created in this run.
+	if !preserveOnDecline {
+		deleteChangesetFunc(*info, cfg)
+	}
 	return false, nil
 }
 
