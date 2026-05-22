@@ -338,11 +338,8 @@ func newFailedDeploymentLog() lib.DeploymentLog {
 func TestPrintLog_FailedEventsRespectStderr(t *testing.T) {
 	// NOTE: Cannot use t.Parallel() because viper uses global state
 
-	viper.Set("output", "table")
-	viper.Set("table.style", "Default")
-	viper.Set("table.max-column-width", 50)
-	viper.Set("use-emoji", false)
-	viper.Set("use-colors", false)
+	setupViperDefaults()
+	t.Cleanup(viper.Reset) // restore global state for other cmd tests
 	viper.Set("output-file", "")
 
 	// Failed-event cell values are preserved verbatim by the table renderer,
@@ -365,12 +362,16 @@ func TestPrintLog_FailedEventsRespectStderr(t *testing.T) {
 	})
 
 	t.Run("useStderr false routes failed events to stdout", func(t *testing.T) {
-		stdout, _ := captureBothStreams(func() {
+		stdout, stderr := captureBothStreams(func() {
 			printLog(newFailedDeploymentLog(), false)
 		})
 
 		// Normal history command path renders to stdout via renderDocument
 		assert.Contains(t, stdout, failedResource)
 		assert.Contains(t, stdout, failedReason)
+
+		// stderr must stay clean so failed events don't leak to both streams
+		assert.NotContains(t, stderr, failedResource)
+		assert.NotContains(t, stderr, failedReason)
 	})
 }
