@@ -257,7 +257,8 @@ func parseWrappedCommandString(commandString string, wrapper string, dialect wra
 func commandPositionHasExpansion(command string, dialect wrappedCommandDialect) bool {
 	switch dialect {
 	case wrappedCommandCmd:
-		return strings.Contains(command, "%")
+		// %VAR% is normal expansion; !VAR! is delayed expansion under cmd /v:on.
+		return strings.ContainsAny(command, "%!")
 	default:
 		return strings.ContainsAny(command, "$`")
 	}

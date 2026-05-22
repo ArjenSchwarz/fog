@@ -411,6 +411,7 @@ func TestRunPrechecksUnsafeWrappedCommand(t *testing.T) {
 		{"cmd flag before c", `cmd /q /c del important.txt`, "unsafe command"},
 		{"cmd operator without whitespace is rejected", `cmd /c echo ok&del important.txt`, "cannot be safely unwrapped"},
 		{"cmd backslash operator is rejected", `cmd /c "echo ok\\&del important.txt"`, "cannot be safely unwrapped"},
+		{"cmd delayed expansion in command position is rejected", `cmd /v:on /c !DANGEROUS! -rf important.txt`, "cannot be safely unwrapped"},
 		{"powershell wrapper", `pwsh -Command "kill 1234"`, "unsafe command"},
 		{"powershell short command prefix", `pwsh -co "rm -rf ."`, "unsafe command"},
 		{"powershell command prefix", `pwsh -Com "rm -rf ."`, "unsafe command"},
