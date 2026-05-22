@@ -2,8 +2,10 @@ package cmd
 
 import (
 	"context"
+	"slices"
 	"testing"
 
+	"github.com/ArjenSchwarz/fog/lib"
 	output "github.com/ArjenSchwarz/go-output/v2"
 )
 
@@ -165,6 +167,62 @@ func TestResources_SortingByType(t *testing.T) {
 	err := out.Render(context.Background(), doc)
 	if err != nil {
 		t.Fatalf("Failed to render sorted output: %v", err)
+	}
+}
+
+// flattenResourcesForOrderCheck reduces resources to a comparable key slice for
+// asserting order in tests. Unique name to avoid collisions in package cmd.
+func flattenResourcesForOrderCheck(resources []lib.CfnResource) []string {
+	keys := make([]string, 0, len(resources))
+	for _, r := range resources {
+		keys = append(keys, r.Type+"|"+r.ResourceID+"|"+r.StackName+"|"+r.LogicalID)
+	}
+	return keys
+}
+
+// TestResources_DeterministicOrderWithinType is the regression test for T-1304.
+// It verifies sortResourcesDeterministically produces a stable total order,
+// including a stable ordering for multiple resources of the SAME type.
+func TestResources_DeterministicOrderWithinType(t *testing.T) {
+	// Several resources share AWS::EC2::Instance so the secondary keys decide order.
+	base := []lib.CfnResource{
+		{Type: "AWS::EC2::Instance", ResourceID: "i-3333", StackName: "stack-b", LogicalID: "WebC"},
+		{Type: "AWS::S3::Bucket", ResourceID: "bucket-a", StackName: "stack-a", LogicalID: "Assets"},
+		{Type: "AWS::EC2::Instance", ResourceID: "i-1111", StackName: "stack-a", LogicalID: "WebA"},
+		{Type: "AWS::EC2::Instance", ResourceID: "i-2222", StackName: "stack-c", LogicalID: "WebB"},
+		{Type: "AWS::EC2::Instance", ResourceID: "i-1111", StackName: "stack-a", LogicalID: "WebD"},
+	}
+
+	// Expected order: by Type, then ResourceID, StackName, LogicalID.
+	want := []string{
+		"AWS::EC2::Instance|i-1111|stack-a|WebA",
+		"AWS::EC2::Instance|i-1111|stack-a|WebD",
+		"AWS::EC2::Instance|i-2222|stack-c|WebB",
+		"AWS::EC2::Instance|i-3333|stack-b|WebC",
+		"AWS::S3::Bucket|bucket-a|stack-a|Assets",
+	}
+
+	first := append([]lib.CfnResource(nil), base...)
+	sortResourcesDeterministically(first)
+	if got := flattenResourcesForOrderCheck(first); !slices.Equal(got, want) {
+		t.Fatalf("unexpected order\n got: %v\nwant: %v", got, want)
+	}
+
+	// Different input permutations must converge to the same order.
+	permutations := [][]int{
+		{4, 3, 2, 1, 0},
+		{2, 0, 4, 1, 3},
+		{1, 4, 0, 3, 2},
+	}
+	for _, perm := range permutations {
+		shuffled := make([]lib.CfnResource, len(base))
+		for i, idx := range perm {
+			shuffled[i] = base[idx]
+		}
+		sortResourcesDeterministically(shuffled)
+		if got := flattenResourcesForOrderCheck(shuffled); !slices.Equal(got, want) {
+			t.Fatalf("permutation %v produced non-deterministic order\n got: %v\nwant: %v", perm, got, want)
+		}
 	}
 }
 

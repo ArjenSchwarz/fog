@@ -22,6 +22,7 @@ THE SOFTWARE.
 package cmd
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"slices"
@@ -84,16 +85,7 @@ func listResources(cmd *cobra.Command, args []string) {
 	}
 	title := fmt.Sprintf("%v in account %v for region %v", subtitle, awsConfig.AccountID, awsConfig.Region)
 
-	// Sort resources by Type
-	slices.SortFunc(resources, func(a, b lib.CfnResource) int {
-		if a.Type < b.Type {
-			return -1
-		}
-		if a.Type > b.Type {
-			return 1
-		}
-		return 0
-	})
+	sortResourcesDeterministically(resources)
 
 	// Build resource data for v2 output
 	data := make([]map[string]any, 0, len(resources))
@@ -123,4 +115,18 @@ func listResources(cmd *cobra.Command, args []string) {
 	if err := renderDocument(context.Background(), doc); err != nil {
 		failWithError(err)
 	}
+}
+
+// sortResourcesDeterministically imposes a stable total order: Type, then
+// ResourceID, StackName, and LogicalID as tiebreakers so resources of the same
+// type always appear in the same order.
+func sortResourcesDeterministically(resources []lib.CfnResource) {
+	slices.SortFunc(resources, func(a, b lib.CfnResource) int {
+		return cmp.Or(
+			cmp.Compare(a.Type, b.Type),
+			cmp.Compare(a.ResourceID, b.ResourceID),
+			cmp.Compare(a.StackName, b.StackName),
+			cmp.Compare(a.LogicalID, b.LogicalID),
+		)
+	})
 }
