@@ -239,7 +239,28 @@ func parseWrappedCommandString(commandString string, wrapper string, dialect wra
 	if hasUnquotedCommandOperators(commandString, dialect) {
 		return nil, fmt.Errorf("%s command strings cannot be safely unwrapped for precheck", wrapper)
 	}
-	return splitShellArgs(commandString)
+	args, err := splitShellArgs(commandString)
+	if err != nil {
+		return nil, err
+	}
+	// The shell expands the command position at runtime, so a non-literal
+	// executable name (e.g. $VAR, ${...}, `...`, %VAR%) cannot be deny-listed.
+	if len(args) > 0 && commandPositionHasExpansion(args[0], dialect) {
+		return nil, fmt.Errorf("%s command strings cannot be safely unwrapped for precheck", wrapper)
+	}
+	return args, nil
+}
+
+// commandPositionHasExpansion reports whether the command-position token
+// contains a dynamic-expansion construct the dialect's shell resolves at
+// runtime, which would defeat literal command name inspection.
+func commandPositionHasExpansion(command string, dialect wrappedCommandDialect) bool {
+	switch dialect {
+	case wrappedCommandCmd:
+		return strings.Contains(command, "%")
+	default:
+		return strings.ContainsAny(command, "$`")
+	}
 }
 
 func hasUnquotedCommandOperators(commandString string, dialect wrappedCommandDialect) bool {
