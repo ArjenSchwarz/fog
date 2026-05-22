@@ -746,6 +746,56 @@ func TestDeployInfo_CreateChangeSet(t *testing.T) {
 			wantErr: true,
 			errMsg:  "Requires CAPABILITY_IAM",
 		},
+		// Regression for T-1316: AWS SDK v2 response fields are pointers, and
+		// mocks/middleware/partial responses can return a nil output with no
+		// error. CreateChangeSet must return a descriptive error instead of
+		// panicking on the *resp.Id dereference.
+		"create changeset returns nil output without error": {
+			deployment: &DeployInfo{
+				StackName:     "test-stack",
+				ChangesetName: "test-changeset",
+				Template:      `{"Resources": {}}`,
+			},
+			setup: func(client *testutil.MockCFNClient) {
+				client.CreateChangeSetFn = func(_ context.Context, _ *cloudformation.CreateChangeSetInput, _ ...func(*cloudformation.Options)) (*cloudformation.CreateChangeSetOutput, error) {
+					return nil, nil
+				}
+			},
+			wantErr: true,
+			errMsg:  "test-stack",
+		},
+		// Regression for T-1316: a non-nil output with a nil Id field must also
+		// return a descriptive error rather than dereferencing a nil pointer.
+		"create changeset returns output with nil id": {
+			deployment: &DeployInfo{
+				StackName:     "test-stack",
+				ChangesetName: "test-changeset",
+				Template:      `{"Resources": {}}`,
+			},
+			setup: func(client *testutil.MockCFNClient) {
+				client.CreateChangeSetFn = func(_ context.Context, _ *cloudformation.CreateChangeSetInput, _ ...func(*cloudformation.Options)) (*cloudformation.CreateChangeSetOutput, error) {
+					return &cloudformation.CreateChangeSetOutput{Id: nil}, nil
+				}
+			},
+			wantErr: true,
+			errMsg:  "test-stack",
+		},
+		// Regression for T-1316: an empty (but non-nil) Id string is also
+		// unusable and must surface as a descriptive error.
+		"create changeset returns output with empty id": {
+			deployment: &DeployInfo{
+				StackName:     "test-stack",
+				ChangesetName: "test-changeset",
+				Template:      `{"Resources": {}}`,
+			},
+			setup: func(client *testutil.MockCFNClient) {
+				client.CreateChangeSetFn = func(_ context.Context, _ *cloudformation.CreateChangeSetInput, _ ...func(*cloudformation.Options)) (*cloudformation.CreateChangeSetOutput, error) {
+					return &cloudformation.CreateChangeSetOutput{Id: strPtr("")}, nil
+				}
+			},
+			wantErr: true,
+			errMsg:  "test-stack",
+		},
 	}
 
 	for name, tc := range tests {
