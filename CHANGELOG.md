@@ -2,6 +2,24 @@ Unreleased
 ==========
 
 ### Fixed
+- Fixed `fog deploy` panicking when `CreateChangeSet` returns no changeset ID; it now returns a descriptive error through the normal deploy error path
+- Fixed panics when AWS returns a partial or empty `DescribeChangeSet` response while parsing changesets (`AddChangeset`); the response is now validated before use
+- Fixed a panic when rendering changeset danger details (`GetDangerDetails`) for a change with a nil target; such entries are now skipped safely
+- Fixed a panic in deploy timing collection (`GetExecutionTimes`) on CloudFormation events with nil timestamp, resource type, or logical ID fields
+- Fixed a startup panic when STS/IAM identity responses are partially populated; AWS config setup now returns a contextual error or continues without an account alias
+- Fixed deploy error paths that bypassed the shared error handler, printing raw log output and ignoring `--debug`; they now route through the standard stderr error path
+- Fixed `describe changeset` writing error diagnostics to stdout, which could corrupt structured output such as `--output json`; errors now go to stderr
+- Fixed failed-event details from a previous deployment leaking to stdout during deploy progress; they now follow the same stderr routing as the rest of the progress output
+- Fixed nondeterministic row ordering in `resource exports` output
+- Fixed nondeterministic ordering in `dependencies` output
+- Fixed nondeterministic ordering of resources within a type in `resource list` output
+- Fixed `--deploy-changeset` continuing into deployment after a nil changeset fetch instead of aborting cleanly
+- Fixed an explicit `--config` path being silently ignored when the file is missing or unreadable; it now fails fast with a clear error while the default config lookup still tolerates a missing file
+- Fixed a precheck safety bypass where shell parameter expansion or environment-variable command names in a wrapped command (e.g. `sh -c 'r${EMPTY:-m} ...'`) could run deny-listed commands; such wrappers are now rejected
+- Fixed Transit Gateway blackhole drift suppression matching the route destination instead of the attachment ID, so `drift.ignore-blackholes` entries had no effect for TGW routes
+- Fixed commands reporting success when a requested `--file` output could not be created; the writer error is now surfaced as a command failure
+- Fixed Markdown report files omitting the Mermaid/Gantt chart when the console output format was non-Markdown but the file format was Markdown or HTML
+- Fixed drift detection turning parameterized Network ACL port and ICMP `Ref` values into `0` instead of resolving them from stack parameters
 - Fixed a bug where declining the confirmation prompt in `--deploy-changeset` mode deleted the existing changeset; a pre-existing changeset is now preserved on decline while a newly-created changeset in the normal flow is still cleaned up
 - Fixed drift detection for parameterized Network ACL entries so `Protocol`, `Egress`, and `RuleAction` `Ref` values resolve correctly instead of falling back to empty/default values
 - Fixed deploy result logging to record a failed deployment and emit failure output when the final post-deploy stack lookup fails instead of exiting before finalizing the deployment log
