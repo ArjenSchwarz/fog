@@ -1115,9 +1115,11 @@ func TestDeployInfo_AddChangeset_PartialResponses(t *testing.T) {
 	}
 
 	tests := map[string]struct {
-		resp    []cloudformation.DescribeChangeSetOutput
-		wantErr bool
-		errMsg  string
+		resp           []cloudformation.DescribeChangeSetOutput
+		wantErr        bool
+		errMsg         string
+		wantChangeLen  int
+		assertChangeID string
 	}{
 		"empty response slice": {
 			resp:    []cloudformation.DescribeChangeSetOutput{},
@@ -1186,6 +1188,25 @@ func TestDeployInfo_AddChangeset_PartialResponses(t *testing.T) {
 			}(),
 			wantErr: false,
 		},
+		"skips changes with nil ResourceChange": {
+			resp: func() []cloudformation.DescribeChangeSetOutput {
+				r := validResp()
+				r.Changes = []types.Change{
+					// Entry with a nil ResourceChange must be skipped
+					// instead of panicking when the change loop runs.
+					{ResourceChange: nil},
+					{ResourceChange: &types.ResourceChange{
+						Action:            types.ChangeActionAdd,
+						LogicalResourceId: strPtr("MyResource"),
+						ResourceType:      strPtr("AWS::S3::Bucket"),
+					}},
+				}
+				return []cloudformation.DescribeChangeSetOutput{r}
+			}(),
+			wantErr:        false,
+			wantChangeLen:  1,
+			assertChangeID: "MyResource",
+		},
 	}
 
 	for name, tc := range tests {
@@ -1211,6 +1232,13 @@ func TestDeployInfo_AddChangeset_PartialResponses(t *testing.T) {
 			assert.Equal(t, "test-changeset", changeset.Name)
 			assert.Equal(t, deployment.StackArn, changeset.StackID)
 			require.NotNil(t, deployment.Changeset)
+
+			if tc.wantChangeLen > 0 || tc.assertChangeID != "" {
+				require.Len(t, changeset.Changes, tc.wantChangeLen)
+				if tc.assertChangeID != "" {
+					assert.Equal(t, tc.assertChangeID, changeset.Changes[0].LogicalID)
+				}
+			}
 		})
 	}
 }

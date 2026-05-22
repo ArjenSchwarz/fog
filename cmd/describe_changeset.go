@@ -89,8 +89,7 @@ func describeChangeset(cmd *cobra.Command, args []string) {
 	changeset, err := deployment.AddChangeset(rawchangeset)
 	if err != nil {
 		message := fmt.Sprintf(string(texts.DeployChangesetMessageRetrieveFailed), deployment.ChangesetName)
-		fmt.Print(output.StyleNegative(message))
-		fmt.Print(output.StyleNegative(err.Error()))
+		fmt.Println(output.StyleNegative(fmt.Sprintf("%s: %s", message, err.Error())))
 		os.Exit(1)
 	}
 	buildAndRenderChangeset(changeset, deployment, awsConfig)
