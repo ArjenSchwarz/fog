@@ -111,6 +111,12 @@ func GetStackAndChangesetFromURL(changeseturl string, region string) (string, st
 func (changes *ChangesetChanges) GetDangerDetails() []string {
 	details := []string{}
 	for _, detail := range changes.Details {
+		// In AWS SDK v2, ResourceChangeDetail.Target is a pointer that a
+		// partial or malformed DescribeChangeSet response may leave nil.
+		// Skip such details rather than dereferencing a nil pointer.
+		if detail.Target == nil {
+			continue
+		}
 		if detail.Target.RequiresRecreation != "Never" {
 			change := fmt.Sprintf("%v: %v - %v", detail.Evaluation, detail.Target.Attribute, aws.ToString(detail.CausingEntity))
 			details = append(details, change)

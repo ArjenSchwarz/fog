@@ -417,6 +417,48 @@ func TestChangesetChanges_GetDangerDetails(t *testing.T) {
 			},
 			want: []string{"Static: Properties.BucketName - BucketName"},
 		},
+		// Regression test for T-1117: a partial/malformed DescribeChangeSet
+		// response can leave ResourceChangeDetail.Target nil. GetDangerDetails
+		// must not panic when dereferencing the nil pointer; it should skip the
+		// detail rather than crash.
+		"nil target detail is skipped": {
+			changes: ChangesetChanges{
+				Action:    "Modify",
+				LogicalID: "Resource1",
+				Type:      "AWS::S3::Bucket",
+				Details: []types.ResourceChangeDetail{
+					{
+						Evaluation:    types.EvaluationTypeStatic,
+						Target:        nil,
+						CausingEntity: aws.String("BucketName"),
+					},
+				},
+			},
+			want: []string{},
+		},
+		"nil target detail among valid details": {
+			changes: ChangesetChanges{
+				Action:    "Modify",
+				LogicalID: "Resource1",
+				Type:      "AWS::S3::Bucket",
+				Details: []types.ResourceChangeDetail{
+					{
+						Evaluation:    types.EvaluationTypeStatic,
+						Target:        nil,
+						CausingEntity: aws.String("Unknown"),
+					},
+					{
+						Evaluation: types.EvaluationTypeStatic,
+						Target: &types.ResourceTargetDefinition{
+							Attribute:          "Properties.BucketName",
+							RequiresRecreation: "Always",
+						},
+						CausingEntity: aws.String("BucketName"),
+					},
+				},
+			},
+			want: []string{"Static: Properties.BucketName - BucketName"},
+		},
 	}
 
 	for name, tc := range tests {
