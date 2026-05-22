@@ -86,8 +86,8 @@ func showDependencies(cmd *cobra.Command, args []string) {
 			continue
 		}
 		row := map[string]any{
-			"Stack":       stack.Name,
-			"Description": stack.Description,
+			colStack:       stack.Name,
+			colDescription: stack.Description,
 			// Pass array directly - v2 handles array rendering automatically
 			"Imported By": unique(stack.ImportedBy),
 		}
@@ -99,7 +99,7 @@ func showDependencies(cmd *cobra.Command, args []string) {
 		Table(
 			title,
 			data,
-			output.WithKeys("Stack", "Description", "Imported By"),
+			output.WithKeys(colStack, colDescription, "Imported By"),
 		).
 		Build()
 

@@ -266,11 +266,11 @@ func getDefaultExtension(format string) string {
 	case outputFormatHTML:
 		return ".html"
 	case "json":
-		return ".json"
+		return extJSON
 	case "csv":
 		return ".csv"
 	case "yaml":
-		return ".yaml"
+		return extYAML
 	case "dot":
 		return ".dot"
 	case "table":
@@ -305,7 +305,7 @@ func generateStackReport(ctx context.Context, stack lib.CfnStack, doc *output.Bu
 
 		// Create metadata table
 		metadataTitle, metadataData := createMetadataTable(stack, event, awsConfig)
-		doc.Table(metadataTitle, metadataData, output.WithKeys("Stack", "Account", "Region", "Type", "Start time", "Duration", "Success"))
+		doc.Table(metadataTitle, metadataData, output.WithKeys(colStack, colAccount, colRegion, sortKeyType, colStartTime, colDuration, colSuccess))
 
 		// Create events table (data is sorted within the helper function)
 		eventTitle, eventKeys, eventData := createEventsTable(stack, event)
@@ -414,9 +414,9 @@ func buildSimpleHTMLTable(data map[string]any) string {
 
 // createEventsTable creates the data for the resource events table
 func createEventsTable(stack lib.CfnStack, event lib.StackEvent) (string, []string, []map[string]any) {
-	keys := []string{"Action", "CfnName", "Type", "ID", "Start time", "Duration", "Success"}
+	keys := []string{colAction, colCfnName, sortKeyType, "ID", colStartTime, colDuration, colSuccess}
 	if !event.Success {
-		keys = append(keys, "Reason")
+		keys = append(keys, colReason)
 	}
 
 	title := fmt.Sprintf("Event details of %s - %s event - Started %s",
@@ -435,7 +435,7 @@ func createEventsTable(stack lib.CfnStack, event lib.StackEvent) (string, []stri
 	// 2. Other sorting in this file (stack names, Gantt tasks) can't use transformations,
 	//    so keeping consistent approach across all sorting operations
 	sort.Slice(data, func(i, j int) bool {
-		return data[i]["Start time"].(string) < data[j]["Start time"].(string)
+		return data[i][colStartTime].(string) < data[j][colStartTime].(string)
 	})
 
 	return title, keys, data
@@ -492,13 +492,13 @@ func createMetadataTable(stack lib.CfnStack, event lib.StackEvent, awsConfig con
 
 	data := []map[string]any{
 		{
-			"Stack":      stack.Name,
-			"Account":    awsConfig.GetAccountAliasID(),
-			"Region":     awsConfig.Region,
-			"Type":       event.Type,
-			"Start time": event.StartDate.In(settings.GetTimezoneLocation()).Format(time.RFC3339),
-			"Duration":   event.GetDuration().Round(time.Second).String(),
-			"Success":    event.Success,
+			colStack:     stack.Name,
+			colAccount:   awsConfig.GetAccountAliasID(),
+			colRegion:    awsConfig.Region,
+			sortKeyType:  event.Type,
+			colStartTime: event.StartDate.In(settings.GetTimezoneLocation()).Format(time.RFC3339),
+			colDuration:  event.GetDuration().Round(time.Second).String(),
+			colSuccess:   event.Success,
 		},
 	}
 
@@ -507,17 +507,17 @@ func createMetadataTable(stack lib.CfnStack, event lib.StackEvent, awsConfig con
 
 func createTableResourceData(resource lib.ResourceEvent, event lib.StackEvent) map[string]any {
 	content := map[string]any{
-		"Action":     resource.EventType,
-		"CfnName":    resource.Resource.LogicalID,
-		"Type":       resource.Resource.Type,
+		colAction:    resource.EventType,
+		colCfnName:   resource.Resource.LogicalID,
+		sortKeyType:  resource.Resource.Type,
 		"ID":         resource.Resource.ResourceID,
-		"Start time": resource.StartDate.In(settings.GetTimezoneLocation()).Format(time.RFC3339),
-		"Duration":   resource.GetDuration().Round(time.Second).String(),
-		"Success":    resource.EndStatus == resource.ExpectedEndStatus,
+		colStartTime: resource.StartDate.In(settings.GetTimezoneLocation()).Format(time.RFC3339),
+		colDuration:  resource.GetDuration().Round(time.Second).String(),
+		colSuccess:   resource.EndStatus == resource.ExpectedEndStatus,
 	}
 
 	if !event.Success {
-		content["Reason"] = resource.EndStatusReason
+		content[colReason] = resource.EndStatusReason
 	}
 
 	return content

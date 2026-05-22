@@ -78,7 +78,7 @@ func detectDrift(cmd *cobra.Command, args []string) {
 	}
 	svc := awsConfig.CloudformationClient()
 	resultTitle := "Drift results for stack " + driftFlags.StackName
-	keys := []string{"LogicalId", "Type", "ChangeType", "Details"}
+	keys := []string{"LogicalId", sortKeyType, "ChangeType", colDetails}
 
 	if !driftFlags.ResultsOnly {
 		driftid, err := lib.StartDriftDetection(ctx, &driftFlags.StackName, svc)
@@ -126,7 +126,7 @@ func detectDrift(cmd *cobra.Command, args []string) {
 		}
 		content := make(map[string]any)
 		content["LogicalId"] = aws.ToString(drift.LogicalResourceId)
-		content["Type"] = aws.ToString(drift.ResourceType)
+		content[sortKeyType] = aws.ToString(drift.ResourceType)
 		changetype := string(drift.StackResourceDriftStatus)
 		if drift.StackResourceDriftStatus == types.StackResourceDriftStatusDeleted {
 			changetype = output.StyleWarning(changetype)
@@ -185,11 +185,11 @@ func detectDrift(cmd *cobra.Command, args []string) {
 				for _, property := range properties {
 					separateContent := make(map[string]any)
 					maps.Copy(separateContent, content)
-					separateContent["Details"] = property
+					separateContent[colDetails] = property
 					rows = append(rows, separateContent)
 				}
 			} else {
-				content["Details"] = properties
+				content[colDetails] = properties
 				rows = append(rows, content)
 			}
 		}
@@ -212,9 +212,9 @@ func detectDrift(cmd *cobra.Command, args []string) {
 			Table(
 				resultTitle,
 				[]map[string]any{
-					{"Status": "No drift detected"},
+					{colStatus: "No drift detected"},
 				},
-				output.WithKeys("Status"),
+				output.WithKeys(colStatus),
 			).
 			Build()
 		if err := renderDocument(context.Background(), doc); err != nil {
@@ -335,9 +335,9 @@ func checkIfResourcesAreManaged(allresources map[string]string, logicalToPhysica
 			}
 			content := make(map[string]any)
 			content["LogicalId"] = resource
-			content["Type"] = resourcetype
+			content[sortKeyType] = resourcetype
 			content["ChangeType"] = "UNMANAGED"
-			content["Details"] = "Not managed by this CloudFormation stack"
+			content[colDetails] = "Not managed by this CloudFormation stack"
 			*rows = append(*rows, content)
 		}
 	}
@@ -383,17 +383,17 @@ func checkNaclEntries(ctx context.Context, naclResources map[string]string, temp
 				for _, change := range rulechanges {
 					content := make(map[string]any)
 					content["LogicalId"] = fmt.Sprintf("Entry for NACL %s", logicalId)
-					content["Type"] = "AWS::EC2::NetworkACLEntry"
+					content[sortKeyType] = "AWS::EC2::NetworkACLEntry"
 					content["ChangeType"] = string(types.StackResourceDriftStatusModified)
-					content["Details"] = change
+					content[colDetails] = change
 					*rows = append(*rows, content)
 				}
 			} else {
 				content := make(map[string]any)
 				content["LogicalId"] = fmt.Sprintf("Entries for NACL %s", logicalId)
-				content["Type"] = "AWS::EC2::NetworkACLEntry"
+				content[sortKeyType] = "AWS::EC2::NetworkACLEntry"
 				content["ChangeType"] = string(types.StackResourceDriftStatusModified)
-				content["Details"] = rulechanges
+				content[colDetails] = rulechanges
 				*rows = append(*rows, content)
 			}
 		}
@@ -455,17 +455,17 @@ func checkRouteTableRoutes(ctx context.Context, routetableResources map[string]s
 				for _, change := range rulechanges {
 					content := make(map[string]any)
 					content["LogicalId"] = fmt.Sprintf("Route for RouteTable %s", logicalId)
-					content["Type"] = "AWS::EC2::Route"
+					content[sortKeyType] = "AWS::EC2::Route"
 					content["ChangeType"] = string(types.StackResourceDriftStatusModified)
-					content["Details"] = change
+					content[colDetails] = change
 					*rows = append(*rows, content)
 				}
 			} else {
 				content := make(map[string]any)
 				content["LogicalId"] = fmt.Sprintf("Routes for RouteTable %s", logicalId)
-				content["Type"] = "AWS::EC2::Route"
+				content[sortKeyType] = "AWS::EC2::Route"
 				content["ChangeType"] = string(types.StackResourceDriftStatusModified)
-				content["Details"] = rulechanges
+				content[colDetails] = rulechanges
 				*rows = append(*rows, content)
 			}
 		}
@@ -549,17 +549,17 @@ func checkTransitGatewayRouteTableRoutes(ctx context.Context, tgwRouteTableResou
 				for _, change := range rulechanges {
 					content := make(map[string]any)
 					content["LogicalId"] = fmt.Sprintf("Route for TransitGatewayRouteTable %s", logicalId)
-					content["Type"] = "AWS::EC2::TransitGatewayRoute"
+					content[sortKeyType] = "AWS::EC2::TransitGatewayRoute"
 					content["ChangeType"] = string(types.StackResourceDriftStatusModified)
-					content["Details"] = change
+					content[colDetails] = change
 					*rows = append(*rows, content)
 				}
 			} else {
 				content := make(map[string]any)
 				content["LogicalId"] = fmt.Sprintf("Routes for TransitGatewayRouteTable %s", logicalId)
-				content["Type"] = "AWS::EC2::TransitGatewayRoute"
+				content[sortKeyType] = "AWS::EC2::TransitGatewayRoute"
 				content["ChangeType"] = string(types.StackResourceDriftStatusModified)
-				content["Details"] = rulechanges
+				content[colDetails] = rulechanges
 				*rows = append(*rows, content)
 			}
 		}
@@ -634,7 +634,7 @@ func extractTagKeyValue(tag any) (string, string, bool) {
 		return "", "", false
 	}
 	key, keyOk := tagMap["Key"].(string)
-	value, valueOk := tagMap["Value"].(string)
+	value, valueOk := tagMap[colValue].(string)
 	if !keyOk || !valueOk {
 		return "", "", false
 	}
@@ -754,7 +754,7 @@ func tagDifferences(property types.PropertyDifference, handledtags []string, tag
 				if tags["Expected"] == tags["Actual"] {
 					return fmt.Sprintf("%s: Tag %s sequence change", property.DifferenceType, aws.ToString(property.ExpectedValue)), pathsplit[2]
 				}
-			} else if pathsplit[3] == "Value" && stringInSlice(pathsplit[2], handledtags) {
+			} else if pathsplit[3] == colValue && stringInSlice(pathsplit[2], handledtags) {
 				return "", ""
 			}
 		}

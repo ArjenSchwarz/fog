@@ -72,9 +72,9 @@ func listResources(cmd *cobra.Command, args []string) {
 	}
 
 	// Build column keys based on verbose flag
-	keys := []string{"Type", "ID", "Stack"}
+	keys := []string{sortKeyType, "ID", colStack}
 	if settings.GetBool("verbose") {
-		keys = append(keys, []string{"LogicalID", "Status"}...)
+		keys = append(keys, []string{"LogicalID", colStatus}...)
 	}
 
 	// Build title
@@ -99,13 +99,13 @@ func listResources(cmd *cobra.Command, args []string) {
 	data := make([]map[string]any, 0, len(resources))
 	for _, resource := range resources {
 		row := map[string]any{
-			"Type":  resource.Type,
-			"ID":    resource.ResourceID,
-			"Stack": resource.StackName,
+			sortKeyType: resource.Type,
+			"ID":        resource.ResourceID,
+			colStack:    resource.StackName,
 		}
 		if settings.GetBool("verbose") {
 			row["LogicalID"] = resource.LogicalID
-			row["Status"] = resource.Status
+			row[colStatus] = resource.Status
 		}
 		data = append(data, row)
 	}

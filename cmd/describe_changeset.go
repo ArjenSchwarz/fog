@@ -92,7 +92,7 @@ func describeChangeset(cmd *cobra.Command, args []string) {
 
 func buildBasicStackInfo(deployment lib.DeployInfo, showDryRunInfo bool, awsConfig config.AWSConfig) *output.Builder {
 	stacktitle := "CloudFormation stack information"
-	keys := []string{"StackName", "Account", "Region", "Action"}
+	keys := []string{"StackName", colAccount, colRegion, colAction}
 	if showDryRunInfo {
 		keys = append(keys, "Is dry run")
 	}
@@ -100,13 +100,13 @@ func buildBasicStackInfo(deployment lib.DeployInfo, showDryRunInfo bool, awsConf
 	// , "StackStatus", "StackStatusReason", "CreationTime", "StackDescription"
 	content := make(map[string]any)
 	content["StackName"] = deployment.GetCleanedStackName()
-	content["Account"] = awsConfig.GetAccountAliasID()
-	content["Region"] = awsConfig.Region
+	content[colAccount] = awsConfig.GetAccountAliasID()
+	content[colRegion] = awsConfig.Region
 	action := "Update"
 	if deployment.IsNew {
 		action = "Create"
 	}
-	content["Action"] = action
+	content[colAction] = action
 	if showDryRunInfo {
 		// Use emoji directly - EmojiTransformer will handle format-specific rendering
 		dryRunValue := "❌"
@@ -134,7 +134,7 @@ func addStackInfoSection(
 	showDryRunInfo bool,
 ) *output.Builder {
 	stacktitle := "CloudFormation stack information"
-	keys := []string{"StackName", "Account", "Region", "Action"}
+	keys := []string{"StackName", colAccount, colRegion, colAction}
 	if showDryRunInfo {
 		keys = append(keys, "Is dry run")
 	}
@@ -145,13 +145,13 @@ func addStackInfoSection(
 
 	content := make(map[string]any)
 	content["StackName"] = deployment.GetCleanedStackName()
-	content["Account"] = awsConfig.GetAccountAliasID()
-	content["Region"] = awsConfig.Region
+	content[colAccount] = awsConfig.GetAccountAliasID()
+	content[colRegion] = awsConfig.Region
 	action := "Update"
 	if deployment.IsNew {
 		action = "Create"
 	}
-	content["Action"] = action
+	content[colAction] = action
 	if showDryRunInfo {
 		dryRunValue := "❌"
 		if deployment.IsDryRun {
@@ -199,10 +199,10 @@ func buildChangesetData(
 		if action == eventTypeRemove {
 			action = bold(action)
 		}
-		changeContent["Action"] = action
-		changeContent["Replacement"] = change.Replacement
-		changeContent["CfnName"] = change.LogicalID
-		changeContent["Type"] = change.Type
+		changeContent[colAction] = action
+		changeContent[colReplacement] = change.Replacement
+		changeContent[colCfnName] = change.LogicalID
+		changeContent[sortKeyType] = change.Type
 		changeContent["ID"] = change.ResourceID
 		if hasModule {
 			changeContent["Module"] = change.Module
@@ -217,12 +217,12 @@ func buildChangesetData(
 			change.Replacement == replacementConditional ||
 			change.Replacement == replacementTrue {
 			dangerContent := make(map[string]any)
-			dangerContent["Action"] = action // Already bolded if Remove
-			dangerContent["Replacement"] = change.Replacement
-			dangerContent["CfnName"] = change.LogicalID
-			dangerContent["Type"] = change.Type
+			dangerContent[colAction] = action // Already bolded if Remove
+			dangerContent[colReplacement] = change.Replacement
+			dangerContent[colCfnName] = change.LogicalID
+			dangerContent[sortKeyType] = change.Type
 			dangerContent["ID"] = change.ResourceID
-			dangerContent["Details"] = change.GetDangerDetails()
+			dangerContent[colDetails] = change.GetDangerDetails()
 			if hasModule {
 				dangerContent["Module"] = change.Module
 			}
@@ -253,7 +253,7 @@ func addChangesetSections(
 	changeRows, summaryContent, dangerRows := buildChangesetData(changeset.Changes, changeset.HasModule)
 
 	// Add changes table
-	changesetkeys := []string{"Action", "CfnName", "Type", "ID", "Replacement"}
+	changesetkeys := []string{colAction, colCfnName, sortKeyType, "ID", colReplacement}
 	if changeset.HasModule {
 		changesetkeys = append(changesetkeys, "Module")
 	}
@@ -270,7 +270,7 @@ func addChangesetSections(
 		// - Table: shows title with no rows (acceptable)
 		// - JSON/YAML: includes table with empty data array
 		// - CSV: no rows for this section
-		dangerKeys := []string{"Action", "CfnName", "Type", "ID", "Replacement", "Details"}
+		dangerKeys := []string{colAction, colCfnName, sortKeyType, "ID", colReplacement, colDetails}
 		if changeset.HasModule {
 			dangerKeys = append(dangerKeys, "Module")
 		}
@@ -280,7 +280,7 @@ func addChangesetSections(
 			output.WithKeys(dangerKeys...),
 		)
 	} else {
-		dangerKeys := []string{"Action", "CfnName", "Type", "ID", "Replacement", "Details"}
+		dangerKeys := []string{colAction, colCfnName, sortKeyType, "ID", colReplacement, colDetails}
 		if changeset.HasModule {
 			dangerKeys = append(dangerKeys, "Module")
 		}
@@ -381,7 +381,7 @@ func buildChangesetDocument(builder *output.Builder, title string, summaryTitle 
 	}
 
 	bold := color.New(color.Bold).SprintFunc()
-	changesetkeys := []string{"Action", "CfnName", "Type", "ID", "Replacement"}
+	changesetkeys := []string{colAction, colCfnName, sortKeyType, "ID", colReplacement}
 	if hasModule {
 		changesetkeys = append(changesetkeys, "Module")
 	}
@@ -396,10 +396,10 @@ func buildChangesetDocument(builder *output.Builder, title string, summaryTitle 
 			if action == eventTypeRemove {
 				action = bold(action)
 			}
-			content["Action"] = action
-			content["Replacement"] = change.Replacement
-			content["CfnName"] = change.LogicalID
-			content["Type"] = change.Type
+			content[colAction] = action
+			content[colReplacement] = change.Replacement
+			content[colCfnName] = change.LogicalID
+			content[sortKeyType] = change.Type
 			content["ID"] = change.ResourceID
 			if hasModule {
 				content["Module"] = change.Module
@@ -417,7 +417,7 @@ func buildChangesetDocument(builder *output.Builder, title string, summaryTitle 
 
 		// Add danger table
 		destructivechanges := "Potentially destructive changes"
-		dangerKeys := []string{"Action", "CfnName", "Type", "ID", "Replacement", "Details"}
+		dangerKeys := []string{colAction, colCfnName, sortKeyType, "ID", colReplacement, colDetails}
 		if hasModule {
 			dangerKeys = append(dangerKeys, "Module")
 		}
@@ -429,12 +429,12 @@ func buildChangesetDocument(builder *output.Builder, title string, summaryTitle 
 				if action == eventTypeRemove {
 					action = bold(action)
 				}
-				content["Action"] = action
-				content["Replacement"] = change.Replacement
-				content["CfnName"] = change.LogicalID
-				content["Type"] = change.Type
+				content[colAction] = action
+				content[colReplacement] = change.Replacement
+				content[colCfnName] = change.LogicalID
+				content[sortKeyType] = change.Type
 				content["ID"] = change.ResourceID
-				content["Details"] = change.GetDangerDetails()
+				content[colDetails] = change.GetDangerDetails()
 				if hasModule {
 					content["Module"] = change.Module
 				}

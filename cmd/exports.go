@@ -69,7 +69,7 @@ func listExports(cmd *cobra.Command, args []string) {
 	}
 
 	// Build column keys based on verbose flag
-	keys := []string{"Export", "Value"}
+	keys := []string{colExport, colValue}
 	if settings.GetBool("verbose") {
 		keys = append(keys, "Imported By")
 	}
@@ -85,8 +85,8 @@ func listExports(cmd *cobra.Command, args []string) {
 	data := make([]map[string]any, 0, len(exports))
 	for _, resource := range exports {
 		row := map[string]any{
-			"Export": resource.ExportName,
-			"Value":  resource.OutputValue,
+			colExport: resource.ExportName,
+			colValue:  resource.OutputValue,
 		}
 		if settings.GetBool("verbose") {
 			// Pass array directly - v2 handles array rendering automatically

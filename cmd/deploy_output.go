@@ -53,12 +53,12 @@ func outputSuccessResult(deployment *lib.DeployInfo) error {
 	// Build deployment summary table
 	summaryData := []map[string]any{
 		{
-			"Status":     stackStatus,
+			colStatus:    stackStatus,
 			"Stack ARN":  deployment.StackArn,
 			"Changeset":  changesetID,
 			"Start Time": deployment.DeploymentStart.Format(time.RFC3339),
 			"End Time":   deployment.DeploymentEnd.Format(time.RFC3339),
-			"Duration":   duration.String(),
+			colDuration:  duration.String(),
 		},
 	}
 
@@ -66,7 +66,7 @@ func outputSuccessResult(deployment *lib.DeployInfo) error {
 		Table(
 			"Deployment Summary",
 			summaryData,
-			output.WithKeys("Status", "Stack ARN", "Changeset", "Start Time", "End Time", "Duration"),
+			output.WithKeys(colStatus, "Stack ARN", "Changeset", "Start Time", "End Time", colDuration),
 		)
 
 	// Build planned changes table
@@ -74,17 +74,17 @@ func outputSuccessResult(deployment *lib.DeployInfo) error {
 		changesData := make([]map[string]any, 0, len(deployment.CapturedChangeset.Changes))
 		for _, change := range deployment.CapturedChangeset.Changes {
 			changesData = append(changesData, map[string]any{
-				"Action":      change.Action,
-				"LogicalID":   change.LogicalID,
-				"Type":        change.Type,
-				"ResourceID":  change.ResourceID,
-				"Replacement": change.Replacement,
+				colAction:      change.Action,
+				"LogicalID":    change.LogicalID,
+				sortKeyType:    change.Type,
+				"ResourceID":   change.ResourceID,
+				colReplacement: change.Replacement,
 			})
 		}
 		builder = builder.Table(
 			"Planned Changes",
 			changesData,
-			output.WithKeys("Action", "LogicalID", "Type", "ResourceID", "Replacement"),
+			output.WithKeys(colAction, "LogicalID", sortKeyType, "ResourceID", colReplacement),
 		)
 	}
 
@@ -97,15 +97,15 @@ func outputSuccessResult(deployment *lib.DeployInfo) error {
 				description = *outputItem.Description
 			}
 			outputsData = append(outputsData, map[string]any{
-				"OutputKey":   aws.ToString(outputItem.OutputKey),
-				"OutputValue": aws.ToString(outputItem.OutputValue),
-				"Description": description,
+				"OutputKey":    aws.ToString(outputItem.OutputKey),
+				"OutputValue":  aws.ToString(outputItem.OutputValue),
+				colDescription: description,
 			})
 		}
 		builder = builder.Table(
 			"Stack Outputs",
 			outputsData,
-			output.WithKeys("OutputKey", "OutputValue", "Description"),
+			output.WithKeys("OutputKey", "OutputValue", colDescription),
 		)
 	}
 
@@ -144,7 +144,7 @@ func outputNoChangesResult(deployment *lib.DeployInfo) error {
 	stackData := []map[string]any{
 		{
 			"Stack Name":   deployment.StackName,
-			"Status":       stackStatus,
+			colStatus:      stackStatus,
 			"ARN":          deployment.StackArn,
 			"Last Updated": lastUpdatedStr,
 		},
@@ -155,7 +155,7 @@ func outputNoChangesResult(deployment *lib.DeployInfo) error {
 		Table(
 			"Stack Information",
 			stackData,
-			output.WithKeys("Stack Name", "Status", "ARN", "Last Updated"),
+			output.WithKeys("Stack Name", colStatus, "ARN", "Last Updated"),
 		)
 
 	// Render to console and file (if configured)
@@ -240,7 +240,7 @@ func outputFailureResult(deployment *lib.DeployInfo, eventsClient lib.CloudForma
 	statusData := []map[string]any{
 		{
 			"Stack ARN":     deployment.StackArn,
-			"Status":        stackStatus,
+			colStatus:       stackStatus,
 			"Status Reason": statusReason,
 			"Timestamp":     timestampStr,
 		},
@@ -252,7 +252,7 @@ func outputFailureResult(deployment *lib.DeployInfo, eventsClient lib.CloudForma
 		Table(
 			"Stack Status",
 			statusData,
-			output.WithKeys("Stack ARN", "Status", "Status Reason", "Timestamp"),
+			output.WithKeys("Stack ARN", colStatus, "Status Reason", "Timestamp"),
 		)
 
 	// Extract and add failed resources table
@@ -262,15 +262,15 @@ func outputFailureResult(deployment *lib.DeployInfo, eventsClient lib.CloudForma
 		for _, resource := range failedResources {
 			failedData = append(failedData, map[string]any{
 				"Logical ID": resource.LogicalID,
-				"Type":       resource.ResourceType,
-				"Status":     resource.ResourceStatus,
-				"Reason":     resource.StatusReason,
+				sortKeyType:  resource.ResourceType,
+				colStatus:    resource.ResourceStatus,
+				colReason:    resource.StatusReason,
 			})
 		}
 		builder = builder.Table(
 			"Failed Resources",
 			failedData,
-			output.WithKeys("Logical ID", "Type", "Status", "Reason"),
+			output.WithKeys("Logical ID", sortKeyType, colStatus, colReason),
 		)
 	}
 
