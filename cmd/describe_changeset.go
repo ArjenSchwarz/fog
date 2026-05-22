@@ -23,6 +23,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 
@@ -38,6 +39,14 @@ const (
 	replacementConditional = "Conditional"
 	replacementTrue        = "True"
 )
+
+// errChangesetURLMutuallyExclusive is returned when both --changeset and --url
+// are supplied to the describe changeset command.
+var errChangesetURLMutuallyExclusive = errors.New("you can only use one of the following flags: changeset, url")
+
+// renderChangesetDocument renders the changeset document. It is a variable so
+// tests can inject render failures to exercise the error path.
+var renderChangesetDocument = renderDocument
 
 // changesetCmd represents the changeset command
 var changesetCmd = &cobra.Command{
@@ -58,13 +67,15 @@ func init() {
 
 func describeChangeset(cmd *cobra.Command, args []string) {
 	ctx := context.Background()
+	// Validate flags before loading AWS config so invalid input fails fast.
+	if describeFlags.ChangesetName != "" && describeFlags.ChangesetUrl != "" {
+		failWithError(errChangesetURLMutuallyExclusive)
+		return
+	}
 	awsConfig, err := config.DefaultAwsConfig(ctx, *settings)
 	if err != nil {
 		failWithError(err)
-	}
-	if describeFlags.ChangesetName != "" && describeFlags.ChangesetUrl != "" {
-		fmt.Println(output.StyleNegative("You can only use one of the following flags: changeset, url"))
-		os.Exit(1)
+		return
 	}
 	if describeFlags.ChangesetUrl != "" {
 		stackid, changesetid, err := lib.GetStackAndChangesetFromURL(describeFlags.ChangesetUrl, awsConfig.Region)
@@ -82,17 +93,27 @@ func describeChangeset(cmd *cobra.Command, args []string) {
 	deployment.IsDryRun = false
 	rawchangeset, err := deployment.GetChangeset(ctx, awsConfig.CloudformationClient())
 	if err != nil {
-		message := fmt.Sprintf(string(texts.DeployChangesetMessageRetrieveFailed), deployment.ChangesetName)
-		fmt.Print(output.StyleNegative(message))
-		os.Exit(1)
+		reportRetrieveChangesetFailure(deployment.ChangesetName, err)
+		return
 	}
 	changeset, err := deployment.AddChangeset(rawchangeset)
 	if err != nil {
-		message := fmt.Sprintf(string(texts.DeployChangesetMessageRetrieveFailed), deployment.ChangesetName)
-		fmt.Println(output.StyleNegative(fmt.Sprintf("%s: %s", message, err.Error())))
-		os.Exit(1)
+		reportRetrieveChangesetFailure(deployment.ChangesetName, err)
+		return
 	}
 	buildAndRenderChangeset(changeset, deployment, awsConfig)
+}
+
+// reportRetrieveChangesetFailure reports a changeset retrieval failure on stderr
+// and exits through osExitFunc so tests can intercept the exit and structured
+// stdout stays uncontaminated. A nil err omits the error detail line.
+func reportRetrieveChangesetFailure(changesetName string, err error) {
+	message := fmt.Sprintf(string(texts.DeployChangesetMessageRetrieveFailed), changesetName)
+	printMessage(formatError(message))
+	if err != nil {
+		printMessage(formatError(err.Error()))
+	}
+	osExitFunc(1)
 }
 
 func buildBasicStackInfo(deployment lib.DeployInfo, showDryRunInfo bool, awsConfig config.AWSConfig) *output.Builder {
@@ -324,9 +345,8 @@ func buildAndRenderChangeset(
 
 	// Build and render the complete document
 	doc := builder.Build()
-	if err := renderDocument(context.Background(), doc); err != nil {
-		fmt.Printf("ERROR: Failed to render changeset: %v\n", err)
-		os.Exit(1)
+	if err := renderChangesetDocument(context.Background(), doc); err != nil {
+		failWithError(fmt.Errorf("failed to render changeset: %w", err))
 	}
 }
 
