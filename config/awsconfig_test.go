@@ -363,9 +363,6 @@ func TestMockIAMClient_ListAccountAliases(t *testing.T) {
 	}
 }
 
-// strptr is a small helper for building *string AWS SDK fields in tests.
-func strptr(s string) *string { return &s }
-
 // TestResolveCallerInfo is a regression test for T-1110.
 //
 // STS GetCallerIdentity returns *string fields for Account and UserId. The
@@ -388,8 +385,8 @@ func TestResolveCallerInfo(t *testing.T) {
 			client: &mockSTSClient{
 				getCallerIdentityFn: func(ctx context.Context, params *sts.GetCallerIdentityInput, optFns ...func(*sts.Options)) (*sts.GetCallerIdentityOutput, error) {
 					return &sts.GetCallerIdentityOutput{
-						Account: strptr("123456789012"),
-						UserId:  strptr("AIDAEXAMPLE"),
+						Account: aws.String("123456789012"),
+						UserId:  aws.String("AIDAEXAMPLE"),
 					}, nil
 				},
 			},
@@ -400,23 +397,23 @@ func TestResolveCallerInfo(t *testing.T) {
 			client: &mockSTSClient{
 				getCallerIdentityFn: func(ctx context.Context, params *sts.GetCallerIdentityInput, optFns ...func(*sts.Options)) (*sts.GetCallerIdentityOutput, error) {
 					return &sts.GetCallerIdentityOutput{
-						UserId: strptr("AIDAEXAMPLE"),
+						UserId: aws.String("AIDAEXAMPLE"),
 					}, nil
 				},
 			},
 			wantErr:     true,
-			errContains: "account",
+			errContains: "nil Account",
 		},
 		"nil user id does not panic and returns error": {
 			client: &mockSTSClient{
 				getCallerIdentityFn: func(ctx context.Context, params *sts.GetCallerIdentityInput, optFns ...func(*sts.Options)) (*sts.GetCallerIdentityOutput, error) {
 					return &sts.GetCallerIdentityOutput{
-						Account: strptr("123456789012"),
+						Account: aws.String("123456789012"),
 					}, nil
 				},
 			},
 			wantErr:     true,
-			errContains: "user",
+			errContains: "nil UserId",
 		},
 		"nil output does not panic and returns error": {
 			client: &mockSTSClient{
@@ -424,7 +421,8 @@ func TestResolveCallerInfo(t *testing.T) {
 					return nil, nil
 				},
 			},
-			wantErr: true,
+			wantErr:     true,
+			errContains: "nil output",
 		},
 		"propagates AWS error": {
 			client: &mockSTSClient{

@@ -135,10 +135,16 @@ func (config *AWSConfig) setCallerInfo(ctx context.Context) error {
 func resolveCallerInfo(ctx context.Context, client STSGetCallerIdentityAPI) (accountID string, userID string, err error) {
 	result, err := client.GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})
 	if err != nil {
-		return "", "", err
+		return "", "", fmt.Errorf("STS GetCallerIdentity failed: %w", err)
 	}
-	if result == nil || result.Account == nil || result.UserId == nil {
-		return "", "", fmt.Errorf("STS GetCallerIdentity returned an incomplete identity: missing account or user ID")
+	if result == nil {
+		return "", "", fmt.Errorf("STS GetCallerIdentity returned a nil output")
+	}
+	if result.Account == nil {
+		return "", "", fmt.Errorf("STS GetCallerIdentity returned a nil Account")
+	}
+	if result.UserId == nil {
+		return "", "", fmt.Errorf("STS GetCallerIdentity returned a nil UserId")
 	}
 	return *result.Account, *result.UserId, nil
 }
@@ -156,7 +162,8 @@ func (config *AWSConfig) setAlias(ctx context.Context) {
 func resolveAccountAlias(ctx context.Context, client IAMListAccountAliasesAPI) string {
 	result, err := client.ListAccountAliases(ctx, &iam.ListAccountAliasesInput{})
 	if err != nil || result == nil || len(result.AccountAliases) == 0 {
-		// If the user doesn't have permission to see the aliases or the account has no aliases, continue without
+		// If the user doesn't have permission to see the aliases or the account
+		// has no aliases, continue without an alias.
 		return ""
 	}
 	return result.AccountAliases[0]
