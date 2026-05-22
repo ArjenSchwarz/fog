@@ -132,7 +132,8 @@ func deployTemplate(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	deployed, err := confirmAndDeployChangeset(changeset, &deployment, awsConfig)
+	// In --deploy-changeset mode the changeset pre-exists, so preserve it on decline.
+	deployed, err := confirmAndDeployChangeset(changeset, &deployment, awsConfig, deployFlags.DeployChangeset)
 	if err != nil {
 		if deployment.IsNew {
 			deleteStackIfNewFunc(deployment, awsConfig)

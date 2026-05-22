@@ -271,7 +271,7 @@ func TestDeploymentWorkflow_EndToEnd(t *testing.T) {
 				}
 
 				// Confirm and deploy
-				deployed, err := confirmAndDeployChangeset(cs, &info, awsCfg)
+				deployed, err := confirmAndDeployChangeset(cs, &info, awsCfg, false)
 				if err != nil {
 					t.Fatalf("unexpected error during deploy: %v", err)
 				}

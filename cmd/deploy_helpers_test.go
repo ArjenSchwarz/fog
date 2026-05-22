@@ -573,13 +573,14 @@ func TestConfirmAndDeployChangeset(t *testing.T) {
 	// t.Parallel()
 
 	tests := map[string]struct {
-		nonInteractive bool
-		userConfirm    bool
-		deployErr      error
-		expectDeploy   bool
-		expectDelete   bool
-		expectReturn   bool
-		expectErr      bool
+		nonInteractive    bool
+		userConfirm       bool
+		preserveOnDecline bool
+		deployErr         error
+		expectDeploy      bool
+		expectDelete      bool
+		expectReturn      bool
+		expectErr         bool
 	}{
 		"non-interactive auto-deploy": {
 			nonInteractive: true,
@@ -601,6 +602,14 @@ func TestConfirmAndDeployChangeset(t *testing.T) {
 			expectDeploy:   false,
 			expectDelete:   true,
 			expectReturn:   false,
+		},
+		"user declines deployment preserving existing changeset": {
+			nonInteractive:    false,
+			userConfirm:       false,
+			preserveOnDecline: true,
+			expectDeploy:      false,
+			expectDelete:      false,
+			expectReturn:      false,
 		},
 		"deploy fails with error": {
 			nonInteractive: true,
@@ -646,7 +655,7 @@ func TestConfirmAndDeployChangeset(t *testing.T) {
 				NonInteractive: tc.nonInteractive,
 			}
 
-			result, err := confirmAndDeployChangeset(&lib.ChangesetInfo{}, &lib.DeployInfo{}, config.AWSConfig{})
+			result, err := confirmAndDeployChangeset(&lib.ChangesetInfo{}, &lib.DeployInfo{}, config.AWSConfig{}, tc.preserveOnDecline)
 
 			if (err != nil) != tc.expectErr {
 				t.Errorf("expected error=%v, got %v", tc.expectErr, err)
