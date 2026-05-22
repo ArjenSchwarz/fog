@@ -870,16 +870,16 @@ func (deployment *DeployInfo) GetExecutionTimes(ctx context.Context, svc CloudFo
 	if err != nil {
 		return result, err
 	}
+	var changesetCreationTime time.Time
+	if deployment.Changeset != nil {
+		changesetCreationTime = deployment.Changeset.CreationTime
+	}
 	for _, event := range events {
-		// Skip partial/malformed events with no timestamp: a nil Timestamp
-		// cannot be compared against the changeset creation time, and there is
-		// no meaningful execution time to record.
+		// Skip nil-Timestamp events; aws.ToString guards nil ResourceType/LogicalResourceId.
 		if event.Timestamp == nil {
 			continue
 		}
-		if event.Timestamp.After(deployment.Changeset.CreationTime) {
-			// Use aws.ToString so nil ResourceType or LogicalResourceId pointers
-			// resolve to empty strings (a safe label) rather than panicking.
+		if event.Timestamp.After(changesetCreationTime) {
 			name := fmt.Sprintf("%s (%s)", strings.ReplaceAll(aws.ToString(event.ResourceType), ":", " "), aws.ToString(event.LogicalResourceId))
 			if _, ok := result[name]; !ok {
 				result[name] = make(map[string]time.Time, 0)
