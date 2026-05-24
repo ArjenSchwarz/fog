@@ -86,6 +86,7 @@ func TestDeploymentWorkflow_EndToEnd(t *testing.T) {
 				deleteChangesetFunc = origDeleteChangeset
 				askForConfirmationFunc = origAskForConfirmation
 				deployFlags = origFlags
+				viper.Reset()
 			})
 
 			loadAWSConfig = func(_ context.Context, _ config.Config) (config.AWSConfig, error) {
