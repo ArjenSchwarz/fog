@@ -13,7 +13,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - After updating .go files, always run `go fmt` followed by `go test ./...`
 
 #### Integration Tests
-Integration tests are excluded from default test runs and require the `INTEGRATION=1` environment variable to execute. These tests use the `//go:build integration` build tag and are located alongside their corresponding source files.
+Integration tests are skipped during default test runs and require the `INTEGRATION=1` environment variable to execute. Gating is done at runtime via `testutil.SkipIfIntegration(t)` (which checks the `INTEGRATION` env var) — **not** via a `//go:build integration` build tag. This means the integration test files still compile under the default `go test ./...` build (so build/signature drift is caught immediately) while their bodies are skipped unless `INTEGRATION=1` is set. They are located alongside their corresponding source files.
 
 Integration tests validate complex workflows and end-to-end scenarios using mocked AWS clients. They do not require AWS credentials or network access.
 
@@ -33,9 +33,8 @@ INTEGRATION=1 go test ./... -cover
 ```
 
 **Writing integration tests:**
-- Add `//go:build integration` as the first line of the test file
-- Add `// +build integration` as the second line for backward compatibility
-- Use `testutil.SkipIfIntegration(t)` to skip tests when INTEGRATION is not set
+- Call `testutil.SkipIfIntegration(t)` as the first line of each integration test function — this skips the test unless `INTEGRATION=1` is set
+- Do **not** add a `//go:build integration` build tag. Without it the tests compile in the default build (catching signature/build drift), while still skipping at runtime
 - Use mock clients from `lib/testutil` for AWS service interactions
 - Focus on testing workflows and interactions between components
 
