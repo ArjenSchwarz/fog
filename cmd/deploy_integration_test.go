@@ -18,8 +18,8 @@ import (
 // TestDeploymentWorkflow_EndToEnd tests the complete deployment workflow
 // This test requires INTEGRATION=1 to run
 func TestDeploymentWorkflow_EndToEnd(t *testing.T) {
-	testutil.SkipIfIntegration(t)
 	t.Skip("T-1340: mock wiring drifted — changeset path uses a real CFN client (Missing Region) and inline tags are treated as a file; re-enable after repair")
+	testutil.SkipIfIntegration(t)
 
 	tests := map[string]struct {
 		stackName           string
