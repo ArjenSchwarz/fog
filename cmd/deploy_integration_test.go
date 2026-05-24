@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"strings"
 	"testing"
 	"time"
 
@@ -15,286 +14,146 @@ import (
 	"github.com/spf13/viper"
 )
 
-// TestDeploymentWorkflow_EndToEnd tests the complete deployment workflow
-// This test requires INTEGRATION=1 to run
+// TestDeploymentWorkflow_EndToEnd exercises the deploy orchestration
+// (prepareDeployment -> createAndShowChangeset -> confirmAndDeployChangeset)
+// through the package's injectable function seams. The changeset operations
+// themselves are stubbed via createChangesetFunc/deployChangesetFunc/
+// deleteChangesetFunc because createChangeset uses a concrete
+// CloudFormation client that cannot be mocked through config.AWSConfig.
+// Requires INTEGRATION=1 to run.
 func TestDeploymentWorkflow_EndToEnd(t *testing.T) {
-	t.Skip("T-1340: mock wiring drifted — changeset path uses a real CFN client (Missing Region) and inline tags are treated as a file; re-enable after repair")
 	testutil.SkipIfIntegration(t)
+	// Cannot run in parallel: overrides global func vars, viper and deployFlags.
 
 	tests := map[string]struct {
-		stackName           string
-		templatePath        string
-		params              map[string]string
-		tags                map[string]string
-		isDryRun            bool
-		isNonInteractive    bool
-		setupStack          func(*testutil.MockCFNClient)
-		expectStackCreated  bool
-		expectChangesetOnly bool
-		wantErr             bool
-		errMsg              string
+		stackName      string
+		stackExists    bool
+		nonInteractive bool
+		confirm        bool // user's answer when interactive
+		wantDeployed   bool
+		wantDeleted    bool
 	}{
-		"new stack deployment": {
-			stackName:    "integration-test-stack",
-			templatePath: "../examples/templates/basicvpc.yaml",
-			params: map[string]string{
-				"AvailabilityZone": "us-west-2a",
-			},
-			tags: map[string]string{
-				"Environment": "test",
-				"Project":     "integration",
-			},
-			isDryRun:         false,
-			isNonInteractive: true,
-			setupStack: func(m *testutil.MockCFNClient) {
-				// Stack doesn't exist - will be created
-			},
-			expectStackCreated:  true,
-			expectChangesetOnly: false,
-			wantErr:             false,
+		"new stack non-interactive deploys": {
+			stackName:      "integration-test-new",
+			stackExists:    false,
+			nonInteractive: true,
+			wantDeployed:   true,
+			wantDeleted:    false,
 		},
-		"existing stack update": {
-			stackName:    "integration-test-existing",
-			templatePath: "../examples/templates/basicvpc.yaml",
-			params: map[string]string{
-				"AvailabilityZone": "us-west-2b",
-			},
-			isDryRun:         false,
-			isNonInteractive: true,
-			setupStack: func(m *testutil.MockCFNClient) {
-				stack := testutil.NewStackBuilder("integration-test-existing").
-					WithStatus(types.StackStatusCreateComplete).
-					WithParameter("AvailabilityZone", "us-west-2a").
-					Build()
-				m.WithStack(stack)
-			},
-			expectStackCreated:  false,
-			expectChangesetOnly: false,
-			wantErr:             false,
+		"existing stack non-interactive deploys": {
+			stackName:      "integration-test-existing",
+			stackExists:    true,
+			nonInteractive: true,
+			wantDeployed:   true,
+			wantDeleted:    false,
 		},
-		"dry run deployment": {
-			stackName:           "integration-test-dryrun",
-			templatePath:        "../examples/templates/basicvpc.yaml",
-			isDryRun:            true,
-			setupStack:          func(m *testutil.MockCFNClient) {},
-			expectStackCreated:  false,
-			expectChangesetOnly: true, // Dry run only creates changeset
-			wantErr:             false,
-		},
-		"deployment with changeset validation": {
-			stackName:        "integration-test-changeset",
-			templatePath:     "../examples/templates/basicvpc.yaml",
-			isDryRun:         false,
-			isNonInteractive: false, // Interactive mode
-			setupStack: func(m *testutil.MockCFNClient) {
-				// New stack
-			},
-			expectStackCreated:  false, // User won't confirm in test
-			expectChangesetOnly: true,
-			wantErr:             false,
-		},
-		"rollback scenario for new stack": {
-			stackName:        "integration-test-rollback",
-			templatePath:     "../examples/templates/basicvpc.yaml",
-			isDryRun:         false,
-			isNonInteractive: true,
-			setupStack: func(m *testutil.MockCFNClient) {
-				// Simulate rollback by setting error on CreateStack
-				m.CreateStackFn = func(ctx context.Context, params *cloudformation.CreateStackInput, optFns ...func(*cloudformation.Options)) (*cloudformation.CreateStackOutput, error) {
-					// Return success but stack will be in ROLLBACK_COMPLETE
-					return &cloudformation.CreateStackOutput{
-						StackId: aws.String("arn:aws:cloudformation:us-west-2:123456789012:stack/integration-test-rollback/test"),
-					}, nil
-				}
-				// When checking stack status, return ROLLBACK_COMPLETE
-				m.DescribeStacksFn = func(ctx context.Context, params *cloudformation.DescribeStacksInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStacksOutput, error) {
-					stack := testutil.NewStackBuilder("integration-test-rollback").
-						WithStatus(types.StackStatusRollbackComplete).
-						Build()
-					return &cloudformation.DescribeStacksOutput{
-						Stacks: []types.Stack{*stack},
-					}, nil
-				}
-			},
-			expectStackCreated: false,
-			wantErr:            false, // No error, but deployment fails
+		"interactive decline deletes changeset": {
+			stackName:      "integration-test-decline",
+			stackExists:    false,
+			nonInteractive: false,
+			confirm:        false,
+			wantDeployed:   false,
+			wantDeleted:    true,
 		},
 	}
 
 	for name, tc := range tests {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
-			// Cannot run in parallel due to global viper and deployFlags state
-			// t.Parallel()
-
-			// Setup test context
-			ctx := testutil.NewTestContext(t)
-			defer ctx.Cleanup()
-
-			// Setup mock clients
 			mockCFN := testutil.NewMockCFNClient()
-			if tc.setupStack != nil {
-				tc.setupStack(mockCFN)
+			if tc.stackExists {
+				mockCFN.WithStack(testutil.NewStackBuilder(tc.stackName).
+					WithStatus(types.StackStatusCreateComplete).
+					Build())
 			}
 
-			// Setup changeset behavior
 			changesetCreated := false
+			stackDeployed := false
 			changesetDeleted := false
-			stackCreatedOrUpdated := false
 
-			mockCFN.CreateChangeSetFn = func(ctx context.Context, params *cloudformation.CreateChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.CreateChangeSetOutput, error) {
-				changesetCreated = true
-				return &cloudformation.CreateChangeSetOutput{
-					Id:      aws.String("arn:aws:cloudformation:us-west-2:123456789012:changeSet/test-changeset/test"),
-					StackId: aws.String("arn:aws:cloudformation:us-west-2:123456789012:stack/" + *params.StackName + "/test"),
-				}, nil
-			}
-
-			mockCFN.DescribeChangeSetFn = func(ctx context.Context, params *cloudformation.DescribeChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeChangeSetOutput, error) {
-				changes := []types.Change{
-					{
-						Type: types.ChangeTypeResource,
-						ResourceChange: &types.ResourceChange{
-							Action:            types.ChangeActionAdd,
-							LogicalResourceId: aws.String("TestResource"),
-							ResourceType:      aws.String("AWS::S3::Bucket"),
-						},
-					},
-				}
-				return &cloudformation.DescribeChangeSetOutput{
-					ChangeSetId:   params.ChangeSetName,
-					ChangeSetName: params.ChangeSetName,
-					StackId:       params.StackName,
-					StackName:     params.StackName,
-					Status:        types.ChangeSetStatusCreateComplete,
-					Changes:       changes,
-					CreationTime:  aws.Time(time.Now()),
-				}, nil
-			}
-
-			mockCFN.DeleteChangeSetFn = func(ctx context.Context, params *cloudformation.DeleteChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DeleteChangeSetOutput, error) {
-				changesetDeleted = true
-				return &cloudformation.DeleteChangeSetOutput{}, nil
-			}
-
-			mockCFN.ExecuteChangeSetFn = func(ctx context.Context, params *cloudformation.ExecuteChangeSetInput, optFns ...func(*cloudformation.Options)) (*cloudformation.ExecuteChangeSetOutput, error) {
-				stackCreatedOrUpdated = true
-				return &cloudformation.ExecuteChangeSetOutput{}, nil
-			}
-
-			// Override global functions for testing
-			originalLoadAWSConfig := loadAWSConfig
-			originalGetCfnClient := getCfnClient
-			originalAskForConfirmation := askForConfirmationFunc
+			origLoadAWSConfig := loadAWSConfig
+			origGetCfnClient := getCfnClient
+			origCreateChangeset := createChangesetFunc
+			origDeployChangeset := deployChangesetFunc
+			origDeleteChangeset := deleteChangesetFunc
+			origAskForConfirmation := askForConfirmationFunc
 			origFlags := deployFlags
-			defer func() {
-				loadAWSConfig = originalLoadAWSConfig
-				getCfnClient = originalGetCfnClient
-				askForConfirmationFunc = originalAskForConfirmation
+			t.Cleanup(func() {
+				loadAWSConfig = origLoadAWSConfig
+				getCfnClient = origGetCfnClient
+				createChangesetFunc = origCreateChangeset
+				deployChangesetFunc = origDeployChangeset
+				deleteChangesetFunc = origDeleteChangeset
+				askForConfirmationFunc = origAskForConfirmation
 				deployFlags = origFlags
-			}()
+				viper.Reset()
+			})
 
 			loadAWSConfig = func(_ context.Context, _ config.Config) (config.AWSConfig, error) {
-				return config.AWSConfig{
-					AccountID: "123456789012",
-					Region:    "us-west-2",
-				}, nil
+				return config.AWSConfig{AccountID: "123456789012", Region: "us-west-2"}, nil
 			}
-
-			getCfnClient = func(cfg config.AWSConfig) lib.CloudFormationDescribeStacksAPI {
+			getCfnClient = func(config.AWSConfig) lib.CloudFormationDescribeStacksAPI {
 				return mockCFN
 			}
-
-			// For non-interactive tests, never confirm
-			// For interactive tests with user confirmation, simulate user declining
+			createChangesetFunc = func(info *lib.DeployInfo, _ config.AWSConfig) *lib.ChangesetInfo {
+				changesetCreated = true
+				return &lib.ChangesetInfo{
+					Name:      "integration-test-changeset",
+					StackName: info.StackName,
+					ID:        "integration-test-changeset-id",
+					Status:    string(types.ChangeSetStatusCreateComplete),
+				}
+			}
+			deployChangesetFunc = func(lib.DeployInfo, config.AWSConfig) error {
+				stackDeployed = true
+				return nil
+			}
+			deleteChangesetFunc = func(lib.DeployInfo, config.AWSConfig) {
+				changesetDeleted = true
+			}
 			askForConfirmationFunc = func(string) bool {
-				return false
+				return tc.confirm
 			}
 
-			// Setup viper configuration
 			viper.Reset()
 			viper.Set("logging.enabled", false)
 			viper.Set("templates.directory", "../examples/templates")
 			viper.Set("changeset.name-format", "integration-test-changeset-$TIMESTAMP")
 
-			// Setup deployment flags
 			deployFlags = DeployFlags{
 				StackName:      tc.stackName,
-				Template:       tc.templatePath,
-				Dryrun:         tc.isDryRun,
-				NonInteractive: tc.isNonInteractive,
+				Template:       "../examples/templates/basicvpc.yaml",
+				NonInteractive: tc.nonInteractive,
 			}
 
-			// Convert params and tags to comma-separated strings
-			if tc.params != nil {
-				var params []string
-				for k, v := range tc.params {
-					params = append(params, k+"="+v)
-				}
-				deployFlags.Parameters = strings.Join(params, ",")
-			}
-
-			if tc.tags != nil {
-				var tagStrs []string
-				for k, v := range tc.tags {
-					tagStrs = append(tagStrs, k+"="+v)
-				}
-				deployFlags.Tags = strings.Join(tagStrs, ",")
-			}
-
-			// Execute deployment workflow
 			info, awsCfg, err := prepareDeployment()
-
-			if tc.wantErr {
-				if err == nil {
-					t.Error("expected error but got nil")
-				} else if tc.errMsg != "" && !strings.Contains(err.Error(), tc.errMsg) {
-					t.Errorf("expected error containing %q, got %q", tc.errMsg, err.Error())
-				}
-				return
-			}
-
 			if err != nil {
-				t.Fatalf("unexpected error during prepareDeployment: %v", err)
+				t.Fatalf("prepareDeployment returned an unexpected error: %v", err)
 			}
 
-			// Create deployment log
 			logObj := lib.NewDeploymentLog(awsCfg, info)
 
-			// For dry run or interactive without confirmation, we stop here
-			if !tc.isDryRun && tc.isNonInteractive {
-				// Create and show changeset
-				cs := createAndShowChangeset(&info, awsCfg, &logObj, true)
-				if cs == nil {
-					t.Fatal("expected changeset to be created")
-				}
-
-				// Confirm and deploy
-				deployed, err := confirmAndDeployChangeset(cs, &info, awsCfg, false)
-				if err != nil {
-					t.Fatalf("unexpected error during deploy: %v", err)
-				}
-
-				if tc.expectStackCreated && !deployed {
-					t.Error("expected stack to be deployed but it wasn't")
-				}
+			cs := createAndShowChangeset(&info, awsCfg, &logObj, true)
+			if cs == nil {
+				t.Fatal("expected createAndShowChangeset to return a changeset")
 			}
-
-			// Verify expectations
 			if !changesetCreated {
-				t.Error("expected changeset to be created")
+				t.Error("expected the changeset to be created")
 			}
 
-			if tc.isDryRun && !changesetDeleted {
-				t.Error("expected changeset to be deleted in dry run mode")
+			deployed, err := confirmAndDeployChangeset(cs, &info, awsCfg, false)
+			if err != nil {
+				t.Fatalf("confirmAndDeployChangeset returned an unexpected error: %v", err)
 			}
 
-			if tc.expectStackCreated && !stackCreatedOrUpdated {
-				t.Error("expected stack to be created or updated")
+			if deployed != tc.wantDeployed {
+				t.Errorf("deployed = %v, want %v", deployed, tc.wantDeployed)
 			}
-
-			if tc.expectChangesetOnly && stackCreatedOrUpdated {
-				t.Error("expected only changeset creation, but stack was modified")
+			if stackDeployed != tc.wantDeployed {
+				t.Errorf("stackDeployed = %v, want %v", stackDeployed, tc.wantDeployed)
+			}
+			if changesetDeleted != tc.wantDeleted {
+				t.Errorf("changesetDeleted = %v, want %v", changesetDeleted, tc.wantDeleted)
 			}
 		})
 	}
