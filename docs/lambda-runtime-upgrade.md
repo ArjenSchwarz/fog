@@ -24,7 +24,7 @@ Checked 16 October 2026 UTC:
   has no separately packaged Python dependency tree.
 - Workflow action versions were checked against their official GitHub latest-release
   pages: checkout v7.0.1, setup-go v7.0.0, setup-python v7.0.0,
-  upload-artifact v7.0.2, golangci-lint-action v9.3.0, go-release-action v1.55.
+  upload-artifact v7.0.2, golangci-lint-action v9.3.0, go-release-action v1.55. The linter is pinned to v2.14.0, built locally with Go 1.27.2.
   Hosted `ubuntu-latest` selects GitHub's maintained stable runner image.
 
 ## Build and validate locally

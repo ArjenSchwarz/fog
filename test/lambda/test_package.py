@@ -50,7 +50,20 @@ class LambdaPackageTests(unittest.TestCase):
                 self.wfile.write(b'{"detail":{"stack-id":"test"}}')
 
             def do_POST(self):
-                body = self.rfile.read(int(self.headers['Content-Length']))
+                # aws-lambda-go streams error payloads with chunked encoding.
+                if self.headers.get('Transfer-Encoding') == 'chunked':
+                    chunks = []
+                    while True:
+                        size = int(self.rfile.readline().split(b';', 1)[0], 16)
+                        if size == 0:
+                            while self.rfile.readline().strip():
+                                pass  # Consume optional trailers through the empty line.
+                            break
+                        chunks.append(self.rfile.read(size))
+                        self.rfile.read(2)
+                    body = b''.join(chunks)
+                else:
+                    body = self.rfile.read(int(self.headers['Content-Length']))
                 received.put((self.path, json.loads(body)))
                 self.send_response(202)
                 self.end_headers()
