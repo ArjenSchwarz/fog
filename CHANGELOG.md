@@ -2,7 +2,7 @@ Unreleased
 ==========
 
 ### Changed
-- Report Lambda templates now use Amazon Linux 2023 and Python 3.14, with bootstrap packaging, current Go/runtime client and GitHub-only CI artifacts; see docs/lambda-runtime-upgrade.md before deployment.
+- Report Lambda templates now use Amazon Linux 2023 and Python 3.14, with bootstrap packaging, current Go/runtime client and main-only CI publication alongside GitHub artifacts; see docs/lambda-runtime-upgrade.md before deployment.
 
 ### Fixed
 - Fixed `fog deploy` panicking when `CreateChangeSet` returns no changeset ID; it now returns a descriptive error through the normal deploy error path

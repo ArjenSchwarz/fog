@@ -19,3 +19,15 @@ Explanation validation classified the publication wording as a scope ambiguity; 
 Design critique: use a new versioned object key before stack migration; fixed-key S3 overwrites are not CloudFormation code updates. CI performs no AWS writes. Runtime API smoke exercises initialization and error reporting; successful report behavior uses the existing injected generator unit test to avoid AWS calls. Linux amd64 CI runs the exact archive, while macOS runs a native equivalent. Fresh AWS template identity remains unverified due to expired SSO. Exact account/function audit evidence stays outside this public branch.
 
 Pre-push review: reuse, efficiency and spec agents found no issues. Quality review found the mock Runtime API incorrectly assumed Content-Length. Fixed chunked body/trailer decoding; Python 3.14 smoke rerun passed. No production-handler change was needed.
+
+## Publication correction after parent review
+
+D7 is superseded by D9; its original rationale is retained above as history, not as the final design. Removing valid publication capability was broader than necessary for a task that must not deploy. No runtime or security defect required deleting the publisher.
+
+| ID | Decision | Rationale |
+|---|---|---|
+| D9 | Restore OIDC/S3 publisher with main-push-only guards | Preserve existing fog/unstable.zip publishing and legacy archive layout. Add a separate AL2023 unstable key for the new runtime; feature pushes and PRs skip every publishing step. No main merge or workflow dispatch is authorized or performed. Existing publisher IAM configuration is unchanged; new-prefix permission must be verified before merge. |
+
+The release S3 block was already commented out before this branch, so no active release publishing capability was removed. Release-tag/latest publication remains an operator prerequisite. Exact-head CI on d135972 is inspected separately; the existing Claude review exits is_error:true after one turn, zero cost, empty model usage and zero permission denials, with detailed SDK error output hidden by the action. Logs do not establish authentication or quota as its cause. No review finding was emitted.
+
+Correction verification: independent quality/spec reviews found no findings. actionlint exposed the existing unquoted release version extraction; replaced it with quoted GITHUB_REF_NAME/GITHUB_ENV expansion. Legacy Linux amd64 build succeeds without lambda.norpc, preserving the Go1.x RPC entry point. The prior d135972 exact-head build-and-test run passed; restored publisher is not eligible on this feature branch. No AWS call was made.

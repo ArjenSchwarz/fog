@@ -12,7 +12,9 @@ The SAM report template pairs provided.al2023 with a root bootstrap built for Li
 amd64 without CGO. The existing main function enters aws-lambda-go's Runtime API
 loop; no separate report implementation was introduced. Timezone data is embedded.
 The inline trigger stays an Amplify main-branch RELEASE request. CI saves GitHub
-artifacts instead of assuming an AWS role and writing S3 objects on every push.
+artifacts for validation. Main-only pushes preserve OIDC/S3 publication of both the
+legacy fog archive and the separately named AL2023 bootstrap archive. Feature pushes
+and PR events skip credentials and S3 publication.
 
 ## Expert
 

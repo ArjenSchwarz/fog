@@ -18,7 +18,7 @@ jobs:
     steps:
     - uses: actions/checkout@v7.0.1
     - name: Set APP_VERSION env
-      run: echo APP_VERSION=$(echo ${GITHUB_REF} | rev | cut -d'/' -f 1 | rev ) >> ${GITHUB_ENV}
+      run: echo "APP_VERSION=${GITHUB_REF_NAME}" >> "$GITHUB_ENV"
     - uses: wangyoucao577/go-release-action@v1.55
       with:
         goversion: "1.27.2"

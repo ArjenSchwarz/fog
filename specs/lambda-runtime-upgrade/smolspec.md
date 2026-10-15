@@ -15,7 +15,7 @@ Fog report functions use deprecated Go and Python Lambda runtimes. Update mainta
 - Update examples/templates/fogreport-builder.yaml to python3.14, preserving inline boto3 usage supported by AWS for inline templates.
 - Update go.mod/go.sum to official stable Go 1.27.2 and aws-lambda-go v1.55.1. Other SDK modules remain unless compatibility requires changes.
 - Add scripts/package-lambda.sh and a Makefile target using CGO_ENABLED=0, linux/amd64 and lambda.norpc. Reuse main.go handler selection and existing handler tests.
-- Update .github/workflows/push.yml and release.yaml to use the module toolchain and package bootstrap; validate with PRs and publish build artifacts to GitHub. Remove S3 publication from CI; publication requires a separately authorized operator action.
+- Update .github/workflows/push.yml and release.yaml to use the module toolchain and package bootstrap; validate with PRs and publish build artifacts to GitHub. Preserve existing OIDC/S3 publication only for main pushes, retain the legacy fog archive at fog/unstable.zip, and publish bootstrap separately at fog/al2023/unstable.zip. Feature/PR events skip all publisher steps.
 - Add executable archive/Runtime API smoke tests and inline Python success/failure tests; document migration in docs/lambda-runtime-upgrade.md and README.md.
 - Audit the five known deployed functions through bounded metadata reads; document external legacy sources without editing their unrelated working changes.
 - Dependencies: aws-lambda-go implements the Runtime API; inline Python uses runtime-provided boto3. Out of scope: wholesale SDK/CLI dependency refresh, Amplify/site redesign and external legacy repository changes.
@@ -24,7 +24,7 @@ Official sources checked 2026-10-16 UTC: https://docs.aws.amazon.com/lambda/late
 
 ## Risks and Assumptions
 - Risk: changing runtime without changing the archive fails initialization. Mitigation: verify archive contents, executable mode, ELF architecture and a local Runtime API exchange using the extracted Linux archive on Linux amd64; on other hosts validate the archive and run a native binary using the same build tag. Verify a Runtime API error response without AWS calls, and handler success/error results with the existing report-generator test seam.
-- Risk: AWS publication might run on feature pushes. Mitigation: remove AWS credentials and S3 writes from CI.
+- Risk: AWS publication might run on feature pushes. Mitigation: guard legacy build, credential configuration and S3 writes with push plus refs/heads/main conditions.
 - Prerequisite: separately authorize publication of the new artifact prefix and stack updates; existing hosted latest.zip is unsuitable for provided.al2023.
 - Assumption: x86_64 remains the deployed architecture. Audit records exact mapping confidence and missing source ownership.
 

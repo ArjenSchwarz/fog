@@ -24,7 +24,7 @@ Checked 16 October 2026 UTC:
   has no separately packaged Python dependency tree.
 - Workflow action versions were checked against their official GitHub latest-release
   pages: checkout v7.0.1, setup-go v7.0.0, setup-python v7.0.0,
-  upload-artifact v7.0.2, golangci-lint-action v9.3.0, go-release-action v1.55. The linter is pinned to v2.14.0, built locally with Go 1.27.2.
+  upload-artifact v7.0.2, golangci-lint-action v9.3.0, go-release-action v1.55, configure-aws-credentials v6.3.0. The linter is pinned to v2.14.0, built locally with Go 1.27.2.
   Hosted `ubuntu-latest` selects GitHub's maintained stable runner image.
 
 ## Build and validate locally
@@ -47,7 +47,12 @@ calls. Go unit tests separately verify handler success and report failure propag
 Inline trigger tests execute the template's actual Python source with mocked boto3.
 
 Push/PR CI uses Python 3.14 and saves `fog-lambda-al2023-{commit}` as a GitHub artifact.
-Releases attach `lambda.zip` beside the CLI binaries. No workflow publishes to AWS.
+Releases attach `lambda.zip` beside the CLI binaries. After successful validation,
+main-branch pushes retain the existing OIDC/S3 publisher. It publishes the legacy
+`fog` executable to `fog/unstable.zip` and the AL2023 bootstrap archive separately to
+`fog/al2023/unstable.zip`. Feature pushes and all PR events skip legacy packaging,
+AWS credential configuration and both S3 writes. No workflow was dispatched here,
+and no branch was merged. The release S3 publisher was already disabled and remains so.
 
 ## Deployment prerequisites — separate authorization required
 
@@ -67,8 +72,11 @@ Releases attach `lambda.zip` beside the CLI binaries. No workflow publishes to A
    rollback may be blocked. Versioned artifact keys avoid CloudFormation missing an
    update when only the bytes behind a fixed S3 key change.
 
-Legacy `fog/{version}.zip` objects are deliberately untouched. CI's former every-push
-S3 upload has been removed; an operator must separately authorize future publication.
+Existing versioned `fog/{version}.zip` objects are not replaced with bootstrap-only
+archives. Main-only publication preserves the `fog/unstable.zip` legacy layout. The
+new AL2023 unstable alias becomes available only after an authorized merge/main
+push, subject to the existing publisher role permitting the new prefix. Release-tag
+and latest publication still need a separately authorized action, as before.
 
 ## Deployed-source coverage
 

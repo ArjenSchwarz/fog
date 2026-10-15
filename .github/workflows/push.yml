@@ -7,6 +7,9 @@ permissions:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: actions/setup-go@v7.0.0
@@ -32,3 +35,23 @@ jobs:
           name: fog-lambda-al2023-${{ github.sha }}
           path: dist/lambda.zip
           if-no-files-found: error
+      # Preserve legacy consumers until their runtime migration is deployed.
+      - name: Build legacy Lambda archive
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          legacy_dir="$(mktemp -d)"
+          trap 'rm -rf "$legacy_dir"' EXIT
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o "$legacy_dir/fog" .
+          (cd "$legacy_dir" && zip -q -X unstable.zip fog)
+          mv "$legacy_dir/unstable.zip" dist/unstable-legacy.zip
+      - name: Configure AWS Credentials
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          role-to-assume: arn:aws:iam::613864977396:role/github-oidc-FogS3DeploymentsRole-EQO45UDOAHSL
+          aws-region: us-east-1
+      - name: Publish Lambda archives
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          aws s3 cp dist/unstable-legacy.zip s3://public.ig.nore.me/fog/unstable.zip
+          aws s3 cp dist/lambda.zip s3://public.ig.nore.me/fog/al2023/unstable.zip
