@@ -38,6 +38,7 @@ import (
 	"os"
 	"strings"
 	"time"
+	_ "time/tzdata" // Preserve named report timezones in minimal Lambda environments.
 
 	"github.com/ArjenSchwarz/fog/cmd"
 	"github.com/aws/aws-lambda-go/lambda"

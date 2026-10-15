@@ -138,3 +138,33 @@ func TestHandleRequestPassesTrimmedStackIDToReportGeneration(t *testing.T) {
 		t.Fatalf("expected trimmed stack-id to be forwarded, got %q", receivedStackID)
 	}
 }
+
+// TestHandleRequestPreservesReportContract covers settings and error forwarding
+// when the same handler is entered through the AL2023 Runtime API client.
+func TestHandleRequestPreservesReportContract(t *testing.T) {
+	t.Setenv("ReportS3Bucket", "reports-bucket")
+	t.Setenv("ReportOutputFormat", "html")
+	t.Setenv("ReportNamePattern", "reports/$STACKNAME.html")
+	t.Setenv("ReportTimezone", "Australia/Melbourne")
+	original := generateReportFromLambda
+	t.Cleanup(func() { generateReportFromLambda = original })
+	failure := errors.New("report upload failed")
+	for _, result := range []error{nil, failure} {
+		called := false
+		generateReportFromLambda = func(stack, bucket, filename, format, timezone string) error {
+			called = true
+			if stack != "stack-id" || bucket != "reports-bucket" || filename != "reports/$STACKNAME.html" || format != "html" || timezone != "Australia/Melbourne" {
+				t.Fatalf("report settings changed: %q %q %q %q %q", stack, bucket, filename, format, timezone)
+			}
+			return result
+		}
+		message := EventBridgeMessage{}
+		message.Detail.StackId = "stack-id"
+		if err := HandleRequest(message); !errors.Is(err, result) {
+			t.Fatalf("expected report result %v, got %v", result, err)
+		}
+		if !called {
+			t.Fatal("report generator was not called")
+		}
+	}
+}

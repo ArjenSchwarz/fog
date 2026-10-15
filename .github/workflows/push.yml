@@ -1,30 +1,34 @@
-on: [push]
+name: Test and Build
+on: [push, pull_request]
+
+permissions:
+  contents: read
 
 jobs:
   build-and-test:
-    name: Test and Build
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: read
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-go@v7.0.0
         with:
-          go-version: '1.25' # The Go version to download (if necessary) and use.
+          go-version-file: go.mod
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: '3.14'
       - name: Run tests
         run: go test ./... -v
       - name: Run linter
-        uses: golangci/golangci-lint-action@v8
+        uses: golangci/golangci-lint-action@v9.3.0
         with:
           version: latest
           skip-cache: true
-      - name: Build file
-        run: GOOS=linux GOARCH=amd64 go build -o fog && zip unstable.zip fog
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v2
+      - name: Package Lambda
+        run: make package-lambda
+      - name: Verify package and inline trigger
+        run: python3 -m unittest discover -s test/lambda -v
+      - name: Save Lambda package
+        uses: actions/upload-artifact@v7.0.2
         with:
-          role-to-assume: arn:aws:iam::613864977396:role/github-oidc-FogS3DeploymentsRole-EQO45UDOAHSL
-          aws-region: us-east-1
-      - name: Copy to S3 bucket
-        run: aws s3 cp unstable.zip s3://public.ig.nore.me/fog/unstable.zip
+          name: fog-lambda-al2023-${{ github.sha }}
+          path: dist/lambda.zip
+          if-no-files-found: error

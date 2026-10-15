@@ -19,3 +19,8 @@ rpdk.log
 
 deployments.log
 .claude/scripts
+# Generated Lambda build packages
+/dist/
+
+# Local Python test bytecode
+__pycache__/

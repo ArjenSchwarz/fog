@@ -38,9 +38,9 @@ Resources:
     Properties:
       CodeUri:
         Bucket: public.ig.nore.me
-        Key: !Sub "fog/${FogVersion}.zip"
-      Handler: fog
-      Runtime: go1.x
+        Key: !Sub "fog/al2023/${FogVersion}.zip"
+      Handler: bootstrap
+      Runtime: provided.al2023
       Architectures:
       - x86_64
       Environment:
