@@ -172,3 +172,10 @@ help:
 	test-integration-verbose test-all test-coverage test-golden test-golden-update \
 	test-golden-verbose test-golden-check fmt vet lint modernize check clean install \
 	deps-tidy deps-update security-scan go-functions update-v1-tag help
+
+# Package both deployed report architectures for provided.al2023.
+.PHONY: package-lambda
+package-lambda:
+	./scripts/package-lambda.sh dist/lambda-x86_64.zip x86_64
+	./scripts/package-lambda.sh dist/lambda-arm64.zip arm64
+	cp dist/lambda-x86_64.zip dist/lambda.zip

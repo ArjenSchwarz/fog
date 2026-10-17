@@ -7,6 +7,12 @@ Globals:
   Function:
     Timeout: 10
 Parameters:
+  LambdaArchitecture:
+    Type: String
+    Description: Preserve the existing function architecture when upgrading (x86_64 or arm64).
+    AllowedValues:
+    - x86_64
+    - arm64
   ReportS3Bucket:
     Type: String
     Description: Name of the bucket the reports should be send to. If empty, a new
@@ -38,11 +44,11 @@ Resources:
     Properties:
       CodeUri:
         Bucket: public.ig.nore.me
-        Key: !Sub "fog/${FogVersion}.zip"
-      Handler: fog
-      Runtime: go1.x
+        Key: !Sub "fog/al2023/${LambdaArchitecture}/${FogVersion}.zip"
+      Handler: bootstrap
+      Runtime: provided.al2023
       Architectures:
-      - x86_64
+      - !Ref LambdaArchitecture
       Environment:
         Variables:
           ReportS3Bucket:

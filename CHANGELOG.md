@@ -1,6 +1,9 @@
 Unreleased
 ==========
 
+### Changed
+- Report Lambda templates now use Amazon Linux 2023 and Python 3.14, with x86_64/ARM64 bootstrap packaging, explicit architecture selection, current Go/runtime client and main-only CI publication alongside GitHub artifacts; see docs/lambda-runtime-upgrade.md before deployment.
+
 ### Fixed
 - Fixed `fog deploy` panicking when `CreateChangeSet` returns no changeset ID; it now returns a descriptive error through the normal deploy error path
 - Fixed panics when AWS returns a partial or empty `DescribeChangeSet` response while parsing changesets (`AddChangeset`); the response is now validated before use
