@@ -31,10 +31,16 @@ and Amplify execution still require separately authorized deployed validation.
 
 Maintained Fog templates, library/toolchain, archive builder, CI and contract tests
 are implemented. No AWS function has been upgraded by these source changes. Current
-SSO works, but template/configuration reads are denied, so exact source/template
-matching remains unverified; the separate legacy
-HelloWorldFunction source was not found. Compatible S3 artifacts must be published
-under separate authorization before updating any stack. Transit ticket creation is
+template/configuration reads now succeed. The owner confirms the older standalone
+Sydney trigger is part of the same builder pipeline. Its packaged app.lambda_handler
+contents remain unverified; the combined maintained template's inline TriggerFunction
+is not a drop-in update for that logical resource. A runtime-only standalone
+candidate can now be prepared with scripts/prepare-builder-runtime-template.py;
+it preserves all existing fields except Runtime. Exact source archive s3:GetObject
+was denied. Code/dependency compatibility must be verified before a separately
+authorised deployment. The authorised PR #216
+merge and main publisher completed successfully; versioned release keys remain an
+operator prerequisite. Transit ticket creation is
 blocked before request submission by a local MCP initialization timeout.
 
 The required LambdaArchitecture parameter selects both the function architecture
@@ -42,3 +48,19 @@ and its architecture-qualified artifact key; no default silently migrates existi
 ARM64 deployments. Both ZIPs are built once, checked for correct ELF targets, then
 executed on matching Linux GitHub runners. Main-only publication waits for both jobs
 and retains legacy and unqualified x86_64 aliases.
+
+## Standalone builder follow-up
+
+Beginner: prepare an updated copy of the old builder stack without replacing its
+site or Python package. The existing function identity and site binding stay intact.
+
+Intermediate: the local helper accepts the deployed JSON template or GetTemplate
+response and changes only HelloWorldFunction.Properties.Runtime to python3.14.
+It refuses a different handler/runtime/resource and will not overwrite any file.
+Existing CI discovery includes preservation and failure-path tests.
+
+Expert: original SAM and processed CloudFormation forms retain their existing code
+locator and all role/resource attributes; a semantic full-template comparison after
+restoring the old runtime must equal the input. The helper makes no AWS calls.
+The exact archive read was denied, so this is a reviewed runtime-only candidate,
+not proof of Python/dependency compatibility or approval to deploy.

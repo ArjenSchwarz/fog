@@ -78,14 +78,17 @@ and the [official v8.0.2 release](https://github.com/actions/download-artifact/r
    separately to `fog/al2023/{architecture}/{release-tag}.zip`; use that exact tag as
    `FogVersion`. The default `latest` requires a separately published alias under
    the selected architecture. Main-only publishing supplies `unstable` after an
-   authorized merge/main push. No objects were published during this work.
-3. Verify bucket region/availability and existing publisher permission for the new
-   keys before merge. No IAM changes are made. Do not use the x86_64 alias for ARM64.
+   authorized merge/main push. After the authorised PR #216 merge, the main workflow
+   successfully published all four unstable archives (run 39035856705).
+3. Verify artifact availability for the selected version and region before deployment.
+   The main publisher successfully wrote the new unstable keys; no IAM changes were
+   needed. Do not use the x86_64 alias for ARM64.
 4. Review each owning stack's actual template and source artifact before updating
    runtime and code together. Preserve deployed parameters, architecture, triggers
-   and policies. Existing runtime/architecture/handler and stack ownership are
-   inventoried below; exact deployed template, S3 keys and source equivalence remain
-   unverified because `GetTemplate` and `GetFunctionConfiguration` are denied.
+   and policies. Original-template and function-configuration reads now succeed.
+   The deployed builder variants have different logical IDs and packaging; do not
+   apply the full maintained builder template over the older standalone stack.
+   Preserve its logical ID and external site integration during an authorised upgrade.
 5. Validate report generation and Amplify rebuilds only in a separately authorized
    deployment. Plan rollback with a previous compatible bootstrap artifact;
    deprecated runtime rollback may be blocked. Use versioned artifact keys because
@@ -93,27 +96,79 @@ and the [official v8.0.2 release](https://github.com/actions/download-artifact/r
 
 ## Deployed-source coverage
 
-The renewed-session read-only check on 17 October independently confirmed all five
-stack/logical-resource/function relationships with `ListStackResources`. Permitted
-`ListFunctions` reads confirmed the runtime, architecture and handler. Authentication
-works, but the current ViewOnlyAccess roles deny `GetTemplate` and
-`GetFunctionConfiguration`; no denied operation was retried or circumvented. No code
-archives were downloaded. Source-to-stack ownership is confirmed; exact deployed
-source/template matching is not.
+The initial renewed-session check confirmed all five stack/function relationships,
+but template/configuration reads were denied. After the user updated the read policy,
+both reads succeeded for all five targets. No source archives were downloaded.
 
 | Audit target | Runtime / architecture / handler | Source coverage |
 |---|---|---|
-| PT 2022 report generator, Sydney | go1.x / x86_64 / fog | Confirmed fogreport-lambda / ReportGeneratorFunction ownership matches maintained template. New x86_64 bootstrap supported; exact deployed template/code key unreadable. |
-| PT 2022 report generator, Virginia | go1.x / x86_64 / fog | Same confirmed ownership and supported x86_64 migration. |
-| Demo 2023 report generator, Virginia | provided.al2 / arm64 / bootstrap | Confirmed same stack/logical ID. Select LambdaArchitecture=arm64 and the ARM64 ZIP; exact deployed definition/source remains unreadable. |
-| Demo 2023 builder trigger, Virginia | python3.9 / x86_64 / index.lambda_handler | Confirmed fogreport-builder / TriggerFunction ownership matches maintained inline-handler definition. Python 3.14 target; inline-source equivalence unverified. |
-| Fog Report legacy build trigger, Sydney | python3.9 / x86_64 / app.lambda_handler | Separate fog-reports-trigger-build / HelloWorldFunction stack. Description confirms an Amplify build job; no confirmed source found. Remains outside PR coverage. |
+| PT 2022 report generator, Sydney | go1.x / x86_64 / fog | Maintained report-template variant with an older pinned SAM artifact. Set LambdaArchitecture=x86_64 and migrate its code locator deliberately. |
+| PT 2022 report generator, Virginia | go1.x / x86_64 / fog | Maintained report template; only a semantically equivalent artifact-bucket expression differs from the baseline. |
+| Demo 2023 report generator, Virginia | provided.al2 / arm64 / bootstrap | Maintained report-template variant; select LambdaArchitecture=arm64 and matching ARM64 ZIP. |
+| Demo 2023 builder trigger, Virginia | python3.9 / x86_64 / index.lambda_handler | Original template exactly matches the pre-upgrade maintained builder template; inline Python matches the current source. Python 3.14 target. |
+| Fog Report build trigger, Sydney | python3.9 / x86_64 / app.lambda_handler | Owner confirms the same Fog report builder pipeline, deployed as the older standalone fog-reports-trigger-build / HelloWorldFunction stack. Current template packages Python in a SAM ZIP instead of using the maintained inline TriggerFunction. Python 3.14 is the maintained target, but the standalone deployment adaptation and packaged-code comparison remain outstanding. |
+
+The Sydney function's CloudFormation tags identify its exact standalone stack and
+logical ID. They do not name a Git file or prove that the packaged Python equals
+the maintained inline handler. Its original template contains only the trigger;
+its processed template contains the function and generated role. The maintained
+`examples/templates/fogreport-builder.yaml` defines the combined site infrastructure
+and inline trigger. These are different deployment shapes within the same pipeline.
+PR #216 updates the maintained builder runtime, but does not provide a directly
+applicable update for the old standalone logical resource. A future authorised
+migration must preserve that identity and verify its existing Python and Amplify
+application/branch binding before changing runtime or packaging. Describing it as
+unrelated or outside Fog's maintained pipeline was an incorrect inference from the
+logical ID and packaging differences. Deployed ZIP contents remain unverified;
+template provenance supplied by the owner is distinct from byte-for-byte code identity.
+
+## Prepare the older standalone builder update
+
+The combined builder template must not replace the older standalone stack. Use
+`scripts/prepare-builder-runtime-template.py` to prepare a candidate from that
+stack's existing template. It makes no AWS calls and changes only
+`Resources.HelloWorldFunction.Properties.Runtime` from `python3.9` to `python3.14`.
+It keeps the packaged Python, handler, code locator, architecture, generated role,
+other resources and any existing event permissions unchanged. Therefore any Amplify
+application/branch binding contained in the package is retained without guessing it.
+This preserves the binding; it does not verify that the old code runs on Python 3.14.
+
+Export the existing **Processed** template with the already authorised read-only
+profile and correct region. Substitute the exact owning stack ID from the function's
+CloudFormation tags; these commands prepare local files only:
+
+```sh
+aws --profile READ_ONLY_PROFILE --region STACK_REGION cloudformation get-template \
+  --stack-name EXACT_STACK_ID --template-stage Processed --output json \
+  > /tmp/builder-current.json
+python3 scripts/prepare-builder-runtime-template.py \
+  /tmp/builder-current.json /tmp/builder-python314-candidate.json
+```
+
+The helper accepts a JSON template or the JSON GetTemplate response. JSON Original
+SAM templates are also accepted; YAML bodies must be exported/converted to JSON
+first. It refuses a different logical resource, handler, source runtime or missing
+code locator, and refuses to overwrite the export or any existing candidate.
+The existing CI unittest discovery checks preservation and refusal cases.
+
+**Prepared candidate is not deployment acceptance.** The current read-only profile
+denied `s3:GetObject` for the known source archive, so no packaged code was read and
+no alternate source-download route was attempted. Before deploying, recover that
+exact archive through separately granted access, compare its Python/dependencies
+with the maintained inline handler, and test its Python 3.14 compatibility and
+existing Amplify application/branch binding. Keep any resulting code/package change
+separate from this runtime-only candidate. Review a future CloudFormation change set
+for the existing stack and expect only the function Runtime change; reject resource
+replacement, new site resources, role/policy changes or changed event wiring.
+Deployment, invocation, change-set creation and IAM changes are outside this helper
+and were not performed for this follow-up.
 
 The adjacent `fogreport-generator` repository is an older CDK/site prototype, not
 Fog's runtime entry point. Its tracked Go source has no Lambda runtime definition;
 a locally untracked `fullstack.yaml` defines site infrastructure without this trigger.
 Its modified go.mod and untracked fullstack.yaml/go.sum were preserved. Historical
-site report files mention the legacy stack but do not establish maintained ownership.
+site report files mention the older stack. The owner has now confirmed its role in
+the same Fog builder pipeline.
 Other workshop HelloWorld SAM functions found locally do not prove this stack's source.
 Do not deploy a guessed template over the legacy stack.
 
