@@ -44,3 +44,30 @@ AWS evidence is limited to permitted metadata: stack/logical-resource ownership 
 ARM64 local verification: both architecture packages build successfully; six Python 3.14 archive/alias/invalid-input/Runtime API/trigger tests pass; actionlint and cfn-lint pass with only previously recorded W1031/W3045 exclusions. Reuse, quality, efficiency and spec reviewers report no findings. Native Linux ARM64 acceptance awaits exact-head CI; task 4 stays open until that result is verified.
 
 Native validation accepted: exact implementation head 6bcf488 passes x86_64 build/tests/lint and the native ARM64 smoke of the downloaded ZIP (PR workflow run 39033796920). The main-only publish job was skipped. Task 4 is complete. No AWS operation or permission change was made.
+
+## Source-mapping correction after merge
+
+D12 corrects the earlier inference that the standalone Sydney trigger was outside
+Fog source coverage. The owner confirms it belongs to the same builder pipeline.
+Read-only tags identify fog-reports-trigger-build / HelloWorldFunction; Original
+and Processed templates show a standalone packaged app.lambda_handler function,
+while examples/templates/fogreport-builder.yaml defines the combined site and
+inline TriggerFunction. Different logical IDs/packaging do not establish unrelated
+provenance. PR #216 updates the maintained Python target but is not a drop-in
+standalone-stack migration; packaged Python contents and binding remain unverified.
+Retain the earlier findings as investigation history, superseded by this correction.
+No replacement handler, guessed Amplify binding or live change is introduced.
+
+After explicit merge authorisation, PR #216 merged as b30a73c. Main workflow
+39035856705 passed both architecture checks and all four established archive uploads.
+Template/configuration reads succeeded after the user applied the read policy;
+earlier denial and pre-merge statements above describe their original checkpoints.
+
+D13: Prepare the standalone update by transforming its exported deployed template,
+changing only Runtime. Preserve the packaged code and its embedded Amplify binding
+instead of introducing an unverified replacement handler or recreating site resources.
+The bounded exact-archive s3:GetObject read was denied by the existing read-only
+role; no retry or alternate download route was attempted. Runtime-only preparation
+is testable without source access, but deployment acceptance remains blocked on
+packaged code/dependency compatibility and binding verification. The helper accepts
+JSON Original or Processed templates and never calls AWS or overwrites an export.

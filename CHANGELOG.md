@@ -2,6 +2,7 @@ Unreleased
 ==========
 
 ### Changed
+- Added runtime-only template preparation for the older standalone report builder, preserving its packaged code, resource identity and Amplify binding; corrected its source coverage and documented unverified package compatibility.
 - Report Lambda templates now use Amazon Linux 2023 and Python 3.14, with x86_64/ARM64 bootstrap packaging, explicit architecture selection, current Go/runtime client and main-only CI publication alongside GitHub artifacts; see docs/lambda-runtime-upgrade.md before deployment.
 
 ### Fixed
