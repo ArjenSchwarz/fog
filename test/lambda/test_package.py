@@ -21,19 +21,34 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class LambdaPackageTests(unittest.TestCase):
-    def test_archive_is_executable_static_linux_amd64(self):
-        with zipfile.ZipFile(ROOT / 'dist/lambda.zip') as archive:
-            self.assertEqual(archive.namelist(), ['bootstrap'])
-            info = archive.getinfo('bootstrap')
-            self.assertTrue((info.external_attr >> 16) & stat.S_IXUSR)
-            data = archive.read('bootstrap')
-        self.assertEqual(data[:6], b'\x7fELF\x02\x01')
-        self.assertEqual(struct.unpack_from('<H', data, 18)[0], 62)
-        # A CGO-free executable must have no dynamic interpreter (PT_INTERP).
-        offset = struct.unpack_from('<Q', data, 32)[0]
-        size, count = struct.unpack_from('<HH', data, 54)
-        self.assertNotIn(3, [struct.unpack_from('<I', data, offset + i * size)[0]
-                             for i in range(count)])
+    def test_archives_are_executable_static_linux_with_matching_architectures(self):
+        for architecture, machine in [('x86_64', 62), ('arm64', 183)]:
+            with self.subTest(architecture=architecture):
+                with zipfile.ZipFile(ROOT / f'dist/lambda-{architecture}.zip') as archive:
+                    self.assertEqual(archive.namelist(), ['bootstrap'])
+                    info = archive.getinfo('bootstrap')
+                    self.assertTrue((info.external_attr >> 16) & stat.S_IXUSR)
+                    data = archive.read('bootstrap')
+                self.assertEqual(data[:6], b'\x7fELF\x02\x01')
+                self.assertEqual(struct.unpack_from('<H', data, 18)[0], machine)
+                # A CGO-free executable must have no dynamic interpreter (PT_INTERP).
+                offset = struct.unpack_from('<Q', data, 32)[0]
+                size, count = struct.unpack_from('<HH', data, 54)
+                self.assertNotIn(3, [struct.unpack_from('<I', data, offset + i * size)[0]
+                                     for i in range(count)])
+
+    def test_unqualified_archive_preserves_x86_64_alias(self):
+        self.assertEqual((ROOT / 'dist/lambda.zip').read_bytes(),
+                         (ROOT / 'dist/lambda-x86_64.zip').read_bytes())
+
+    def test_invalid_architecture_is_rejected_before_creating_output(self):
+        with tempfile.TemporaryDirectory() as temp:
+            output = Path(temp) / 'invalid.zip'
+            result = subprocess.run([str(ROOT / 'scripts/package-lambda.sh'), str(output), 'invalid'],
+                                    capture_output=True, text=True, check=False)
+            self.assertEqual(result.returncode, 2)
+            self.assertIn('Unsupported Lambda architecture', result.stderr)
+            self.assertFalse(output.exists())
 
     def test_bootstrap_reports_handler_errors_through_runtime_api(self):
         received = queue.Queue()
@@ -70,8 +85,10 @@ class LambdaPackageTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as temp:
             binary = Path(temp) / 'bootstrap'
-            if platform.system() == 'Linux' and platform.machine() in ('x86_64', 'AMD64'):
-                with zipfile.ZipFile(ROOT / 'dist/lambda.zip') as archive:
+            architecture = {'x86_64': 'x86_64', 'AMD64': 'x86_64',
+                            'aarch64': 'arm64', 'arm64': 'arm64'}.get(platform.machine())
+            if platform.system() == 'Linux' and architecture:
+                with zipfile.ZipFile(ROOT / f'dist/lambda-{architecture}.zip') as archive:
                     binary.write_bytes(archive.read('bootstrap'))
                 binary.chmod(0o755)
             else:

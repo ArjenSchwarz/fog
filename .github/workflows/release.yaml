@@ -44,4 +44,4 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ github.event.release.tag_name }}
-        run: gh release upload "$RELEASE_TAG" dist/lambda.zip --clobber
+        run: gh release upload "$RELEASE_TAG" dist/lambda.zip dist/lambda-x86_64.zip dist/lambda-arm64.zip --clobber

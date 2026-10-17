@@ -31,3 +31,14 @@ D7 is superseded by D9; its original rationale is retained above as history, not
 The release S3 block was already commented out before this branch, so no active release publishing capability was removed. Release-tag/latest publication remains an operator prerequisite. Exact-head CI on d135972 is inspected separately; the existing Claude review exits is_error:true after one turn, zero cost, empty model usage and zero permission denials, with detailed SDK error output hidden by the action. Logs do not establish authentication or quota as its cause. No review finding was emitted.
 
 Correction verification: independent quality/spec reviews found no findings. actionlint exposed the existing unquoted release version extraction; replaced it with quoted GITHUB_REF_NAME/GITHUB_ENV expansion. Legacy Linux amd64 build succeeds without lambda.norpc, preserving the Go1.x RPC entry point. The prior d135972 exact-head build-and-test run passed; restored publisher is not eligible on this feature branch. No AWS call was made.
+
+## ARM64 coverage correction
+
+| ID | Decision | Rationale |
+|---|---|---|
+| D10 | Preserve both inventoried architectures with required LambdaArchitecture and qualified keys | Renewed-session ListFunctions proves the Demo report is arm64 while both PT reports are x86_64. Build both bootstraps; bind the architecture and artifact key to one required parameter with no default, preventing a silent architecture migration. This corrects the original x86_64 assumption without changing report behavior or selecting a new architecture for any stack. |
+| D11 | Execute the same uploaded ARM64 archive on a native GitHub ARM runner before main-only publication | Static ELF checks catch a wrong build target; a native Runtime API smoke verifies actual initialization. ARM job downloads existing build artifacts rather than recompiling. Publisher retains the existing role/permission levels and main-only guard and waits for both validations. Unqualified x86_64 archive/key aliases remain compatible. |
+
+AWS evidence is limited to permitted metadata: stack/logical-resource ownership and runtime/architecture/handler confirmed for five functions. GetTemplate/GetFunctionConfiguration were denied, so exact source/template equivalence is unverified. No alternate access path was sought for denied contents. The separate legacy HelloWorldFunction uses app.lambda_handler; source remains missing and no code is guessed for it. No AWS operations are performed for this packaging correction.
+
+ARM64 local verification: both architecture packages build successfully; six Python 3.14 archive/alias/invalid-input/Runtime API/trigger tests pass; actionlint and cfn-lint pass with only previously recorded W1031/W3045 exclusions. Reuse, quality, efficiency and spec reviewers report no findings. Native Linux ARM64 acceptance awaits exact-head CI; task 4 stays open until that result is verified.
