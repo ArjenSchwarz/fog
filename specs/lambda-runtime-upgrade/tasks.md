@@ -12,5 +12,5 @@ references:
 - [x] 3. Upgrade builds and tests pass with migration prerequisites documented <!-- id:zd468p3 -->
   - Blocked-by: zd468p2 (Bootstrap archives initialize via the Runtime API and CI validates without feature-branch AWS publication)
 
-- [ ] 4. Both deployed architectures select matching bootstrap artifacts and pass native CI smoke checks <!-- id:zd468p4 -->
+- [x] 4. Both deployed architectures select matching bootstrap artifacts and pass native CI smoke checks <!-- id:zd468p4 -->
   - Blocked-by: zd468p2 (Bootstrap archives initialize via the Runtime API and CI validates without feature-branch AWS publication)
