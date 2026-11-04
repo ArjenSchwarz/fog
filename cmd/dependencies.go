@@ -128,7 +128,23 @@ func buildDependencyRows(stacks map[string]lib.CfnStack, stackfilter []string, a
 	return data
 }
 
+// getFilteredStacks returns the names of the stacks matching stackfilter, every
+// stack that (transitively) imports from them, and the stacks each of those
+// imports from. The result may contain duplicates; callers deduplicate it.
 func getFilteredStacks(stackfilter string, stacks *map[string]lib.CfnStack) []string {
+	return collectFilteredStacks(stackfilter, stacks, map[string]bool{})
+}
+
+// collectFilteredStacks does the recursive walk for getFilteredStacks. Imports
+// between stacks can form cycles (A imports from B and B imports from A), so
+// visited records each filter that has already been expanded. Expanding the
+// same filter again would only add names already in the result, so skipping
+// it keeps the output unchanged while guaranteeing the walk terminates.
+func collectFilteredStacks(stackfilter string, stacks *map[string]lib.CfnStack, visited map[string]bool) []string {
+	if visited[stackfilter] {
+		return nil
+	}
+	visited[stackfilter] = true
 	result := []string{}
 	for stackname, stack := range *stacks {
 		if strings.Contains(stackfilter, "*") {
@@ -136,7 +152,7 @@ func getFilteredStacks(stackfilter string, stacks *map[string]lib.CfnStack) []st
 			if re.MatchString(stackname) {
 				result = append(result, stackname)
 				for _, importedstack := range stack.ImportedBy {
-					result = append(result, getFilteredStacks(importedstack, stacks)...)
+					result = append(result, collectFilteredStacks(importedstack, stacks, visited)...)
 				}
 			} else {
 				for _, importstack := range stack.ImportedBy {
@@ -149,7 +165,7 @@ func getFilteredStacks(stackfilter string, stacks *map[string]lib.CfnStack) []st
 			if stackname == stackfilter {
 				result = append(result, stackname)
 				for _, importedstack := range stack.ImportedBy {
-					result = append(result, getFilteredStacks(importedstack, stacks)...)
+					result = append(result, collectFilteredStacks(importedstack, stacks, visited)...)
 				}
 			}
 			if stringInSlice(stackfilter, stack.ImportedBy) {

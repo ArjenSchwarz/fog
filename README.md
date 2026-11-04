@@ -318,6 +318,8 @@ This will show your stacks and any dependencies that exist between them.
 
 Dependencies can prevent updates from happening or prevent a stack from getting deleted. Right now dependencies being shown are export values that are imperted by other stacks. Upcoming is support for showing nested stacks.
 
+When you filter with `--stackname`, the output includes the matching stacks, every stack that imports from them (followed through the whole chain of imports), and the stacks those importers import from. Circular imports between stacks are handled: each stack is only followed once.
+
 This function supports the "dot" output format, which outputs the dependencies in a way that you can turn into a graphical format using a tool like [graphviz](https://graphviz.org).
 
 ```shell
