@@ -810,6 +810,8 @@ This guide helps you diagnose and resolve common issues when using Fog.
 
 4. **Check for error messages** in output
 
+**Note for `fog deploy`**: if the deployment result (success, failure, or "no changes" summary) cannot be written to the file requested with `--file`, `fog deploy` prints the error to stderr and exits with a non-zero status. The deployment itself has still completed (or been rolled back) at that point and the deployment log is still written, so check the stack status before re-running the deployment.
+
 ## Performance Issues
 
 ### Slow Template Validation

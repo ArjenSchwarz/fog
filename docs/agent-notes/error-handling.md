@@ -57,6 +57,11 @@ error (behaviour unchanged). Callers (`cmd/output_helpers.go` `renderDocument`,
 error. To force a `NewFileWriter` failure in tests, point the path under a regular file so
 the internal `os.MkdirAll` fails with a non-directory error (portable, no root needed).
 
+Deploy result rendering follows the same rule (T-1679): `printDeploymentResults`
+returns render errors to `deployTemplate` (which calls `failWithError`), and the
+no-changes branch (`reportNoChanges`) fails instead of exiting 0. Deployment log write
+failures and new-stack cleanup stay non-fatal / always run before the error is returned.
+
 ## Testing Error Paths
 
 Error-path tests should directly assert returned errors, not use subprocess re-execution patterns (`os.Args[0]`, `exec.Command`, `FOG_TEST_HELPER`). The subprocess pattern was used before functions returned errors and should not be used for new tests. Prefer in-process `osExitFunc` interception (see `runWithInterceptedExit`).

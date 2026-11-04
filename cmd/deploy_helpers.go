@@ -218,7 +218,10 @@ func confirmAndDeployChangeset(changeset *lib.ChangesetInfo, info *lib.DeployInf
 
 // printDeploymentResults fetches the final stack state and prints the
 // results. Success or failure information is written to the deployment log.
-func printDeploymentResults(info *lib.DeployInfo, cfg config.AWSConfig, logObj *lib.DeploymentLog) {
+// Deployment log write failures are ancillary and only produce warnings, but a
+// failure to render the result output is returned so the caller can fail the
+// command instead of reporting success without the requested output.
+func printDeploymentResults(info *lib.DeployInfo, cfg config.AWSConfig, logObj *lib.DeploymentLog) error {
 	// Set deployment end timestamp before generating output
 	info.DeploymentEnd = time.Now()
 
@@ -245,9 +248,9 @@ func printDeploymentResults(info *lib.DeployInfo, cfg config.AWSConfig, logObj *
 		// Do not auto-delete new stacks on this path: without a successful final
 		// lookup we cannot safely determine whether cleanup is appropriate.
 		if err := outputFailureResult(info, cfg.CloudformationClient()); err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: Failed to generate output: %v\n", err)
+			return fmt.Errorf("failed to generate output: %w", err)
 		}
-		return
+		return nil
 	}
 
 	// Capture final stack state for output generation
@@ -266,7 +269,7 @@ func printDeploymentResults(info *lib.DeployInfo, cfg config.AWSConfig, logObj *
 
 		// Output final deployment summary to stdout
 		if err := outputSuccessResult(info); err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: Failed to generate output: %v\n", err)
+			return fmt.Errorf("failed to generate output: %w", err)
 		}
 
 	case types.StackStatusRollbackComplete, types.StackStatusRollbackFailed, types.StackStatusUpdateRollbackComplete, types.StackStatusUpdateRollbackFailed:
@@ -279,16 +282,20 @@ func printDeploymentResults(info *lib.DeployInfo, cfg config.AWSConfig, logObj *
 			fmt.Fprintf(os.Stderr, "Warning: Failed to write deployment log: %v\n", err)
 		}
 
-		// Output failure summary to stdout
-		if err := outputFailureResult(info, cfg.CloudformationClient()); err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: Failed to generate output: %v\n", err)
-		}
+		// Output failure summary to stdout. A render failure is reported only
+		// after cleanup so a failed new stack is still removed.
+		outputErr := outputFailureResult(info, cfg.CloudformationClient())
 
 		if info.IsNew {
 			// double verify that the stack can be deleted
 			deleteStackIfNewFunc(*info, cfg)
 		}
+
+		if outputErr != nil {
+			return fmt.Errorf("failed to generate output: %w", outputErr)
+		}
 	}
+	return nil
 }
 
 // validateStackReadiness checks if an existing stack is ready for updates.
