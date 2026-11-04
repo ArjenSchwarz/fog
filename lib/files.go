@@ -445,10 +445,31 @@ func unwrapPowerShellCommand(args []string) ([]string, error) {
 	return nil, nil
 }
 
+// PrecheckCommands returns the configured templates.prechecks commands.
+//
+// A list value (the normal config file form) is used as-is. A plain string,
+// which is what an environment variable such as TEMPLATES_PRECHECKS provides,
+// is split on newlines rather than whitespace: each precheck is a command with
+// arguments, so splitting on spaces would turn "cfn-lint -t template.yaml"
+// into three separate commands.
+func PrecheckCommands() []string {
+	raw, ok := viper.Get("templates.prechecks").(string)
+	if !ok {
+		return viper.GetStringSlice("templates.prechecks")
+	}
+	var commands []string
+	for line := range strings.SplitSeq(raw, "\n") {
+		if line = strings.TrimSpace(line); line != "" {
+			commands = append(commands, line)
+		}
+	}
+	return commands
+}
+
 // RunPrechecks executes configured template validation commands and returns results for each check.
 func RunPrechecks(deployment *DeployInfo) (map[string]string, error) {
 	results := make(map[string]string)
-	for _, configured := range viper.GetStringSlice("templates.prechecks") {
+	for _, configured := range PrecheckCommands() {
 		// Split the configured command before substituting $TEMPLATEPATH so the
 		// template path always stays inside the argument it was written in.
 		// Substituting first would let spaces, quotes or backslashes in the path

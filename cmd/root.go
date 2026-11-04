@@ -49,6 +49,8 @@ THE SOFTWARE.
 //
 //   - Config files: fog.yaml, fog.json, or fog.toml in current directory or $HOME
 //   - Environment variables: All settings can be overridden via environment
+//     variables named after the uppercased key with dots and dashes replaced
+//     by underscores (e.g. table.max-column-width -> TABLE_MAX_COLUMN_WIDTH)
 //   - Command-line flags: Persistent and command-specific flags
 //
 // Global flags available to all commands:
@@ -84,8 +86,13 @@ THE SOFTWARE.
 package cmd
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
+	"maps"
 	"os"
+	"slices"
+	"strings"
 
 	"github.com/ArjenSchwarz/fog/config"
 	"github.com/spf13/cobra"
@@ -148,6 +155,36 @@ func init() {
 	rootCmd.PersistentFlags().String("timezone", "", "Specify a timezone you want to use for any times shown in output. By default it uses your system's timezone")
 	rootCmd.PersistentFlags().Bool("debug", false, "Enable debug mode, mainly for development purposes")
 
+	bindPersistentFlags()
+
+	// Default table settings
+	viper.SetDefault("table.style", "Default")
+	viper.SetDefault("table.max-column-width", 50)
+	viper.SetDefault("timezone", "Local")
+
+	// Default file structure settings
+	viper.SetDefault("templates.extensions", []string{"", extYAML, ".yml", ".templ", ".tmpl", ".template", extJSON})
+	viper.SetDefault("templates.directory", "templates")
+	viper.SetDefault("tags.extensions", []string{"", extJSON})
+	viper.SetDefault("tags.directory", "tags")
+	viper.SetDefault("tags.default", map[string]string{})
+	viper.SetDefault("parameters.extensions", []string{"", extJSON})
+	viper.SetDefault("parameters.directory", "parameters")
+	viper.SetDefault("deployments.extensions", []string{"", extYAML, ".yml", extJSON})
+	viper.SetDefault("deployments.directory", ".")
+	viper.SetDefault("rootdir", ".")
+
+	viper.SetDefault("changeset.name-format", "fog-$TIMESTAMP")
+
+	viper.SetDefault("logging.enabled", true)
+	viper.SetDefault("logging.filename", "fog-deployments.log")
+	viper.SetDefault("logging.show-previous", true)
+}
+
+// bindPersistentFlags binds the root persistent flags to their config keys so
+// an explicitly passed flag takes precedence over environment variables and
+// config file values.
+func bindPersistentFlags() {
 	if err := viper.BindPFlag("verbose", rootCmd.PersistentFlags().Lookup("verbose")); err != nil {
 		cobra.CheckErr(err)
 	}
@@ -172,29 +209,6 @@ func init() {
 	if err := viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug")); err != nil {
 		cobra.CheckErr(err)
 	}
-
-	// Default table settings
-	viper.SetDefault("table.style", "Default")
-	viper.SetDefault("table.max-column-width", 50)
-	viper.SetDefault("timezone", "Local")
-
-	// Default file structure settings
-	viper.SetDefault("templates.extensions", []string{"", extYAML, ".yml", ".templ", ".tmpl", ".template", extJSON})
-	viper.SetDefault("templates.directory", "templates")
-	viper.SetDefault("tags.extensions", []string{"", extJSON})
-	viper.SetDefault("tags.directory", "tags")
-	viper.SetDefault("tags.default", map[string]string{})
-	viper.SetDefault("parameters.extensions", []string{"", extJSON})
-	viper.SetDefault("parameters.directory", "parameters")
-	viper.SetDefault("deployments.extensions", []string{"", extYAML, ".yml", extJSON})
-	viper.SetDefault("deployments.directory", ".")
-	viper.SetDefault("rootdir", ".")
-
-	viper.SetDefault("changeset.name-format", "fog-$TIMESTAMP")
-
-	viper.SetDefault("logging.enabled", true)
-	viper.SetDefault("logging.filename", "fog-deployments.log")
-	viper.SetDefault("logging.show-previous", true)
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -222,15 +236,62 @@ func loadConfigFile(cfgFile string) error {
 		viper.SetConfigName("fog")
 	}
 
+	// Config keys contain dots (nesting) and dashes, neither of which can be
+	// used in shell variable names. Map both to underscores so that, for
+	// example, table.max-column-width can be set via TABLE_MAX_COLUMN_WIDTH.
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
 	viper.AutomaticEnv() // read in environment variables that match
 
 	if err := viper.ReadInConfig(); err != nil {
 		var notFound viper.ConfigFileNotFoundError
 		// Tolerate a missing file only for the implicit default lookup.
 		if cfgFile == "" && errors.As(err, &notFound) {
-			return nil
+			return validateDefaultTags()
 		}
 		return err
 	}
+	return validateDefaultTags()
+}
+
+// validateDefaultTags rejects a tags.default value that Viper cannot turn into
+// a map. An environment variable (TAGS_DEFAULT) always arrives as a string and
+// replaces the configured map entirely; Viper only parses it when it is a JSON
+// object and otherwise returns an empty map, which would silently drop every
+// configured default tag. Values must be JSON strings too: the deploy
+// consumer (GetStringMapString) turns numbers, booleans and null into empty
+// tag values. Failing here surfaces the mistake instead.
+func validateDefaultTags() error {
+	raw, ok := viper.Get("tags.default").(string)
+	if !ok {
+		return nil
+	}
+	const hint = `must be a JSON object with string values such as {"Environment":"production","CostCenter":"123"}`
+	var tags map[string]any
+	if err := json.Unmarshal([]byte(raw), &tags); err != nil || tags == nil {
+		return fmt.Errorf("invalid tags.default value %q (from TAGS_DEFAULT or the config file): %s", raw, hint)
+	}
+	for _, key := range slices.Sorted(maps.Keys(tags)) {
+		if _, isString := tags[key].(string); !isString {
+			return fmt.Errorf("invalid tags.default value for tag %q (from TAGS_DEFAULT or the config file): got %s, %s", key, jsonTypeName(tags[key]), hint)
+		}
+	}
 	return nil
+}
+
+// jsonTypeName names the JSON type of a decoded value for error messages.
+func jsonTypeName(value any) string {
+	switch value.(type) {
+	case nil:
+		return "null"
+	case bool:
+		return "boolean"
+	case float64:
+		return "number"
+	case []any:
+		return "array"
+	case map[string]any:
+		return "object"
+	default:
+		return fmt.Sprintf("%T", value)
+	}
 }
