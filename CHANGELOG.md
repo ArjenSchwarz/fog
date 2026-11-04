@@ -11,6 +11,7 @@ Unreleased
 - Fixed `stack dependencies` / `dependencies --stackname` recursing until a stack overflow when stacks import from each other in a cycle; each stack is now followed only once, with unchanged results for acyclic graphs (T-1470)
 - Fixed prechecks splitting the template path into multiple arguments when it contains spaces and `$TEMPLATEPATH` is unquoted (as in the documented `cfn-lint -t $TEMPLATEPATH`); the placeholder is now substituted after argument splitting so the path is always passed as one argument (T-1403)
 - Fixed `fog deploy` reporting success when the deployment result could not be written to the requested `--file` output (successful, failed, and "no changes" deployments); it now exits non-zero with the output error while still writing the deployment log and cleaning up failed new stacks (T-1679)
+- Fixed `fog stack describe` (and the `fog describe` alias) printing the placeholder `describe called` when run without a subcommand; it now shows the command help listing the available subcommands (T-1373)
 - Fixed `fog deploy` panicking when `CreateChangeSet` returns no changeset ID; it now returns a descriptive error through the normal deploy error path
 - Fixed panics when AWS returns a partial or empty `DescribeChangeSet` response while parsing changesets (`AddChangeset`); the response is now validated before use
 - Fixed a panic when rendering changeset danger details (`GetDangerDetails`) for a change with a nil target; such entries are now skipped safely

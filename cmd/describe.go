@@ -22,23 +22,21 @@ THE SOFTWARE.
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 )
 
 var describeFlags DescribeFlags
 
-// describeCmd represents the describe command
+// describeCmd represents the describe command. It is a parent-only command
+// without a Run function, so Cobra shows its help (listing the subcommands)
+// when it is invoked without a subcommand, consistent with the other group
+// commands such as `stack` and `resource`.
 var describeCmd = &cobra.Command{
 	Use:   "describe",
 	Short: "Describe lets you describe/see various items",
 	Long: `Describe lets you describe/see various items, such as stacks, changesets, templates, etc.
 
 For details see the subcommands.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("describe called")
-	},
 }
 
 func init() {
