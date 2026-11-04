@@ -93,6 +93,8 @@ tags/globaltags/dev.json
 tags/myvpc.json
 ```
 
+When passing multiple files to `--parameters` or `--tags`, separate them with commas. Whitespace around each name is ignored, so a quoted list such as `--tags "globaltags/dev, myvpc"` resolves the same files as `--tags globaltags/dev,myvpc`. Empty entries, such as those left by a trailing comma, are skipped.
+
 All of these paths and extensions can be overwritten in the config file, as explained further on. But once these files are found, fog will attempt to create a change set for them. It will then show an overview of the change set and ask whether you wish to deploy it.
 
 ![](docs/fog-new-stack.png)
