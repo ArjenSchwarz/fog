@@ -294,10 +294,24 @@ func loadDeploymentFileTags(deployment *lib.DeployInfo) []types.Tag {
 	return tags
 }
 
+// splitFileList splits a comma-separated --tags/--parameters value into file
+// names. Whitespace around each name is trimmed so that a list such as
+// "common, app" resolves "app" rather than " app", and empty entries (from a
+// trailing or doubled comma) are skipped instead of being looked up as files.
+func splitFileList(fileList string) []string {
+	files := make([]string, 0)
+	for file := range strings.SplitSeq(fileList, ",") {
+		if file = strings.TrimSpace(file); file != "" {
+			files = append(files, file)
+		}
+	}
+	return files
+}
+
 // loadTagsFromFiles loads and parses tags from comma-separated file list
 func loadTagsFromFiles(tagFiles string, deployment *lib.DeployInfo) []types.Tag {
 	tags := make([]types.Tag, 0)
-	for tagfile := range strings.SplitSeq(tagFiles, ",") {
+	for _, tagfile := range splitFileList(tagFiles) {
 		tagContent, _, err := lib.ReadTagsfile(tagfile)
 		if err != nil {
 			message := fmt.Sprintf("%v '%v'", texts.FileTagsReadFailure, tagfile)
@@ -354,7 +368,7 @@ func loadDeploymentFileParameters(deployment *lib.DeployInfo) []types.Parameter 
 // loadParametersFromFiles loads and parses parameters from comma-separated file list
 func loadParametersFromFiles(parameterFiles string) []types.Parameter {
 	parameters := make([]types.Parameter, 0)
-	for parameterfile := range strings.SplitSeq(parameterFiles, ",") {
+	for _, parameterfile := range splitFileList(parameterFiles) {
 		paramContent, _, err := lib.ReadParametersfile(parameterfile)
 		if err != nil {
 			message := fmt.Sprintf("%v '%v'", texts.FileParametersReadFailure, parameterfile)
