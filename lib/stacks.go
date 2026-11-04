@@ -305,14 +305,19 @@ func (deployment *DeployInfo) IsOngoing(ctx context.Context, svc CloudFormationD
 	if err != nil {
 		return false
 	}
-	availableStatuses := []string{
+	// Terminal statuses end deploy polling. The rollback-failed statuses are
+	// included because CloudFormation stops there and waits for manual action;
+	// treating them as ongoing would make deploy poll forever (T-1610).
+	terminalStatuses := []string{
 		string(types.StackStatusCreateComplete),
 		string(types.StackStatusImportComplete),
 		string(types.StackStatusUpdateComplete),
 		string(types.StackStatusRollbackComplete),
+		string(types.StackStatusRollbackFailed),
 		string(types.StackStatusUpdateRollbackComplete),
+		string(types.StackStatusUpdateRollbackFailed),
 	}
-	return !stringInSlice(string(stack.StackStatus), availableStatuses)
+	return !stringInSlice(string(stack.StackStatus), terminalStatuses)
 }
 
 // IsNewStack verifies if a stack is new. This can mean either that it doesn't exist yet or is in review in progress state.
