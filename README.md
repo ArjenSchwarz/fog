@@ -398,7 +398,12 @@ fog report --help
 # Demo commands
 fog demo tables    # See all table styles
 fog demo settings  # View example configuration
+
+# Version
+fog --version      # Same as `fog util version`
 ```
+
+`fog demo ...` is a shortcut for `fog util demo ...`; both forms work.
 
 ### Community & Support
 

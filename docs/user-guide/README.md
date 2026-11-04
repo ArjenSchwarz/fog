@@ -523,6 +523,8 @@ fog demo tables
 fog demo settings
 ```
 
+These are shortcuts for `fog util demo tables` and `fog util demo settings`.
+
 ### Documentation
 
 - [Configuration Reference](configuration-reference.md) - All configuration options
