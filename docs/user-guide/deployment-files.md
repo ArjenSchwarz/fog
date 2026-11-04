@@ -75,7 +75,8 @@ template-file-path: "../templates/vpc.yaml"
 - CloudFormation extensions: `.template`, `.templ`, `.tmpl`
 
 **Path resolution**:
-- Paths are relative to the deployment file's directory
+- Paths are relative to the deployment file's directory, not the directory you run fog from. For example, with `deployments/vpc-dev.yaml` containing `template-file-path: "../templates/vpc.yaml"`, running `fog deploy --deployment-file vpc-dev` from the project root reads `templates/vpc.yaml`
+- The path must point at the exact file, including its extension. Unlike the `--template` flag, it is not looked up in the configured `templates.directory` or with the configured template extensions, and fog stops with an error if the file doesn't exist
 - Use `../` to navigate up directories
 - Absolute paths are supported but not recommended for portability
 
