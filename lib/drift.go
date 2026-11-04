@@ -72,7 +72,7 @@ func GetDefaultStackDrift(ctx context.Context, stackName *string, svc CloudForma
 // GetUncheckedStackResources returns stack resources that have not been checked for drift
 func GetUncheckedStackResources(ctx context.Context, stackName *string, checkedResources []string, svc interface {
 	CloudFormationDescribeStacksAPI
-	CloudFormationDescribeStackResourcesAPI
+	CloudFormationListStackResourcesAPI
 }) ([]CfnResource, error) {
 	resources, err := GetResources(ctx, stackName, svc)
 	if err != nil {

@@ -6,6 +6,7 @@ Unreleased
 
 ### Fixed
 - Fixed `fog deploy` polling forever when a deployment ends in `ROLLBACK_FAILED` or `UPDATE_ROLLBACK_FAILED`; these terminal statuses now stop event polling so the normal failure reporting runs (T-1610)
+- Fixed `resource list` and drift detection silently ignoring resources beyond the first 100 in a stack (T-1511); stack resources are now read with paginated `ListStackResources` instead of `DescribeStackResources`, so drift special cases (routes, NACLs, Transit Gateway routes) can resolve every logical-to-physical mapping
 - Fixed `fog deploy` panicking when `CreateChangeSet` returns no changeset ID; it now returns a descriptive error through the normal deploy error path
 - Fixed panics when AWS returns a partial or empty `DescribeChangeSet` response while parsing changesets (`AddChangeset`); the response is now validated before use
 - Fixed a panic when rendering changeset danger details (`GetDangerDetails`) for a change with a nil target; such entries are now skipped safely

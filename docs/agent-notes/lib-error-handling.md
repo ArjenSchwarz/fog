@@ -7,10 +7,7 @@ Several functions in the `lib/` package use `log.Fatalln` or `log.Fatalf` to han
 ### Fixed
 
 - `lib/outputs.go` `GetExports` - T-464: Changed to return `([]CfnOutput, error)` instead of calling `log.Fatalln`.
-
-### Still Present (as of 2026-03-20)
-
-- `lib/resources.go` `GetResources` - Same pattern: `log.Fatalln` on paginator errors and `DescribeStackResources` errors. The function returns `[]CfnResource` with no error return. Needs the same refactor as `GetExports`.
+- `lib/resources.go` `GetResources` - Now returns `([]CfnResource, error)` (see `specs/bugfixes/getresources-exits-on-api-errors/`).
 
 ## Convention
 

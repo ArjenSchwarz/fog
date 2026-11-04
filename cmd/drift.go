@@ -239,7 +239,7 @@ func driftHasRequiredFields(drift types.StackResourceDrift) bool {
 }
 
 func separateSpecialCases(ctx context.Context, defaultDrift []types.StackResourceDrift, stackName *string, svc interface {
-	lib.CloudFormationDescribeStackResourcesAPI
+	lib.CloudFormationListStackResourcesAPI
 	lib.CloudFormationListExportsAPI
 }) (map[string]string, map[string]string, map[string]string, map[string]string, error) {
 	naclResources := make(map[string]string)
@@ -249,13 +249,11 @@ func separateSpecialCases(ctx context.Context, defaultDrift []types.StackResourc
 
 	// Build logicalToPhysical map from ALL stack resources
 	// This ensures attachments and other resources are available for template resolution
-	stackResourcesResp, err := svc.DescribeStackResources(ctx, &cloudformation.DescribeStackResourcesInput{
-		StackName: stackName,
-	})
+	stackResources, err := lib.ListAllStackResources(ctx, stackName, svc)
 	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("failed to describe stack resources for drift special cases: %w", err)
+		return nil, nil, nil, nil, fmt.Errorf("failed to list stack resources for drift special cases: %w", err)
 	}
-	for _, resource := range stackResourcesResp.StackResources {
+	for _, resource := range stackResources {
 		if resource.LogicalResourceId == nil || resource.PhysicalResourceId == nil {
 			continue
 		}
