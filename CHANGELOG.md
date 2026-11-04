@@ -32,6 +32,7 @@ Unreleased
 - Fixed Transit Gateway blackhole drift suppression matching the route destination instead of the attachment ID, so `drift.ignore-blackholes` entries had no effect for TGW routes
 - Fixed commands reporting success when a requested `--file` output could not be created; the writer error is now surfaced as a command failure
 - Fixed Markdown report files omitting the Mermaid/Gantt chart when the console output format was non-Markdown but the file format was Markdown or HTML
+- Fixed `fog stack report` printing a text dump of the Mermaid/Gantt chart to table (or other non-Mermaid) console output when the separate `--file` format was Markdown or HTML; charts are now only rendered to Markdown/HTML destinations (T-1389)
 - Fixed drift detection turning parameterized Network ACL port and ICMP `Ref` values into `0` instead of resolving them from stack parameters
 - Fixed a bug where declining the confirmation prompt in `--deploy-changeset` mode deleted the existing changeset; a pre-existing changeset is now preserved on decline while a newly-created changeset in the normal flow is still cleaned up
 - Fixed drift detection for parameterized Network ACL entries so `Protocol`, `Egress`, and `RuleAction` `Ref` values resolve correctly instead of falling back to empty/default values
