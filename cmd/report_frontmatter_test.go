@@ -298,8 +298,9 @@ func TestGenerateFrontMatter_MultipleStacksMultipleEvents(t *testing.T) {
 	if got := result["success"]; got != "false" {
 		t.Errorf("expected success 'false', got %q", got)
 	}
-	if got := result["account"]; got != "444444444444" {
-		t.Errorf("expected account '444444444444', got %q", got)
+	// Digit-only account IDs are pre-quoted so YAML keeps them as strings
+	if got := result["account"]; got != `"444444444444"` {
+		t.Errorf("expected account '\"444444444444\"', got %q", got)
 	}
 	if got := result["accountalias"]; got != "prod-account (444444444444)" {
 		t.Errorf("expected accountalias 'prod-account (444444444444)', got %q", got)

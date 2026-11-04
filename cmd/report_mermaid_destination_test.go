@@ -14,9 +14,9 @@ import (
 )
 
 // renderReportForTest builds the report for the shared Mermaid test stack using
-// the current viper output settings and renders it through renderReport. It
-// returns what was written to stdout.
-func renderReportForTest(t *testing.T) string {
+// the current viper output settings and renders it through renderReport with
+// the given frontmatter (nil for none). It returns what was written to stdout.
+func renderReportForTest(t *testing.T, frontMatter map[string]string) string {
 	t.Helper()
 
 	reportFlags = ReportFlags{}
@@ -38,11 +38,11 @@ func renderReportForTest(t *testing.T) string {
 	os.Stdout = w
 	t.Cleanup(func() { os.Stdout = oldStdout })
 
-	outputOptions, err := getReportOutputOptions(awsConfig, nil)
+	outputOptions, err := getReportOutputOptions(awsConfig, frontMatter)
 	if err != nil {
 		t.Fatalf("getReportOutputOptions: %v", err)
 	}
-	renderErr := renderReport(doc.Build(), outputOptions, nil)
+	renderErr := renderReport(doc.Build(), outputOptions, frontMatter)
 
 	_ = w.Close()
 	os.Stdout = oldStdout
@@ -118,7 +118,7 @@ func TestRenderReport_MermaidOnlyInMermaidDestinations(t *testing.T) {
 			viper.Set("output-file", filePath)
 			viper.Set("output-file-format", tc.fileFormat)
 
-			stdout := renderReportForTest(t)
+			stdout := renderReportForTest(t, nil)
 
 			// The report data itself must still reach stdout.
 			if !strings.Contains(stdout, "MyResource") {

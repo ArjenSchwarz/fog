@@ -172,7 +172,7 @@ func (config *Config) GetTableFormat() output.Format {
 }
 
 // getFormatForOutput maps format name to v2 Format object
-func (config *Config) getFormatForOutput(formatName string) output.Format {
+func (config *Config) getFormatForOutput(formatName string, frontMatter map[string]string) output.Format {
 	switch formatName {
 	case "csv":
 		return output.CSV()
@@ -181,6 +181,11 @@ func (config *Config) getFormatForOutput(formatName string) output.Format {
 	case "dot":
 		return output.DOT()
 	case "markdown":
+		// go-output's WithFrontMatter option is not applied by its renderers,
+		// so frontmatter has to be attached to the Markdown format itself.
+		if len(frontMatter) > 0 {
+			return output.MarkdownWithFrontMatter(frontMatter)
+		}
 		return output.Markdown()
 	case "html":
 		return output.HTML()
@@ -197,11 +202,18 @@ func (config *Config) getFormatForOutput(formatName string) output.Format {
 // Returns an error when an explicitly requested file writer cannot be created so
 // callers can fail instead of silently dropping the requested file output.
 func (config *Config) GetOutputOptions() ([]output.OutputOption, error) {
+	return config.GetOutputOptionsWithFrontMatter(nil)
+}
+
+// GetOutputOptionsWithFrontMatter behaves like GetOutputOptions but adds the
+// given frontmatter when the console (and matching file) format is Markdown.
+// Other formats ignore the frontmatter.
+func (config *Config) GetOutputOptionsWithFrontMatter(frontMatter map[string]string) ([]output.OutputOption, error) {
 	opts := []output.OutputOption{}
 
 	// Console output format and writer
 	consoleFormatName := config.GetLCString("output")
-	consoleFormat := config.getFormatForOutput(consoleFormatName)
+	consoleFormat := config.getFormatForOutput(consoleFormatName, frontMatter)
 	opts = append(opts, output.WithFormat(consoleFormat))
 	opts = append(opts, output.WithWriter(output.NewStdoutWriter()))
 
@@ -243,6 +255,13 @@ func (config *Config) GetOutputOptions() ([]output.OutputOption, error) {
 // differs from console format. Returns nil options when no separate file output is
 // needed, and an error when an explicitly requested file writer cannot be created.
 func (config *Config) GetFileOutputOptions() ([]output.OutputOption, error) {
+	return config.GetFileOutputOptionsWithFrontMatter(nil)
+}
+
+// GetFileOutputOptionsWithFrontMatter behaves like GetFileOutputOptions but
+// adds the given frontmatter when the separate file format is Markdown. Other
+// formats ignore the frontmatter.
+func (config *Config) GetFileOutputOptionsWithFrontMatter(frontMatter map[string]string) ([]output.OutputOption, error) {
 	// Note: Use GetString (not GetLCString) to preserve file path case for case-sensitive filesystems
 	outputFile := config.GetString("output-file")
 	if outputFile == "" {
@@ -261,7 +280,7 @@ func (config *Config) GetFileOutputOptions() ([]output.OutputOption, error) {
 	}
 
 	opts := []output.OutputOption{}
-	fileFormat := config.getFormatForOutput(fileFormatName)
+	fileFormat := config.getFormatForOutput(fileFormatName, frontMatter)
 	opts = append(opts, output.WithFormat(fileFormat))
 
 	dir, pattern := filepath.Split(outputFile)
