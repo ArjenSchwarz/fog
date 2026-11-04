@@ -2,9 +2,14 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/ArjenSchwarz/fog/config"
 	"github.com/ArjenSchwarz/fog/lib"
 	output "github.com/ArjenSchwarz/go-output/v2"
 	"github.com/spf13/viper"
@@ -374,4 +379,106 @@ func TestPrintLog_FailedEventsRespectStderr(t *testing.T) {
 		assert.NotContains(t, stderr, failedResource)
 		assert.NotContains(t, stderr, failedReason)
 	})
+}
+
+// TestHistory_FileOutputContainsAllLogs is a regression test for T-1379.
+// The history command used to render every deployment log and the title as
+// separate documents, and each render truncated the --file destination, so the
+// file only kept the final (title-only) document. It runs the real history
+// command against a log file with a successful and a failed matching
+// deployment plus one deployment from another account, and checks that both
+// stdout and the file hold the title, both matching deployments and the
+// failure details, for both the shared-writer and separate-file-format paths.
+func TestHistory_FileOutputContainsAllLogs(t *testing.T) {
+	// NOTE: Cannot use t.Parallel() because viper and package globals are shared
+
+	tests := map[string]struct {
+		consoleFormat string
+		fileFormat    string
+	}{
+		"same console and file format": {consoleFormat: "markdown", fileFormat: ""},
+		"different file format":        {consoleFormat: "table", fileFormat: "markdown"},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			setupViperDefaults()
+			t.Cleanup(viper.Reset)
+
+			origLoadAWSConfig := loadAWSConfig
+			origHistoryFlags := historyFlags
+			t.Cleanup(func() {
+				loadAWSConfig = origLoadAWSConfig
+				historyFlags = origHistoryFlags
+			})
+			loadAWSConfig = func(_ context.Context, _ config.Config) (config.AWSConfig, error) {
+				return config.AWSConfig{AccountID: "123456789012", Region: "us-east-1"}, nil
+			}
+			historyFlags = HistoryFlags{}
+
+			started := time.Date(2025, 10, 17, 10, 0, 0, 0, time.UTC)
+			logs := []lib.DeploymentLog{
+				{Account: "123456789012", Region: "us-east-1", StackName: "first-stack", Deployer: "alice",
+					DeploymentType: lib.DeploymentTypeCreateStack, Status: lib.DeploymentLogStatusSuccess,
+					StartedAt: started, UpdatedAt: started.Add(time.Minute)},
+				{Account: "999999999999", Region: "us-east-1", StackName: "other-account-stack", Deployer: "mallory",
+					DeploymentType: lib.DeploymentTypeCreateStack, Status: lib.DeploymentLogStatusSuccess,
+					StartedAt: started, UpdatedAt: started.Add(time.Minute)},
+				{Account: "123456789012", Region: "us-east-1", StackName: "second-stack", Deployer: "bob",
+					DeploymentType: lib.DeploymentTypeUpdateStack, Status: lib.DeploymentLogStatusFailed,
+					StartedAt: started.Add(time.Hour), UpdatedAt: started.Add(time.Hour + time.Minute),
+					Failures: []map[string]any{{
+						colCfnName:  "BrokenBucket",
+						sortKeyType: "AWS::S3::Bucket",
+						colStatus:   "UPDATE_FAILED",
+						colReason:   "Bucket policy is invalid",
+					}}},
+			}
+			dir := t.TempDir()
+			logFile := filepath.Join(dir, "deployments.log")
+			var lines []byte
+			for _, l := range logs {
+				line, err := json.Marshal(l)
+				if err != nil {
+					t.Fatalf("marshal log: %v", err)
+				}
+				lines = append(append(lines, line...), '\n')
+			}
+			if err := os.WriteFile(logFile, lines, 0o600); err != nil {
+				t.Fatalf("write log file: %v", err)
+			}
+			viper.Set("logging.filename", logFile)
+
+			outputFile := filepath.Join(dir, "history.md")
+			viper.Set("output", tc.consoleFormat)
+			viper.Set("output-file", outputFile)
+			if tc.fileFormat != "" {
+				viper.Set("output-file-format", tc.fileFormat)
+			}
+
+			stdout, _ := captureBothStreams(func() { history(historyCmd, nil) })
+
+			content, err := os.ReadFile(outputFile)
+			if err != nil {
+				t.Fatalf("read output file: %v", err)
+			}
+
+			// Table format uppercases headers, so compare case-insensitively.
+			// Values with underscores are avoided because markdown escapes them.
+			outputs := map[string]string{"stdout": stdout, "file": string(content)}
+			for dest, got := range outputs {
+				got = strings.ToLower(got)
+				for _, want := range []string{
+					"deployments in account 123456789012 for region us-east-1",
+					"first-stack", "alice",
+					"second-stack", "bob",
+					"failed events in deployment of change set",
+					"brokenbucket", "bucket policy is invalid",
+				} {
+					assert.Contains(t, got, want, "%s output", dest)
+				}
+				assert.NotContains(t, got, "other-account-stack", "%s output", dest)
+			}
+		})
+	}
 }

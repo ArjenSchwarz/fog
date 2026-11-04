@@ -26,7 +26,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ArjenSchwarz/fog/config"
 	"github.com/ArjenSchwarz/fog/lib"
 	output "github.com/ArjenSchwarz/go-output/v2"
 	"github.com/spf13/cobra"
@@ -55,10 +54,22 @@ func init() {
 
 func history(cmd *cobra.Command, args []string) {
 	ctx := context.Background()
-	awsConfig, err := config.DefaultAwsConfig(ctx, *settings)
+	awsConfig, err := loadAWSConfig(ctx, *settings)
 	if err != nil {
 		failWithError(err)
 	}
+
+	var title string
+	if historyFlags.StackName == "" {
+		title = fmt.Sprintf("Deployments in account %s for region %s", awsConfig.GetAccountAliasID(), awsConfig.Region)
+	} else {
+		title = fmt.Sprintf("Deployments for stack(s) %s in account %s for region %s", historyFlags.StackName, awsConfig.GetAccountAliasID(), awsConfig.Region)
+	}
+
+	// Collect the title and every matching log into a single document and render
+	// it once. Each render opens the --file destination with truncation, so
+	// rendering per log would leave only the last section in the file.
+	builder := output.New().Header(title)
 	logs := lib.ReadAllLogs()
 	for _, log := range logs {
 		// Only show logs from the selected account and region
@@ -71,25 +82,42 @@ func history(cmd *cobra.Command, args []string) {
 				continue
 			}
 		}
-		printLog(log, false)
+		builder = addDeploymentLog(builder, log)
 	}
 
-	// Create final header document
-	var title string
-	if historyFlags.StackName == "" {
-		title = fmt.Sprintf("Deployments in account %s for region %s", awsConfig.GetAccountAliasID(), awsConfig.Region)
-	} else {
-		title = fmt.Sprintf("Deployments for stack(s) %s in account %s for region %s", historyFlags.StackName, awsConfig.GetAccountAliasID(), awsConfig.Region)
-	}
-
-	// Build and render the final document with header only
-	doc := output.New().Header(title).Build()
-	if err = renderDocument(context.Background(), doc); err != nil {
+	if err = renderDocument(ctx, builder.Build()); err != nil {
 		failWithError(err)
 	}
 }
 
 func printLog(log lib.DeploymentLog, useStderr bool, prefixMessage ...string) {
+	builder := output.New()
+
+	// Add optional prefix message
+	if len(prefixMessage) > 0 && prefixMessage[0] != "" {
+		// Add spacing before the prefix to separate from any previous output
+		builder = builder.Text("\n" + prefixMessage[0])
+	}
+
+	doc := addDeploymentLog(builder, log).Build()
+
+	// Render deployment log - use stderr for deploy context, stdout for history command
+	if useStderr {
+		out := createStderrOutput()
+		if err := out.Render(context.Background(), doc); err != nil {
+			failWithError(err)
+		}
+	} else {
+		if err := renderDocument(context.Background(), doc); err != nil {
+			failWithError(err)
+		}
+	}
+}
+
+// addDeploymentLog appends the sections describing a single deployment log
+// (header, details table, change set and, for failed deployments, the failed
+// events) to the builder.
+func addDeploymentLog(builder *output.Builder, log lib.DeploymentLog) *output.Builder {
 	header := fmt.Sprintf("%v - %v", log.StartedAt.In(settings.GetTimezoneLocation()).Format(time.RFC3339), log.StackName)
 
 	// Create styled header based on status
@@ -111,14 +139,6 @@ func printLog(log lib.DeploymentLog, useStderr bool, prefixMessage ...string) {
 			"Started At": log.StartedAt.In(settings.GetTimezoneLocation()).Format(time.RFC3339),
 			colDuration:  log.UpdatedAt.Sub(log.StartedAt).Round(time.Second).String(),
 		},
-	}
-
-	builder := output.New()
-
-	// Add optional prefix message
-	if len(prefixMessage) > 0 && prefixMessage[0] != "" {
-		// Add spacing before the prefix to separate from any previous output
-		builder = builder.Text("\n" + prefixMessage[0])
 	}
 
 	// Add styled header as text (not Header to avoid uppercase and separators)
@@ -144,45 +164,17 @@ func printLog(log lib.DeploymentLog, useStderr bool, prefixMessage ...string) {
 
 	builder, _ = buildChangesetDocument(builder, changesettitle, summaryTitle, log.Changes, hasModule)
 
-	doc := builder.Build()
-
-	// Render deployment log - use stderr for deploy context, stdout for history command
-	if useStderr {
-		out := createStderrOutput()
-		if err := out.Render(context.Background(), doc); err != nil {
-			failWithError(err)
-		}
-	} else {
-		if err := renderDocument(context.Background(), doc); err != nil {
-			failWithError(err)
-		}
-	}
-
-	// print error info if failed
+	// add error info if failed
 	if log.Status == lib.DeploymentLogStatusFailed {
-		// Prepare failed events data
 		failedEventsData := append([]map[string]any(nil), log.Failures...)
-
-		// Build failed events document
-		failedDoc := output.New().
+		builder = builder.
 			Header(output.StyleWarning("Failed with below errors")).
 			Table(
 				"Failed events in deployment of change set",
 				failedEventsData,
 				output.WithKeys(colCfnName, sortKeyType, colStatus, colReason),
-			).
-			Build()
-
-		// Render failed events - use stderr for deploy context, stdout for history command
-		if useStderr {
-			out := createStderrOutput()
-			if err := out.Render(context.Background(), failedDoc); err != nil {
-				failWithError(err)
-			}
-		} else {
-			if err := renderDocument(context.Background(), failedDoc); err != nil {
-				failWithError(err)
-			}
-		}
+			)
 	}
+
+	return builder
 }
