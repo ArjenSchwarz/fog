@@ -270,6 +270,8 @@ templates:
     - checkov -f $TEMPLATEPATH
 ```
 
+The placeholder is substituted after the command is split into arguments, so a template path containing spaces is still passed as one argument without quoting. Quoting the placeholder is optional. If you wrap a precheck in a shell (for example `sh -c '...'`), quote `$TEMPLATEPATH` inside the wrapped command, because that shell performs its own word splitting.
+
 #### `templates.stop-on-failed-prechecks`
 **Type**: `boolean`
 **Default**: `false`

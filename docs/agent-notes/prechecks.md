@@ -12,8 +12,8 @@ Prechecks are user-configured commands that run before deployment to validate te
 ## How It Works
 
 1. User configures precheck commands in `fog.yaml` with `$TEMPLATEPATH` placeholder
-2. `RunPrechecks` substitutes `$TEMPLATEPATH` with the actual template path
-3. `splitShellArgs` parses the command string into command + arguments (respects single/double quotes)
+2. `splitShellArgs` parses the configured command string into command + arguments (respects single/double quotes)
+3. `RunPrechecks` then substitutes `$TEMPLATEPATH` inside each argument. Splitting first keeps the path a single argument even when it contains spaces, quotes or backslashes (T-1403); the substituted full string is only used for messages and as the results key
 4. Each command is executed via `exec.Command`; failures are collected but don't stop execution unless `templates.stop-on-failed-prechecks` is true
 
 ## Important Details
