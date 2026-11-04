@@ -142,7 +142,10 @@ func deployTemplate(cmd *cobra.Command, args []string) {
 		return
 	}
 	if deployed {
-		printDeploymentResults(&deployment, awsConfig, &deploymentLog)
+		if err := printDeploymentResults(&deployment, awsConfig, &deploymentLog); err != nil {
+			failWithError(err)
+			return
+		}
 	}
 }
 
@@ -421,16 +424,7 @@ func createChangeset(deployment *lib.DeployInfo, awsConfig config.AWSConfig) *li
 	if changeset.Status != string(types.ChangeSetStatusCreateComplete) {
 		// When the creation fails because there are no changes, say so and complete successfully
 		if changeset.StatusReason == string(texts.DeployReceivedErrorMessagesNoChanges) || changeset.StatusReason == string(texts.DeployReceivedErrorMessagesNoUpdates) {
-			// Output no-changes message to stderr (streaming output)
-			if !deployFlags.Quiet {
-				message := fmt.Sprintf(string(texts.DeployChangesetMessageNoChanges), deployment.StackName)
-				printMessage(formatSuccess(message))
-			}
-			// Output final no-changes result to stdout
-			if err := outputNoChangesResult(deployment); err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: Failed to generate output: %v\n", err)
-			}
-			osExitFunc(0)
+			reportNoChanges(deployment)
 			return nil
 		}
 		// Otherwise, show the console link, clean up, and report the error once
@@ -441,6 +435,24 @@ func createChangeset(deployment *lib.DeployInfo, awsConfig config.AWSConfig) *li
 		return nil
 	}
 	return changeset
+}
+
+// reportNoChanges reports a changeset that CloudFormation rejected because it
+// contains no changes, then exits. The deployment itself is a success, but a
+// failure to render the requested output (e.g. an unwritable --file path) must
+// still fail the command so scripts don't assume the artifact was produced.
+func reportNoChanges(deployment *lib.DeployInfo) {
+	// Output no-changes message to stderr (streaming output)
+	if !deployFlags.Quiet {
+		message := fmt.Sprintf(string(texts.DeployChangesetMessageNoChanges), deployment.StackName)
+		printMessage(formatSuccess(message))
+	}
+	// Output final no-changes result to stdout
+	if err := outputNoChangesResult(deployment); err != nil {
+		failWithError(fmt.Errorf("failed to generate output: %w", err))
+		return
+	}
+	osExitFunc(0)
 }
 
 // handleFailedChangeset prompts the user (or auto-confirms in non-interactive

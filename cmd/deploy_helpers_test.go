@@ -761,7 +761,9 @@ func TestPrintDeploymentResults(t *testing.T) {
 				return mockClient
 			}
 
-			printDeploymentResults(&info, config.AWSConfig{}, &logObj)
+			if err := printDeploymentResults(&info, config.AWSConfig{}, &logObj); err != nil {
+				t.Fatalf("printDeploymentResults returned error: %v", err)
+			}
 
 			if tc.expectSuccess {
 				if logObj.Status != lib.DeploymentLogStatusSuccess {
@@ -805,7 +807,9 @@ func TestPrintDeploymentResults_HandlesFinalStackLookupFailure(t *testing.T) {
 		info := lib.DeployInfo{StackName: "test-stack"}
 		logObj := lib.DeploymentLog{}
 
-		printDeploymentResults(&info, config.AWSConfig{}, &logObj)
+		if err := printDeploymentResults(&info, config.AWSConfig{}, &logObj); err != nil {
+			t.Fatalf("printDeploymentResults returned error: %v", err)
+		}
 
 		payload, err := json.Marshal(struct {
 			Status            string `json:"status"`
@@ -907,7 +911,9 @@ func TestPrintDeploymentResults_WithOutputs(t *testing.T) {
 		return mockClient
 	}
 
-	printDeploymentResults(&info, config.AWSConfig{}, &logObj)
+	if err := printDeploymentResults(&info, config.AWSConfig{}, &logObj); err != nil {
+		t.Fatalf("printDeploymentResults returned error: %v", err)
+	}
 
 	if logObj.Status != lib.DeploymentLogStatusSuccess {
 		t.Errorf("expected success status, got %q", logObj.Status)

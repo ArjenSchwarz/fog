@@ -509,7 +509,9 @@ func TestDeploymentWorkflow_RollbackHandling(t *testing.T) {
 			logObj := &lib.DeploymentLog{}
 
 			// Execute deployment results printing
-			printDeploymentResults(info, config.AWSConfig{}, logObj)
+			if err := printDeploymentResults(info, config.AWSConfig{}, logObj); err != nil {
+				t.Fatalf("printDeploymentResults returned error: %v", err)
+			}
 
 			// Verify expectations
 			if tc.expectStackDeletion && !stackDeleted {
