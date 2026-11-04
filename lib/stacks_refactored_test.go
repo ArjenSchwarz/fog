@@ -448,6 +448,61 @@ func TestDeployInfo_IsOngoing(t *testing.T) {
 			},
 			want: false,
 		},
+		"UPDATE_ROLLBACK_IN_PROGRESS - ongoing": {
+			stackName: "test-stack",
+			stackArn:  "arn:aws:cloudformation:us-west-2:123456789012:stack/test-stack/abc123",
+			setup: func(client *testutil.MockCFNClient) {
+				stack := testutil.NewStackBuilder("test-stack").
+					WithStatus(types.StackStatusUpdateRollbackInProgress).
+					Build()
+				client.Stacks["arn:aws:cloudformation:us-west-2:123456789012:stack/test-stack/abc123"] = stack
+			},
+			want: true,
+		},
+		"ROLLBACK_COMPLETE - not ongoing": {
+			stackName: "test-stack",
+			stackArn:  "arn:aws:cloudformation:us-west-2:123456789012:stack/test-stack/abc123",
+			setup: func(client *testutil.MockCFNClient) {
+				stack := testutil.NewStackBuilder("test-stack").
+					WithStatus(types.StackStatusRollbackComplete).
+					Build()
+				client.Stacks["arn:aws:cloudformation:us-west-2:123456789012:stack/test-stack/abc123"] = stack
+			},
+			want: false,
+		},
+		"UPDATE_ROLLBACK_COMPLETE - not ongoing": {
+			stackName: "test-stack",
+			stackArn:  "arn:aws:cloudformation:us-west-2:123456789012:stack/test-stack/abc123",
+			setup: func(client *testutil.MockCFNClient) {
+				stack := testutil.NewStackBuilder("test-stack").
+					WithStatus(types.StackStatusUpdateRollbackComplete).
+					Build()
+				client.Stacks["arn:aws:cloudformation:us-west-2:123456789012:stack/test-stack/abc123"] = stack
+			},
+			want: false,
+		},
+		"ROLLBACK_FAILED - not ongoing (T-1610)": {
+			stackName: "test-stack",
+			stackArn:  "arn:aws:cloudformation:us-west-2:123456789012:stack/test-stack/abc123",
+			setup: func(client *testutil.MockCFNClient) {
+				stack := testutil.NewStackBuilder("test-stack").
+					WithStatus(types.StackStatusRollbackFailed).
+					Build()
+				client.Stacks["arn:aws:cloudformation:us-west-2:123456789012:stack/test-stack/abc123"] = stack
+			},
+			want: false,
+		},
+		"UPDATE_ROLLBACK_FAILED - not ongoing (T-1610)": {
+			stackName: "test-stack",
+			stackArn:  "arn:aws:cloudformation:us-west-2:123456789012:stack/test-stack/abc123",
+			setup: func(client *testutil.MockCFNClient) {
+				stack := testutil.NewStackBuilder("test-stack").
+					WithStatus(types.StackStatusUpdateRollbackFailed).
+					Build()
+				client.Stacks["arn:aws:cloudformation:us-west-2:123456789012:stack/test-stack/abc123"] = stack
+			},
+			want: false,
+		},
 		"stack does not exist": {
 			stackName: "non-existent",
 			stackArn:  "arn:aws:cloudformation:us-west-2:123456789012:stack/non-existent/abc123",
