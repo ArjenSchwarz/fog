@@ -184,7 +184,13 @@ func readTemplateFromSource(deployment *lib.DeployInfo) (string, string) {
 	var err error
 
 	if deployment.StackDeploymentFile != nil {
-		template, path, err = lib.ReadFile(&deployment.StackDeploymentFile.TemplateFilePath, "templates")
+		// LoadDeploymentFile already anchored the path to the deployment file's
+		// directory, so read exactly that file. Falling back to templates.directory
+		// here could silently deploy an unrelated template when the reference is wrong.
+		path = deployment.StackDeploymentFile.TemplateFilePath
+		var content []byte
+		content, err = os.ReadFile(path)
+		template = string(content)
 	} else {
 		template, path, err = lib.ReadTemplate(&deployFlags.Template)
 	}

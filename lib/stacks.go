@@ -90,6 +90,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"slices"
 	"sort"
 	"strings"
@@ -339,13 +340,20 @@ func (deployment *DeployInfo) IsNewStack(ctx context.Context, svc CloudFormation
 
 // LoadDeploymentFile loads a deployment file and sets the StackDeploymentFile field
 func (deployment *DeployInfo) LoadDeploymentFile(filelocation string) error {
-	deploymentFile, _, err := ReadDeploymentFile(filelocation)
+	deploymentFile, deploymentFilePath, err := ReadDeploymentFile(filelocation)
 	if err != nil {
 		return err
 	}
 	deploymentFileObject, err := ParseDeploymentFile(deploymentFile)
 	if err != nil {
 		return err
+	}
+	// template-file-path is defined as relative to the deployment file (matching the
+	// AWS git sync format), so anchor it to the directory of the file that was
+	// actually loaded rather than leaving it relative to the working directory.
+	templatePath := deploymentFileObject.TemplateFilePath
+	if templatePath != "" && !filepath.IsAbs(templatePath) {
+		deploymentFileObject.TemplateFilePath = filepath.Join(filepath.Dir(deploymentFilePath), templatePath)
 	}
 	deployment.StackDeploymentFile = &deploymentFileObject
 	return nil
