@@ -448,11 +448,20 @@ func unwrapPowerShellCommand(args []string) ([]string, error) {
 // RunPrechecks executes configured template validation commands and returns results for each check.
 func RunPrechecks(deployment *DeployInfo) (map[string]string, error) {
 	results := make(map[string]string)
-	for _, precheck := range viper.GetStringSlice("templates.prechecks") {
-		precheck := strings.ReplaceAll(precheck, "$TEMPLATEPATH", deployment.TemplateRelativePath)
-		separated, err := splitShellArgs(precheck)
+	for _, configured := range viper.GetStringSlice("templates.prechecks") {
+		// Split the configured command before substituting $TEMPLATEPATH so the
+		// template path always stays inside the argument it was written in.
+		// Substituting first would let spaces, quotes or backslashes in the path
+		// be parsed as argument syntax (e.g. an unquoted `cfn-lint -t
+		// $TEMPLATEPATH` with "path with spaces/template.yaml") (T-1403).
+		separated, err := splitShellArgs(configured)
+		// The substituted command string is only used for messages and as the results key.
+		precheck := strings.ReplaceAll(configured, "$TEMPLATEPATH", deployment.TemplateRelativePath)
 		if err != nil {
 			return results, fmt.Errorf("precheck %q: %w", precheck, err)
+		}
+		for i, arg := range separated {
+			separated[i] = strings.ReplaceAll(arg, "$TEMPLATEPATH", deployment.TemplateRelativePath)
 		}
 		if len(separated) == 0 {
 			return results, fmt.Errorf("precheck %q is empty or only whitespace", precheck)

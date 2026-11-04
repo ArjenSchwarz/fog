@@ -157,6 +157,8 @@ templates:
   stop-on-failed-prechecks: true
 ```
 
+`$TEMPLATEPATH` is substituted after the command has been split into arguments, so the template path is always passed as a single argument, even when it contains spaces. You don't need to quote the placeholder, although quoting it (`cfn-lint -t "$TEMPLATEPATH"`) works as well. Fog runs prechecks directly rather than through a shell; if you wrap a precheck in a shell yourself (for example `sh -c '...'`), that shell will apply its own word splitting, so quote `$TEMPLATEPATH` inside the wrapped command.
+
 If you don't define `stop-on-failed-prechecks`, or set it to false, fog will continue with the deployment even if issues are found.
 
 ### Output formats

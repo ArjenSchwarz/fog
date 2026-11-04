@@ -318,6 +318,71 @@ func TestRunPrechecksQuotedArgs(t *testing.T) {
 	}
 }
 
+func TestRunPrechecksUnquotedTemplatePathWithSpaces(t *testing.T) {
+	// Regression test for T-1403: the documented, unquoted form
+	// (e.g. `cfn-lint -t $TEMPLATEPATH`) must pass a template path that
+	// contains spaces as a single argument. "test X = Y" only succeeds when it
+	// receives exactly three arguments with X equal to Y, so a split path makes
+	// the precheck fail.
+	tests := map[string]struct {
+		templatePath string
+		precheck     string
+	}{
+		"unquoted placeholder with spaces in path": {
+			templatePath: "path with spaces/template.yaml",
+			precheck:     `test $TEMPLATEPATH = "path with spaces/template.yaml"`,
+		},
+		"placeholder embedded in a flag value": {
+			templatePath: "path with spaces/template.yaml",
+			precheck:     `test --template=$TEMPLATEPATH = "--template=path with spaces/template.yaml"`,
+		},
+		"quoted placeholder still works": {
+			templatePath: "path with spaces/template.yaml",
+			precheck:     `test "$TEMPLATEPATH" = "path with spaces/template.yaml"`,
+		},
+		"path containing a quote character": {
+			templatePath: "team's templates/template.yaml",
+			precheck:     `test $TEMPLATEPATH = "team's templates/template.yaml"`,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Cleanup(viper.Reset)
+			viper.Set("templates.prechecks", []string{tc.precheck})
+			deployment := &DeployInfo{TemplateRelativePath: tc.templatePath}
+
+			results, err := RunPrechecks(deployment)
+			if err != nil {
+				t.Fatalf("RunPrechecks() unexpected error: %v", err)
+			}
+			if deployment.PrechecksFailed {
+				t.Errorf("RunPrechecks() precheck failed, path was not passed as one argument; results: %v", results)
+			}
+		})
+	}
+}
+
+func TestRunPrechecksUnquotedTemplatePathFailureKey(t *testing.T) {
+	// T-1403: results stay keyed by the substituted command string so the
+	// precheck output shown to users names the actual template path.
+	t.Cleanup(viper.Reset)
+	viper.Set("templates.prechecks", []string{`test $TEMPLATEPATH = other.yaml`})
+	deployment := &DeployInfo{TemplateRelativePath: "path with spaces/template.yaml"}
+
+	results, err := RunPrechecks(deployment)
+	if err != nil {
+		t.Fatalf("RunPrechecks() unexpected error: %v", err)
+	}
+	if !deployment.PrechecksFailed {
+		t.Fatal("RunPrechecks() expected the precheck to fail")
+	}
+	want := "test path with spaces/template.yaml = other.yaml"
+	if _, ok := results[want]; !ok {
+		t.Errorf("RunPrechecks() results keys = %v, want key %q", results, want)
+	}
+}
+
 func TestRunPrechecksUnsafeCommandWithPath(t *testing.T) {
 	// Regression test for T-611: RunPrechecks must block unsafe commands
 	// even when invoked via absolute or relative paths (e.g. /bin/rm, ./rm).
