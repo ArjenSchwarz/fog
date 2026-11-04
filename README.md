@@ -185,7 +185,13 @@ Another major feature added is the ability to run a report on your CloudFormatio
 
 Running this with either the markdown or html output formats set will also add a timeline of the events in the form of a mermaid graph and if multiple stacks are requested it will add a table of contents to the top of the output. The timeline is only included in destinations that use the markdown or html format, so a command like `fog stack report --output table --file report.md --file-format markdown` writes the timeline to `report.md` while the table output on the console stays free of it.
 
-You can write the output to a file using the --file flag.
+You can write the output to a file using the --file flag. Use --file-format to give the file a different format than the console output; each destination only gets the timeline if its own format is markdown or html.
+
+The --frontmatter flag adds YAML frontmatter describing the most recent event to Markdown output. It applies to every Markdown destination, so the following prints a table to the console and writes a Markdown file that starts with frontmatter:
+```bash
+$ fog report --stackname demovpc43 --frontmatter --output table --file report.md --file-format markdown
+```
+Non-Markdown destinations never contain frontmatter.
 
 Example of full output written to file:
 ```bash

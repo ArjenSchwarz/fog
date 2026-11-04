@@ -143,7 +143,6 @@ func generateReport() error {
 	}
 
 	// Determine if we need Mermaid output based on console and file formats
-	outputFormat := settings.GetLCString("output")
 	reportFlags.HasMermaid = reportHasMermaidFormat()
 
 	stacks, err := lib.GetCfnStacks(ctx, &reportFlags.StackName, awsConfig.CloudformationClient())
@@ -151,9 +150,10 @@ func generateReport() error {
 		return err
 	}
 
-	// Build frontmatter if requested
+	// Build frontmatter if requested and any destination (console or file)
+	// is Markdown, as only Markdown renders frontmatter.
 	var frontMatter map[string]string
-	if reportFlags.FrontMatter && outputFormat == outputFormatMarkdown {
+	if reportFlags.FrontMatter && reportHasMarkdownFormat() {
 		var fmErr error
 		frontMatter, fmErr = generateFrontMatter(ctx, stacks, awsConfig)
 		if fmErr != nil {
@@ -207,7 +207,9 @@ func generateReport() error {
 // differs from the console format, separately to the output file. Each
 // destination receives a document filtered for its own format so that
 // Mermaid charts added for a Markdown/HTML file do not leak into, for
-// example, table output on stdout.
+// example, table output on stdout. Frontmatter is only rendered by Markdown
+// destinations; outputOptions should come from getReportOutputOptions with
+// the same frontmatter.
 func renderReport(builtDoc *output.Document, outputOptions []output.OutputOption, frontMatter map[string]string) error {
 	consoleDoc := reportDocumentForFormat(builtDoc, settings.GetLCString("output"))
 	out := output.NewOutput(outputOptions...)
@@ -216,15 +218,11 @@ func renderReport(builtDoc *output.Document, outputOptions []output.OutputOption
 	}
 
 	// Render to file separately if file format differs from console format
-	fileOpts, err := settings.GetFileOutputOptions()
+	fileOpts, err := settings.GetFileOutputOptionsWithFrontMatter(frontMatter)
 	if err != nil {
 		return err
 	}
 	if fileOpts != nil {
-		// Add frontmatter to file output if provided
-		if len(frontMatter) > 0 {
-			fileOpts = append(fileOpts, output.WithFrontMatter(frontMatter))
-		}
 		fileDoc := reportDocumentForFormat(builtDoc, reportFileFormat())
 		fileOut := output.NewOutput(fileOpts...)
 		if err := fileOut.Render(context.Background(), fileDoc); err != nil {
@@ -275,6 +273,13 @@ func reportHasMermaidFormat() bool {
 	return isMermaidFormat(settings.GetLCString("output")) || isMermaidFormat(reportFileFormat())
 }
 
+// reportHasMarkdownFormat reports whether any requested destination (console
+// output or the separate file output) uses Markdown, the only format that
+// renders frontmatter.
+func reportHasMarkdownFormat() bool {
+	return settings.GetLCString("output") == outputFormatMarkdown || reportFileFormat() == outputFormatMarkdown
+}
+
 // isMermaidFormat reports whether a format renders Mermaid diagrams.
 func isMermaidFormat(format string) bool {
 	return format == outputFormatMarkdown || format == outputFormatHTML
@@ -293,14 +298,10 @@ func buildStackReports(ctx context.Context, stacks map[string]lib.CfnStack, stac
 
 // getReportOutputOptions creates output options with S3/file support
 func getReportOutputOptions(awsConfig config.AWSConfig, frontMatter map[string]string) ([]output.OutputOption, error) {
-	opts, err := settings.GetOutputOptions()
+	// Frontmatter is only rendered when the console format is Markdown
+	opts, err := settings.GetOutputOptionsWithFrontMatter(frontMatter)
 	if err != nil {
 		return nil, err
-	}
-
-	// Add frontmatter if provided (for markdown output)
-	if len(frontMatter) > 0 {
-		opts = append(opts, output.WithFrontMatter(frontMatter))
 	}
 
 	// Handle S3 bucket output if configured
@@ -438,8 +439,8 @@ func generateFrontMatter(ctx context.Context, stacks map[string]lib.CfnStack, aw
 	}
 
 	// Populate frontmatter from the single selected event
-	result["account"] = awsConfig.AccountID
-	result["accountalias"] = awsConfig.GetAccountAliasID()
+	result["account"] = quoteDigitOnlyFrontMatterValue(awsConfig.AccountID)
+	result["accountalias"] = quoteDigitOnlyFrontMatterValue(awsConfig.GetAccountAliasID())
 	result["region"] = awsConfig.Region
 	result["stack"] = selectedStack.Name
 	result["date"] = selectedEvent.StartDate.In(settings.GetTimezoneLocation()).Format(time.RFC3339)
@@ -453,11 +454,23 @@ func generateFrontMatter(ctx context.Context, stacks map[string]lib.CfnStack, aw
 	// Create metadata summary for frontmatter
 	_, metadataData := createMetadataTable(selectedStack, selectedEvent, awsConfig)
 	if len(metadataData) > 0 {
-		summarytable := buildSimpleHTMLTable(metadataData[0])
-		result["summary"] = "'" + summarytable + "'"
+		// No manual quoting: the Markdown renderer already double-quotes values
+		// containing HTML characters, so extra quotes would end up in the value.
+		result["summary"] = buildSimpleHTMLTable(metadataData[0])
 	}
 
 	return result, nil
+}
+
+// quoteDigitOnlyFrontMatterValue wraps digit-only values, such as AWS account
+// IDs, in double quotes. The go-output Markdown renderer emits these unquoted,
+// which YAML parsers read as numbers and so drop leading zeros. The quoted
+// value contains no characters the renderer escapes, so it is written as-is.
+func quoteDigitOnlyFrontMatterValue(value string) string {
+	if value == "" || strings.Trim(value, "0123456789") != "" {
+		return value
+	}
+	return `"` + value + `"`
 }
 
 // buildSimpleHTMLTable creates a simple HTML table from a data row.
