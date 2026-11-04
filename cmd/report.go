@@ -199,10 +199,19 @@ func generateReport() error {
 		return err
 	}
 
-	// Render the complete document to console (and file if formats match, or S3)
-	builtDoc := doc.Build()
+	return renderReport(doc.Build(), outputOptions, frontMatter)
+}
+
+// renderReport renders the built report to the console destination (which
+// also covers a same-format file or S3 target) and, when the file format
+// differs from the console format, separately to the output file. Each
+// destination receives a document filtered for its own format so that
+// Mermaid charts added for a Markdown/HTML file do not leak into, for
+// example, table output on stdout.
+func renderReport(builtDoc *output.Document, outputOptions []output.OutputOption, frontMatter map[string]string) error {
+	consoleDoc := reportDocumentForFormat(builtDoc, settings.GetLCString("output"))
 	out := output.NewOutput(outputOptions...)
-	if err := out.Render(context.Background(), builtDoc); err != nil {
+	if err := out.Render(context.Background(), consoleDoc); err != nil {
 		return err
 	}
 
@@ -216,8 +225,9 @@ func generateReport() error {
 		if len(frontMatter) > 0 {
 			fileOpts = append(fileOpts, output.WithFrontMatter(frontMatter))
 		}
+		fileDoc := reportDocumentForFormat(builtDoc, reportFileFormat())
 		fileOut := output.NewOutput(fileOpts...)
-		if err := fileOut.Render(context.Background(), builtDoc); err != nil {
+		if err := fileOut.Render(context.Background(), fileDoc); err != nil {
 			return err
 		}
 	}
@@ -225,23 +235,44 @@ func generateReport() error {
 	return nil
 }
 
+// reportDocumentForFormat returns the document to render for a destination
+// using the given format. Mermaid-capable formats get the full document;
+// other formats get a copy without chart content, because renderers such as
+// the table renderer fall back to a plain-text dump of the chart instead of
+// omitting it.
+func reportDocumentForFormat(doc *output.Document, format string) *output.Document {
+	if isMermaidFormat(format) {
+		return doc
+	}
+	filtered := output.New()
+	for _, content := range doc.GetContents() {
+		if _, isChart := content.(*output.ChartContent); isChart {
+			continue
+		}
+		filtered.AddContent(content)
+	}
+	return filtered.Build()
+}
+
+// reportFileFormat returns the effective format of the separate output file,
+// falling back to the console format when output-file-format is unset, as
+// config.GetFileOutputOptions does. It returns "" when no output file is set.
+func reportFileFormat() string {
+	if settings.GetString("output-file") == "" {
+		return ""
+	}
+	if fileFormat := settings.GetLCString("output-file-format"); fileFormat != "" {
+		return fileFormat
+	}
+	return settings.GetLCString("output")
+}
+
 // reportHasMermaidFormat reports whether any requested destination (console
 // output or the separate file output) uses a Mermaid-capable format. The file
 // format falls back to the console format when output-file-format is unset,
 // matching config.GetFileOutputOptions.
 func reportHasMermaidFormat() bool {
-	consoleFormat := settings.GetLCString("output")
-	if isMermaidFormat(consoleFormat) {
-		return true
-	}
-	if settings.GetString("output-file") == "" {
-		return false
-	}
-	fileFormat := settings.GetLCString("output-file-format")
-	if fileFormat == "" {
-		fileFormat = consoleFormat
-	}
-	return isMermaidFormat(fileFormat)
+	return isMermaidFormat(settings.GetLCString("output")) || isMermaidFormat(reportFileFormat())
 }
 
 // isMermaidFormat reports whether a format renders Mermaid diagrams.

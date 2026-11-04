@@ -183,7 +183,7 @@ The below diagram shows the flow that fog goes through when doing a deployment.
 
 Another major feature added is the ability to run a report on your CloudFormation stacks. This report will show the create/update/delete events of your stack, grouped by event and resource.
 
-Running this with either the markdown or html output formats set will also add a timeline of the events in the form of a mermaid graph and if multiple stacks are requested it will add a table of contents to the top of the output.
+Running this with either the markdown or html output formats set will also add a timeline of the events in the form of a mermaid graph and if multiple stacks are requested it will add a table of contents to the top of the output. The timeline is only included in destinations that use the markdown or html format, so a command like `fog stack report --output table --file report.md --file-format markdown` writes the timeline to `report.md` while the table output on the console stays free of it.
 
 You can write the output to a file using the --file flag.
 
