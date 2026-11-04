@@ -23,27 +23,27 @@ import (
 // mockCloudFormationClient implements the CloudFormation interfaces for testing.
 // Each field holds the output or error that should be returned for a call.
 type mockCloudFormationClient struct {
-	describeStacksOutput          cloudformation.DescribeStacksOutput
-	describeStacksErr             error
-	describeStackResourcesOutputs []cloudformation.DescribeStackResourcesOutput
-	describeStackResourcesErrs    []error
-	describeStackResourcesCalls   int
+	describeStacksOutput      cloudformation.DescribeStacksOutput
+	describeStacksErr         error
+	listStackResourcesOutputs []cloudformation.ListStackResourcesOutput
+	listStackResourcesErrs    []error
+	listStackResourcesCalls   int
 }
 
 func (m *mockCloudFormationClient) DescribeStacks(ctx context.Context, params *cloudformation.DescribeStacksInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStacksOutput, error) {
 	return &m.describeStacksOutput, m.describeStacksErr
 }
 
-func (m *mockCloudFormationClient) DescribeStackResources(ctx context.Context, params *cloudformation.DescribeStackResourcesInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStackResourcesOutput, error) {
-	idx := m.describeStackResourcesCalls
-	m.describeStackResourcesCalls++
-	var out cloudformation.DescribeStackResourcesOutput
-	if idx < len(m.describeStackResourcesOutputs) {
-		out = m.describeStackResourcesOutputs[idx]
+func (m *mockCloudFormationClient) ListStackResources(ctx context.Context, params *cloudformation.ListStackResourcesInput, optFns ...func(*cloudformation.Options)) (*cloudformation.ListStackResourcesOutput, error) {
+	idx := m.listStackResourcesCalls
+	m.listStackResourcesCalls++
+	var out cloudformation.ListStackResourcesOutput
+	if idx < len(m.listStackResourcesOutputs) {
+		out = m.listStackResourcesOutputs[idx]
 	}
 	var err error
-	if idx < len(m.describeStackResourcesErrs) {
-		err = m.describeStackResourcesErrs[idx]
+	if idx < len(m.listStackResourcesErrs) {
+		err = m.listStackResourcesErrs[idx]
 	}
 	return &out, err
 }
@@ -66,15 +66,15 @@ func TestGetResourcesSuccess(t *testing.T) {
 	stacksOut := cloudformation.DescribeStacksOutput{
 		Stacks: []types.Stack{{StackName: aws.String(stackName)}},
 	}
-	resOut := cloudformation.DescribeStackResourcesOutput{
-		StackResources: []types.StackResource{
+	resOut := cloudformation.ListStackResourcesOutput{
+		StackResourceSummaries: []types.StackResourceSummary{
 			{LogicalResourceId: aws.String("Res1"), PhysicalResourceId: aws.String("phys1"), ResourceType: aws.String("AWS::S3::Bucket"), ResourceStatus: types.ResourceStatusCreateComplete},
 			{LogicalResourceId: aws.String("Res2"), PhysicalResourceId: aws.String("phys2"), ResourceType: aws.String("AWS::IAM::Role"), ResourceStatus: types.ResourceStatusCreateComplete},
 		},
 	}
 	mock := &mockCloudFormationClient{
-		describeStacksOutput:          stacksOut,
-		describeStackResourcesOutputs: []cloudformation.DescribeStackResourcesOutput{resOut},
+		describeStacksOutput:      stacksOut,
+		listStackResourcesOutputs: []cloudformation.ListStackResourcesOutput{resOut},
 	}
 
 	got, err := GetResources(context.Background(), &stackName, mock)
@@ -94,9 +94,68 @@ func TestGetResourcesSuccess(t *testing.T) {
 			t.Errorf("resource %d = %#v, want %#v", i, got[i], want[i])
 		}
 	}
-	if mock.describeStackResourcesCalls != 1 {
-		t.Errorf("expected 1 call, got %d", mock.describeStackResourcesCalls)
+	if mock.listStackResourcesCalls != 1 {
+		t.Errorf("expected 1 call, got %d", mock.listStackResourcesCalls)
 	}
+}
+
+// largeStackMockClient serves a single stack whose resources are split over
+// ListStackResources pages keyed by NextToken ("" for the first call).
+type largeStackMockClient struct {
+	stackName string
+	pages     map[string]cloudformation.ListStackResourcesOutput
+	calls     int
+}
+
+func (m *largeStackMockClient) DescribeStacks(ctx context.Context, params *cloudformation.DescribeStacksInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStacksOutput, error) {
+	return &cloudformation.DescribeStacksOutput{Stacks: []types.Stack{{StackName: aws.String(m.stackName)}}}, nil
+}
+
+func (m *largeStackMockClient) ListStackResources(ctx context.Context, params *cloudformation.ListStackResourcesInput, optFns ...func(*cloudformation.Options)) (*cloudformation.ListStackResourcesOutput, error) {
+	m.calls++
+	if aws.ToString(params.StackName) != m.stackName {
+		return nil, fmt.Errorf("unexpected stack name %q", aws.ToString(params.StackName))
+	}
+	page, ok := m.pages[aws.ToString(params.NextToken)]
+	if !ok {
+		return nil, fmt.Errorf("unexpected NextToken %q", aws.ToString(params.NextToken))
+	}
+	return &page, nil
+}
+
+func resourceSummaries(start, count int) []types.StackResourceSummary {
+	summaries := make([]types.StackResourceSummary, 0, count)
+	for i := start; i < start+count; i++ {
+		summaries = append(summaries, types.StackResourceSummary{
+			LogicalResourceId:  aws.String(fmt.Sprintf("Res%d", i)),
+			PhysicalResourceId: aws.String(fmt.Sprintf("phys%d", i)),
+			ResourceType:       aws.String("AWS::SNS::Topic"),
+			ResourceStatus:     types.ResourceStatusCreateComplete,
+		})
+	}
+	return summaries
+}
+
+// TestGetResourcesReturnsMoreThan100Resources verifies that `fog resource list`
+// includes every resource of a stack with more than 100 resources (T-1511).
+// DescribeStackResources silently capped results at 100.
+func TestGetResourcesReturnsMoreThan100Resources(t *testing.T) {
+	stackName := "large-stack"
+	mock := &largeStackMockClient{
+		stackName: stackName,
+		pages: map[string]cloudformation.ListStackResourcesOutput{
+			"":      {StackResourceSummaries: resourceSummaries(0, 100), NextToken: aws.String("page2")},
+			"page2": {StackResourceSummaries: resourceSummaries(100, 100), NextToken: aws.String("page3")},
+			"page3": {StackResourceSummaries: resourceSummaries(200, 30)},
+		},
+	}
+
+	got, err := GetResources(t.Context(), &stackName, mock)
+	require.NoError(t, err)
+	require.Len(t, got, 230)
+	assert.Equal(t, 3, mock.calls)
+	assert.Equal(t, CfnResource{StackName: stackName, Type: "AWS::SNS::Topic", ResourceID: "phys0", LogicalID: "Res0", Status: string(types.ResourceStatusCreateComplete)}, got[0])
+	assert.Equal(t, CfnResource{StackName: stackName, Type: "AWS::SNS::Topic", ResourceID: "phys229", LogicalID: "Res229", Status: string(types.ResourceStatusCreateComplete)}, got[229])
 }
 
 // TestGetResourcesThrottlingRetry ensures that throttling errors trigger a retry after waiting.
@@ -105,15 +164,15 @@ func TestGetResourcesThrottlingRetry(t *testing.T) {
 	stacksOut := cloudformation.DescribeStacksOutput{
 		Stacks: []types.Stack{{StackName: aws.String(stackName)}},
 	}
-	resOut := cloudformation.DescribeStackResourcesOutput{
-		StackResources: []types.StackResource{{LogicalResourceId: aws.String("Res"), PhysicalResourceId: aws.String("phys"), ResourceType: aws.String("AWS::S3::Bucket"), ResourceStatus: types.ResourceStatusCreateComplete}},
+	resOut := cloudformation.ListStackResourcesOutput{
+		StackResourceSummaries: []types.StackResourceSummary{{LogicalResourceId: aws.String("Res"), PhysicalResourceId: aws.String("phys"), ResourceType: aws.String("AWS::S3::Bucket"), ResourceStatus: types.ResourceStatusCreateComplete}},
 	}
 	throttleErr := mockAPIError{code: "Throttling", message: "Rate exceeded", fault: smithy.FaultServer}
 
 	mock := &mockCloudFormationClient{
-		describeStacksOutput:          stacksOut,
-		describeStackResourcesOutputs: []cloudformation.DescribeStackResourcesOutput{{}, resOut},
-		describeStackResourcesErrs:    []error{throttleErr, nil},
+		describeStacksOutput:      stacksOut,
+		listStackResourcesOutputs: []cloudformation.ListStackResourcesOutput{{}, resOut},
+		listStackResourcesErrs:    []error{throttleErr, nil},
 	}
 
 	start := time.Now()
@@ -129,18 +188,18 @@ func TestGetResourcesThrottlingRetry(t *testing.T) {
 	if len(got) != len(want) || got[0] != want[0] {
 		t.Errorf("GetResources() = %#v, want %#v", got, want)
 	}
-	if mock.describeStackResourcesCalls != 2 {
-		t.Errorf("expected 2 calls, got %d", mock.describeStackResourcesCalls)
+	if mock.listStackResourcesCalls != 2 {
+		t.Errorf("expected 2 calls, got %d", mock.listStackResourcesCalls)
 	}
 }
 
 // paginatingMockClient supports multi-page DescribeStacks responses.
 // Pages are keyed by NextToken ("" for the first call).
 type paginatingMockClient struct {
-	pages                         map[string]cloudformation.DescribeStacksOutput
-	describeStackResourcesOutputs []cloudformation.DescribeStackResourcesOutput
-	describeStackResourcesErrs    []error
-	describeStackResourcesCalls   int
+	pages                     map[string]cloudformation.DescribeStacksOutput
+	listStackResourcesOutputs []cloudformation.ListStackResourcesOutput
+	listStackResourcesErrs    []error
+	listStackResourcesCalls   int
 }
 
 func (m *paginatingMockClient) DescribeStacks(ctx context.Context, params *cloudformation.DescribeStacksInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStacksOutput, error) {
@@ -152,16 +211,16 @@ func (m *paginatingMockClient) DescribeStacks(ctx context.Context, params *cloud
 	return &out, nil
 }
 
-func (m *paginatingMockClient) DescribeStackResources(ctx context.Context, params *cloudformation.DescribeStackResourcesInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStackResourcesOutput, error) {
-	idx := m.describeStackResourcesCalls
-	m.describeStackResourcesCalls++
-	var out cloudformation.DescribeStackResourcesOutput
-	if idx < len(m.describeStackResourcesOutputs) {
-		out = m.describeStackResourcesOutputs[idx]
+func (m *paginatingMockClient) ListStackResources(ctx context.Context, params *cloudformation.ListStackResourcesInput, optFns ...func(*cloudformation.Options)) (*cloudformation.ListStackResourcesOutput, error) {
+	idx := m.listStackResourcesCalls
+	m.listStackResourcesCalls++
+	var out cloudformation.ListStackResourcesOutput
+	if idx < len(m.listStackResourcesOutputs) {
+		out = m.listStackResourcesOutputs[idx]
 	}
 	var err error
-	if idx < len(m.describeStackResourcesErrs) {
-		err = m.describeStackResourcesErrs[idx]
+	if idx < len(m.listStackResourcesErrs) {
+		err = m.listStackResourcesErrs[idx]
 	}
 	return &out, err
 }
@@ -183,14 +242,14 @@ func TestGetResourcesPagination(t *testing.T) {
 				Stacks: []types.Stack{{StackName: aws.String("stack-page3")}},
 			},
 		},
-		describeStackResourcesOutputs: []cloudformation.DescribeStackResourcesOutput{
-			{StackResources: []types.StackResource{
+		listStackResourcesOutputs: []cloudformation.ListStackResourcesOutput{
+			{StackResourceSummaries: []types.StackResourceSummary{
 				{LogicalResourceId: aws.String("R1"), PhysicalResourceId: aws.String("p1"), ResourceType: aws.String("AWS::S3::Bucket"), ResourceStatus: types.ResourceStatusCreateComplete},
 			}},
-			{StackResources: []types.StackResource{
+			{StackResourceSummaries: []types.StackResourceSummary{
 				{LogicalResourceId: aws.String("R2"), PhysicalResourceId: aws.String("p2"), ResourceType: aws.String("AWS::Lambda::Function"), ResourceStatus: types.ResourceStatusCreateComplete},
 			}},
-			{StackResources: []types.StackResource{
+			{StackResourceSummaries: []types.StackResourceSummary{
 				{LogicalResourceId: aws.String("R3"), PhysicalResourceId: aws.String("p3"), ResourceType: aws.String("AWS::IAM::Role"), ResourceStatus: types.ResourceStatusCreateComplete},
 			}},
 		},
@@ -214,8 +273,8 @@ func TestGetResourcesPagination(t *testing.T) {
 			t.Errorf("resource %d = %#v, want %#v", i, got[i], want[i])
 		}
 	}
-	if mock.describeStackResourcesCalls != 3 {
-		t.Errorf("expected 3 DescribeStackResources calls (one per stack), got %d", mock.describeStackResourcesCalls)
+	if mock.listStackResourcesCalls != 3 {
+		t.Errorf("expected 3 ListStackResources calls (one per stack), got %d", mock.listStackResourcesCalls)
 	}
 }
 
@@ -234,8 +293,8 @@ func TestGetResourcesSkipsStacksWithoutNameDuringWildcardFiltering(t *testing.T)
 				Stacks: []types.Stack{{}},
 			},
 		},
-		describeStackResourcesOutputs: []cloudformation.DescribeStackResourcesOutput{
-			{StackResources: []types.StackResource{
+		listStackResourcesOutputs: []cloudformation.ListStackResourcesOutput{
+			{StackResourceSummaries: []types.StackResourceSummary{
 				{LogicalResourceId: aws.String("R1"), PhysicalResourceId: aws.String("p1"), ResourceType: aws.String("AWS::S3::Bucket"), ResourceStatus: types.ResourceStatusCreateComplete},
 			}},
 		},
@@ -245,7 +304,7 @@ func TestGetResourcesSkipsStacksWithoutNameDuringWildcardFiltering(t *testing.T)
 	require.NoError(t, err)
 	require.Len(t, got, 1)
 	assert.Equal(t, "stack-page1", got[0].StackName)
-	assert.Equal(t, 1, mock.describeStackResourcesCalls)
+	assert.Equal(t, 1, mock.listStackResourcesCalls)
 }
 
 // TestGetResourcesSkipsStacksWithoutNameWhenListingAllStacks verifies that
@@ -263,8 +322,8 @@ func TestGetResourcesSkipsStacksWithoutNameWhenListingAllStacks(t *testing.T) {
 				Stacks: []types.Stack{{}},
 			},
 		},
-		describeStackResourcesOutputs: []cloudformation.DescribeStackResourcesOutput{
-			{StackResources: []types.StackResource{
+		listStackResourcesOutputs: []cloudformation.ListStackResourcesOutput{
+			{StackResourceSummaries: []types.StackResourceSummary{
 				{LogicalResourceId: aws.String("R1"), PhysicalResourceId: aws.String("p1"), ResourceType: aws.String("AWS::S3::Bucket"), ResourceStatus: types.ResourceStatusCreateComplete},
 			}},
 		},
@@ -274,7 +333,7 @@ func TestGetResourcesSkipsStacksWithoutNameWhenListingAllStacks(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, got, 1)
 	assert.Equal(t, "stack-page1", got[0].StackName)
-	assert.Equal(t, 1, mock.describeStackResourcesCalls)
+	assert.Equal(t, 1, mock.listStackResourcesCalls)
 }
 
 // TestGetResourcesSkipsMissingPhysicalResourceID verifies that resources without a usable physical ID are ignored.
@@ -283,8 +342,8 @@ func TestGetResourcesSkipsMissingPhysicalResourceID(t *testing.T) {
 	stacksOut := cloudformation.DescribeStacksOutput{
 		Stacks: []types.Stack{{StackName: aws.String(stackName)}},
 	}
-	resOut := cloudformation.DescribeStackResourcesOutput{
-		StackResources: []types.StackResource{
+	resOut := cloudformation.ListStackResourcesOutput{
+		StackResourceSummaries: []types.StackResourceSummary{
 			{
 				LogicalResourceId:  aws.String("PendingResource"),
 				PhysicalResourceId: nil,
@@ -306,8 +365,8 @@ func TestGetResourcesSkipsMissingPhysicalResourceID(t *testing.T) {
 		},
 	}
 	mock := &mockCloudFormationClient{
-		describeStacksOutput:          stacksOut,
-		describeStackResourcesOutputs: []cloudformation.DescribeStackResourcesOutput{resOut},
+		describeStacksOutput:      stacksOut,
+		listStackResourcesOutputs: []cloudformation.ListStackResourcesOutput{resOut},
 	}
 
 	got, err := GetResources(context.Background(), &stackName, mock)
@@ -348,7 +407,7 @@ func TestGetResourcesPaginationError(t *testing.T) {
 }
 
 // TestGetResourcesNonThrottlingAPIError verifies that non-throttling API errors
-// from DescribeStackResources are returned to the caller instead of exiting the process.
+// from ListStackResources are returned to the caller instead of exiting the process.
 func TestGetResourcesNonThrottlingAPIError(t *testing.T) {
 	stackName := "err-stack"
 	stacksOut := cloudformation.DescribeStacksOutput{
@@ -356,9 +415,9 @@ func TestGetResourcesNonThrottlingAPIError(t *testing.T) {
 	}
 	apiErr := mockAPIError{code: "ValidationError", message: "bad", fault: smithy.FaultClient}
 	mock := &mockCloudFormationClient{
-		describeStacksOutput:          stacksOut,
-		describeStackResourcesOutputs: []cloudformation.DescribeStackResourcesOutput{{}},
-		describeStackResourcesErrs:    []error{apiErr},
+		describeStacksOutput:      stacksOut,
+		listStackResourcesOutputs: []cloudformation.ListStackResourcesOutput{{}},
+		listStackResourcesErrs:    []error{apiErr},
 	}
 
 	got, err := GetResources(context.Background(), &stackName, mock)
@@ -391,9 +450,9 @@ func TestGetResourcesThrottlingRetryExhausted(t *testing.T) {
 	throttleErr := mockAPIError{code: "Throttling", message: "Rate exceeded", fault: smithy.FaultServer}
 
 	mock := &mockCloudFormationClient{
-		describeStacksOutput:          stacksOut,
-		describeStackResourcesOutputs: []cloudformation.DescribeStackResourcesOutput{{}, {}},
-		describeStackResourcesErrs:    []error{throttleErr, fmt.Errorf("still throttled")},
+		describeStacksOutput:      stacksOut,
+		listStackResourcesOutputs: []cloudformation.ListStackResourcesOutput{{}, {}},
+		listStackResourcesErrs:    []error{throttleErr, fmt.Errorf("still throttled")},
 	}
 
 	got, err := GetResources(context.Background(), &stackName, mock)
@@ -405,17 +464,17 @@ func TestGetResourcesThrottlingRetryExhausted(t *testing.T) {
 	}
 }
 
-// TestGetResourcesGenericDescribeStackResourcesError verifies that non-API errors
-// from DescribeStackResources are returned to the caller instead of exiting the process.
-func TestGetResourcesGenericDescribeStackResourcesError(t *testing.T) {
+// TestGetResourcesGenericListStackResourcesError verifies that non-API errors
+// from ListStackResources are returned to the caller instead of exiting the process.
+func TestGetResourcesGenericListStackResourcesError(t *testing.T) {
 	stackName := "generic-err-stack"
 	stacksOut := cloudformation.DescribeStacksOutput{
 		Stacks: []types.Stack{{StackName: aws.String(stackName)}},
 	}
 	mock := &mockCloudFormationClient{
-		describeStacksOutput:          stacksOut,
-		describeStackResourcesOutputs: []cloudformation.DescribeStackResourcesOutput{{}},
-		describeStackResourcesErrs:    []error{fmt.Errorf("unexpected network error")},
+		describeStacksOutput:      stacksOut,
+		listStackResourcesOutputs: []cloudformation.ListStackResourcesOutput{{}},
+		listStackResourcesErrs:    []error{fmt.Errorf("unexpected network error")},
 	}
 
 	got, err := GetResources(context.Background(), &stackName, mock)

@@ -15,7 +15,7 @@ Regression tests for the plain-physical-ID case are in `lib/template_test.go` (`
 ## logicalToPhysical Map
 
 Built in `cmd/drift.go` `separateSpecialCases`. Contains both:
-1. CloudFormation logical resource IDs mapped to physical IDs (from `DescribeStackResources`)
+1. CloudFormation logical resource IDs mapped to physical IDs (from paginated `ListStackResources` via `lib.ListAllStackResources`; `DescribeStackResources` caps at 100 resources, see T-1511)
 2. CloudFormation export names mapped to export values (from `ListExports`)
 
 This dual population is what makes `Fn::ImportValue` resolution work -- the export name resolves to the same physical ID as the logical resource ID.

@@ -68,6 +68,11 @@ type CloudFormationDescribeStackResourcesAPI interface {
 	DescribeStackResources(ctx context.Context, params *cloudformation.DescribeStackResourcesInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStackResourcesOutput, error)
 }
 
+// CloudFormationListStackResourcesAPI defines the CloudFormation ListStackResources operation.
+type CloudFormationListStackResourcesAPI interface {
+	ListStackResources(ctx context.Context, params *cloudformation.ListStackResourcesInput, optFns ...func(*cloudformation.Options)) (*cloudformation.ListStackResourcesOutput, error)
+}
+
 // CloudFormationDescribeStackEventsAPI defines the CloudFormation DescribeStackEvents operation.
 type CloudFormationDescribeStackEventsAPI interface {
 	DescribeStackEvents(ctx context.Context, params *cloudformation.DescribeStackEventsInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStackEventsOutput, error)

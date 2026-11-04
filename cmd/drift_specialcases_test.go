@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -11,15 +12,73 @@ import (
 )
 
 type mockSpecialCasesClient struct {
-	describeStackResourcesOutput cloudformation.DescribeStackResourcesOutput
-	describeStackResourcesErr    error
-	listExportsOutput            cloudformation.ListExportsOutput
+	listStackResourcesOutput cloudformation.ListStackResourcesOutput
+	listStackResourcesErr    error
+	// listStackResourcesPages supports multi-page responses keyed by NextToken ("" = first page).
+	listStackResourcesPages map[string]cloudformation.ListStackResourcesOutput
+	listExportsOutput       cloudformation.ListExportsOutput
 	// listExportsPages supports multi-page responses keyed by NextToken ("" = first page).
 	listExportsPages map[string]cloudformation.ListExportsOutput
 }
 
-func (m *mockSpecialCasesClient) DescribeStackResources(ctx context.Context, params *cloudformation.DescribeStackResourcesInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStackResourcesOutput, error) {
-	return &m.describeStackResourcesOutput, m.describeStackResourcesErr
+func (m *mockSpecialCasesClient) ListStackResources(ctx context.Context, params *cloudformation.ListStackResourcesInput, optFns ...func(*cloudformation.Options)) (*cloudformation.ListStackResourcesOutput, error) {
+	if m.listStackResourcesPages != nil {
+		page, ok := m.listStackResourcesPages[aws.ToString(params.NextToken)]
+		if !ok {
+			return nil, fmt.Errorf("unexpected NextToken %q", aws.ToString(params.NextToken))
+		}
+		return &page, nil
+	}
+	return &m.listStackResourcesOutput, m.listStackResourcesErr
+}
+
+// stackResourceSummaries returns count resources with logical IDs Resource<start>..
+// and physical IDs phys-<n>, mimicking one page of a large stack.
+func stackResourceSummaries(start, count int) []types.StackResourceSummary {
+	summaries := make([]types.StackResourceSummary, 0, count)
+	for i := start; i < start+count; i++ {
+		summaries = append(summaries, types.StackResourceSummary{
+			LogicalResourceId:  aws.String(fmt.Sprintf("Resource%d", i)),
+			PhysicalResourceId: aws.String(fmt.Sprintf("phys-%d", i)),
+			ResourceType:       aws.String("AWS::EC2::Route"),
+		})
+	}
+	return summaries
+}
+
+// TestSeparateSpecialCasesPaginatesListStackResources verifies that resources
+// beyond the first 100 in a stack are included in logicalToPhysical (T-1511).
+// DescribeStackResources capped results at 100, so mappings for later resources
+// (e.g. TGW attachments referenced by routes) were silently missing.
+func TestSeparateSpecialCasesPaginatesListStackResources(t *testing.T) {
+	stackName := "large-stack"
+	mock := &mockSpecialCasesClient{
+		listStackResourcesPages: map[string]cloudformation.ListStackResourcesOutput{
+			"": {
+				StackResourceSummaries: stackResourceSummaries(0, 100),
+				NextToken:              aws.String("page2"),
+			},
+			"page2": {
+				StackResourceSummaries: stackResourceSummaries(100, 50),
+			},
+		},
+	}
+
+	_, _, _, logicalToPhysical, err := separateSpecialCases(t.Context(), nil, &stackName, mock)
+	if err != nil {
+		t.Fatalf("separateSpecialCases() returned unexpected error: %v", err)
+	}
+	if got := len(logicalToPhysical); got != 150 {
+		t.Fatalf("expected 150 logical-to-physical mappings, got %d", got)
+	}
+	for _, id := range []string{"Resource0", "Resource100", "Resource149"} {
+		if _, ok := logicalToPhysical[id]; !ok {
+			t.Errorf("expected %s to be present in logicalToPhysical", id)
+		}
+	}
+	if got := logicalToPhysical["Resource120"]; got != "phys-120" {
+		t.Errorf("expected Resource120 to map to phys-120, got %q", got)
+	}
 }
 
 func (m *mockSpecialCasesClient) ListExports(ctx context.Context, params *cloudformation.ListExportsInput, optFns ...func(*cloudformation.Options)) (*cloudformation.ListExportsOutput, error) {
@@ -58,8 +117,8 @@ func TestSeparateSpecialCasesSkipsNilPhysicalResourceID(t *testing.T) {
 	}
 
 	mock := &mockSpecialCasesClient{
-		describeStackResourcesOutput: cloudformation.DescribeStackResourcesOutput{
-			StackResources: []types.StackResource{
+		listStackResourcesOutput: cloudformation.ListStackResourcesOutput{
+			StackResourceSummaries: []types.StackResourceSummary{
 				{
 					LogicalResourceId:  aws.String("SubnetResource"),
 					PhysicalResourceId: aws.String("subnet-123"),
@@ -110,8 +169,8 @@ func TestSeparateSpecialCasesPaginatesListExports(t *testing.T) {
 	stackName := "test-stack"
 
 	mock := &mockSpecialCasesClient{
-		describeStackResourcesOutput: cloudformation.DescribeStackResourcesOutput{
-			StackResources: []types.StackResource{},
+		listStackResourcesOutput: cloudformation.ListStackResourcesOutput{
+			StackResourceSummaries: []types.StackResourceSummary{},
 		},
 		listExportsPages: map[string]cloudformation.ListExportsOutput{
 			"": {
@@ -157,12 +216,12 @@ func TestSeparateSpecialCasesPaginatesListExports(t *testing.T) {
 	}
 }
 
-func TestSeparateSpecialCasesReturnsDescribeStackResourcesError(t *testing.T) {
+func TestSeparateSpecialCasesReturnsListStackResourcesError(t *testing.T) {
 	stackName := "test-stack"
 	expectedErr := errors.New("describe stack resources failed")
 
 	mock := &mockSpecialCasesClient{
-		describeStackResourcesErr: expectedErr,
+		listStackResourcesErr: expectedErr,
 	}
 
 	_, _, _, _, err := separateSpecialCases(context.Background(), nil, &stackName, mock)

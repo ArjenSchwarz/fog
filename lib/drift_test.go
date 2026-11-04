@@ -56,10 +56,10 @@ func (m *mockResourceDriftsClient) DescribeStackResourceDrifts(ctx context.Conte
 	return &cloudformation.DescribeStackResourceDriftsOutput{}, nil
 }
 
-// mockStacksAndResourcesClient implements both CloudFormationDescribeStacksAPI and CloudFormationDescribeStackResourcesAPI
+// mockStacksAndResourcesClient implements both CloudFormationDescribeStacksAPI and CloudFormationListStackResourcesAPI
 type mockStacksAndResourcesClient struct {
-	describeStacksFn         func(context.Context, *cloudformation.DescribeStacksInput, ...func(*cloudformation.Options)) (*cloudformation.DescribeStacksOutput, error)
-	describeStackResourcesFn func(context.Context, *cloudformation.DescribeStackResourcesInput, ...func(*cloudformation.Options)) (*cloudformation.DescribeStackResourcesOutput, error)
+	describeStacksFn     func(context.Context, *cloudformation.DescribeStacksInput, ...func(*cloudformation.Options)) (*cloudformation.DescribeStacksOutput, error)
+	listStackResourcesFn func(context.Context, *cloudformation.ListStackResourcesInput, ...func(*cloudformation.Options)) (*cloudformation.ListStackResourcesOutput, error)
 }
 
 func (m *mockStacksAndResourcesClient) DescribeStacks(ctx context.Context, params *cloudformation.DescribeStacksInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStacksOutput, error) {
@@ -69,11 +69,11 @@ func (m *mockStacksAndResourcesClient) DescribeStacks(ctx context.Context, param
 	return &cloudformation.DescribeStacksOutput{}, nil
 }
 
-func (m *mockStacksAndResourcesClient) DescribeStackResources(ctx context.Context, params *cloudformation.DescribeStackResourcesInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStackResourcesOutput, error) {
-	if m.describeStackResourcesFn != nil {
-		return m.describeStackResourcesFn(ctx, params, optFns...)
+func (m *mockStacksAndResourcesClient) ListStackResources(ctx context.Context, params *cloudformation.ListStackResourcesInput, optFns ...func(*cloudformation.Options)) (*cloudformation.ListStackResourcesOutput, error) {
+	if m.listStackResourcesFn != nil {
+		return m.listStackResourcesFn(ctx, params, optFns...)
 	}
-	return &cloudformation.DescribeStackResourcesOutput{}, nil
+	return &cloudformation.ListStackResourcesOutput{}, nil
 }
 
 func TestStartDriftDetection(t *testing.T) {
@@ -402,20 +402,18 @@ func TestGetUncheckedStackResources(t *testing.T) {
 							},
 						}, nil
 					},
-					describeStackResourcesFn: func(ctx context.Context, params *cloudformation.DescribeStackResourcesInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStackResourcesOutput, error) {
-						return &cloudformation.DescribeStackResourcesOutput{
-							StackResources: []types.StackResource{
+					listStackResourcesFn: func(ctx context.Context, params *cloudformation.ListStackResourcesInput, optFns ...func(*cloudformation.Options)) (*cloudformation.ListStackResourcesOutput, error) {
+						return &cloudformation.ListStackResourcesOutput{
+							StackResourceSummaries: []types.StackResourceSummary{
 								{
 									LogicalResourceId:  aws.String("Resource1"),
 									PhysicalResourceId: aws.String("physical-id-1"),
 									ResourceType:       aws.String("AWS::S3::Bucket"),
-									StackName:          aws.String("test-stack"),
 								},
 								{
 									LogicalResourceId:  aws.String("Resource2"),
 									PhysicalResourceId: aws.String("physical-id-2"),
 									ResourceType:       aws.String("AWS::IAM::Role"),
-									StackName:          aws.String("test-stack"),
 								},
 							},
 						}, nil
@@ -452,20 +450,18 @@ func TestGetUncheckedStackResources(t *testing.T) {
 							},
 						}, nil
 					},
-					describeStackResourcesFn: func(ctx context.Context, params *cloudformation.DescribeStackResourcesInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStackResourcesOutput, error) {
-						return &cloudformation.DescribeStackResourcesOutput{
-							StackResources: []types.StackResource{
+					listStackResourcesFn: func(ctx context.Context, params *cloudformation.ListStackResourcesInput, optFns ...func(*cloudformation.Options)) (*cloudformation.ListStackResourcesOutput, error) {
+						return &cloudformation.ListStackResourcesOutput{
+							StackResourceSummaries: []types.StackResourceSummary{
 								{
 									LogicalResourceId:  aws.String("Resource1"),
 									PhysicalResourceId: aws.String("physical-id-1"),
 									ResourceType:       aws.String("AWS::S3::Bucket"),
-									StackName:          aws.String("test-stack"),
 								},
 								{
 									LogicalResourceId:  aws.String("Resource2"),
 									PhysicalResourceId: aws.String("physical-id-2"),
 									ResourceType:       aws.String("AWS::IAM::Role"),
-									StackName:          aws.String("test-stack"),
 								},
 							},
 						}, nil
@@ -496,20 +492,18 @@ func TestGetUncheckedStackResources(t *testing.T) {
 							},
 						}, nil
 					},
-					describeStackResourcesFn: func(ctx context.Context, params *cloudformation.DescribeStackResourcesInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStackResourcesOutput, error) {
-						return &cloudformation.DescribeStackResourcesOutput{
-							StackResources: []types.StackResource{
+					listStackResourcesFn: func(ctx context.Context, params *cloudformation.ListStackResourcesInput, optFns ...func(*cloudformation.Options)) (*cloudformation.ListStackResourcesOutput, error) {
+						return &cloudformation.ListStackResourcesOutput{
+							StackResourceSummaries: []types.StackResourceSummary{
 								{
 									LogicalResourceId:  aws.String("Resource1"),
 									PhysicalResourceId: aws.String("physical-id-1"),
 									ResourceType:       aws.String("AWS::S3::Bucket"),
-									StackName:          aws.String("test-stack"),
 								},
 								{
 									LogicalResourceId:  aws.String("Resource2"),
 									PhysicalResourceId: aws.String("physical-id-2"),
 									ResourceType:       aws.String("AWS::IAM::Role"),
-									StackName:          aws.String("test-stack"),
 								},
 							},
 						}, nil
