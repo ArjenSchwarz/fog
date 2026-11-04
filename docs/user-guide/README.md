@@ -371,7 +371,7 @@ See: [Advanced Usage - Drift Detection](advanced-usage.md#advanced-drift-detecti
 Values are resolved in order (highest to lowest):
 
 1. **Command-line flags**: `--output json`
-2. **Environment variables**: `AWS_PROFILE`, `AWS_REGION`
+2. **Environment variables**: `AWS_PROFILE`, `AWS_REGION`, and any fog setting with dots/dashes as underscores (e.g. `OUTPUT_FILE`, `TABLE_MAX_COLUMN_WIDTH`) — see [Configuration Reference](configuration-reference.md#overriding-settings-with-environment-variables)
 3. **Configuration file**: `fog.yaml`
 4. **Default values**: Built-in defaults
 

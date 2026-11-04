@@ -272,6 +272,13 @@ templates:
 
 The placeholder is substituted after the command is split into arguments, so a template path containing spaces is still passed as one argument without quoting. Quoting the placeholder is optional. If you wrap a precheck in a shell (for example `sh -c '...'`), quote `$TEMPLATEPATH` inside the wrapped command, because that shell performs its own word splitting.
 
+When set through the `TEMPLATES_PRECHECKS` environment variable (or as a single string instead of a list), put each command on its own line. Spaces separate arguments within a command, not commands:
+
+```bash
+export TEMPLATES_PRECHECKS='cfn-lint -t $TEMPLATEPATH
+checkov -f $TEMPLATEPATH'
+```
+
 #### `templates.stop-on-failed-prechecks`
 **Type**: `boolean`
 **Default**: `false`
@@ -377,6 +384,12 @@ tags:
 
 **Note**: Default tags can be disabled for specific deployments using `--default-tags=false` flag.
 
+To set default tags through the `TAGS_DEFAULT` environment variable, use a JSON object whose values are all strings. The environment value replaces the configured map entirely; it is not merged with it. Any other value makes fog exit with a configuration error instead of silently dropping tags or deploying empty tag values. That includes `Environment=staging`, and objects containing numbers, booleans or `null`; write `"123"` rather than `123`:
+
+```bash
+export TAGS_DEFAULT='{"Environment":"staging","ManagedBy":"fog","CostCenter":"123"}'
+```
+
 ### Drift Detection Settings
 
 Configuration for drift detection behavior.
@@ -453,7 +466,7 @@ drift:
 Configuration values are resolved in the following order (highest to lowest priority):
 
 1. **Command-line flags**: Values passed via CLI flags (e.g., `--output json`)
-2. **Environment variables**: AWS-specific variables like `AWS_PROFILE`, `AWS_REGION`
+2. **Environment variables**: Any fog setting (see below), plus AWS SDK variables like `AWS_PROFILE`, `AWS_REGION`
 3. **Configuration file**: Values defined in `fog.yaml`/`fog.json`/`fog.toml`
 4. **Default values**: Built-in defaults
 
@@ -467,6 +480,34 @@ fog exports --output json
 # This command will use production profile (flag overrides config)
 fog deploy --profile production --stackname mystack --template mytemplate
 ```
+
+### Overriding Settings with Environment Variables
+
+Every configuration key can be overridden with an environment variable. The variable name is the key in uppercase, with dots (nesting) and dashes replaced by underscores. There is no prefix.
+
+| Config key | Environment variable |
+|------------|----------------------|
+| `output` | `OUTPUT` |
+| `output-file` | `OUTPUT_FILE` |
+| `output-file-format` | `OUTPUT_FILE_FORMAT` |
+| `table.max-column-width` | `TABLE_MAX_COLUMN_WIDTH` |
+| `drift.ignore-tags` | `DRIFT_IGNORE_TAGS` |
+| `drift.detect-unmanaged-resources` | `DRIFT_DETECT_UNMANAGED_RESOURCES` |
+| `templates.prechecks` | `TEMPLATES_PRECHECKS` |
+| `tags.default` | `TAGS_DEFAULT` |
+
+When set from the environment, list settings such as `drift.ignore-tags` take a space-separated value. The exception is `templates.prechecks`: each entry is a command with arguments, so entries are separated by newlines instead (see [`templates.prechecks`](#templatesprechecks)). The map setting `tags.default` takes a JSON object (see [`tags.default`](#tagsdefault)).
+
+```bash
+export OUTPUT_FILE=report.json
+export OUTPUT_FILE_FORMAT=json
+export TABLE_MAX_COLUMN_WIDTH=120
+export DRIFT_IGNORE_TAGS="Environment CostCenter"
+export TEMPLATES_PRECHECKS='cfn-lint -t $TEMPLATEPATH'
+fog drift --stackname mystack
+```
+
+Command-line flags still take precedence over environment variables, so `--file other.json` overrides `OUTPUT_FILE`.
 
 ## Examples
 

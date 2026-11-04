@@ -102,7 +102,7 @@ func prepareDeployment() (lib.DeployInfo, config.AWSConfig, error) {
 // whether the deployment should be aborted (true when prechecks fail
 // and stop-on-failed-prechecks is enabled).
 func runPrechecks(info *lib.DeployInfo, logObj *lib.DeploymentLog) (string, bool) {
-	commands := viper.GetStringSlice("templates.prechecks")
+	commands := lib.PrecheckCommands()
 	if len(commands) == 0 {
 		return "", false
 	}
