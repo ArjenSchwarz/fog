@@ -40,6 +40,7 @@ const (
 // resourcesListCmd represents the list command
 var resourcesListCmd = &cobra.Command{
 	Use:   "list",
+	Args:  cobra.NoArgs,
 	Short: "List all CloudFormation managed resources",
 	Long: `This command let's you see all the resources managed by your CloudFormation templates.
 

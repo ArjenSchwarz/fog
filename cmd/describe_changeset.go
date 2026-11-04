@@ -51,6 +51,7 @@ var renderChangesetDocument = renderDocument
 // changesetCmd represents the changeset command
 var changesetCmd = &cobra.Command{
 	Use:   "changeset",
+	Args:  cobra.NoArgs,
 	Short: "Show the details of a changeset",
 	Long: `Using this command you get a tabular overview of the provided changeset.
 

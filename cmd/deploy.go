@@ -48,6 +48,7 @@ import (
 // deployCmd represents the deploy command
 var deployCmd = &cobra.Command{
 	Use:   "deploy",
+	Args:  cobra.NoArgs,
 	Short: "Deploy a CloudFormation stack",
 	Long: `deploy allows you to deploy a CloudFormation stack
 

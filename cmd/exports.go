@@ -34,6 +34,7 @@ import (
 // exportsCmd represents the exports command
 var exportsCmd = &cobra.Command{
 	Use:   "exports",
+	Args:  cobra.NoArgs,
 	Short: "Get a list of all CloudFormation exports",
 	Long: `Provides an overview of all CloudFormation exports
 

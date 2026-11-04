@@ -49,6 +49,7 @@ type listAllResourcesFunc func(ctx context.Context, typeName string, cloudContro
 // driftCmd represents the drift command
 var driftCmd = &cobra.Command{
 	Use:   "drift",
+	Args:  cobra.NoArgs,
 	Short: "Better drift detection for a VPC",
 	Long: `Enables drift detection and shows the results.
 

@@ -34,6 +34,7 @@ import (
 // demosettingsCmd represents the settings command
 var demosettingsCmd = &cobra.Command{
 	Use:   "settings",
+	Args:  cobra.NoArgs,
 	Short: "Information about the settings file",
 	Long:  `This will show details about what settings are available in the settings file`,
 	Run:   demosettings,

@@ -33,6 +33,7 @@ var Version = "1.12.4"
 // versionCmd represents the version command
 var versionCmd = &cobra.Command{
 	Use:   "version",
+	Args:  cobra.NoArgs,
 	Short: "Show the version number",
 	Long:  `Show Fog's version number`,
 	Run: func(cmd *cobra.Command, args []string) {

@@ -30,6 +30,8 @@ var demoCmd = &cobra.Command{
 	Use:   "demo",
 	Short: "See demos for fog",
 	Long:  `The individual commands show a demo of some of the capabilities and settings`,
+	Args:  rejectUnknownSubcommand,
+	RunE:  showGroupHelp,
 }
 
 func init() {

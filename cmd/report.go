@@ -45,6 +45,7 @@ const (
 // deployCmd represents the deploy command
 var reportCmd = &cobra.Command{
 	Use:   "report",
+	Args:  cobra.NoArgs,
 	Short: "Generate a report about CloudFormation deployments",
 	Long: `Generates a report displaying a summary of the events taking place during
 a CloudFormation deployment. Events are grouped by action taken on the stack and the

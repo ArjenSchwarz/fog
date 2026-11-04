@@ -27,12 +27,13 @@ import (
 
 var describeFlags DescribeFlags
 
-// describeCmd represents the describe command. It is a parent-only command
-// without a Run function, so Cobra shows its help (listing the subcommands)
-// when it is invoked without a subcommand, consistent with the other group
-// commands such as `stack` and `resource`.
+// describeCmd represents the describe command. It is a group command like
+// `stack` and `resource`: without a subcommand it shows its help (listing the
+// subcommands), and an unknown subcommand returns an error.
 var describeCmd = &cobra.Command{
 	Use:   "describe",
+	Args:  rejectUnknownSubcommand,
+	RunE:  showGroupHelp,
 	Short: "Describe lets you describe/see various items",
 	Long: `Describe lets you describe/see various items, such as stacks, changesets, templates, etc.
 
