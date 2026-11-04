@@ -133,6 +133,11 @@ func init() {
 	// Enables the conventional `fog --version` flag alongside `fog util version`.
 	// Version is read here (not at declaration) so build-time ldflags values are used.
 	rootCmd.Version = Version
+
+	// Must run after the root-level commands above are registered, because
+	// Cobra only creates the help command for a root that has subcommands.
+	initGeneratedCommands(rootCmd)
+
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is fog.yaml in current directory, or $HOME/fog.yaml)")
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Give verbose output")
 	rootCmd.PersistentFlags().String("output", "table", "Format for the output, currently supported are table, csv, json, yaml, markdown, html, and dot (for certain functions)")

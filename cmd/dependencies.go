@@ -39,6 +39,7 @@ var dependenciesFlags DependenciesFlags
 // dependenciesCmd represents the dependencies command
 var dependenciesCmd = &cobra.Command{
 	Use:   "dependencies",
+	Args:  cobra.NoArgs,
 	Short: "Show dependencies between your stacks",
 	Long: `This will show your stacks and any dependencies that exist between them.
 

@@ -37,6 +37,7 @@ var historyFlags HistoryFlags
 // historyCmd represents the history command
 var historyCmd = &cobra.Command{
 	Use:   "history",
+	Args:  cobra.NoArgs,
 	Short: "Show the deployment history of a stack",
 	Long: `This looks at the logs to show you the history of stacks in the account and region
 

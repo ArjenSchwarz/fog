@@ -33,6 +33,7 @@ import (
 // tablesCmd represents the tables command
 var tablesCmd = &cobra.Command{
 	Use:   "tables",
+	Args:  cobra.NoArgs,
 	Short: "Show what the different table styles look like",
 	Long:  `This command will show an overview of all the different style of tables`,
 	Run:   demoTables,

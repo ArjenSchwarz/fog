@@ -405,6 +405,8 @@ fog --version      # Same as `fog util version`
 
 `fog demo ...` is a shortcut for `fog util demo ...`; both forms work.
 
+Fog's commands don't take positional arguments; everything is passed as flags. An unknown subcommand (for example `fog stack deplyo`), an unexpected extra argument (for example `fog util version extra`), or an unknown help topic (for example `fog help deplyo`) return an `unknown command` error and a non-zero exit code instead of being ignored, so typos in scripts and CI pipelines fail visibly. Running a command group such as `fog stack` without a subcommand still shows its help.
+
 ### Community & Support
 
 - **Issues**: Report bugs or request features at [GitHub Issues](https://github.com/ArjenSchwarz/fog/issues)
