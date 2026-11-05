@@ -15,7 +15,7 @@ Fog is a tool to manage your CloudFormation deployments and ensure you have all 
 - **[Advanced Usage](docs/user-guide/advanced-usage.md)** - Complex scenarios and CI/CD integration
 - **[Troubleshooting Guide](docs/user-guide/troubleshooting.md)** - Solutions to common problems
 
-- **[Report Lambda runtime migration](docs/lambda-runtime-upgrade.md)** - Bootstrap packaging, supported runtimes and deployment prerequisites
+- **[Report Lambda runtime migration](docs/lambda-runtime-upgrade.md)** - Bootstrap packaging, supported runtimes, standalone builder preparation and deployment prerequisites
 
 ### Diagrams
 

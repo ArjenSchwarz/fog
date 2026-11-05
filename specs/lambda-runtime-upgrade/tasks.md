@@ -14,3 +14,6 @@ references:
 
 - [x] 4. Both deployed architectures select matching bootstrap artifacts and pass native CI smoke checks <!-- id:zd468p4 -->
   - Blocked-by: zd468p2 (Bootstrap archives initialize via the Runtime API and CI validates without feature-branch AWS publication)
+
+- [x] 5. Standalone builder candidate changes only Runtime and preserves package, identity and binding, verified by focused tests and actual-template comparison <!-- id:zd468p5 -->
+  - Blocked-by: zd468p3 (Upgrade builds and tests pass with migration prerequisites documented)
